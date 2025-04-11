@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,27 +25,12 @@ License
 
 #include "prghTotalHydrostaticPressureFvPatchScalarField.H"
 #include "addToRunTimeSelectionTable.H"
-#include "fvPatchFieldMapper.H"
+#include "fieldMapper.H"
 #include "volFields.H"
 #include "surfaceFields.H"
 #include "uniformDimensionedFields.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
-
-Foam::prghTotalHydrostaticPressureFvPatchScalarField::
-prghTotalHydrostaticPressureFvPatchScalarField
-(
-    const fvPatch& p,
-    const DimensionedField<scalar, volMesh>& iF
-)
-:
-    fixedValueFvPatchScalarField(p, iF),
-    UName_("U"),
-    phiName_("phi"),
-    rhoName_("rho"),
-    ph_rghName_("ph_rgh")
-{}
-
 
 Foam::prghTotalHydrostaticPressureFvPatchScalarField::
 prghTotalHydrostaticPressureFvPatchScalarField
@@ -69,24 +54,10 @@ prghTotalHydrostaticPressureFvPatchScalarField
     const prghTotalHydrostaticPressureFvPatchScalarField& ptf,
     const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     fixedValueFvPatchScalarField(ptf, p, iF, mapper),
-    UName_(ptf.UName_),
-    phiName_(ptf.phiName_),
-    rhoName_(ptf.rhoName_),
-    ph_rghName_(ptf.ph_rghName_)
-{}
-
-
-Foam::prghTotalHydrostaticPressureFvPatchScalarField::
-prghTotalHydrostaticPressureFvPatchScalarField
-(
-    const prghTotalHydrostaticPressureFvPatchScalarField& ptf
-)
-:
-    fixedValueFvPatchScalarField(ptf),
     UName_(ptf.UName_),
     phiName_(ptf.phiName_),
     rhoName_(ptf.rhoName_),
@@ -130,11 +101,7 @@ void Foam::prghTotalHydrostaticPressureFvPatchScalarField::updateCoeffs()
     const vectorField& Up =
         patch().lookupPatchField<volVectorField, vector>(UName_);
 
-    operator==
-    (
-        ph_rghp
-      - 0.5*rhop*(1.0 - pos0(phip))*magSqr(Up)
-    );
+    operator==(ph_rghp - 0.5*rhop*neg(phip)*magSqr(Up));
 
     fixedValueFvPatchScalarField::updateCoeffs();
 }

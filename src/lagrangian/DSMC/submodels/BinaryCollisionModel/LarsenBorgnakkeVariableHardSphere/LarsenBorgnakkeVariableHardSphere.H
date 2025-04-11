@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2020 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -40,7 +40,7 @@ Description
 namespace Foam
 {
 /*---------------------------------------------------------------------------*\
-                      Class LarsenBorgnakkeVariableHardSphere Declaration
+              Class LarsenBorgnakkeVariableHardSphere Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class CloudType>
@@ -89,9 +89,6 @@ public:
 
 
     // Member Functions
-
-        //- Flag to indicate whether model activates collision model
-        virtual bool active() const;
 
         //- Return the collision cross section * relative velocity product
         virtual scalar sigmaTcR

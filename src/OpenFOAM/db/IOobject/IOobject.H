@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -61,6 +61,13 @@ Description
       - \par NO_WRITE
         No automatic write on destruction but can be written explicitly
 
+Class
+    Foam::typeIOobject
+
+Description
+    Templated form of IOobject providing type information for file reading and
+    header type checking.
+
 SourceFiles
     IOobject.C
     IOobjectReadHeader.C
@@ -87,7 +94,7 @@ class Time;
 class objectRegistry;
 
 /*---------------------------------------------------------------------------*\
-                           Class IOobject Declaration
+                          Class IOobject Declaration
 \*---------------------------------------------------------------------------*/
 
 class IOobject
@@ -134,6 +141,7 @@ public:
 
         static const NamedEnum<fileCheckTypes, 4> fileCheckTypesNames;
 
+
 private:
 
     // Private Data
@@ -148,7 +156,7 @@ private:
         string note_;
 
         //- Instance path component
-        fileName instance_;
+        mutable fileName instance_;
 
         //- Local path component
         fileName local_;
@@ -173,8 +181,10 @@ protected:
 
     // Protected Member Functions
 
-        //- Set the object state to bad
-        void setBad(const string&);
+        //- Read header using typeGlobalFile to find file
+        //  and optionally check the headerClassName against Type
+        template<class Type>
+        bool typeHeaderOk(const bool checkType);
 
 
 public:
@@ -210,11 +220,6 @@ public:
 
         //- Return member (name without the extension)
         static word member(const word& name);
-
-        //- Return the name of the object within the given model
-        //  as <model>:<name>
-        template<class Name>
-        static inline word modelName(Name name, const word& model);
 
         //- Type of file modification checking
         static fileCheckTypes fileModificationChecking;
@@ -380,50 +385,47 @@ public:
             //- Return member (name without the extension)
             word member() const;
 
-            //- Return the name of the object within this model
-            //  as <model>:<name>
-            inline word modelName(const char* name) const;
-
             const fileName& rootPath() const;
 
-            const fileName& caseName() const;
+            const fileName& caseName(const bool global) const;
 
-            const fileName& instance() const
-            {
-                return instance_;
-            }
+            //- Return the instance directory, constant, system, \<time\> etc.
+            //  Allows modification of the instance
+            fileName& instance() const;
 
-            fileName& instance()
-            {
-                return instance_;
-            }
+            //- If the instance is a time directory update to the current time
+            void updateInstance() const;
 
             const fileName& local() const
             {
                 return local_;
             }
 
-            //- Return complete path
-            fileName path() const;
+            //- Return complete path including the processor sub-directory
+            //  for a parallel run if global is set false
+            fileName path(const bool global) const;
 
-            //- Return complete path with alternative instance and local
-            fileName path
-            (
-                const word& instance,
-                const fileName& local = ""
-            ) const;
-
-            //- Return complete path + object name
-            fileName objectPath() const
+            //- Return complete path + object name including the processor
+            //  sub-directory for a parallel run if global is set false
+            fileName objectPath(const bool global) const
             {
-                return path()/name();
+                return path(global)/name();
             }
 
-            //- Helper for filePath that searches locally.
-            fileName localFilePath(const word& typeName) const;
+            //- Return the path relative to the case directory
+            fileName relativePath() const;
 
-            //- Helper for filePath that searches up if in parallel
-            fileName globalFilePath(const word& typeName) const;
+            //- Return complete relativePath + object name
+            fileName relativeObjectPath() const
+            {
+                return relativePath()/name();
+            }
+
+            //- Return complete path + object name if the file exists
+            //  in the case directory otherwise null.
+            //  If global and parallel searches up into the global case
+            //  directory.
+            fileName filePath(const bool global) const;
 
 
         // Reading
@@ -431,14 +433,14 @@ public:
             //- Read header
             bool readHeader(Istream&);
 
-            //- Read header (uses typeFilePath to find file) and check header
-            //  info. Optionally checks headerClassName against type
-            template<class Type>
-            bool typeHeaderOk(const bool checkType = true);
+            //- Read header of local object without type-checking
+            //  Mainly used to create IOobjectLists
+            bool headerOk();
 
             //- Helper: warn that type does not support re-reading
             template<class Type>
             void warnNoRereading() const;
+
 
         // Writing
 
@@ -494,25 +496,19 @@ public:
 template<>
 Ostream& operator<<(Ostream& os, const InfoProxy<IOobject>& ip);
 
-
-//- Template function for obtaining global status
-template<class T>
-inline bool typeGlobal()
+//- Trait for obtaining global status
+template<class Type>
+struct typeGlobal
 {
-    return false;
-}
+    static const bool global = false;
+};
 
-//- Template function for obtaining filePath
-template<class T>
-inline fileName typeFilePath(const IOobject& io)
+//- Trait for obtaining global write status
+template<class Type>
+struct typeGlobalFile
 {
-    return
-    (
-        typeGlobal<T>()
-      ? io.globalFilePath(T::typeName)
-      : io.localFilePath(T::typeName)
-    );
-}
+    static const bool global = typeGlobal<Type>::global;
+};
 
 inline IOobject unregister(const IOobject& io)
 {
@@ -520,6 +516,53 @@ inline IOobject unregister(const IOobject& io)
     uio.registerObject() = false;
     return uio;
 }
+
+
+/*---------------------------------------------------------------------------*\
+                         Class typeIOobject Declaration
+\*---------------------------------------------------------------------------*/
+
+template<class Type>
+class typeIOobject
+:
+    public IOobject
+{
+
+public:
+
+    // Constructors
+
+        using IOobject::IOobject;
+
+        typeIOobject(const IOobject& io)
+        :
+            IOobject(io)
+        {}
+
+
+    // Member Functions
+
+        // Reading
+
+            //- Read header (uses typeGlobalFile to find file) and check
+            bool headerOk();
+
+            using IOobject::objectPath;
+
+            //- Return the object path for this Type
+            inline fileName objectPath() const
+            {
+                return objectPath(typeGlobalFile<Type>::global);
+            }
+
+            using IOobject::filePath;
+
+            //- Return the path for the file for this Type
+            inline fileName filePath() const
+            {
+                return filePath(typeGlobalFile<Type>::global);
+            }
+};
 
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

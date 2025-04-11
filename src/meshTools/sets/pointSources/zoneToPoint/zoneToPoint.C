@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -34,17 +34,7 @@ namespace Foam
 {
     defineTypeNameAndDebug(zoneToPoint, 0);
     addToRunTimeSelectionTable(topoSetSource, zoneToPoint, word);
-    addToRunTimeSelectionTable(topoSetSource, zoneToPoint, istream);
 }
-
-
-Foam::topoSetSource::addToUsageTable Foam::zoneToPoint::usage_
-(
-    zoneToPoint::typeName,
-    "\n    Usage: zoneToPoint zone\n\n"
-    "    Select all points in the pointZone."
-    " Note:accepts wildcards for zone.\n\n"
-);
 
 
 // * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
@@ -82,7 +72,7 @@ void Foam::zoneToPoint::combine(topoSet& set, const bool add) const
     {
         WarningInFunction
             << "Cannot find any pointZone named " << zoneName_ << endl
-            << "Valid names are " << mesh_.pointZones().names() << endl;
+            << "Valid names are " << mesh_.pointZones().toc() << endl;
     }
 }
 
@@ -107,18 +97,12 @@ Foam::zoneToPoint::zoneToPoint
 )
 :
     topoSetSource(mesh),
-    zoneName_(dict.lookup("name"))
-{}
-
-
-Foam::zoneToPoint::zoneToPoint
-(
-    const polyMesh& mesh,
-    Istream& is
-)
-:
-    topoSetSource(mesh),
-    zoneName_(checkIs(is))
+    zoneName_
+    (
+        dict.dictName() == "sourceInfo"
+      ? dict.lookupBackwardsCompatible({"zone", "name"})
+      : dict.lookup("zone")
+    )
 {}
 
 

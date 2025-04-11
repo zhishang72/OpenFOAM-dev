@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -47,7 +47,7 @@ namespace Foam
 
 // * * * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * //
 
-void Foam::processorPointPatch::initGeometry(PstreamBuffers& pBufs)
+void Foam::processorPointPatch::initCalcGeometry(PstreamBuffers& pBufs)
 {
     // Algorithm:
     // Depending on whether the patch is a master or a slave, get the primitive
@@ -88,16 +88,16 @@ void Foam::processorPointPatch::movePoints(PstreamBuffers&, const pointField&)
 {}
 
 
-void Foam::processorPointPatch::initUpdateMesh(PstreamBuffers& pBufs)
+void Foam::processorPointPatch::initTopoChange(PstreamBuffers& pBufs)
 {
-    facePointPatch::initUpdateMesh(pBufs);
-    processorPointPatch::initGeometry(pBufs);
+    facePointPatch::initTopoChange(pBufs);
+    processorPointPatch::initCalcGeometry(pBufs);
 }
 
 
-void Foam::processorPointPatch::updateMesh(PstreamBuffers& pBufs)
+void Foam::processorPointPatch::topoChange(PstreamBuffers& pBufs)
 {
-    facePointPatch::updateMesh(pBufs);
+    facePointPatch::topoChange(pBufs);
     processorPointPatch::calcGeometry(pBufs);
 }
 

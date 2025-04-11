@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -56,7 +56,7 @@ namespace porosityModels
 {
 
 /*---------------------------------------------------------------------------*\
-                      Class powerLaw Declaration
+                          Class powerLaw Declaration
 \*---------------------------------------------------------------------------*/
 
 class powerLaw
@@ -107,9 +107,9 @@ public:
         powerLaw
         (
             const word& name,
-            const word& modelType,
             const fvMesh& mesh,
             const dictionary& dict,
+            const dictionary& coeffDict,
             const word& cellZoneName
         );
 
@@ -141,23 +141,9 @@ public:
         //- Add resistance
         virtual void correct
         (
-            fvVectorMatrix& UEqn,
-            const volScalarField& rho,
-            const volScalarField& mu
-        ) const;
-
-        //- Add resistance
-        virtual void correct
-        (
             const fvVectorMatrix& UEqn,
             volTensorField& AU
         ) const;
-
-
-    // I-O
-
-        //- Write
-        bool writeData(Ostream& os) const;
 
 
     // Member Operators

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2018-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2018-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -33,13 +33,58 @@ namespace Foam
 }
 
 
+// * * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * * //
+
+bool Foam::pimpleNoLoopControl::read()
+{
+    if
+    (
+        !pisoControl::read()
+     || !singleRegionConvergenceControl::read()
+     || !singleRegionCorrectorConvergenceControl::read()
+    )
+    {
+        return false;
+    }
+
+    moveMeshOuterCorrectors_ = dict().lookupOrDefault
+    (
+        "moveMeshOuterCorrectors",
+        false
+    );
+
+    simpleRho_ =
+        dict().lookupOrDefaultBackwardsCompatible<bool>
+        (
+            {"simpleRho", "SIMPLErho"},
+            mesh().schemes().steady()
+        );
+
+    transportPredictionFirst_ =
+        dict().lookupOrDefault<bool>("transportPredictionFirst", true);
+
+    transportCorrectionFinal_ =
+        dict().lookupOrDefaultBackwardsCompatible<bool>
+        (
+            {"transportCorrectionFinal", "turbOnFinalIterOnly"},
+            true
+        );
+
+    if (pimpleLoopPtr_)
+    {
+        pimpleLoopPtr_->read();
+    }
+
+    return true;
+}
+
+
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 Foam::pimpleNoLoopControl::pimpleNoLoopControl
 (
     fvMesh& mesh,
-    const word& algorithmName,
-    const pimpleLoop& loop
+    const word& algorithmName
 )
 :
     pisoControl(mesh, algorithmName),
@@ -52,9 +97,10 @@ Foam::pimpleNoLoopControl::pimpleNoLoopControl
         static_cast<singleRegionSolutionControl&>(*this),
         "outerCorrector"
     ),
-    loop_(loop),
+    pimpleLoopPtr_(nullptr),
     simpleRho_(false),
-    turbOnFinalIterOnly_(true)
+    transportPredictionFirst_(true),
+    transportCorrectionFinal_(true)
 {
     read();
 }
@@ -68,35 +114,16 @@ Foam::pimpleNoLoopControl::~pimpleNoLoopControl()
 
 // * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * * //
 
-bool Foam::pimpleNoLoopControl::read()
+bool Foam::pimpleNoLoopControl::correct()
 {
-    if
-    (
-        !pisoControl::read()
-     || !readResidualControls()
-     || !readCorrResidualControls()
-    )
-    {
-        return false;
-    }
-
-    // The SIMPLErho keyword is maintained here for backwards compatibility
-    simpleRho_ = mesh().steady();
-    simpleRho_ = dict().lookupOrDefault<bool>("SIMPLErho", simpleRho_);
-    simpleRho_ = dict().lookupOrDefault<bool>("simpleRho", simpleRho_);
-
-    turbOnFinalIterOnly_ =
-        dict().lookupOrDefault<bool>("turbOnFinalIterOnly", true);
-
-    return true;
+    return pisoControl::correct(finalIter());
 }
 
 
-bool Foam::pimpleNoLoopControl::isFinal() const
+bool Foam::pimpleNoLoopControl::correctNonOrthogonal()
 {
-    return
-        (!anyPisoIter() && loop_.finalPimpleIter())
-     || pisoControl::isFinal();
+
+    return pisoControl::correctNonOrthogonal(finalIter());
 }
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -91,13 +91,6 @@ public:
 
     // Constructors
 
-        //- Construct from patch and internal field
-        outletMappedUniformInletFvPatchField
-        (
-            const fvPatch&,
-            const DimensionedField<Type, volMesh>&
-        );
-
         //- Construct from patch, internal field and dictionary
         outletMappedUniformInletFvPatchField
         (
@@ -113,23 +106,14 @@ public:
             const outletMappedUniformInletFvPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         outletMappedUniformInletFvPatchField
         (
             const outletMappedUniformInletFvPatchField<Type>&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchField<Type>> clone() const
-        {
-            return tmp<fvPatchField<Type>>
-            (
-                new outletMappedUniformInletFvPatchField<Type>(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         outletMappedUniformInletFvPatchField

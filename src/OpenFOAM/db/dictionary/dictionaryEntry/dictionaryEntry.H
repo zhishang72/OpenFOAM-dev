@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -59,7 +59,7 @@ Ostream& operator<<(Ostream&, const dictionaryEntry&);
 
 
 /*---------------------------------------------------------------------------*\
-                           Class dictionaryEntry Declaration
+                       Class dictionaryEntry Declaration
 \*---------------------------------------------------------------------------*/
 
 class dictionaryEntry
@@ -70,9 +70,6 @@ class dictionaryEntry
     // Private Member Functions
 
         void readData(Istream&);
-
-        //- Dissallow bitwise copy
-        dictionaryEntry(const dictionary&);
 
 
 public:
@@ -104,6 +101,9 @@ public:
             const dictionary& parentDict,
             const dictionaryEntry&
         );
+
+        //- Disallow bitwise copy
+        dictionaryEntry(const dictionary&) = delete;
 
         autoPtr<entry> clone(const dictionary& parentDict) const
         {

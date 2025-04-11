@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2014-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2014-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -35,27 +35,6 @@ Foam::fixedNormalInletOutletVelocityFvPatchVectorField::
 fixedNormalInletOutletVelocityFvPatchVectorField
 (
     const fvPatch& p,
-    const DimensionedField<vector, volMesh>& iF
-)
-:
-    directionMixedFvPatchVectorField(p, iF),
-    phiName_("phi"),
-    fixTangentialInflow_(true),
-    normalVelocity_
-    (
-        fvPatchVectorField::New("fixedValue", p, iF)
-    )
-{
-    refValue() = Zero;
-    refGrad() = Zero;
-    valueFraction() = Zero;
-}
-
-
-Foam::fixedNormalInletOutletVelocityFvPatchVectorField::
-fixedNormalInletOutletVelocityFvPatchVectorField
-(
-    const fvPatch& p,
     const DimensionedField<vector, volMesh>& iF,
     const dictionary& dict
 )
@@ -68,7 +47,10 @@ fixedNormalInletOutletVelocityFvPatchVectorField
         fvPatchVectorField::New(p, iF, dict.subDict("normalVelocity"))
     )
 {
-    fvPatchVectorField::operator=(vectorField("value", dict, p.size()));
+    fvPatchVectorField::operator=
+    (
+        vectorField("value", iF.dimensions(), dict, p.size())
+    );
     refValue() = normalVelocity();
     refGrad() = Zero;
     valueFraction() = Zero;
@@ -81,7 +63,7 @@ fixedNormalInletOutletVelocityFvPatchVectorField
     const fixedNormalInletOutletVelocityFvPatchVectorField& ptf,
     const fvPatch& p,
     const DimensionedField<vector, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     directionMixedFvPatchVectorField(ptf, p, iF, mapper),
@@ -97,19 +79,6 @@ fixedNormalInletOutletVelocityFvPatchVectorField
 Foam::fixedNormalInletOutletVelocityFvPatchVectorField::
 fixedNormalInletOutletVelocityFvPatchVectorField
 (
-    const fixedNormalInletOutletVelocityFvPatchVectorField& pivpvf
-)
-:
-    directionMixedFvPatchVectorField(pivpvf),
-    phiName_(pivpvf.phiName_),
-    fixTangentialInflow_(pivpvf.fixTangentialInflow_),
-    normalVelocity_(pivpvf.normalVelocity().clone())
-{}
-
-
-Foam::fixedNormalInletOutletVelocityFvPatchVectorField::
-fixedNormalInletOutletVelocityFvPatchVectorField
-(
     const fixedNormalInletOutletVelocityFvPatchVectorField& pivpvf,
     const DimensionedField<vector, volMesh>& iF
 )
@@ -117,34 +86,38 @@ fixedNormalInletOutletVelocityFvPatchVectorField
     directionMixedFvPatchVectorField(pivpvf, iF),
     phiName_(pivpvf.phiName_),
     fixTangentialInflow_(pivpvf.fixTangentialInflow_),
-    normalVelocity_(pivpvf.normalVelocity().clone())
+    normalVelocity_(pivpvf.normalVelocity().clone(iF))
 {}
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-void Foam::fixedNormalInletOutletVelocityFvPatchVectorField::autoMap
-(
-    const fvPatchFieldMapper& m
-)
-{
-    directionMixedFvPatchVectorField::autoMap(m);
-    normalVelocity_->autoMap(m);
-}
-
-
-void Foam::fixedNormalInletOutletVelocityFvPatchVectorField::rmap
+void Foam::fixedNormalInletOutletVelocityFvPatchVectorField::map
 (
     const fvPatchVectorField& ptf,
-    const labelList& addr
+    const fieldMapper& mapper
 )
 {
-    directionMixedFvPatchVectorField::rmap(ptf, addr);
+    directionMixedFvPatchVectorField::map(ptf, mapper);
 
     const fixedNormalInletOutletVelocityFvPatchVectorField& fniovptf =
         refCast<const fixedNormalInletOutletVelocityFvPatchVectorField>(ptf);
 
-    normalVelocity_->rmap(fniovptf.normalVelocity(), addr);
+    mapper(normalVelocity_.ref(), fniovptf.normalVelocity());
+}
+
+
+void Foam::fixedNormalInletOutletVelocityFvPatchVectorField::reset
+(
+    const fvPatchVectorField& ptf
+)
+{
+    directionMixedFvPatchVectorField::reset(ptf);
+
+    const fixedNormalInletOutletVelocityFvPatchVectorField& fniovptf =
+        refCast<const fixedNormalInletOutletVelocityFvPatchVectorField>(ptf);
+
+    normalVelocity_->reset(fniovptf.normalVelocity());
 }
 
 

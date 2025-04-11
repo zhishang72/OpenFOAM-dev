@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -26,7 +26,7 @@ Class
 
 Description
     Calculates and write the shear-stress at wall patches as
-    the volVectorField field 'wallShearStress'.
+    the volVectorField field 'wallShearStress' or 'wallShearStress.\<phase\>'.
 
         \f[
             Stress = R \dot n
@@ -55,14 +55,17 @@ Description
 
 Usage
     \table
-        Property | Description               | Required    | Default value
+        Property | Description                | Required   | Default value
         type     | type name: wallShearStress | yes        |
+        patch    | patch to process           | no         |
         patches  | list of patches to process | no         | all wall patches
+        phase    | phase name                 | no         |
     \endtable
 
-Note
-    Writing field 'wallShearStress' is done by default, but it can be overridden
-    by defining an empty \c objects list. For details see writeLocalObjects.
+    Note:
+        Writing field 'wallShearStress' is done by default, but it can be
+        overridden by defining an empty \c objects list. For details see
+        writeLocalObjects.
 
 See also
     Foam::functionObject
@@ -83,6 +86,7 @@ SourceFiles
 #include "logFiles.H"
 #include "writeLocalObjects.H"
 #include "volFieldsFwd.H"
+#include "surfaceFieldsFwd.H"
 #include "HashSet.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -102,16 +106,16 @@ class wallShearStress
     public logFiles,
     public writeLocalObjects
 {
+    // Private Data
 
-protected:
-
-    // Protected data
+        //- The name of the phase
+        word phaseName_;
 
         //- Optional list of patches to process
         labelHashSet patchSet_;
 
 
-    // Protected Member Functions
+    // Private Member Functions
 
         //- File header information
         virtual void writeFileHeader(const label i);
@@ -119,7 +123,7 @@ protected:
         //- Calculate the shear-stress
         tmp<volVectorField> calcShearStress
         (
-            const volSymmTensorField& Reff
+            const surfaceVectorField& tau
         );
 
 
@@ -151,6 +155,12 @@ public:
 
         //- Read the wallShearStress data
         virtual bool read(const dictionary&);
+
+        //- Return the list of fields required
+        virtual wordList fields() const
+        {
+            return wordList::null();
+        }
 
         //- Calculate the wall shear-stress
         virtual bool execute();

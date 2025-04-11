@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -26,8 +26,8 @@ License
 #include "nearWallFields.H"
 #include "wordReList.H"
 #include "findCellParticle.H"
-#include "mappedPatchBase.H"
 #include "OBJstream.H"
+#include "globalIndex.H"
 #include "addToRunTimeSelectionTable.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
@@ -60,15 +60,17 @@ void Foam::functionObjects::nearWallFields::calcAddressing()
     DebugInFunction << "nPatchFaces: " << globalWalls.size() << endl;
 
     // Construct cloud
-    Cloud<findCellParticle> cloud
+    lagrangian::Cloud<findCellParticle> cloud
     (
         mesh_,
-        cloud::defaultName,
+        lagrangian::cloud::defaultName,
         IDLList<findCellParticle>()
     );
 
     // Add particles to track to sample locations
     nPatchFaces = 0;
+
+    label nLocateBoundaryHits = 0;
 
     forAllConstIter(labelHashSet, patchSet_, iter)
     {
@@ -86,7 +88,8 @@ void Foam::functionObjects::nearWallFields::calcAddressing()
                     mesh_,
                     patch.Cf()[patchFacei],
                     patch.faceCells()[patchFacei],
-                    - distance_*nf[patchFacei],
+                    nLocateBoundaryHits,
+                  - distance_*nf[patchFacei],
                     globalWalls.toGlobal(nPatchFaces) // passive data
                 )
             );
@@ -102,14 +105,14 @@ void Foam::functionObjects::nearWallFields::calcAddressing()
         // Dump particles
         OBJstream str
         (
-            mesh_.time().path()
-           /"wantedTracks_" + mesh_.time().timeName() + ".obj"
+            time_.path()
+           /"wantedTracks_" + time_.name() + ".obj"
         );
         InfoInFunction << "Dumping tracks to " << str.name() << endl;
 
-        forAllConstIter(Cloud<findCellParticle>, cloud, iter)
+        forAllConstIter(lagrangian::Cloud<findCellParticle>, cloud, iter)
         {
-            const vector p = iter().position();
+            const vector p = iter().position(mesh_);
             str.write(linePointRef(p, p + iter().displacement()));
         }
     }
@@ -123,32 +126,29 @@ void Foam::functionObjects::nearWallFields::calcAddressing()
     // Database to pass into findCellParticle::move
     findCellParticle::trackingData td(cloud, cellToWalls_, cellToSamples_);
 
-    // Track all particles to their end position.
-    scalar maxTrackLen = 2.0*mesh_.bounds().mag();
-
-
     // Debug: collect start points
     pointField start;
     if (debug)
     {
         start.setSize(nPatchFaces);
         nPatchFaces = 0;
-        forAllConstIter(Cloud<findCellParticle>, cloud, iter)
+        forAllConstIter(lagrangian::Cloud<findCellParticle>, cloud, iter)
         {
             const findCellParticle& tp = iter();
-            start[nPatchFaces++] = tp.position();
+            start[nPatchFaces++] = tp.position(mesh_);
         }
     }
 
 
-    cloud.move(cloud, td, maxTrackLen);
+    // Track
+    cloud.move(cloud, td);
 
 
     // Rework cell-to-globalpatchface into a map
     List<Map<label>> compactMap;
     getPatchDataMapPtr_.reset
     (
-        new mapDistribute
+        new distributionMap
         (
             globalWalls,
             cellToWalls_,
@@ -164,8 +164,8 @@ void Foam::functionObjects::nearWallFields::calcAddressing()
         {
             OBJstream str
             (
-                mesh_.time().path()
-               /"obtainedTracks_" + mesh_.time().timeName() + ".obj"
+                time_.path()
+               /"obtainedTracks_" + time_.name() + ".obj"
             );
             InfoInFunction << "Dumping obtained to " << str.name() << endl;
 
@@ -214,8 +214,7 @@ bool Foam::functionObjects::nearWallFields::read(const dictionary& dict)
     fvMeshFunctionObject::read(dict);
 
     dict.lookup("fields") >> fieldSet_;
-    patchSet_ =
-        mesh_.boundaryMesh().patchSet(wordReList(dict.lookup("patches")));
+    patchSet_ = patchSet(dict);
     distance_ = dict.lookup<scalar>("distance");
 
 
@@ -234,13 +233,13 @@ bool Foam::functionObjects::nearWallFields::read(const dictionary& dict)
     // Convert field to map
     fieldMap_.resize(2*fieldSet_.size());
     reverseFieldMap_.resize(2*fieldSet_.size());
-    forAll(fieldSet_, setI)
+    forAll(fieldSet_, seti)
     {
-        const word& fldName = fieldSet_[setI].first();
-        const word& sampleFldName = fieldSet_[setI].second();
+        const word& fieldName = fieldSet_[seti].first();
+        const word& sampleFieldName = fieldSet_[seti].second();
 
-        fieldMap_.insert(fldName, sampleFldName);
-        reverseFieldMap_.insert(sampleFldName, fldName);
+        fieldMap_.insert(fieldName, sampleFieldName);
+        reverseFieldMap_.insert(sampleFieldName, fieldName);
     }
 
     Log  << type() << " " << name()
@@ -250,6 +249,19 @@ bool Foam::functionObjects::nearWallFields::read(const dictionary& dict)
     calcAddressing();
 
     return true;
+}
+
+
+Foam::wordList Foam::functionObjects::nearWallFields::fields() const
+{
+    wordList fields(fieldSet_.size());
+
+    forAll(fieldSet_, fieldi)
+    {
+        fields[fieldi] = fieldSet_[fieldi].first();
+    }
+
+    return fields;
 }
 
 
@@ -281,7 +293,7 @@ bool Foam::functionObjects::nearWallFields::execute()
 
     Log << type() << " " << name()
         << " write:" << nl
-        << "    Sampling fields to " << time_.timeName()
+        << "    Sampling fields to " << time_.name()
         << endl;
 
     sampleFields(vsf_);
@@ -298,7 +310,7 @@ bool Foam::functionObjects::nearWallFields::write()
 {
     DebugInFunction << endl;
 
-    Log << "    Writing sampled fields to " << time_.timeName()
+    Log << "    Writing sampled fields to " << time_.name()
         << endl;
 
     forAll(vsf_, i)

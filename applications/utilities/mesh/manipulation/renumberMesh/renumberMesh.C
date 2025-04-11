@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -34,6 +34,7 @@ Description
 \*---------------------------------------------------------------------------*/
 
 #include "argList.H"
+#include "timeSelector.H"
 #include "IOobjectList.H"
 #include "fvMesh.H"
 #include "polyTopoChange.H"
@@ -43,47 +44,38 @@ Description
 #include "SortableList.H"
 #include "decompositionMethod.H"
 #include "renumberMethod.H"
-#include "zeroGradientFvPatchFields.H"
 #include "CuthillMcKeeRenumber.H"
 #include "fvMeshSubset.H"
 #include "cellSet.H"
 #include "faceSet.H"
 #include "pointSet.H"
-
-#ifdef FOAM_USE_ZOLTAN
-    #include "zoltanRenumber.H"
-#endif
-
+#include "systemDict.H"
 
 using namespace Foam;
 
-
-// Create named field from labelList for postprocessing
-tmp<volScalarField> createScalarField
+void writeCellLabels
 (
     const fvMesh& mesh,
     const word& name,
     const labelList& elems
 )
 {
-    tmp<volScalarField> tfld
+    volScalarField::Internal fld
     (
-        volScalarField::New
+        IOobject
         (
             name,
+            mesh.time().name(),
             mesh,
-            dimensionedScalar(dimless, 0),
-            zeroGradientFvPatchScalarField::typeName
-        )
+            IOobject::NO_READ,
+            IOobject::AUTO_WRITE
+        ),
+        mesh,
+        dimless,
+        scalarField(scalarList(elems))
     );
-    volScalarField& fld = tfld.ref();
 
-    forAll(fld, celli)
-    {
-       fld[celli] = elems[celli];
-    }
-
-    return tfld;
+    fld.write();
 }
 
 
@@ -389,11 +381,11 @@ labelList getRegionFaceOrder
 // cellOrder: old cell for every new cell
 // faceOrder: old face for every new face. Ordering of boundary faces not
 //     changed.
-autoPtr<mapPolyMesh> reorderMesh
+autoPtr<polyTopoChangeMap> reorderMesh
 (
     polyMesh& mesh,
-    const labelList& cellOrder,
-    const labelList& faceOrder
+    labelList& cellOrder,
+    labelList& faceOrder
 )
 {
     labelList reverseCellOrder(invert(cellOrder.size(), cellOrder));
@@ -443,7 +435,7 @@ autoPtr<mapPolyMesh> reorderMesh
         patchSizes[patchi] = patches[patchi].size();
         patchStarts[patchi] = patches[patchi].start();
         oldPatchNMeshPoints[patchi] = patches[patchi].nPoints();
-        patchPointMap[patchi] = identity(patches[patchi].nPoints());
+        patchPointMap[patchi] = identityMap(patches[patchi].nPoints());
     }
 
     mesh.resetPrimitives
@@ -457,86 +449,29 @@ autoPtr<mapPolyMesh> reorderMesh
         true
     );
 
-
-    // Re-do the faceZones
-    {
-        faceZoneMesh& faceZones = mesh.faceZones();
-        faceZones.clearAddressing();
-        forAll(faceZones, zoneI)
-        {
-            faceZone& fZone = faceZones[zoneI];
-            labelList newAddressing(fZone.size());
-            boolList newFlipMap(fZone.size());
-            forAll(fZone, i)
-            {
-                label oldFacei = fZone[i];
-                newAddressing[i] = reverseFaceOrder[oldFacei];
-                if (flipFaceFlux.found(newAddressing[i]))
-                {
-                    newFlipMap[i] = !fZone.flipMap()[i];
-                }
-                else
-                {
-                    newFlipMap[i] = fZone.flipMap()[i];
-                }
-            }
-            labelList newToOld;
-            sortedOrder(newAddressing, newToOld);
-            fZone.resetAddressing
-            (
-                UIndirectList<label>(newAddressing, newToOld)(),
-                UIndirectList<bool>(newFlipMap, newToOld)()
-            );
-        }
-    }
-    // Re-do the cellZones
-    {
-        cellZoneMesh& cellZones = mesh.cellZones();
-        cellZones.clearAddressing();
-        forAll(cellZones, zoneI)
-        {
-            cellZones[zoneI] = UIndirectList<label>
-            (
-                reverseCellOrder,
-                cellZones[zoneI]
-            )();
-            Foam::sort(cellZones[zoneI]);
-        }
-    }
-
-
-    return autoPtr<mapPolyMesh>
+    return autoPtr<polyTopoChangeMap>
     (
-        new mapPolyMesh
+        new polyTopoChangeMap
         (
-            mesh,                       // const polyMesh& mesh,
-            mesh.nPoints(),             // nOldPoints,
-            mesh.nFaces(),              // nOldFaces,
-            mesh.nCells(),              // nOldCells,
-            identity(mesh.nPoints()),   // pointMap,
-            List<objectMap>(0),         // pointsFromPoints,
-            faceOrder,                  // faceMap,
-            List<objectMap>(0),         // facesFromPoints,
-            List<objectMap>(0),         // facesFromEdges,
-            List<objectMap>(0),         // facesFromFaces,
-            cellOrder,                  // cellMap,
-            List<objectMap>(0),         // cellsFromPoints,
-            List<objectMap>(0),         // cellsFromEdges,
-            List<objectMap>(0),         // cellsFromFaces,
-            List<objectMap>(0),         // cellsFromCells,
-            identity(mesh.nPoints()),   // reversePointMap,
-            reverseFaceOrder,           // reverseFaceMap,
-            reverseCellOrder,           // reverseCellMap,
-            flipFaceFlux,               // flipFaceFlux,
-            patchPointMap,              // patchPointMap,
-            labelListList(0),           // pointZoneMap,
-            labelListList(0),           // faceZonePointMap,
-            labelListList(0),           // faceZoneFaceMap,
-            labelListList(0),           // cellZoneMap,
-            pointField(0),              // preMotionPoints,
-            patchStarts,                // oldPatchStarts,
-            oldPatchNMeshPoints,        // oldPatchNMeshPoints
-            autoPtr<scalarField>()      // oldCellVolumes
+            mesh,                           // const polyMesh& mesh,
+            mesh.nPoints(),                 // nOldPoints,
+            mesh.nFaces(),                  // nOldFaces,
+            mesh.nCells(),                  // nOldCells,
+            identityMap(mesh.nPoints()),    // pointMap,
+            List<objectMap>(0),             // pointsFromPoints,
+            move(faceOrder),                // faceMap,
+            List<objectMap>(0),             // facesFromFaces,
+            move(cellOrder),                // cellMap,
+            List<objectMap>(0),             // cellsFromCells,
+            identityMap(mesh.nPoints()),    // reversePointMap,
+            move(reverseFaceOrder),         // reverseFaceMap,
+            move(reverseCellOrder),         // reverseCellMap,
+            move(flipFaceFlux),             // flipFaceFlux,
+            move(patchPointMap),            // patchPointMap,
+            move(patchSizes),               // oldPatchSizes
+            move(patchStarts),              // oldPatchStarts,
+            move(oldPatchNMeshPoints),      // oldPatchNMeshPoints
+            autoPtr<scalarField>()          // oldCellVolumes
         )
     );
 }
@@ -602,12 +537,13 @@ int main(int argc, char *argv[])
 {
     argList::addNote
     (
-        "Renumber mesh to minimize bandwidth"
+        "Renumber mesh to minimise bandwidth"
     );
 
+    #include "addMeshOption.H"
     #include "addRegionOption.H"
     #include "addOverwriteOption.H"
-    #include "addTimeOptions.H"
+    timeSelector::addOptions();
     #include "addDictOption.H"
     argList::addBoolOption
     (
@@ -621,25 +557,12 @@ int main(int argc, char *argv[])
     );
 
     #include "setRootCase.H"
-    #include "createTime.H"
-    runTime.functionObjects().off();
-
-    // Force linker to include zoltan symbols. This section is only needed since
-    // Zoltan is a static library
-    #ifdef FOAM_USE_ZOLTAN
-        Info<< "renumberMesh built with zoltan support." << nl << endl;
-        (void)zoltanRenumber::typeName;
-    #endif
+    #include "createTimeNoFunctionObjects.H"
 
     // Get times list
-    instantList Times = runTime.times();
+    const instantList Times = timeSelector::select0(runTime, args);
 
-    // Set startTime and endTime depending on -time and -latestTime options
-    #include "checkTimeOptions.H"
-
-    runTime.setTime(Times[startTime], startTime);
-
-    #include "createNamedMesh.H"
+    #include "createSpecifiedMeshNoChangers.H"
     const word oldInstance = mesh.pointsInstance();
 
     const bool readDict = args.optionFound("dict");
@@ -691,18 +614,16 @@ int main(int argc, char *argv[])
     bool renumberSets = true;
 
     // Construct renumberMethod
-    autoPtr<IOdictionary> renumberDictPtr;
+    autoPtr<dictionary> renumberDictPtr;
     autoPtr<renumberMethod> renumberPtr;
 
     if (readDict)
     {
-        const word dictName("renumberMeshDict");
-        #include "setSystemMeshDictionaryIO.H"
-
-        Info<< "Renumber according to " << dictName << nl << endl;
-
-        renumberDictPtr.reset(new IOdictionary(dictIO));
-        const IOdictionary& renumberDict = renumberDictPtr();
+        renumberDictPtr.reset
+        (
+            new dictionary(systemDict("renumberMeshDict", args, mesh))
+        );
+        const dictionary& renumberDict = renumberDictPtr();
 
         renumberPtr = renumberMethod::New(renumberDict);
 
@@ -754,8 +675,7 @@ int main(int argc, char *argv[])
     else
     {
         Info<< "Using default renumberMethod." << nl << endl;
-        dictionary renumberDict;
-        renumberPtr.reset(new CuthillMcKeeRenumber(renumberDict));
+        renumberPtr.reset(new CuthillMcKeeRenumber(dictionary::null));
     }
 
     Info<< "Selecting renumberMethod " << renumberPtr().type() << nl << endl;
@@ -800,22 +720,10 @@ int main(int argc, char *argv[])
         ),
         labelList(0)
     );
-    labelIOList boundaryProcAddressing
-    (
-        IOobject
-        (
-            "boundaryProcAddressing",
-            mesh.pointsInstance(),
-            polyMesh::meshSubDir,
-            mesh,
-            IOobject::READ_IF_PRESENT
-        ),
-        labelList(0)
-    );
 
 
     // Read objects in time directory
-    IOobjectList objects(mesh, runTime.timeName());
+    IOobjectList objects(mesh, runTime.name());
 
     if (fields) Info<< "Reading geometric fields" << nl << endl;
 
@@ -845,9 +753,9 @@ int main(int argc, char *argv[])
         bool oldParRun = UPstream::parRun();
         UPstream::parRun() = false;
 
-        autoPtr<decompositionMethod> decomposePtr = decompositionMethod::New
+        autoPtr<decompositionMethod> decomposePtr
         (
-            decomposeDict
+            decompositionMethod::NewDecomposer(decomposeDict)
         );
 
         labelList cellToRegion
@@ -863,17 +771,15 @@ int main(int argc, char *argv[])
         UPstream::parRun() = oldParRun;
 
         // For debugging: write out region
-        createScalarField
+        writeCellLabels
         (
             mesh,
-            "cellDist",
+            "cellProc",
             cellToRegion
-        )().write();
-
-        Info<< nl << "Written decomposition as volScalarField to "
-            << "cellDist for use in postprocessing."
+        );
+        Info<< nl << "Written decomposition as volScalarField::Internal to "
+            << "cellProc for use in postprocessing."
             << nl << endl;
-
 
         cellOrder = regionRenumber(renumberPtr(), mesh, cellToRegion);
 
@@ -985,16 +891,15 @@ int main(int argc, char *argv[])
 
 
     // Change the mesh.
-    autoPtr<mapPolyMesh> map = reorderMesh(mesh, cellOrder, faceOrder);
+    autoPtr<polyTopoChangeMap> map = reorderMesh(mesh, cellOrder, faceOrder);
 
 
     if (orderPoints)
     {
         polyTopoChange meshMod(mesh);
-        autoPtr<mapPolyMesh> pointOrderMap = meshMod.changeMesh
+        autoPtr<polyTopoChangeMap> pointOrderMap = meshMod.changeMesh
         (
             mesh,
-            false,      // inflate
             true,       // syncParallel
             false,      // orderCells
             orderPoints // orderPoints
@@ -1016,7 +921,7 @@ int main(int argc, char *argv[])
 
 
     // Update fields
-    mesh.updateMesh(map);
+    mesh.topoChange(map);
 
     // Update proc maps
     if
@@ -1076,13 +981,6 @@ int main(int argc, char *argv[])
         (
             UIndirectList<label>(pointProcAddressing, map().pointMap())
         );
-    }
-
-
-    // Move mesh (since morphing might not do this)
-    if (map().hasMotionPoints())
-    {
-        mesh.movePoints(map().preMotionPoints());
     }
 
 
@@ -1247,41 +1145,22 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (boundaryProcAddressing.headerOk())
-    {
-        boundaryProcAddressing.instance() = mesh.facesInstance();
-        if (boundaryProcAddressing.size() == mesh.boundaryMesh().size())
-        {
-            boundaryProcAddressing.write();
-        }
-        else
-        {
-            const fileName fName(boundaryProcAddressing.filePath());
-            if (fName.size())
-            {
-                Info<< "Deleting inconsistent processor patch decomposition"
-                    << " map " << fName << endl;
-                rm(fName);
-            }
-        }
-    }
-
     if (writeMaps)
     {
         // For debugging: write out region
-        createScalarField
+        writeCellLabels
         (
             mesh,
             "origCellID",
             map().cellMap()
-        )().write();
+        );
 
-        createScalarField
+        writeCellLabels
         (
             mesh,
             "cellID",
-            identity(mesh.nCells())
-        )().write();
+            identityMap(mesh.nCells())
+        );
 
         Info<< nl << "Written current cellID and origCellID as volScalarField"
             << " for use in postprocessing."
@@ -1351,7 +1230,7 @@ int main(int argc, char *argv[])
                 {
                     cellSet cs(*iter());
                     Info<< "    " << cs.name() << endl;
-                    cs.updateMesh(map());
+                    cs.topoChange(map());
                     cs.instance() = mesh.facesInstance();
                     cs.write();
                 }
@@ -1367,7 +1246,7 @@ int main(int argc, char *argv[])
                 {
                     faceSet fs(*iter());
                     Info<< "    " << fs.name() << endl;
-                    fs.updateMesh(map());
+                    fs.topoChange(map());
                     fs.instance() = mesh.facesInstance();
                     fs.write();
                 }
@@ -1383,7 +1262,7 @@ int main(int argc, char *argv[])
                 {
                     pointSet ps(*iter());
                     Info<< "    " << ps.name() << endl;
-                    ps.updateMesh(map());
+                    ps.topoChange(map());
                     ps.instance() = mesh.facesInstance();
                     ps.write();
                 }

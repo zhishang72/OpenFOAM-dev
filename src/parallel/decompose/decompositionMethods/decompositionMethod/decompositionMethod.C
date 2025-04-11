@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -21,12 +21,10 @@ License
     You should have received a copy of the GNU General Public License
     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
 
-InClass
-    decompositionMethod
-
 \*---------------------------------------------------------------------------*/
 
 #include "decompositionMethod.H"
+#include "Time.H"
 #include "globalIndex.H"
 #include "syncTools.H"
 #include "Tuple2.H"
@@ -46,8 +44,55 @@ InClass
 namespace Foam
 {
     defineTypeNameAndDebug(decompositionMethod, 0);
-    defineRunTimeSelectionTable(decompositionMethod, dictionary);
+    defineRunTimeSelectionTable(decompositionMethod, decomposer);
+    defineRunTimeSelectionTable(decompositionMethod, distributor);
 }
+
+
+// * * * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * //
+
+Foam::label Foam::decompositionMethod::nWeights
+(
+    const pointField& points,
+    const scalarField& pointWeights
+) const
+{
+    const label localnWeights =
+        points.size() ? pointWeights.size()/points.size() : 0;
+
+    const label nWeights = returnReduce(localnWeights, maxOp<label>());
+
+    if (localnWeights && localnWeights != nWeights)
+    {
+        FatalErrorInFunction
+            << "Number of weights on this processor " << localnWeights
+            << " does not equal the maximum number of weights " << nWeights
+            << exit(FatalError);
+    }
+
+    return nWeights;
+}
+
+
+Foam::label Foam::decompositionMethod::checkWeights
+(
+    const pointField& points,
+    const scalarField& pointWeights
+) const
+{
+    const label nWeights = this->nWeights(points, pointWeights);
+
+    if (nWeights > 1)
+    {
+        FatalErrorInFunction
+            << "decompositionMethod " << type()
+            << " does not support multiple constraints"
+            << exit(FatalError);
+    }
+
+    return nWeights;
+}
+
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
@@ -56,24 +101,14 @@ Foam::decompositionMethod::decompositionMethod
     const dictionary& decompositionDict
 )
 :
-    decompositionDict_(decompositionDict),
-    nProcessors_
-    (
-        decompositionDict.lookup<label>("numberOfSubdomains")
-    )
+    nProcessors_(decompositionDict.lookup<label>("numberOfSubdomains"))
 {
     // Read any constraints
     wordList constraintTypes_;
-    if (decompositionDict_.found("constraints"))
+
+    if (decompositionDict.found("constraints"))
     {
-        // PtrList<dictionary> constraintsList
-        //(
-        //    decompositionDict_.lookup("constraints")
-        //);
-        // forAll(constraintsList, i)
-        //{
-        //    const dictionary& dict = constraintsList[i];
-        const dictionary& constraintsList = decompositionDict_.subDict
+        const dictionary& constraintsList = decompositionDict.subDict
         (
             "constraints"
         );
@@ -93,110 +128,131 @@ Foam::decompositionMethod::decompositionMethod
             );
         }
     }
-
-    // Backwards compatibility
-    if
-    (
-        decompositionDict_.found("preserveBaffles")
-     && findIndex
-        (
-            constraintTypes_,
-            decompositionConstraints::preserveBafflesConstraint::typeName
-        ) == -1
-    )
-    {
-        constraints_.append
-        (
-            new decompositionConstraints::preserveBafflesConstraint()
-        );
-    }
-
-    if
-    (
-        decompositionDict_.found("preservePatches")
-     && findIndex
-        (
-            constraintTypes_,
-            decompositionConstraints::preservePatchesConstraint::typeName
-        ) == -1
-    )
-    {
-        const wordReList pNames(decompositionDict_.lookup("preservePatches"));
-
-        constraints_.append
-        (
-            new decompositionConstraints::preservePatchesConstraint(pNames)
-        );
-    }
-
-    if
-    (
-        decompositionDict_.found("preserveFaceZones")
-     && findIndex
-        (
-            constraintTypes_,
-            decompositionConstraints::preserveFaceZonesConstraint::typeName
-        ) == -1
-    )
-    {
-        const wordReList zNames(decompositionDict_.lookup("preserveFaceZones"));
-
-        constraints_.append
-        (
-            new decompositionConstraints::preserveFaceZonesConstraint(zNames)
-        );
-    }
-
-    if
-    (
-        decompositionDict_.found("singleProcessorFaceSets")
-     && findIndex
-        (
-            constraintTypes_,
-            decompositionConstraints::preserveFaceZonesConstraint::typeName
-        ) == -1
-    )
-    {
-        const List<Tuple2<word, label>> zNameAndProcs
-        (
-            decompositionDict_.lookup("singleProcessorFaceSets")
-        );
-
-        constraints_.append
-        (
-            new decompositionConstraints::singleProcessorFaceSetsConstraint
-            (
-                zNameAndProcs
-            )
-        );
-    }
 }
+
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-Foam::autoPtr<Foam::decompositionMethod> Foam::decompositionMethod::New
+Foam::autoPtr<Foam::decompositionMethod>
+Foam::decompositionMethod::NewDecomposer
 (
     const dictionary& decompositionDict
 )
 {
-    const word methodType(decompositionDict.lookup("method"));
+    const word methodType
+    (
+        decompositionDict.lookupBackwardsCompatible<word>
+        (
+            {"decomposer", "method"}
+        )
+    );
 
-    Pout<< "Selecting decompositionMethod " << methodType << endl;
+    Info<< "Selecting decomposer " << methodType << endl;
 
-    dictionaryConstructorTable::iterator cstrIter =
-        dictionaryConstructorTablePtr_->find(methodType);
+    libs.open
+    (
+        decompositionDict,
+        "libs",
+        decomposerConstructorTablePtr_
+    );
 
-    if (cstrIter == dictionaryConstructorTablePtr_->end())
+    decomposerConstructorTable::iterator cstrIter =
+        decomposerConstructorTablePtr_->find(methodType);
+
+    if (cstrIter == decomposerConstructorTablePtr_->end())
     {
         FatalErrorInFunction
-            << "Unknown decompositionMethod "
+            << "Unknown decomposer "
             << methodType << nl << nl
-            << "Valid decompositionMethods are : " << endl
-            << dictionaryConstructorTablePtr_->sortedToc()
+            << "Valid decomposers are : " << endl
+            << decomposerConstructorTablePtr_->sortedToc()
             << exit(FatalError);
     }
 
-    return autoPtr<decompositionMethod>(cstrIter()(decompositionDict));
+    Info<< incrIndent;
+
+    autoPtr<decompositionMethod> methodPtr
+    (
+        cstrIter()
+        (
+            decompositionDict,
+            decompositionDict.subOrEmptyDict(methodType + "Coeffs")
+        )
+    );
+
+    Info<< decrIndent;
+
+    return methodPtr;
+}
+
+
+Foam::autoPtr<Foam::decompositionMethod>
+Foam::decompositionMethod::NewDistributor
+(
+    const dictionary& distributionDict
+)
+{
+    const word methodType
+    (
+        distributionDict.lookupBackwardsCompatible<word>
+        (
+            {"distributor", "method"}
+        )
+    );
+
+    Info<< "Selecting distributor " << methodType << endl;
+
+    libs.open
+    (
+        distributionDict,
+        "libs",
+        distributorConstructorTablePtr_
+    );
+
+    distributorConstructorTable::iterator cstrIter =
+        distributorConstructorTablePtr_->find(methodType);
+
+    if (cstrIter == distributorConstructorTablePtr_->end())
+    {
+        FatalErrorInFunction
+            << "Unknown distributor "
+            << methodType << nl << nl
+            << "Valid distributors are : " << endl
+            << distributorConstructorTablePtr_->sortedToc()
+            << exit(FatalError);
+    }
+
+    Info<< incrIndent;
+
+    autoPtr<decompositionMethod> methodPtr
+    (
+        cstrIter()
+        (
+            distributionDict,
+            distributionDict.subOrEmptyDict(methodType + "Coeffs")
+        )
+    );
+
+    Info<< decrIndent;
+
+    return methodPtr;
+}
+
+
+Foam::IOdictionary Foam::decompositionMethod::decomposeParDict(const Time& time)
+{
+    return IOdictionary
+    (
+        IOobject
+        (
+            "decomposeParDict",
+            time.system(),
+            time,
+            IOobject::MUST_READ,
+            IOobject::NO_WRITE,
+            false
+        )
+    );
 }
 
 
@@ -235,7 +291,7 @@ Foam::labelList Foam::decompositionMethod::decompose
     (
         decompose
         (
-            coarseCellCells(),
+            coarseCellCells.list(),
             coarsePoints,
             coarseWeights
         )
@@ -260,14 +316,14 @@ Foam::labelList Foam::decompositionMethod::decompose
     const pointField& coarsePoints
 )
 {
-    scalarField cWeights(coarsePoints.size(), 1.0);
+    scalarField cellWeights(coarsePoints.size(), 1.0);
 
     return decompose
     (
         mesh,
         fineToCoarse,
         coarsePoints,
-        cWeights
+        cellWeights
     );
 }
 
@@ -275,12 +331,126 @@ Foam::labelList Foam::decompositionMethod::decompose
 Foam::labelList Foam::decompositionMethod::decompose
 (
     const labelListList& globalCellCells,
-    const pointField& cc
+    const pointField& cellCentres
 )
 {
-    scalarField cWeights(cc.size(), 1.0);
+    scalarField cellWeights(cellCentres.size(), 1.0);
 
-    return decompose(globalCellCells, cc, cWeights);
+    return decompose(globalCellCells, cellCentres, cellWeights);
+}
+
+
+Foam::labelList Foam::decompositionMethod::scaleWeights
+(
+    const scalarField& weights,
+    label& nWeights,
+    const bool distributed
+)
+{
+    labelList intWeights;
+
+    if (nWeights > 0)
+    {
+        // Calculate the scalar -> integer scaling factor
+        const scalar sumWeights
+        (
+            distributed
+          ? gSum(weights)
+          : sum(weights)
+        );
+
+        // Hack for scotch which does not accept 64bit label range for weights
+        const scalar scale = INT32_MAX/(2*sumWeights);
+        // const scalar scale = labelMax/(2*sumWeights);
+
+
+        // Convert weights to integer
+        intWeights.setSize(weights.size());
+        forAll(intWeights, i)
+        {
+            intWeights[i] = ceil(scale*weights[i]);
+        }
+
+        /*
+        // Alternatively calculate a separate scaling factor
+        // for each weight, it is not clear from the parMETIS or Scotch manuals
+        // which method should be used.
+        //
+        // Calculate the scalar -> integer scaling factors
+        scalarList sumWeights(nWeights, 0.0);
+
+        forAll(weights, i)
+        {
+            sumWeights[i % nWeights] += weights[i];
+        }
+
+        if (distributed)
+        {
+            reduce(sumWeights, ListOp<sumOp<scalar>>());
+        }
+
+        scalarList scale(nWeights, 0.0);
+        forAll(scale, i)
+        {
+            if (sumWeights[i] > small)
+            {
+                scale[i] = labelMax/(2*sumWeights[i]);
+            }
+        }
+
+        // Convert weights to integer
+        intWeights.setSize(weights.size());
+        forAll(intWeights, i)
+        {
+            intWeights[i] = ceil(scale[i % nWeights]*weights[i]);
+        }
+        */
+
+        // Calculate the sum over all processors of each weight
+        labelList sumIntWeights(nWeights, 0);
+        forAll(weights, i)
+        {
+            sumIntWeights[i % nWeights] += intWeights[i];
+        }
+
+        if (distributed)
+        {
+            reduce(sumIntWeights, ListOp<sumOp<label>>());
+        }
+
+        // Check that the sum of each weight is non-zero
+        boolList nonZeroWeights(nWeights, false);
+        label nNonZeroWeights = 0;
+        forAll(sumIntWeights, i)
+        {
+            if (sumIntWeights[i] != 0)
+            {
+                nonZeroWeights[i] = true;
+                nNonZeroWeights++;
+            }
+        }
+
+        // If there are zero weights remove them from the weights list
+        if (nNonZeroWeights != nWeights)
+        {
+            label j = 0;
+            forAll(intWeights, i)
+            {
+                if (nonZeroWeights[i % nWeights])
+                {
+                    intWeights[j++] = intWeights[i];
+                }
+            }
+
+            // Resize the weights list
+            intWeights.setSize(nNonZeroWeights*(intWeights.size()/nWeights));
+
+            // Reset the number of weight to the number of non-zero weights
+            nWeights = nNonZeroWeights;
+        }
+    }
+
+    return intWeights;
 }
 
 
@@ -313,7 +483,7 @@ void Foam::decompositionMethod::calcCellCells
     // Get agglomerate owner on other side of coupled faces
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    labelList globalNeighbour(mesh.nFaces()-mesh.nInternalFaces());
+    labelList globalNeighbour(mesh.nFaces() - mesh.nInternalFaces());
 
     forAll(patches, patchi)
     {
@@ -363,7 +533,7 @@ void Foam::decompositionMethod::calcCellCells
         if (pp.coupled() && (parallel || !isA<processorPolyPatch>(pp)))
         {
             label facei = pp.start();
-            label bFacei = pp.start()-mesh.nInternalFaces();
+            label bFacei = pp.start() - mesh.nInternalFaces();
 
             forAll(pp, i)
             {
@@ -393,7 +563,7 @@ void Foam::decompositionMethod::calcCellCells
 
     nFacesPerCell = 0;
 
-    labelList& m = cellCells.m();
+    labelUList& m = cellCells.m();
     const labelList& offsets = cellCells.offsets();
 
     // For internal faces is just offsetted owner and neighbour
@@ -414,7 +584,7 @@ void Foam::decompositionMethod::calcCellCells
         if (pp.coupled() && (parallel || !isA<processorPolyPatch>(pp)))
         {
             label facei = pp.start();
-            label bFacei = pp.start()-mesh.nInternalFaces();
+            label bFacei = pp.start() - mesh.nInternalFaces();
 
             forAll(pp, i)
             {
@@ -470,7 +640,7 @@ void Foam::decompositionMethod::calcCellCells
         cellCells.offsets()[celli+1] = newIndex;
     }
 
-    cellCells.m().setSize(newIndex);
+    cellCells.setSize(cellCells.size(), newIndex);
 }
 
 
@@ -504,7 +674,7 @@ void Foam::decompositionMethod::calcCellCells
     // Get agglomerate owner on other side of coupled faces
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    labelList globalNeighbour(mesh.nFaces()-mesh.nInternalFaces());
+    labelList globalNeighbour(mesh.nFaces() - mesh.nInternalFaces());
 
     forAll(patches, patchi)
     {
@@ -585,8 +755,8 @@ void Foam::decompositionMethod::calcCellCells
 
     nFacesPerCell = 0;
 
-    labelList& m = cellCells.m();
-    scalarList& w = cellCellWeights.m();
+    labelUList& m = cellCells.m();
+    scalarUList& w = cellCellWeights.m();
     const labelList& offsets = cellCells.offsets();
 
     // For internal faces is just offsetted owner and neighbour
@@ -599,9 +769,9 @@ void Foam::decompositionMethod::calcCellCells
         label neiIndex = offsets[nei] + nFacesPerCell[nei]++;
 
         m[ownIndex] = globalAgglom.toGlobal(nei);
-        w[ownIndex] = mag(mesh.faceAreas()[faceI]);
+        w[ownIndex] = mesh.magFaceAreas()[faceI];
         m[neiIndex] = globalAgglom.toGlobal(own);
-        w[ownIndex] = mag(mesh.faceAreas()[faceI]);
+        w[ownIndex] = mesh.magFaceAreas()[faceI];
     }
 
     // For boundary faces is offsetted coupled neighbour
@@ -628,7 +798,7 @@ void Foam::decompositionMethod::calcCellCells
                 {
                     label ownIndex = offsets[own] + nFacesPerCell[own]++;
                     m[ownIndex] = globalNei;
-                    w[ownIndex] = mag(mesh.faceAreas()[faceI]);
+                    w[ownIndex] = mesh.magFaceAreas()[faceI];
                 }
 
                 faceI++;
@@ -673,8 +843,8 @@ void Foam::decompositionMethod::calcCellCells
         cellCellWeights.offsets()[cellI+1] = newIndex;
     }
 
-    cellCells.m().setSize(newIndex);
-    cellCellWeights.m().setSize(newIndex);
+    cellCells.setSize(cellCells.size(), newIndex);
+    cellCellWeights.setSize(cellCells.size(), newIndex);
 }
 
 
@@ -682,31 +852,15 @@ Foam::labelList Foam::decompositionMethod::decompose
 (
     const polyMesh& mesh,
     const scalarField& cellWeights,
-
-    //- Whether owner and neighbour should be on same processor
-    //  (takes priority over explicitConnections)
     const boolList& blockedFace,
-
-    //- Whether whole sets of faces (and point neighbours) need to be kept
-    //  on single processor
     const PtrList<labelList>& specifiedProcessorFaces,
     const labelList& specifiedProcessor,
-
-    //- Additional connections between boundary faces
     const List<labelPair>& explicitConnections
 )
 {
     // Any weights specified?
-    label nWeights = returnReduce(cellWeights.size(), sumOp<label>());
-
-    if (nWeights > 0 && cellWeights.size() != mesh.nCells())
-    {
-        FatalErrorInFunction
-            << "Number of weights " << cellWeights.size()
-            << " differs from number of cells " << mesh.nCells()
-            << exit(FatalError);
-    }
-
+    const bool hasWeights =
+        returnReduce(cellWeights.size(), sumOp<label>()) > 0;
 
     // Any processor sets?
     label nProcSets = 0;
@@ -735,7 +889,6 @@ Foam::labelList Foam::decompositionMethod::decompose
     reduce(nUnblocked, sumOp<label>());
 
 
-
     // Either do decomposition on cell centres or on agglomeration
 
     labelList finalDecomp;
@@ -745,7 +898,7 @@ Foam::labelList Foam::decompositionMethod::decompose
     {
         // No constraints, possibly weights
 
-        if (nWeights > 0)
+        if (hasWeights)
         {
             finalDecomp = decompose
             (
@@ -809,11 +962,11 @@ Foam::labelList Foam::decompositionMethod::decompose
 
         scalarField regionWeights(localRegion.nLocalRegions(), 0);
 
-        if (nWeights > 0)
+        if (hasWeights)
         {
             forAll(localRegion, celli)
             {
-                label regionI = localRegion[celli];
+                const label regionI = localRegion[celli];
 
                 regionWeights[regionI] += cellWeights[celli];
             }

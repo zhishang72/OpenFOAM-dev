@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -35,7 +35,6 @@ Description
 #include "IFstream.H"
 #include "OFstream.H"
 #include "pointField.H"
-#include "unitConversion.H"
 
 using namespace Foam;
 
@@ -116,7 +115,7 @@ int main(int argc, char *argv[])
 
     pointField pointsWedge(nPointsij*2, Zero);
 
-    fileName pointsFile(runTime.constantPath()/"points.tmp");
+    fileName pointsFile(runTime.path()/runTime.constant()/"points.tmp");
     OFstream pFile(pointsFile);
 
     scalar a(degToRad(0.1));

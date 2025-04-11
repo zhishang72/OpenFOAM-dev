@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,8 +25,6 @@ License
 
 #include "UPstream.H"
 #include "debug.H"
-#include "registerSwitch.H"
-#include "registerNamedEnum.H"
 #include "dictionary.H"
 #include "IOstreams.H"
 
@@ -80,7 +78,7 @@ void Foam::UPstream::setParRun(const label nProcs, const bool haveThreads)
         // Redo worldComm communicator (this has been created at static
         // initialisation time)
         freeCommunicator(UPstream::worldComm);
-        label comm = allocateCommunicator(-1, identity(nProcs), true);
+        label comm = allocateCommunicator(-1, identityMap(nProcs), true);
         if (comm != UPstream::worldComm)
         {
             FatalErrorInFunction
@@ -264,7 +262,7 @@ Foam::label Foam::UPstream::allocateCommunicator
         index = parentCommunicator_.size();
 
         myProcNo_.append(-1);
-        procIDs_.append(List<int>(0));
+        procIndices_.append(List<int>(0));
         parentCommunicator_.append(-1);
         linearCommunication_.append(List<commsStruct>(0));
         treeCommunication_.append(List<commsStruct>(0));
@@ -282,10 +280,10 @@ Foam::label Foam::UPstream::allocateCommunicator
     myProcNo_[index] = 0;
 
     // Convert from label to int
-    procIDs_[index].setSize(subRanks.size());
-    forAll(procIDs_[index], i)
+    procIndices_[index].setSize(subRanks.size());
+    forAll(procIndices_[index], i)
     {
-        procIDs_[index][i] = subRanks[i];
+        procIndices_[index][i] = subRanks[i];
 
         // Enforce incremental order (so index is rank in next communicator)
         if (i >= 1 && subRanks[i] <= subRanks[i-1])
@@ -299,8 +297,8 @@ Foam::label Foam::UPstream::allocateCommunicator
     }
     parentCommunicator_[index] = parentIndex;
 
-    linearCommunication_[index] = calcLinearComm(procIDs_[index].size());
-    treeCommunication_[index] = calcTreeComm(procIDs_[index].size());
+    linearCommunication_[index] = calcLinearComm(procIndices_[index].size());
+    treeCommunication_[index] = calcTreeComm(procIndices_[index].size());
 
 
     if (doPstream && parRun())
@@ -331,7 +329,7 @@ void Foam::UPstream::freeCommunicator
         freePstreamCommunicator(communicator);
     }
     myProcNo_[communicator] = -1;
-    // procIDs_[communicator].clear();
+    // procIndices_[communicator].clear();
     parentCommunicator_[communicator] = -1;
     linearCommunication_[communicator].clear();
     treeCommunication_[communicator].clear();
@@ -407,7 +405,7 @@ Foam::LIFOStack<Foam::label> Foam::UPstream::freeComms_;
 
 Foam::DynamicList<int> Foam::UPstream::myProcNo_(10);
 
-Foam::DynamicList<Foam::List<int>> Foam::UPstream::procIDs_(10);
+Foam::DynamicList<Foam::List<int>> Foam::UPstream::procIndices_(10);
 
 Foam::DynamicList<Foam::label> Foam::UPstream::parentCommunicator_(10);
 
@@ -435,33 +433,20 @@ bool Foam::UPstream::floatTransfer
 (
     Foam::debug::optimisationSwitch("floatTransfer", 0)
 );
-registerOptSwitch
-(
-    "floatTransfer",
-    bool,
-    Foam::UPstream::floatTransfer
-);
 
 int Foam::UPstream::nProcsSimpleSum
 (
     Foam::debug::optimisationSwitch("nProcsSimpleSum", 16)
 );
-registerOptSwitch
-(
-    "nProcsSimpleSum",
-    int,
-    Foam::UPstream::nProcsSimpleSum
-);
 
 Foam::UPstream::commsTypes Foam::UPstream::defaultCommsType
 (
-    commsTypeNames.read(Foam::debug::optimisationSwitches().lookup("commsType"))
-);
-registerOptNamedEnum
-(
-    "commsType",
-    Foam::UPstream::commsTypeNames,
-    Foam::UPstream::defaultCommsType
+    Foam::debug::namedEnumOptimisationSwitch
+    (
+        "commsType",
+        commsTypeNames,
+        defaultCommsType
+    )
 );
 
 Foam::label Foam::UPstream::worldComm(0);
@@ -471,12 +456,6 @@ Foam::label Foam::UPstream::warnComm(-1);
 int Foam::UPstream::nPollProcInterfaces
 (
     Foam::debug::optimisationSwitch("nPollProcInterfaces", 0)
-);
-registerOptSwitch
-(
-    "nPollProcInterfaces",
-    int,
-    Foam::UPstream::nPollProcInterfaces
 );
 
 

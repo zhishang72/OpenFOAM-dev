@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -26,7 +26,7 @@ Class
 
 Description
     Calculates and outputs the second largest eigenvalue of the sum of the
-    square of the symmetrical and anti-symmetrical parts of the velocity
+    square of the symmetric and anti-symmetric parts of the velocity
     gradient tensor.
 
 See also
@@ -51,7 +51,7 @@ namespace functionObjects
 {
 
 /*---------------------------------------------------------------------------*\
-                          Class Lambda2 Declaration
+                           Class Lambda2 Declaration
 \*---------------------------------------------------------------------------*/
 
 class Lambda2

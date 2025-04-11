@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -54,7 +54,7 @@ class extendedCentredFaceToCellStencil
     // Private Data
 
         //- Swap map for getting neighbouring data
-        autoPtr<mapDistribute> mapPtr_;
+        autoPtr<distributionMap> mapPtr_;
 
         //- Per face the stencil.
         labelListList stencil_;
@@ -71,13 +71,13 @@ public:
         extendedCentredFaceToCellStencil
         (
             const extendedCentredFaceToCellStencil&
-        );
+        ) = delete;
 
 
     // Member Functions
 
         //- Return reference to the parallel distribution map
-        const mapDistribute& map() const
+        const distributionMap& map() const
         {
             return mapPtr_();
         }
@@ -92,11 +92,11 @@ public:
         void compact();
 
         //- Use map to get the data into stencil order
-        template<class T>
+        template<class Type>
         void collectData
         (
-            const GeometricField<T, fvsPatchField, surfaceMesh>& fld,
-            List<List<T>>& stencilFld
+            const SurfaceField<Type>& fld,
+            List<List<Type>>& stencilFld
         ) const
         {
             extendedFaceToCellStencil::collectData
@@ -110,9 +110,9 @@ public:
 
         //- Sum surface field contributions to create cell values
         template<class Type>
-        tmp<GeometricField<Type, fvPatchField, volMesh>> weightedSum
+        tmp<VolField<Type>> weightedSum
         (
-            const GeometricField<Type, fvsPatchField, surfaceMesh>& fld,
+            const SurfaceField<Type>& fld,
             const List<List<scalar>>& stencilWeights
         ) const
         {

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -65,7 +65,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class GAMGSolver Declaration
+                         Class GAMGSolver Declaration
 \*---------------------------------------------------------------------------*/
 
 class GAMGSolver
@@ -127,7 +127,7 @@ class GAMGSolver
         //- Hierarchy of interface internal coefficients
         PtrList<FieldField<Field, scalar>> interfaceLevelsIntCoeffs_;
 
-        //- LU decompsed coarsest matrix
+        //- LU decomposed coarsest matrix
         autoPtr<LUscalarMatrix> coarsestLUMatrixPtr_;
 
 

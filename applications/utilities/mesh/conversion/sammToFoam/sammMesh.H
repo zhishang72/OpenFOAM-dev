@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -48,7 +48,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class sammMesh Declaration
+                          Class sammMesh Declaration
 \*---------------------------------------------------------------------------*/
 
 class sammMesh
@@ -187,7 +187,7 @@ class sammMesh
         void createBoundaryFaces();
 
         //- Specialist version of face comparison to deal with
-        // PROSTAR boundary format idiosyncracies
+        // PROSTAR boundary format idiosyncrasies
         bool sammEqualFace
         (
             const face& boundaryFace,

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -58,7 +58,7 @@ namespace fv
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class d2dt2Scheme Declaration
+                         Class d2dt2Scheme Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -107,7 +107,7 @@ public:
         {}
 
         //- Disallow default bitwise copy construction
-        d2dt2Scheme(const d2dt2Scheme&);
+        d2dt2Scheme(const d2dt2Scheme&) = delete;
 
 
     // Selectors
@@ -132,32 +132,32 @@ public:
             return mesh_;
         }
 
-        virtual tmp<GeometricField<Type, fvPatchField, volMesh>> fvcD2dt2
+        virtual tmp<VolField<Type>> fvcD2dt2
         (
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         ) = 0;
 
-        virtual tmp<GeometricField<Type, fvPatchField, volMesh>> fvcD2dt2
+        virtual tmp<VolField<Type>> fvcD2dt2
         (
             const volScalarField&,
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         ) = 0;
 
         virtual tmp<fvMatrix<Type>> fvmD2dt2
         (
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         ) = 0;
 
         virtual tmp<fvMatrix<Type>> fvmD2dt2
         (
             const dimensionedScalar&,
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         ) = 0;
 
         virtual tmp<fvMatrix<Type>> fvmD2dt2
         (
             const volScalarField&,
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         ) = 0;
 
 

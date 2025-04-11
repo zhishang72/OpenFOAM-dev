@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,12 @@ Class
     Foam::noSlipFvPatchVectorField
 
 Description
-    This boundary condition fixes the velocity to zero at walls.
+    This boundary condition fixes the velocity to zero at walls and assumes
+    the walls are stationary.
+
+    For stationary walls with sliding vertices, e.g. engine liners, the normal
+    component of the velocity is set from the wall face-flux to ensure
+    continuity.
 
 Usage
     Example of the boundary condition specification:
@@ -55,7 +60,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-             Class noSlipFvPatchVectorField Declaration
+                  Class noSlipFvPatchVectorField Declaration
 \*---------------------------------------------------------------------------*/
 
 class noSlipFvPatchVectorField
@@ -93,23 +98,14 @@ public:
             const noSlipFvPatchVectorField&,
             const fvPatch&,
             const DimensionedField<vector, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         noSlipFvPatchVectorField
         (
             const noSlipFvPatchVectorField&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchVectorField> clone() const
-        {
-            return tmp<fvPatchVectorField>
-            (
-                new noSlipFvPatchVectorField(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         noSlipFvPatchVectorField
@@ -132,6 +128,18 @@ public:
 
 
     // Member Functions
+
+        // Mapping functions
+
+            //- Map the given fvPatchField onto this fvPatchField
+            virtual void map(const fvPatchVectorField&, const fieldMapper&);
+
+
+        // Evaluation functions
+
+            //- Update the coefficients associated with the patch field
+            virtual void updateCoeffs();
+
 
         //- Write
         virtual void write(Ostream&) const;

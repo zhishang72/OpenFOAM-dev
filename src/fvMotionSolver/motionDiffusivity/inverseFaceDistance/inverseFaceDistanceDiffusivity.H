@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -36,6 +36,7 @@ SourceFiles
 #define inverseFaceDistanceDiffusivity_H
 
 #include "motionDiffusivity.H"
+#include "wordReList.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -43,7 +44,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class inverseFaceDistanceDiffusivity Declaration
+               Class inverseFaceDistanceDiffusivity Declaration
 \*---------------------------------------------------------------------------*/
 
 class inverseFaceDistanceDiffusivity
@@ -53,7 +54,7 @@ class inverseFaceDistanceDiffusivity
     // Private Data
 
         //- Patches selected to base the distance on
-        wordList patchNames_;
+        wordReList patchNames_;
 
 
 public:

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -46,7 +46,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class linearUpwind Declaration
+                        Class linearUpwind Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -72,11 +72,7 @@ public:
         (
             const fvMesh& mesh,
             const surfaceScalarField& faceFlux
-        )
-        :
-            upwind<Type>(mesh, faceFlux),
-            gradSchemeName_("grad")
-        {}
+        );
 
         //- Construct from Istream.
         //  The name of the flux field is read from the Istream and looked-up
@@ -85,11 +81,7 @@ public:
         (
             const fvMesh& mesh,
             Istream& schemeData
-        )
-        :
-            upwind<Type>(mesh, schemeData),
-            gradSchemeName_(schemeData)
-        {}
+        );
 
         //- Construct from faceFlux and Istream
         linearUpwind
@@ -97,11 +89,7 @@ public:
             const fvMesh& mesh,
             const surfaceScalarField& faceFlux,
             Istream& schemeData
-        )
-        :
-            upwind<Type>(mesh, faceFlux, schemeData),
-            gradSchemeName_(schemeData)
-        {}
+        );
 
         //- Disallow default bitwise copy construction
         linearUpwind(const linearUpwind&) = delete;
@@ -116,10 +104,10 @@ public:
         }
 
         //- Return the explicit correction to the face-interpolate
-        virtual tmp<GeometricField<Type, fvsPatchField, surfaceMesh>>
+        virtual tmp<SurfaceField<Type>>
         correction
         (
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         ) const;
 
 
@@ -130,7 +118,7 @@ public:
 };
 
 
-// Specialize for volVectorField to support cached gradients
+// Specialise for volVectorField to support cached gradients
 template<>
 tmp<surfaceVectorField> linearUpwind<vector>::correction
 (
@@ -141,6 +129,12 @@ tmp<surfaceVectorField> linearUpwind<vector>::correction
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 } // End namespace Foam
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+#ifdef NoRepository
+    #include "linearUpwindTemplates.C"
+#endif
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

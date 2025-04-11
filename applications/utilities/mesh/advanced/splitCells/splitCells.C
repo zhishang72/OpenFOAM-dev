@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,14 +44,12 @@ Description
 #include "argList.H"
 #include "Time.H"
 #include "polyTopoChange.H"
-#include "polyTopoChanger.H"
-#include "mapPolyMesh.H"
+#include "polyTopoChangeMap.H"
 #include "polyMesh.H"
 #include "cellCuts.H"
 #include "cellSet.H"
 #include "cellModeller.H"
 #include "meshCutter.H"
-#include "unitConversion.H"
 #include "geomCellLooper.H"
 #include "plane.H"
 #include "edgeVertex.H"
@@ -545,14 +543,13 @@ int main(int argc, char *argv[])
     );
 
     #include "setRootCase.H"
-    #include "createTime.H"
-    runTime.functionObjects().off();
+    #include "createTimeNoFunctionObjects.H"
     #include "createPolyMesh.H"
     const word oldInstance = mesh.pointsInstance();
 
-    const scalar featureAngle = args.argRead<scalar>(1);
-    const scalar minCos = Foam::cos(degToRad(featureAngle));
-    const scalar minSin = Foam::sin(degToRad(featureAngle));
+    const scalar featureAngle = degToRad(args.argRead<scalar>(1));
+    const scalar minCos = Foam::cos(featureAngle);
+    const scalar minSin = Foam::sin(featureAngle);
 
     const bool readSet   = args.optionFound("set");
     const bool geometry  = args.optionFound("geometry");
@@ -561,7 +558,7 @@ int main(int argc, char *argv[])
     const scalar edgeTol = args.optionLookupOrDefault("tol", 0.2);
 
     Info<< "Trying to split cells with internal angles > feature angle\n" << nl
-        << "featureAngle      : " << featureAngle << nl
+        << "featureAngle      : " << radToDeg(featureAngle) << nl
         << "edge snapping tol : " << edgeTol << nl;
     if (readSet)
     {
@@ -685,18 +682,13 @@ int main(int argc, char *argv[])
             runTime++;
         }
 
-        autoPtr<mapPolyMesh> morphMap = meshMod.changeMesh(mesh, false);
-
-        if (morphMap().hasMotionPoints())
-        {
-            mesh.movePoints(morphMap().preMotionPoints());
-        }
+        autoPtr<polyTopoChangeMap> map = meshMod.changeMesh(mesh);
 
         // Update stored labels on meshCutter
-        cutter.updateMesh(morphMap());
+        cutter.topoChange(map());
 
         // Update cellSet
-        cellsToCut.updateMesh(morphMap());
+        cellsToCut.topoChange(map());
 
         Info<< "Remaining:" << cellsToCut.size() << endl;
 
@@ -706,7 +698,7 @@ int main(int argc, char *argv[])
             mesh.setInstance(oldInstance);
         }
 
-        Info<< "Writing refined morphMesh to time " << runTime.timeName()
+        Info<< "Writing refined morphMesh to time " << runTime.name()
             << endl;
 
         mesh.write();

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -71,6 +71,12 @@ const Foam::Vector<Foam::vector> Foam::triad::vsType::rootMin
     triad::uniform(vector::uniform(-rootVGreat))
 );
 
+template<>
+const Foam::Vector<Foam::vector> Foam::triad::vsType::nan
+(
+    triad::uniform(vector::uniform(NaN))
+);
+
 const Foam::triad Foam::triad::I
 (
     vector(1, 0, 0),
@@ -105,7 +111,7 @@ Foam::triad::triad(const tensor& t)
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-void Foam::triad::orthogonalize()
+void Foam::triad::orthogonalise()
 {
     // Hack for 2D z-slab cases
     // if (!set(2))
@@ -130,7 +136,7 @@ void Foam::triad::orthogonalize()
     // If all the axes are set
     if (set())
     {
-        for (int i=0; i<2; i++)
+        for (direction i=0; i<2; i++)
         {
             const scalar o01
             (
@@ -209,7 +215,7 @@ void Foam::triad::operator+=(const triad& t2)
     if (set() && t2.set())
     {
         direction correspondence[3]{0, 0, 0};
-        short signd[3];
+        label signd[3];
 
         for (direction i=0; i<3; i++)
         {

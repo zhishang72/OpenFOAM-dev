@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -54,7 +54,7 @@ class lduMesh;
 class lduPrimitiveMesh;
 
 /*---------------------------------------------------------------------------*\
-                    Class procFacesGAMGProcAgglomeration Declaration
+               Class procFacesGAMGProcAgglomeration Declaration
 \*---------------------------------------------------------------------------*/
 
 class procFacesGAMGProcAgglomeration
@@ -107,7 +107,7 @@ public:
         procFacesGAMGProcAgglomeration
         (
             const procFacesGAMGProcAgglomeration&
-        );
+        ) = delete;
 
 
     //- Destructor

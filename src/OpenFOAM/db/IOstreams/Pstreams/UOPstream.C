@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -88,12 +88,13 @@ Foam::UOPstream::UOPstream
     const int tag,
     const label comm,
     const bool sendAtDestruct,
-    streamFormat format,
-    versionNumber version
+    const streamFormat format,
+    const versionNumber version,
+    const bool global
 )
 :
     UPstream(commsType),
-    Ostream(format, version),
+    Ostream(format, version, UNCOMPRESSED, global),
     toProcNo_(toProcNo),
     sendBuf_(sendBuf),
     tag_(tag),
@@ -241,7 +242,7 @@ Foam::Ostream& Foam::UOPstream::writeQuoted
 
 Foam::Ostream& Foam::UOPstream::write(const int32_t val)
 {
-    writeToBuffer(char(token::LABEL));
+    writeToBuffer(char(token::INTEGER_32));
     writeToBuffer(val);
     return *this;
 }
@@ -249,7 +250,23 @@ Foam::Ostream& Foam::UOPstream::write(const int32_t val)
 
 Foam::Ostream& Foam::UOPstream::write(const int64_t val)
 {
-    writeToBuffer(char(token::LABEL));
+    writeToBuffer(char(token::INTEGER_64));
+    writeToBuffer(val);
+    return *this;
+}
+
+
+Foam::Ostream& Foam::UOPstream::write(const uint32_t val)
+{
+    writeToBuffer(char(token::UNSIGNED_INTEGER_32));
+    writeToBuffer(val);
+    return *this;
+}
+
+
+Foam::Ostream& Foam::UOPstream::write(const uint64_t val)
+{
+    writeToBuffer(char(token::UNSIGNED_INTEGER_64));
     writeToBuffer(val);
     return *this;
 }

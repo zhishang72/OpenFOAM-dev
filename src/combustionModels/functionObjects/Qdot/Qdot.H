@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2019-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -47,7 +47,7 @@ namespace functionObjects
 {
 
 /*---------------------------------------------------------------------------*\
-                          Class Qdot Declaration
+                            Class Qdot Declaration
 \*---------------------------------------------------------------------------*/
 
 class Qdot
@@ -55,8 +55,6 @@ class Qdot
     public fvMeshFunctionObject,
     public writeLocalObjects
 {
-private:
-
     // Private Data
 
         //- The name of the phase
@@ -88,6 +86,12 @@ public:
 
         //- Read the data
         virtual bool read(const dictionary&);
+
+        //- Return the list of fields required
+        virtual wordList fields() const
+        {
+            return wordList::null();
+        }
 
         //- Calculate the Qdot field
         virtual bool execute();

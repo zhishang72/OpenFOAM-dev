@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -36,13 +36,13 @@ template<>                                                                     \
 Foam::tmp<Foam::fvMatrix<Foam::Type>>                                          \
 Foam::fv::gaussLaplacianScheme<Foam::Type, Foam::scalar>::fvmLaplacian         \
 (                                                                              \
-    const GeometricField<scalar, fvsPatchField, surfaceMesh>& gamma,           \
-    const GeometricField<Type, fvPatchField, volMesh>& vf                      \
+    const SurfaceField<scalar>& gamma,                                         \
+    const VolField<Type>& vf                                                   \
 )                                                                              \
 {                                                                              \
     const fvMesh& mesh = this->mesh();                                         \
                                                                                \
-    GeometricField<scalar, fvsPatchField, surfaceMesh> gammaMagSf              \
+    SurfaceField<scalar> gammaMagSf                                            \
     (                                                                          \
         gamma*mesh.magSf()                                                     \
     );                                                                         \
@@ -57,10 +57,10 @@ Foam::fv::gaussLaplacianScheme<Foam::Type, Foam::scalar>::fvmLaplacian         \
                                                                                \
     if (this->tsnGradScheme_().corrected())                                    \
     {                                                                          \
-        if (mesh.fluxRequired(vf.name()))                                      \
+        if (mesh.schemes().fluxRequired(vf.name()))                            \
         {                                                                      \
             fvm.faceFluxCorrectionPtr() = new                                  \
-            GeometricField<Type, fvsPatchField, surfaceMesh>                   \
+            SurfaceField<Type>                   \
             (                                                                  \
                 gammaMagSf*this->tsnGradScheme_().correction(vf)               \
             );                                                                 \
@@ -88,16 +88,16 @@ Foam::fv::gaussLaplacianScheme<Foam::Type, Foam::scalar>::fvmLaplacian         \
                                                                                \
                                                                                \
 template<>                                                                     \
-Foam::tmp<Foam::GeometricField<Foam::Type, Foam::fvPatchField, Foam::volMesh>> \
+Foam::tmp<Foam::VolField<Foam::Type>> \
 Foam::fv::gaussLaplacianScheme<Foam::Type, Foam::scalar>::fvcLaplacian         \
 (                                                                              \
-    const GeometricField<scalar, fvsPatchField, surfaceMesh>& gamma,           \
-    const GeometricField<Type, fvPatchField, volMesh>& vf                      \
+    const SurfaceField<scalar>& gamma,                                         \
+    const VolField<Type>& vf                                                   \
 )                                                                              \
 {                                                                              \
     const fvMesh& mesh = this->mesh();                                         \
                                                                                \
-    tmp<GeometricField<Type, fvPatchField, volMesh>> tLaplacian                \
+    tmp<VolField<Type>> tLaplacian                                             \
     (                                                                          \
         fvc::div(gamma*this->tsnGradScheme_().snGrad(vf)*mesh.magSf())         \
     );                                                                         \

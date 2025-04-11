@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,6 @@ License
 
 #include "extendedFeatureEdgeMesh.H"
 #include "ListListOps.H"
-#include "unitConversion.H"
 #include "PackedBoolList.H"
 #include "PatchTools.H"
 #include "searchableBox.H"
@@ -344,7 +343,7 @@ void Foam::extendedFeatureEdgeMesh::sortPointsAndEdges
     // Creating the ptMap from the ftPtMap with identity values up to the size
     // of pts to create an oldToNew map for inplaceReorder
 
-    labelList ptMap(identity(pts.size()));
+    labelList ptMap(identityMap(pts.size()));
 
     forAll(ftPtMap, i)
     {

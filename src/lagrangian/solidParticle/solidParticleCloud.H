@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -50,12 +50,12 @@ namespace Foam
 class fvMesh;
 
 /*---------------------------------------------------------------------------*\
-                           Class solidParticleCloud Declaration
+                     Class solidParticleCloud Declaration
 \*---------------------------------------------------------------------------*/
 
 class solidParticleCloud
 :
-    public Cloud<solidParticle>
+    public lagrangian::Cloud<solidParticle>
 {
     // Private Data
 
@@ -64,11 +64,17 @@ class solidParticleCloud
         IOdictionary particleProperties_;
 
         scalar rhop_;
+
         scalar e_;
+
         scalar mu_;
 
 
 public:
+
+    //- Runtime type information
+    TypeName("solidParticleCloud");
+
 
     // Constructors
 
@@ -91,7 +97,9 @@ public:
             inline const fvMesh& mesh() const;
 
             inline scalar rhop() const;
+
             inline scalar e() const;
+
             inline scalar mu() const;
 
 

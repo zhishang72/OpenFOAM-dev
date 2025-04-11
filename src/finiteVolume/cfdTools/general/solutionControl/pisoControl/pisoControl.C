@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2018-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2018-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -33,6 +33,23 @@ namespace Foam
 }
 
 
+// * * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * * //
+
+bool Foam::pisoControl::read()
+{
+    if (!fluidSolutionControl::read())
+    {
+        return false;
+    }
+
+    const dictionary& solutionDict = dict();
+
+    nCorrPiso_ = solutionDict.lookupOrDefault<label>("nCorrectors", 1);
+
+    return true;
+}
+
+
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 Foam::pisoControl::pisoControl(fvMesh& mesh, const word& algorithmName)
@@ -53,48 +70,37 @@ Foam::pisoControl::~pisoControl()
 
 // * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * * //
 
-bool Foam::pisoControl::read()
+bool Foam::pisoControl::isFinal(const bool finalIter) const
 {
-    if (!fluidSolutionControl::read())
-    {
-        return false;
-    }
-
-    const dictionary& solutionDict = dict();
-
-    nCorrPiso_ = solutionDict.lookupOrDefault<label>("nCorrectors", 1);
-
-    return true;
+    return (finalIter && !anyPisoIter()) || finalPisoIter();
 }
 
 
-bool Foam::pisoControl::isFinal() const
+bool Foam::pisoControl::correct(const bool finalIter)
 {
-    return
-        (!anyNonOrthogonalIter() && finalPisoIter())
-     || (finalNonOrthogonalIter() && finalPisoIter())
-     || (finalNonOrthogonalIter() && !anyPisoIter());
-}
-
-
-bool Foam::pisoControl::correct()
-{
-    read();
-
     if (finalPisoIter())
     {
         corrPiso_ = 0;
 
-        updateFinal();
+        updateFinal(isFinal(finalIter));
 
         return false;
     }
 
-    ++ corrPiso_;
+    corrPiso_++;
 
-    updateFinal();
+    updateFinal(isFinal(finalIter));
 
     return true;
+}
+
+
+bool Foam::pisoControl::correctNonOrthogonal(const bool finalIter)
+{
+    return nonOrthogonalSolutionControl::correctNonOrthogonal
+    (
+        isFinal(finalIter)
+    );
 }
 
 

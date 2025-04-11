@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -36,7 +36,6 @@ SourceFiles
 #define pointPatchMapper_H
 
 #include "pointMapper.H"
-#include "pointPatchFieldMapper.H"
 #include "pointPatch.H"
 #include "primitiveFields.H"
 
@@ -47,15 +46,15 @@ namespace Foam
 
 // Forward declaration of classes
 class pointPatch;
-class mapPolyMesh;
+class polyTopoChangeMap;
 
 /*---------------------------------------------------------------------------*\
-                       Class pointPatchMapper Declaration
+                      Class pointPatchMapper Declaration
 \*---------------------------------------------------------------------------*/
 
 class pointPatchMapper
 :
-    public generalPointPatchFieldMapper
+    public generalFieldMapper
 {
     // Private Data
 
@@ -66,15 +65,13 @@ class pointPatchMapper
         const morphFieldMapper& pointMapper_;
 
         //- Reference to mapping data
-        const mapPolyMesh& mpm_;
+        const polyTopoChangeMap& map_;
 
         //- Size before mapping
         const label sizeBeforeMapping_;
 
 
     // Demand-driven private data
-
-        mutable bool hasUnmapped_;
 
         //- Direct addressing (only one for of addressing is used)
         mutable labelList* directAddrPtr_;
@@ -104,14 +101,14 @@ public:
         (
             const pointPatch& patch,
             const pointMapper& pointMap,
-            const mapPolyMesh& mpm
+            const polyTopoChangeMap& map
         );
 
         //- Disallow default bitwise copy construction
         pointPatchMapper
         (
             const pointPatchMapper&
-        );
+        ) = delete;
 
 
     //- Destructor
@@ -120,18 +117,13 @@ public:
 
     // Member Functions
 
-        virtual bool hasUnmapped() const
-        {
-            return hasUnmapped_;
-        }
-
         //- Return size of field before mapping
-        virtual label sizeBeforeMapping() const
+        label sizeBeforeMapping() const
         {
             return sizeBeforeMapping_;
         }
 
-        //- Is the mapping direct
+        //- Is the mapping direct?
         virtual bool direct() const
         {
             return pointMapper_.direct();

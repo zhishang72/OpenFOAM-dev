@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -32,7 +32,6 @@ Description
 
 SourceFiles
     tetrahedronI.H
-    tetrahedron.C
 
 \*---------------------------------------------------------------------------*/
 
@@ -42,7 +41,7 @@ SourceFiles
 #include "point.H"
 #include "primitiveFieldsFwd.H"
 #include "pointHit.H"
-#include "Random.H"
+#include "randomGenerator.H"
 #include "FixedList.H"
 #include "UList.H"
 #include "triPointRef.H"
@@ -76,7 +75,7 @@ inline Ostream& operator<<
 );
 
 /*---------------------------------------------------------------------------*\
-                           class tetrahedron Declaration
+                         Class tetrahedron Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Point, class PointRef>
@@ -153,11 +152,8 @@ public:
             //- Return volume
             inline scalar mag() const;
 
-            //- Return circum-centre
-            inline Point circumCentre() const;
-
-            //- Return circum-radius
-            inline scalar circumRadius() const;
+            //- Return the circum centre and radius
+            inline Tuple2<Point, scalar> circumSphere() const;
 
             //- Return quality: Ratio of tetrahedron and circum-sphere
             //  volume, scaled so that a regular tetrahedron has a
@@ -166,7 +162,7 @@ public:
 
             //- Return a random point in the tetrahedron from a
             //  uniform distribution
-            inline Point randomPoint(Random& rndGen) const;
+            inline Point randomPoint(randomGenerator& rndGen) const;
 
             //- Calculate the point from the given barycentric coordinates.
             inline Point barycentricToPoint(const barycentric& bary) const;
@@ -189,28 +185,8 @@ public:
             //- Return true if point is inside tetrahedron
             inline bool inside(const point& pt) const;
 
-            //- Return (min)containment sphere, i.e. the smallest sphere with
-            //  all points inside. Returns pointHit with:
-            //  - hit         : if sphere is equal to circumsphere
-            //                  (biggest sphere)
-            //  - point       : centre of sphere
-            //  - distance    : radius of sphere
-            //  - eligiblemiss: false
-            // Tol (small compared to 1, e.g. 1e-9) is used to determine
-            // whether point is inside: mag(pt - ctr) < (1+tol)*radius.
-            pointHit containmentSphere(const scalar tol) const;
-
-            //- Fill buffer with shape function products
-            void gradNiSquared(scalarField& buffer) const;
-
-            void gradNiDotGradNj(scalarField& buffer) const;
-
-            void gradNiGradNi(tensorField& buffer) const;
-
-            void gradNiGradNj(tensorField& buffer) const;
-
             //- Calculate the bounding box
-            boundBox bounds() const;
+            inline boundBox bounds() const;
 
 
     // IOstream Operators
@@ -236,12 +212,6 @@ public:
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 #include "tetrahedronI.H"
-
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-#ifdef NoRepository
-    #include "tetrahedron.C"
-#endif
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

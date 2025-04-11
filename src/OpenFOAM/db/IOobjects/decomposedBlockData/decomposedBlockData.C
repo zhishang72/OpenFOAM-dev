@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -195,11 +195,16 @@ void Foam::decomposedBlockData::writeHeader
     const word& name
 )
 {
-    IOobject::writeBanner(os)
-        << IOobject::foamFile << "\n{\n"
-        << "    version     " << version << ";\n"
-        << "    format      " << format << ";\n"
+    IOobject::writeBanner(os) << IOobject::foamFile << "\n{\n";
+
+    if (version != IOstream::currentVersion)
+    {
+        os  << "    version     " << version << ";\n";
+    }
+
+    os  << "    format      " << format << ";\n"
         << "    class       " << type << ";\n";
+
     if (note.size())
     {
         os  << "    note        " << note << ";\n";
@@ -772,16 +777,12 @@ bool Foam::decomposedBlockData::writeBlocks
             }
 
             // Write slaves
-
-            label slaveOffset = 0;
-
             for (label proci = 1; proci < nProcs; proci++)
             {
                 os << nl << nl << "// Processor" << proci << nl;
                 start[proci] = os.stdStream().tellp();
 
                 os << slaveData[proci];
-                slaveOffset += recvSizes[proci];
             }
 
             ok = os.good();
@@ -942,7 +943,7 @@ bool Foam::decomposedBlockData::writeBlocks
 bool Foam::decomposedBlockData::read()
 {
     autoPtr<ISstream> isPtr;
-    fileName objPath(fileHandler().filePath(false, *this, word::null));
+    fileName objPath(fileHandler().filePath(false, *this));
     if (UPstream::master(comm_))
     {
         isPtr.reset(new IFstream(objPath));

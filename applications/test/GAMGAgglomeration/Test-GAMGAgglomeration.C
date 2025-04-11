@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -29,10 +29,13 @@ Description
 
 \*---------------------------------------------------------------------------*/
 
-#include "fvCFD.H"
+#include "argList.H"
+#include "volFields.H"
 #include "GAMGAgglomeration.H"
 #include "OFstream.H"
 #include "meshTools.H"
+
+using namespace Foam;
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 // Main program:
@@ -67,7 +70,7 @@ int main(int argc, char *argv[])
         pDict
     );
 
-    labelList cellToCoarse(identity(mesh.nCells()));
+    labelList cellToCoarse(identityMap(mesh.nCells()));
     labelListList coarseToCell(invertOneToMany(mesh.nCells(), cellToCoarse));
 
     runTime++;
@@ -79,7 +82,7 @@ int main(int argc, char *argv[])
             IOobject
             (
                 "agglomeration",
-                runTime.timeName(),
+                runTime.name(),
                 mesh,
                 IOobject::NO_READ,
                 IOobject::AUTO_WRITE
@@ -97,7 +100,7 @@ int main(int argc, char *argv[])
         scalarAgglomeration.write();
 
         Info<< "Writing initial cell distribution to "
-            << runTime.timeName() << endl;
+            << runTime.name() << endl;
     }
 
 
@@ -105,7 +108,7 @@ int main(int argc, char *argv[])
     {
         runTime++;
 
-        Info<< "Time = " << runTime.timeName() << nl << endl;
+        Info<< "Time = " << runTime.userTimeName() << nl << endl;
 
         const labelList& addr = agglom.restrictAddressing(level);
         label coarseSize = max(addr)+1;
@@ -158,7 +161,7 @@ int main(int argc, char *argv[])
                 IOobject
                 (
                     "agglomeration",
-                    runTime.timeName(),
+                    runTime.name(),
                     mesh,
                     IOobject::NO_READ,
                     IOobject::AUTO_WRITE
@@ -181,7 +184,7 @@ int main(int argc, char *argv[])
 
         if (writeObj)
         {
-            OFstream str(runTime.path()/runTime.timeName()/"aggomeration.obj");
+            OFstream str(runTime.path()/runTime.name()/"aggomeration.obj");
             label vertI = 0;
 
             // Write all mesh cc

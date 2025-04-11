@@ -2,9 +2,13 @@ probes/probes.C
 probes/patchProbes.C
 probes/probesGrouping.C
 
+coordSet/coordSet.C
+
 sampledSet/sampledSet/sampledSet.C
+sampledSet/sampledSet/sampledSetParticle.C
+sampledSet/sampledSet/sampledSetCloud.C
 sampledSet/sampledSets/sampledSets.C
-sampledSet/sampledSets/sampledSetsGrouping.C
+
 sampledSet/arcUniform/arcUniform.C
 sampledSet/boxUniform/boxUniform.C
 sampledSet/circleRandom/circleRandom.C
@@ -16,23 +20,39 @@ sampledSet/boundaryPoints/boundaryPoints.C
 sampledSet/boundaryRandom/boundaryRandom.C
 sampledSet/points/points.C
 sampledSet/sphereRandom/sphereRandom.C
-sampledSet/triSurfaceMeshSampledSet/triSurfaceMeshSampledSet.C
+sampledSet/triSurfaceMesh/triSurfaceMesh_sampledSet.C
+sampledSet/cellSet/cellSet_sampledSet.C
+sampledSet/faceSet/faceSet_sampledSet.C
 
-cuttingPlane/cuttingPlane.C
+setWriters = sampledSet/writers
+
+$(setWriters)/setWriter.C
+
+$(setWriters)/ensight/file/ensightFile.C
+$(setWriters)/ensight/file/ensightGeoFile.C
+$(setWriters)/ensight/part/ensightPart.C
+$(setWriters)/ensight/part/ensightPartIO.C
+$(setWriters)/ensight/part/ensightPartCells.C
+$(setWriters)/ensight/part/ensightPartFaces.C
+$(setWriters)/ensight/part/ensightParts.C
+$(setWriters)/ensight/ensightSetWriter.C
+$(setWriters)/raw/rawSetWriter.C
+$(setWriters)/vtk/vtkSetWriter.C
+$(setWriters)/csv/csvSetWriter.C
+$(setWriters)/gnuplot/gnuplotSetWriter.C
+$(setWriters)/none/noSetWriter.C
 
 sampledSurface/sampledPatch/sampledPatch.C
 sampledSurface/sampledPatchInternalField/sampledPatchInternalField.C
-sampledSurface/sampledPlane/sampledPlane.C
-sampledSurface/isoSurface/isoSurface.C
-sampledSurface/isoSurface/sampledIsoSurface.C
-sampledSurface/distanceSurface/distanceSurface.C
-sampledSurface/sampledCuttingPlane/sampledCuttingPlane.C
+sampledSurface/sampledIsoSurfaceSurface/sampledIsoSurfaceSurface.C
+sampledSurface/sampledIsoSurface/sampledIsoSurface.C
+sampledSurface/sampledDistanceSurface/sampledDistanceSurface.C
+sampledSurface/sampledCutPlane/sampledCutPlane.C
 sampledSurface/sampledSurface/sampledSurface.C
 sampledSurface/sampledSurfaces/sampledSurfaces.C
-sampledSurface/sampledSurfaces/sampledSurfacesGrouping.C
 sampledSurface/sampledTriSurfaceMesh/sampledTriSurfaceMesh.C
-sampledSurface/thresholdCellFaces/thresholdCellFaces.C
-sampledSurface/thresholdCellFaces/sampledThresholdCellFaces.C
+sampledSurface/sampledThresholdCellFaces/thresholdCellFaces.C
+sampledSurface/sampledThresholdCellFaces/sampledThresholdCellFaces.C
 
 surfWriters = sampledSurface/writers
 
@@ -41,29 +61,9 @@ $(surfWriters)/none/noSurfaceWriter.C
 $(surfWriters)/ensight/ensightSurfaceWriter.C
 $(surfWriters)/ensight/ensightPTraits.C
 $(surfWriters)/foam/foamSurfaceWriter.C
-$(surfWriters)/nastran/nastranSurfaceWriter.C
 $(surfWriters)/proxy/proxySurfaceWriter.C
 $(surfWriters)/raw/rawSurfaceWriter.C
-$(surfWriters)/starcd/starcdSurfaceWriter.C
 $(surfWriters)/vtk/vtkSurfaceWriter.C
-
-graphField/writePatchGraph.C
-graphField/writeCellGraph.C
-graphField/makeGraph.C
-
-meshToMesh/meshToMesh.C
-meshToMesh/meshToMeshParallelOps.C
-meshToMesh/distributedWeightedFvPatchFieldMapper.C
-meshToMeshMethods = meshToMesh/calcMethod
-$(meshToMeshMethods)/meshToMeshMethod/meshToMeshMethod.C
-$(meshToMeshMethods)/meshToMeshMethod/meshToMeshMethodNew.C
-$(meshToMeshMethods)/cellVolumeWeight/cellVolumeWeightMethod.C
-$(meshToMeshMethods)/direct/directMethod.C
-$(meshToMeshMethods)/mapNearest/mapNearestMethod.C
-
-meshToMesh0/meshToMesh0.C
-meshToMesh0/calculateMeshToMesh0Addressing.C
-meshToMesh0/calculateMeshToMesh0Weights.C
 
 
 LIB = $(FOAM_LIBBIN)/libsampling

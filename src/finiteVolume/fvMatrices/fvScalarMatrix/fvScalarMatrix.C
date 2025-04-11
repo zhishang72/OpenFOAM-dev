@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -62,7 +62,7 @@ Foam::fvMatrix<Foam::scalar>::solver
 {
     if (debug)
     {
-        Info.masterStream(this->mesh().comm())
+        Info(this->mesh().comm())
             << "fvMatrix<scalar>::solver(const dictionary& solverControls) : "
                "solver for fvMatrix<scalar>"
             << endl;
@@ -100,8 +100,8 @@ Foam::solverPerformance Foam::fvMatrix<Foam::scalar>::fvSolver::solve
     const dictionary& solverControls
 )
 {
-    GeometricField<scalar, fvPatchField, volMesh>& psi =
-        const_cast<GeometricField<scalar, fvPatchField, volMesh>&>
+    VolField<scalar>& psi =
+        const_cast<VolField<scalar>&>
         (fvMat_.psi());
 
     scalarField saveDiag(fvMat_.diag());
@@ -121,7 +121,7 @@ Foam::solverPerformance Foam::fvMatrix<Foam::scalar>::fvSolver::solve
 
     if (solverPerformance::debug)
     {
-        solverPerf.print(Info.masterStream(fvMat_.mesh().comm()));
+        solverPerf.print(Info(fvMat_.mesh().comm()));
     }
 
     fvMat_.diag() = saveDiag;
@@ -142,15 +142,15 @@ Foam::solverPerformance Foam::fvMatrix<Foam::scalar>::solveSegregated
 {
     if (debug)
     {
-        Info.masterStream(this->mesh().comm())
+        Info(this->mesh().comm())
             << "fvMatrix<scalar>::solveSegregated"
                "(const dictionary& solverControls) : "
                "solving fvMatrix<scalar>"
             << endl;
     }
 
-    GeometricField<scalar, fvPatchField, volMesh>& psi =
-       const_cast<GeometricField<scalar, fvPatchField, volMesh>&>(psi_);
+    VolField<scalar>& psi =
+       const_cast<VolField<scalar>&>(psi_);
 
     scalarField saveDiag(diag());
     addBoundaryDiag(diag(), 0);
@@ -171,7 +171,7 @@ Foam::solverPerformance Foam::fvMatrix<Foam::scalar>::solveSegregated
 
     if (solverPerformance::debug)
     {
-        solverPerf.print(Info.masterStream(mesh().comm()));
+        solverPerf.print(Info(mesh().comm()));
     }
 
     diag() = saveDiag;
@@ -217,7 +217,7 @@ Foam::tmp<Foam::volScalarField> Foam::fvMatrix<Foam::scalar>::H() const
         (
             "H("+psi_.name()+')',
             psi_.mesh(),
-            dimensions_/dimVol,
+            dimensions_/dimVolume,
             extrapolatedCalculatedFvPatchScalarField::typeName
         )
     );
@@ -242,7 +242,7 @@ Foam::tmp<Foam::volScalarField> Foam::fvMatrix<Foam::scalar>::H1() const
         (
             "H(1)",
             psi_.mesh(),
-            dimensions_/(dimVol*psi_.dimensions()),
+            dimensions_/(dimVolume*psi_.dimensions()),
             extrapolatedCalculatedFvPatchScalarField::typeName
         )
     );

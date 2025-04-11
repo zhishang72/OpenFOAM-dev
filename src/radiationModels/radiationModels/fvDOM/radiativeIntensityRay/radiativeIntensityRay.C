@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -61,7 +61,7 @@ Foam::radiationModels::radiativeIntensityRay::radiativeIntensityRay
         IOobject
         (
             "I" + name(rayId),
-            mesh_.time().timeName(),
+            mesh_.time().name(),
             mesh_,
             IOobject::NO_READ,
             IOobject::NO_WRITE
@@ -74,7 +74,7 @@ Foam::radiationModels::radiativeIntensityRay::radiativeIntensityRay
         IOobject
         (
             "qr" + name(rayId),
-            mesh_.time().timeName(),
+            mesh_.time().name(),
             mesh_,
             IOobject::NO_READ,
             IOobject::NO_WRITE
@@ -87,7 +87,7 @@ Foam::radiationModels::radiativeIntensityRay::radiativeIntensityRay
         IOobject
         (
             "qin" + name(rayId),
-            mesh_.time().timeName(),
+            mesh_.time().name(),
             mesh_,
             IOobject::NO_READ,
             IOobject::NO_WRITE
@@ -100,7 +100,7 @@ Foam::radiationModels::radiativeIntensityRay::radiativeIntensityRay
         IOobject
         (
             "qem" + name(rayId),
-            mesh_.time().timeName(),
+            mesh_.time().name(),
             mesh_,
             IOobject::NO_READ,
             IOobject::NO_WRITE
@@ -177,17 +177,17 @@ Foam::radiationModels::radiativeIntensityRay::radiativeIntensityRay
 
     forAll(ILambda_, lambdaI)
     {
-        IOobject IHeader
+        typeIOobject<volScalarField> IHeader
         (
             intensityPrefix + "_" + name(rayId) + "_" + name(lambdaI),
-            mesh_.time().timeName(),
+            mesh_.time().name(),
             mesh_,
             IOobject::MUST_READ,
             IOobject::AUTO_WRITE
         );
 
         // Check if field exists and can be read
-        if (IHeader.typeHeaderOk<volScalarField>(true))
+        if (IHeader.headerOk())
         {
             ILambda_.set
             (
@@ -207,7 +207,7 @@ Foam::radiationModels::radiativeIntensityRay::radiativeIntensityRay
                         IOobject
                         (
                             "IDefault",
-                            mesh_.time().timeName(),
+                            mesh_.time().name(),
                             mesh_,
                             IOobject::MUST_READ,
                             IOobject::NO_WRITE

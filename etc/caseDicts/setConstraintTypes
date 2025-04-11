@@ -11,35 +11,25 @@ cyclic
     type  cyclic;
 }
 
-cyclicAMI
-{
-    type  cyclicAMI;
-}
-
-cyclicACMI
-{
-    type  cyclicACMI;
-    value $internalField;
-}
-
 cyclicSlip
 {
     type  cyclicSlip;
 }
 
-conformalCoupled
+nonConformalCyclic
 {
-    type  conformalCoupled;
+    type  nonConformalCyclic;
+    value $internalField;
+}
+
+nonConformalError
+{
+    type  nonConformalError;
 }
 
 empty
 {
     type  empty;
-}
-
-cyclicRepeatAMI
-{
-    type  cyclicRepeatAMI;
 }
 
 processor
@@ -51,6 +41,12 @@ processor
 processorCyclic
 {
     type  processorCyclic;
+    value $internalField;
+}
+
+nonConformalProcessorCyclic
+{
+    type  nonConformalProcessorCyclic;
     value $internalField;
 }
 
@@ -67,6 +63,11 @@ symmetry
 wedge
 {
     type  wedge;
+}
+
+internal
+{
+    type  internal;
 }
 
 

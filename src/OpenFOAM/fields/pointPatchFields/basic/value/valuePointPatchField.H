@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -43,7 +43,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                   Class valuePointPatchField Declaration
+                    Class valuePointPatchField Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -81,26 +81,15 @@ public:
             const bool valueRequired=true
         );
 
-        //- Construct by mapping given patchField<Type> onto a new patch
+        //- Construct by mapping given valuePointPatchField<Type>
+        //  onto a new patch
         valuePointPatchField
         (
             const valuePointPatchField<Type>&,
             const pointPatch&,
             const DimensionedField<Type, pointMesh>&,
-            const pointPatchFieldMapper&
+            const fieldMapper&
         );
-
-        //- Construct and return a clone
-        virtual autoPtr<pointPatchField<Type>> clone() const
-        {
-            return autoPtr<pointPatchField<Type>>
-            (
-                new valuePointPatchField<Type>
-                (
-                    *this
-                )
-            );
-        }
 
         //- Construct as copy setting internal field reference
         valuePointPatchField
@@ -109,8 +98,8 @@ public:
             const DimensionedField<Type, pointMesh>&
         );
 
-        //- Copy constructor
-        valuePointPatchField(const valuePointPatchField<Type>&) = default;
+        //- Disallow copy without setting internal field reference
+        valuePointPatchField(const valuePointPatchField<Type>&) = delete;
 
         //- Construct and return a clone setting internal field reference
         virtual autoPtr<pointPatchField<Type>> clone
@@ -142,13 +131,12 @@ public:
 
         // Mapping functions
 
-            //- Map (and resize as needed) from self given a mapping object
-            //  Used to update fields following mesh topology change
-            virtual void autoMap(const pointPatchFieldMapper&);
+            //- Map the given pointPatchField onto this pointPatchField
+            virtual void map(const pointPatchField<Type>&, const fieldMapper&);
 
-            //- Reverse map the given pointPatchField onto this pointPatchField
-            //  Used to reconstruct fields
-            virtual void rmap(const pointPatchField<Type>&, const labelList&);
+            //- Reset the pointPatchField to the given pointPatchField
+            //  Used for mesh to mesh mapping
+            virtual void reset(const pointPatchField<Type>&);
 
 
         // Evaluation functions

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -33,17 +33,18 @@ template<class TrackCloudType>
 bool Foam::DSMCParcel<ParcelType>::move
 (
     TrackCloudType& cloud,
-    trackingData& td,
-    const scalar trackTime
+    trackingData& td
 )
 {
     typename TrackCloudType::parcelType& p =
         static_cast<typename TrackCloudType::parcelType&>(*this);
 
-    td.switchProcessor = false;
     td.keepParticle = true;
+    td.sendToProc = -1;
 
     const polyMesh& mesh = cloud.pMesh();
+
+    const scalar trackTime = mesh.time().deltaTValue();
 
     // For reduced-D cases, the velocity used to track needs to be
     // constrained, but the actual U_ of the parcel must not be
@@ -51,7 +52,7 @@ bool Foam::DSMCParcel<ParcelType>::move
     // needs to retain its 3D value for collision purposes.
     vector Utracking = U_;
 
-    while (td.keepParticle && !td.switchProcessor && p.stepFraction() < 1)
+    while (td.keepParticle && td.sendToProc == -1 && p.stepFraction() < 1)
     {
         Utracking = U_;
 
@@ -60,7 +61,7 @@ bool Foam::DSMCParcel<ParcelType>::move
         meshTools::constrainDirection(mesh, mesh.solutionD(), Utracking);
 
         // Deviation from the mesh centre for reduced-D cases
-        const vector d = p.deviationFromMeshCentre();
+        const vector d = p.deviationFromMeshCentre(mesh);
 
         const scalar f = 1 - p.stepFraction();
         p.trackToAndHitFace(f*trackTime*Utracking - d, f, cloud, td);
@@ -72,43 +73,23 @@ bool Foam::DSMCParcel<ParcelType>::move
 
 template<class ParcelType>
 template<class TrackCloudType>
-bool Foam::DSMCParcel<ParcelType>::hitPatch(TrackCloudType&, trackingData&)
-{
-    return false;
-}
-
-
-template<class ParcelType>
-template<class TrackCloudType>
-void Foam::DSMCParcel<ParcelType>::hitProcessorPatch
-(
-    TrackCloudType&,
-    trackingData& td
-)
-{
-    td.switchProcessor = true;
-}
-
-
-template<class ParcelType>
-template<class TrackCloudType>
 void Foam::DSMCParcel<ParcelType>::hitWallPatch
 (
     TrackCloudType& cloud,
     trackingData&
 )
 {
-    const label wppIndex = this->patch();
+    const label wppIndex = this->patch(cloud.pMesh());
 
     const wallPolyPatch& wpp =
         static_cast<const wallPolyPatch&>
         (
-            this->mesh().boundaryMesh()[wppIndex]
+            cloud.pMesh().boundaryMesh()[wppIndex]
         );
 
     const label wppLocalFace = wpp.whichFace(this->face());
 
-    const scalar fA = mag(wpp.faceAreas()[wppLocalFace]);
+    const scalar fA = wpp.magFaceAreas()[wppLocalFace];
 
     const scalar deltaT = cloud.pMesh().time().deltaTValue();
 
@@ -184,20 +165,13 @@ void Foam::DSMCParcel<ParcelType>::hitWallPatch
 
 
 template<class ParcelType>
-void Foam::DSMCParcel<ParcelType>::transformProperties(const tensor& T)
-{
-    ParcelType::transformProperties(T);
-    U_ = transform(T, U_);
-}
-
-
-template<class ParcelType>
 void Foam::DSMCParcel<ParcelType>::transformProperties
 (
-    const vector& separation
+    const transformer& transform
 )
 {
-    ParcelType::transformProperties(separation);
+    ParcelType::transformProperties(transform);
+    U_ = transform.transform(U_);
 }
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,13 +24,13 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "searchableExtrudedCircle.H"
-#include "addToRunTimeSelectionTable.H"
 #include "Time.H"
 #include "edgeMesh.H"
 #include "indexedOctree.H"
 #include "treeDataEdge.H"
 #include "linearInterpolationWeights.H"
 #include "quaternion.H"
+#include "addToRunTimeSelectionTable.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -61,17 +61,17 @@ Foam::searchableExtrudedCircle::searchableExtrudedCircle
         (
             IOobject
             (
-                dict.lookup("file"),                // name
-                io.time().constant(),               // instance
-                "geometry",                         // local
-                io.time(),                          // registry
+                dict.lookup("file"),
+                io.time().constant(),
+                searchableSurface::geometryDir(),
+                io.time(),
                 IOobject::MUST_READ,
                 IOobject::NO_WRITE,
                 false
-            ).objectPath()
+            ).objectPath(true)
         )
     ),
-    radius_(dict.lookup<scalar>("radius"))
+    radius_(dict.lookup<scalar>("radius", dimLength))
 {
     const edgeMesh& eMesh = eMeshPtr_();
 
@@ -102,7 +102,7 @@ Foam::searchableExtrudedCircle::searchableExtrudedCircle
                 false,                  // do not cache bb
                 edges,
                 points,
-                identity(edges.size())
+                identityMap(edges.size())
             ),
             bb,     // overall search domain
             8,      // maxLevel

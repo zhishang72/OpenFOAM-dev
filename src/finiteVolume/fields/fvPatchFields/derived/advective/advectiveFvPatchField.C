@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,52 +24,15 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "advectiveFvPatchField.H"
-#include "addToRunTimeSelectionTable.H"
-#include "fvPatchFieldMapper.H"
+#include "fieldMapper.H"
 #include "volFields.H"
 #include "EulerDdtScheme.H"
 #include "CrankNicolsonDdtScheme.H"
 #include "backwardDdtScheme.H"
 #include "localEulerDdtScheme.H"
-
+#include "addToRunTimeSelectionTable.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
-
-template<class Type>
-Foam::advectiveFvPatchField<Type>::advectiveFvPatchField
-(
-    const fvPatch& p,
-    const DimensionedField<Type, volMesh>& iF
-)
-:
-    mixedFvPatchField<Type>(p, iF),
-    phiName_("phi"),
-    rhoName_("rho"),
-    fieldInf_(Zero),
-    lInf_(-great)
-{
-    this->refValue() = Zero;
-    this->refGrad() = Zero;
-    this->valueFraction() = 0.0;
-}
-
-
-template<class Type>
-Foam::advectiveFvPatchField<Type>::advectiveFvPatchField
-(
-    const advectiveFvPatchField& ptf,
-    const fvPatch& p,
-    const DimensionedField<Type, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
-)
-:
-    mixedFvPatchField<Type>(ptf, p, iF, mapper),
-    phiName_(ptf.phiName_),
-    rhoName_(ptf.rhoName_),
-    fieldInf_(ptf.fieldInf_),
-    lInf_(ptf.lInf_)
-{}
-
 
 template<class Type>
 Foam::advectiveFvPatchField<Type>::advectiveFvPatchField
@@ -79,7 +42,7 @@ Foam::advectiveFvPatchField<Type>::advectiveFvPatchField
     const dictionary& dict
 )
 :
-    mixedFvPatchField<Type>(p, iF),
+    mixedFvPatchField<Type>(p, iF, dict, false),
     phiName_(dict.lookupOrDefault<word>("phi", "phi")),
     rhoName_(dict.lookupOrDefault<word>("rho", "rho")),
     fieldInf_(Zero),
@@ -89,7 +52,7 @@ Foam::advectiveFvPatchField<Type>::advectiveFvPatchField
     {
         fvPatchField<Type>::operator=
         (
-            Field<Type>("value", dict, p.size())
+            Field<Type>("value", iF.dimensions(), dict, p.size())
         );
     }
     else
@@ -101,21 +64,19 @@ Foam::advectiveFvPatchField<Type>::advectiveFvPatchField
     this->refGrad() = Zero;
     this->valueFraction() = 0.0;
 
-    if (dict.readIfPresent("lInf", lInf_))
+    if (dict.readIfPresent<scalar>("lInf", dimLength, lInf_))
     {
-        dict.lookup("fieldInf") >> fieldInf_;
-
         if (lInf_ < 0.0)
         {
-            FatalIOErrorInFunction
-            (
-                dict
-            )   << "unphysical lInf specified (lInf < 0)" << nl
+            FatalIOErrorInFunction(dict)
+                << "unphysical lInf specified (lInf < 0)" << nl
                 << "    on patch " << this->patch().name()
                 << " of field " << this->internalField().name()
                 << " in file " << this->internalField().objectPath()
                 << exit(FatalIOError);
         }
+
+        fieldInf_ = dict.lookup<Type>("fieldInf", iF.dimensions());
     }
 }
 
@@ -123,14 +84,17 @@ Foam::advectiveFvPatchField<Type>::advectiveFvPatchField
 template<class Type>
 Foam::advectiveFvPatchField<Type>::advectiveFvPatchField
 (
-    const advectiveFvPatchField& ptpsf
+    const advectiveFvPatchField& ptf,
+    const fvPatch& p,
+    const DimensionedField<Type, volMesh>& iF,
+    const fieldMapper& mapper
 )
 :
-    mixedFvPatchField<Type>(ptpsf),
-    phiName_(ptpsf.phiName_),
-    rhoName_(ptpsf.rhoName_),
-    fieldInf_(ptpsf.fieldInf_),
-    lInf_(ptpsf.lInf_)
+    mixedFvPatchField<Type>(ptf, p, iF, mapper),
+    phiName_(ptf.phiName_),
+    rhoName_(ptf.rhoName_),
+    fieldInf_(ptf.fieldInf_),
+    lInf_(ptf.lInf_)
 {}
 
 
@@ -159,13 +123,13 @@ Foam::advectiveFvPatchField<Type>::advectionSpeed() const
         this->db().objectRegistry::template lookupObject<surfaceScalarField>
         (phiName_);
 
-    fvsPatchField<scalar> phip =
+    const fvsPatchField<scalar>& phip =
         this->patch().template lookupPatchField<surfaceScalarField, scalar>
         (
             phiName_
         );
 
-    if (phi.dimensions() == dimDensity*dimVelocity*dimArea)
+    if (phi.dimensions() == dimMassFlux)
     {
         const fvPatchScalarField& rhop =
             this->patch().template lookupPatchField<volScalarField, scalar>
@@ -194,13 +158,13 @@ void Foam::advectiveFvPatchField<Type>::updateCoeffs()
 
     word ddtScheme
     (
-        mesh.ddtScheme(this->internalField().name())
+        mesh.schemes().ddt(this->internalField().name())
     );
     scalar deltaT = this->db().time().deltaTValue();
 
-    const GeometricField<Type, fvPatchField, volMesh>& field =
+    const VolField<Type>& field =
         this->db().objectRegistry::template
-        lookupObject<GeometricField<Type, fvPatchField, volMesh>>
+        lookupObject<VolField<Type>>
         (
             this->internalField().name()
         );

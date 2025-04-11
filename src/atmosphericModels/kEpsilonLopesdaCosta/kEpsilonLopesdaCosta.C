@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2018-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2018-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,8 +24,9 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "kEpsilonLopesdaCosta.H"
-#include "fvOptions.H"
-#include "explicitPorositySource.H"
+#include "fvModels.H"
+#include "fvConstraints.H"
+#include "porosityForce.H"
 #include "bound.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -37,8 +38,8 @@ namespace RASModels
 
 // * * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * * //
 
-template<class BasicTurbulenceModel>
-void kEpsilonLopesdaCosta<BasicTurbulenceModel>::setPorosityCoefficient
+template<class BasicMomentumTransportModel>
+void kEpsilonLopesdaCosta<BasicMomentumTransportModel>::setPorosityCoefficient
 (
     volScalarField::Internal& C,
     const porosityModels::powerLawLopesdaCosta& pm
@@ -46,27 +47,21 @@ void kEpsilonLopesdaCosta<BasicTurbulenceModel>::setPorosityCoefficient
 {
     if (pm.dict().found(C.name()))
     {
-        const labelList& cellZoneIDs = pm.cellZoneIDs();
-
         const scalar Cpm = pm.dict().lookup<scalar>(C.name());
 
-        forAll(cellZoneIDs, zonei)
-        {
-            const labelList& cells =
-                this->mesh_.cellZones()[cellZoneIDs[zonei]];
+        const labelList& cells = this->mesh_.cellZones()[pm.zoneName()];
 
-            forAll(cells, i)
-            {
-                const label celli = cells[i];
-                C[celli] = Cpm;
-            }
+        forAll(cells, i)
+        {
+            const label celli = cells[i];
+            C[celli] = Cpm;
         }
     }
 }
 
 
-template<class BasicTurbulenceModel>
-void kEpsilonLopesdaCosta<BasicTurbulenceModel>::setCdSigma
+template<class BasicMomentumTransportModel>
+void kEpsilonLopesdaCosta<BasicMomentumTransportModel>::setCdAv
 (
     volScalarField::Internal& C,
     const porosityModels::powerLawLopesdaCosta& pm
@@ -74,37 +69,36 @@ void kEpsilonLopesdaCosta<BasicTurbulenceModel>::setCdSigma
 {
     if (pm.dict().found(C.name()))
     {
-        const labelList& cellZoneIDs = pm.cellZoneIDs();
-        const scalarField& Sigma = pm.Sigma();
+        const scalarField& Av = pm.Av();
 
         const scalar Cpm = pm.dict().lookup<scalar>(C.name());
 
-        forAll(cellZoneIDs, zonei)
-        {
-            const labelList& cells =
-                this->mesh_.cellZones()[cellZoneIDs[zonei]];
+        const labelList& cells = this->mesh_.cellZones()[pm.zoneName()];
 
-            forAll(cells, i)
-            {
-                const label celli = cells[i];
-                C[celli] = Cpm*Sigma[celli];
-            }
+        forAll(cells, i)
+        {
+            const label celli = cells[i];
+            C[celli] = Cpm*Av[celli];
         }
     }
 }
 
 
-template<class BasicTurbulenceModel>
-void kEpsilonLopesdaCosta<BasicTurbulenceModel>::setPorosityCoefficients()
+template<class BasicMomentumTransportModel>
+void kEpsilonLopesdaCosta<BasicMomentumTransportModel>::
+setPorosityCoefficients()
 {
-    fv::options::optionList& fvOptions(fv::options::New(this->mesh_));
+    const PtrListDictionary<fvModel>& fvModels
+    (
+        Foam::fvModels::New(this->mesh_)
+    );
 
-    forAll(fvOptions, i)
+    forAll(fvModels, i)
     {
-        if (isA<fv::explicitPorositySource>(fvOptions[i]))
+        if (isA<fv::porosityForce>(fvModels[i]))
         {
-            const fv::explicitPorositySource& eps =
-                refCast<const fv::explicitPorositySource>(fvOptions[i]);
+            const fv::porosityForce& eps =
+                refCast<const fv::porosityForce>(fvModels[i]);
 
             if (isA<porosityModels::powerLawLopesdaCosta>(eps.model()))
             {
@@ -120,7 +114,7 @@ void kEpsilonLopesdaCosta<BasicTurbulenceModel>::setPorosityCoefficients()
                 setPorosityCoefficient(sigmak_, pm);
                 setPorosityCoefficient(sigmaEps_, pm);
 
-                setCdSigma(CdSigma_, pm);
+                setCdAv(CdAv_, pm);
                 setPorosityCoefficient(betap_, pm);
                 setPorosityCoefficient(betad_, pm);
                 setPorosityCoefficient(C4_, pm);
@@ -131,31 +125,39 @@ void kEpsilonLopesdaCosta<BasicTurbulenceModel>::setPorosityCoefficients()
 }
 
 
-template<class BasicTurbulenceModel>
-void kEpsilonLopesdaCosta<BasicTurbulenceModel>::correctNut()
+template<class BasicMomentumTransportModel>
+tmp<volScalarField>
+kEpsilonLopesdaCosta<BasicMomentumTransportModel>::boundEpsilon()
 {
-    this->nut_ = Cmu_*sqr(k_)/epsilon_;
-    this->nut_.correctBoundaryConditions();
-    fv::options::New(this->mesh_).correct(this->nut_);
-
-    BasicTurbulenceModel::correctNut();
+    tmp<volScalarField> tCmuk2(Cmu_*sqr(k_));
+    epsilon_ = max(epsilon_, tCmuk2()/(this->nutMaxCoeff_*this->nu()));
+    return tCmuk2;
 }
 
 
-template<class BasicTurbulenceModel>
-tmp<fvScalarMatrix> kEpsilonLopesdaCosta<BasicTurbulenceModel>::kSource
+template<class BasicMomentumTransportModel>
+void kEpsilonLopesdaCosta<BasicMomentumTransportModel>::correctNut()
+{
+    this->nut_ = boundEpsilon()/epsilon_;
+    this->nut_.correctBoundaryConditions();
+    fvConstraints::New(this->mesh_).constrain(this->nut_);
+}
+
+
+template<class BasicMomentumTransportModel>
+tmp<fvScalarMatrix> kEpsilonLopesdaCosta<BasicMomentumTransportModel>::kSource
 (
     const volScalarField::Internal& magU,
     const volScalarField::Internal& magU3
 ) const
 {
-    return fvm::Su(CdSigma_*(betap_*magU3 - betad_*magU*k_()), k_);
+    return fvm::Su(CdAv_*(betap_*magU3 - betad_*magU*k_()), k_);
 }
 
 
-template<class BasicTurbulenceModel>
+template<class BasicMomentumTransportModel>
 tmp<fvScalarMatrix>
-kEpsilonLopesdaCosta<BasicTurbulenceModel>::epsilonSource
+kEpsilonLopesdaCosta<BasicMomentumTransportModel>::epsilonSource
 (
     const volScalarField::Internal& magU,
     const volScalarField::Internal& magU3
@@ -163,7 +165,7 @@ kEpsilonLopesdaCosta<BasicTurbulenceModel>::epsilonSource
 {
     return fvm::Su
     (
-        CdSigma_
+        CdAv_
        *(C4_*betap_*epsilon_()/k_()*magU3 - C5_*betad_*magU*epsilon_()),
         epsilon_
     );
@@ -172,20 +174,19 @@ kEpsilonLopesdaCosta<BasicTurbulenceModel>::epsilonSource
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
-template<class BasicTurbulenceModel>
-kEpsilonLopesdaCosta<BasicTurbulenceModel>::kEpsilonLopesdaCosta
+template<class BasicMomentumTransportModel>
+kEpsilonLopesdaCosta<BasicMomentumTransportModel>::kEpsilonLopesdaCosta
 (
     const alphaField& alpha,
     const rhoField& rho,
     const volVectorField& U,
     const surfaceScalarField& alphaRhoPhi,
     const surfaceScalarField& phi,
-    const transportModel& transport,
-    const word& propertiesName,
+    const viscosity& viscosity,
     const word& type
 )
 :
-    eddyViscosity<RASModel<BasicTurbulenceModel>>
+    eddyViscosity<RASModel<BasicMomentumTransportModel>>
     (
         type,
         alpha,
@@ -193,8 +194,7 @@ kEpsilonLopesdaCosta<BasicTurbulenceModel>::kEpsilonLopesdaCosta
         U,
         alphaRhoPhi,
         phi,
-        transport,
-        propertiesName
+        viscosity
     ),
 
     Cmu_
@@ -202,88 +202,63 @@ kEpsilonLopesdaCosta<BasicTurbulenceModel>::kEpsilonLopesdaCosta
         IOobject
         (
             "Cmu",
-            this->runTime_.timeName(),
+            this->runTime_.name(),
             this->mesh_
         ),
         this->mesh_,
-        dimensioned<scalar>::lookupOrAddToDict
-        (
-            "Cmu",
-            this->coeffDict_,
-            0.09
-        )
+        dimensioned<scalar>("Cmu", this->coeffDict(), 0.09)
     ),
     C1_
     (
         IOobject
         (
             "C1",
-            this->runTime_.timeName(),
+            this->runTime_.name(),
             this->mesh_
         ),
         this->mesh_,
-        dimensioned<scalar>::lookupOrAddToDict
-        (
-            "C1",
-            this->coeffDict_,
-            1.44
-        )
+        dimensioned<scalar>("C1", this->coeffDict(), 1.44)
     ),
     C2_
     (
         IOobject
         (
             "C2",
-            this->runTime_.timeName(),
+            this->runTime_.name(),
             this->mesh_
         ),
         this->mesh_,
-        dimensioned<scalar>::lookupOrAddToDict
-        (
-            "C2",
-            this->coeffDict_,
-            1.92
-        )
+        dimensioned<scalar>("C2", this->coeffDict(), 1.92)
     ),
     sigmak_
     (
         IOobject
         (
             "sigmak",
-            this->runTime_.timeName(),
+            this->runTime_.name(),
             this->mesh_
         ),
         this->mesh_,
-        dimensioned<scalar>::lookupOrAddToDict
-        (
-            "sigmak",
-            this->coeffDict_,
-            1.0
-        )
+        dimensioned<scalar>("sigmak", this->coeffDict(), 1.0)
     ),
     sigmaEps_
     (
         IOobject
         (
             "sigmaEps",
-            this->runTime_.timeName(),
+            this->runTime_.name(),
             this->mesh_
         ),
         this->mesh_,
-        dimensioned<scalar>::lookupOrAddToDict
-        (
-            "sigmaEps",
-            this->coeffDict_,
-            1.3
-        )
+        dimensioned<scalar>("sigmaEps", this->coeffDict(), 1.3)
     ),
 
-    CdSigma_
+    CdAv_
     (
         IOobject
         (
-            "CdSigma",
-            this->runTime_.timeName(),
+            "CdAv",
+            this->runTime_.name(),
             this->mesh_
         ),
         this->mesh_,
@@ -294,7 +269,7 @@ kEpsilonLopesdaCosta<BasicTurbulenceModel>::kEpsilonLopesdaCosta
         IOobject
         (
             "betap",
-            this->runTime_.timeName(),
+            this->runTime_.name(),
             this->mesh_
         ),
         this->mesh_,
@@ -305,7 +280,7 @@ kEpsilonLopesdaCosta<BasicTurbulenceModel>::kEpsilonLopesdaCosta
         IOobject
         (
             "betad",
-            this->runTime_.timeName(),
+            this->runTime_.name(),
             this->mesh_
         ),
         this->mesh_,
@@ -316,7 +291,7 @@ kEpsilonLopesdaCosta<BasicTurbulenceModel>::kEpsilonLopesdaCosta
         IOobject
         (
             "C4",
-            this->runTime_.timeName(),
+            this->runTime_.name(),
             this->mesh_
         ),
         this->mesh_,
@@ -327,7 +302,7 @@ kEpsilonLopesdaCosta<BasicTurbulenceModel>::kEpsilonLopesdaCosta
         IOobject
         (
             "C5",
-            this->runTime_.timeName(),
+            this->runTime_.name(),
             this->mesh_
         ),
         this->mesh_,
@@ -339,7 +314,7 @@ kEpsilonLopesdaCosta<BasicTurbulenceModel>::kEpsilonLopesdaCosta
         IOobject
         (
             IOobject::groupName("k", alphaRhoPhi.group()),
-            this->runTime_.timeName(),
+            this->runTime_.name(),
             this->mesh_,
             IOobject::MUST_READ,
             IOobject::AUTO_WRITE
@@ -351,7 +326,7 @@ kEpsilonLopesdaCosta<BasicTurbulenceModel>::kEpsilonLopesdaCosta
         IOobject
         (
             IOobject::groupName("epsilon", alphaRhoPhi.group()),
-            this->runTime_.timeName(),
+            this->runTime_.name(),
             this->mesh_,
             IOobject::MUST_READ,
             IOobject::AUTO_WRITE
@@ -360,23 +335,17 @@ kEpsilonLopesdaCosta<BasicTurbulenceModel>::kEpsilonLopesdaCosta
     )
 {
     bound(k_, this->kMin_);
-    bound(epsilon_, this->epsilonMin_);
-
-    if (type == typeName)
-    {
-        this->printCoeffs(type);
-    }
-
+    boundEpsilon();
     setPorosityCoefficients();
 }
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-template<class BasicTurbulenceModel>
-bool kEpsilonLopesdaCosta<BasicTurbulenceModel>::read()
+template<class BasicMomentumTransportModel>
+bool kEpsilonLopesdaCosta<BasicMomentumTransportModel>::read()
 {
-    if (eddyViscosity<RASModel<BasicTurbulenceModel>>::read())
+    if (eddyViscosity<RASModel<BasicMomentumTransportModel>>::read())
     {
         return true;
     }
@@ -387,8 +356,8 @@ bool kEpsilonLopesdaCosta<BasicTurbulenceModel>::read()
 }
 
 
-template<class BasicTurbulenceModel>
-void kEpsilonLopesdaCosta<BasicTurbulenceModel>::correct()
+template<class BasicMomentumTransportModel>
+void kEpsilonLopesdaCosta<BasicMomentumTransportModel>::correct()
 {
     if (!this->turbulence_)
     {
@@ -401,9 +370,13 @@ void kEpsilonLopesdaCosta<BasicTurbulenceModel>::correct()
     const surfaceScalarField& alphaRhoPhi = this->alphaRhoPhi_;
     const volVectorField& U = this->U_;
     volScalarField& nut = this->nut_;
-    fv::options& fvOptions(fv::options::New(this->mesh_));
+    const Foam::fvModels& fvModels(Foam::fvModels::New(this->mesh_));
+    const Foam::fvConstraints& fvConstraints
+    (
+        Foam::fvConstraints::New(this->mesh_)
+    );
 
-    eddyViscosity<RASModel<BasicTurbulenceModel>>::correct();
+    eddyViscosity<RASModel<BasicMomentumTransportModel>>::correct();
 
     volScalarField::Internal divU
     (
@@ -435,15 +408,15 @@ void kEpsilonLopesdaCosta<BasicTurbulenceModel>::correct()
       - fvm::SuSp(((2.0/3.0)*C1_)*alpha()*rho()*divU, epsilon_)
       - fvm::Sp(C2_*alpha()*rho()*epsilon_()/k_(), epsilon_)
       + epsilonSource(magU, magU3)
-      + fvOptions(alpha, rho, epsilon_)
+      + fvModels.source(alpha, rho, epsilon_)
     );
 
     epsEqn.ref().relax();
-    fvOptions.constrain(epsEqn.ref());
+    fvConstraints.constrain(epsEqn.ref());
     epsEqn.ref().boundaryManipulate(epsilon_.boundaryFieldRef());
     solve(epsEqn);
-    fvOptions.correct(epsilon_);
-    bound(epsilon_, this->epsilonMin_);
+    fvConstraints.constrain(epsilon_);
+    boundEpsilon();
 
     // Turbulent kinetic energy equation
     tmp<fvScalarMatrix> kEqn
@@ -456,13 +429,13 @@ void kEpsilonLopesdaCosta<BasicTurbulenceModel>::correct()
       - fvm::SuSp((2.0/3.0)*alpha()*rho()*divU, k_)
       - fvm::Sp(alpha()*rho()*epsilon_()/k_(), k_)
       + kSource(magU, magU3)
-      + fvOptions(alpha, rho, k_)
+      + fvModels.source(alpha, rho, k_)
     );
 
     kEqn.ref().relax();
-    fvOptions.constrain(kEqn.ref());
+    fvConstraints.constrain(kEqn.ref());
     solve(kEqn);
-    fvOptions.correct(k_);
+    fvConstraints.constrain(k_);
     bound(k_, this->kMin_);
 
     correctNut();

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -31,19 +31,22 @@ License
 template<class Type>
 Foam::interpolationPointMVC<Type>::interpolationPointMVC
 (
-    const GeometricField<Type, fvPatchField, volMesh>& psi
+    const VolField<Type>& psi
 )
 :
-    interpolation<Type>(psi),
-    psip_
-    (
-        volPointInterpolation::New(psi.mesh()).interpolate
-        (
-            psi,
-            "volPointInterpolate(" + psi.name() + ')',
-            true            // use cache
-        )
-    )
+    fieldInterpolation<Type, interpolationPointMVC<Type>>(psi),
+    interpolationVolPointInterpolation<Type>(psi)
+{}
+
+
+template<class Type>
+Foam::interpolationPointMVC<Type>::interpolationPointMVC
+(
+    const interpolationPointMVC<Type>& i
+)
+:
+    fieldInterpolation<Type, interpolationPointMVC<Type>>(i),
+    interpolationVolPointInterpolation<Type>(i)
 {}
 
 

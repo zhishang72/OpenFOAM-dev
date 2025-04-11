@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,17 @@ Class
     Foam::perfectGas
 
 Description
-    Perfect gas equation of state.
+    Perfect gas equation of state:
+
+    \verbatim
+        rho = p/(R*T)
+    \endverbatim
+
+Usage
+    The gas constant R used by the perfect gas equation of state is obtained
+    directly from the specie or mixture molecular weight so there is no need to
+    provide an equation of \c equationOfState enry in the \c mixture
+    specification.
 
 SourceFiles
     perfectGasI.H
@@ -77,7 +87,7 @@ Ostream& operator<<
 
 
 /*---------------------------------------------------------------------------*\
-                           Class perfectGas Declaration
+                         Class perfectGas Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Specie>
@@ -93,17 +103,14 @@ public:
         //- Construct from components
         inline perfectGas(const Specie& sp);
 
-        //- Construct from dictionary
-        perfectGas(const dictionary& dict);
+        //- Construct from name and dictionary
+        perfectGas(const word& name, const dictionary& dict);
 
         //- Construct as named copy
         inline perfectGas(const word& name, const perfectGas&);
 
         //- Construct and return a clone
         inline autoPtr<perfectGas> clone() const;
-
-        // Selector from dictionary
-        inline static autoPtr<perfectGas> New(const dictionary& dict);
 
 
     // Member Functions
@@ -126,20 +133,23 @@ public:
             //- Return density [kg/m^3]
             inline scalar rho(scalar p, scalar T) const;
 
-            //- Return enthalpy departure [J/kg]
-            inline scalar H(const scalar p, const scalar T) const;
+            //- Return enthalpy contribution [J/kg]
+            inline scalar h(const scalar p, const scalar T) const;
 
-            //- Return Cp departure [J/(kg K]
+            //- Return Cp contribution [J/(kg K]
             inline scalar Cp(scalar p, scalar T) const;
 
-            //- Return internal energy departure [J/kg]
-            inline scalar E(const scalar p, const scalar T) const;
+            //- Return internal energy contribution [J/kg]
+            inline scalar e(const scalar p, const scalar T) const;
 
-            //- Return Cv departure [J/(kg K]
+            //- Return Cv contribution [J/(kg K]
             inline scalar Cv(scalar p, scalar T) const;
 
-            //- Return entropy [J/kg/K]
-            inline scalar S(const scalar p, const scalar T) const;
+            //- Return entropy contribution to the integral of Cp/T [J/kg/K]
+            inline scalar sp(const scalar p, const scalar T) const;
+
+            //- Return entropy contribution to the integral of Cv/T [J/kg/K]
+            inline scalar sv(const scalar p, const scalar T) const;
 
             //- Return compressibility [s^2/m^2]
             inline scalar psi(scalar p, scalar T) const;
@@ -149,6 +159,9 @@ public:
 
             //- Return (Cp - Cv) [J/(kg K]
             inline scalar CpMCv(scalar p, scalar T) const;
+
+            //- Return volumetric coefficient of thermal expansion [1/T]
+            inline scalar alphav(const scalar p, const scalar T) const;
 
 
         // IO

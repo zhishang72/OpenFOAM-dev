@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -101,13 +101,25 @@ Foam::labelListList Foam::invertOneToMany
 }
 
 
-Foam::labelList Foam::identity(const label len)
+Foam::labelList Foam::identityMap(const label len)
 {
     labelList map(len);
 
     forAll(map, i)
     {
         map[i] = i;
+    }
+    return map;
+}
+
+
+Foam::labelList Foam::identityMap(const label start, const label len)
+{
+    labelList map(len);
+
+    forAll(map, i)
+    {
+        map[i] = start + i;
     }
     return map;
 }

@@ -1,12 +1,13 @@
 EXE_INC = \
     -I$(LIB_SRC)/finiteVolume/lnInclude \
     -I$(LIB_SRC)/meshTools/lnInclude \
-    -I$(LIB_SRC)/dynamicMesh/lnInclude \
+    -I$(LIB_SRC)/polyTopoChange/lnInclude \
     -I$(LIB_SRC)/sampling/lnInclude \
+    -I$(LIB_SRC)/tracking/lnInclude \
     -I$(LIB_SRC)/lagrangian/basic/lnInclude
 
 EXE_LIBS = \
-    -ldynamicMesh \
+    -lpolyTopoChange \
     -lsampling \
-    -lgenericPatchFields \
+    -lgenericFvFields \
     -llagrangian

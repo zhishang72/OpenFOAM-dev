@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2019-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -63,7 +63,7 @@ Foam::dimensionedScalar Foam::functionObjects::comfort::Trad() const
     // The mean radiation is calculated by the mean wall temperatures
     // which are summed and divided by the area | only walls are taken into
     // account. This approach might be correct for a squared room but will
-    // defintely be inconsistent for complex room geometries. The norm does
+    // definitely be inconsistent for complex room geometries. The norm does
     // not provide any information about the calculation of this quantity.
     if (!TradSet_)
     {
@@ -96,7 +96,7 @@ Foam::dimensionedScalar Foam::functionObjects::comfort::Trad() const
             << "The calculated mean wall radiation temperature is out of the\n"
             << "bounds specified in EN ISO 7730:2006\n"
             << "Valid range is 10 degC < T < 40 degC\n"
-            << "The actual value is: " << Trad - 273.15 << nl << endl;
+            << "The actual value is: " << Trad.value() - 273.15 << nl << endl;
     }
 
     return Trad;
@@ -298,6 +298,12 @@ bool Foam::functionObjects::comfort::read(const dictionary& dict)
 }
 
 
+Foam::wordList Foam::functionObjects::comfort::fields() const
+{
+    return wordList{"U", "T"};
+}
+
+
 bool Foam::functionObjects::comfort::execute()
 {
     const dimensionedScalar Trad(this->Trad());
@@ -315,7 +321,7 @@ bool Foam::functionObjects::comfort::execute()
         IOobject
         (
             "hc",
-            mesh_.time().timeName(),
+            time_.name(),
             mesh_
         ),
         mesh_,
@@ -407,7 +413,7 @@ bool Foam::functionObjects::comfort::execute()
 
     Info<< "Calculating the predicted percentage of dissatisfaction (PPD)\n";
 
-    // Equation (5) in EN ISO
+    // Equation (5)
     tmp<volScalarField> PPD
     (
         volScalarField::New
@@ -417,13 +423,69 @@ bool Foam::functionObjects::comfort::execute()
         )
     );
 
-    return store(PMV) && store(PPD);
+    Info<< "Calculating the draught rating (DR)\n";
+
+    const dimensionedScalar Umin("Umin", dimVelocity, 0.05);
+    const dimensionedScalar Umax("Umax", dimVelocity, 0.5);
+    const dimensionedScalar pre("preU", dimless, 0.37);
+    const dimensionedScalar C1("C1", dimVelocity, 3.14);
+
+    // Limit the velocity field to the values given in EN ISO 7733
+    volScalarField Umag(mag(lookupObject<volVectorField>("U")));
+    Umag.maxMin(Umin, Umax);
+
+    // Calculate the turbulent intensity if turbulent kinetic energy field k
+    // exists
+    volScalarField TI
+    (
+        IOobject
+        (
+            "TI",
+            time_.name(),
+            mesh_
+        ),
+        mesh_,
+        dimensionedScalar(dimensionSet(0, 0, 0, 0, 0, 0, 0), 0)
+    );
+
+    if (foundObject<volScalarField>("k"))
+    {
+        const volScalarField& k = lookupObject<volScalarField>("k");
+        TI = sqrt(2/3*k)/Umag;
+    }
+
+    // For unit correctness
+    const dimensionedScalar correctUnit
+    (
+        "correctUnit",
+        dimensionSet(0,- 1.62, 1.62, -1, 0, 0, 0),
+        1
+    );
+
+    // Equation (6)
+    tmp<volScalarField> DR
+    (
+        volScalarField::New
+        (
+            "DR",
+            correctUnit*(factor12 - T)*pow(Umag - Umin, 0.62)*(pre*Umag*TI + C1)
+        )
+    );
+
+    store(PMV);
+    store(PPD);
+    store(DR);
+
+    return true;
 }
 
 
 bool Foam::functionObjects::comfort::write()
 {
-    return writeObject("PMV") && writeObject("PPD");
+    return
+        writeObject("PMV")
+     && writeObject("PPD")
+     && writeObject("DR");
 }
 
 

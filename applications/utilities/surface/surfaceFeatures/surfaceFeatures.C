@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2018-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2018-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -34,8 +34,8 @@ Description
 #include "extendedFeatureEdgeMesh.H"
 #include "surfaceFeatures.H"
 #include "triSurfaceFields.H"
-#include "vtkSurfaceWriter.H"
-#include "IOdictionary.H"
+#include "vtkWritePolyData.H"
+#include "systemDict.H"
 
 using namespace Foam;
 
@@ -172,8 +172,6 @@ namespace Foam
             dict.lookupOrDefault<Switch>("curvature", "off");
         const Switch featureProximity =
             dict.lookupOrDefault<Switch>("featureProximity", "off");
-        const Switch closeness =
-            dict.lookupOrDefault<Switch>("closeness", "off");
 
 
         Info<< nl << "Feature line extraction is only valid on closed manifold "
@@ -182,7 +180,13 @@ namespace Foam
         // Read
         // ~~~~
 
-        triSurface surf(runTime.constantPath()/"triSurface"/surfaceFileName);
+        triSurface surf
+        (
+            runTime.path()
+           /runTime.constant()
+           /searchableSurface::geometryDir(runTime)
+           /surfaceFileName
+        );
 
         Info<< "Statistics:" << endl;
         surf.writeStats(Info);
@@ -193,7 +197,8 @@ namespace Foam
         // Either construct features from surface & featureAngle or read set.
         // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-        const scalar includedAngle = dict.lookup<scalar>("includedAngle");
+        const scalar includedAngle =
+            dict.lookup<scalar>("includedAngle", unitDegrees);
 
         autoPtr<surfaceFeatures> set
         (
@@ -304,7 +309,7 @@ namespace Foam
 
             if (subsetDict.found("plane"))
             {
-                const plane cutPlane(subsetDict.lookup("plane")());
+                const plane cutPlane(subsetDict.subDict("plane"));
 
                 selectCutEdges(surf, cutPlane, edgeStat);
 
@@ -385,7 +390,7 @@ namespace Foam
         feMesh.writeStats(Info);
 
         Info<< nl << "Writing extendedFeatureEdgeMesh to "
-            << feMesh.objectPath() << endl;
+            << feMesh.relativeObjectPath() << endl;
 
         mkDir(feMesh.path());
 
@@ -407,7 +412,7 @@ namespace Foam
             (
                 surfaceFileName.lessExt().name() + ".eMesh",
                 runTime.constant(),
-                "triSurface",
+                searchableSurface::geometryDir(runTime),
                 runTime,
                 IOobject::NO_READ,
                 IOobject::AUTO_WRITE,
@@ -418,16 +423,50 @@ namespace Foam
         );
 
         Info<< nl << "Writing featureEdgeMesh to "
-            << bfeMesh.objectPath() << endl;
+            << bfeMesh.relativeObjectPath() << endl;
 
         bfeMesh.regIOobject::write();
 
+        // Data to write out in VTK format
+        wordList writeVTKFieldNames;
+        boolList writeVTKFieldIsPointValues;
+        #define DeclareWriteVTKFieldTypeValues(Type, nullArg) \
+            PtrList<const Field<Type>> writeVTKField##Type##Values;
+        FOR_ALL_FIELD_TYPES(DeclareWriteVTKFieldTypeValues);
+        #undef DeclareWriteVTKFieldTypeValues
 
         // Find distance between close features
-        if (closeness)
+        if (dict.isDict("closeness"))
         {
             Info<< nl << "Extracting internal and external closeness of "
                 << "surface." << endl;
+
+            const dictionary& closenessDict = dict.subDict("closeness");
+
+            const Switch faceCloseness =
+                closenessDict.lookupOrDefault<Switch>("faceCloseness", "off");
+            const Switch pointCloseness =
+                closenessDict.lookupOrDefault<Switch>("pointCloseness", "off");
+
+            const scalar internalAngleTolerance
+            (
+                closenessDict.lookupOrDefault<scalar>
+                (
+                    "internalAngleTolerance",
+                    unitDegrees,
+                    80
+                )
+            );
+
+            const scalar externalAngleTolerance
+            (
+                closenessDict.lookupOrDefault<scalar>
+                (
+                    "externalAngleTolerance",
+                    unitDegrees,
+                    80
+                )
+            );
 
             // Searchable triSurface
             const triSurfaceMesh searchSurf
@@ -436,58 +475,66 @@ namespace Foam
                 (
                     sFeatFileName + ".closeness",
                     runTime.constant(),
-                    "triSurface",
+                    searchableSurface::geometryDir(runTime),
                     runTime
                 ),
                 surf
             );
 
+            if (faceCloseness)
             {
                 Pair<tmp<triSurfaceScalarField>> closenessFields
                 (
-                    searchSurf.extractCloseness()
+                    searchSurf.extractCloseness
+                    (
+                        internalAngleTolerance,
+                        externalAngleTolerance
+                    )
                 );
 
+                Info<< "    writing "
+                    << closenessFields.first()->name() << endl;
                 closenessFields.first()->write();
+
+                Info<< "    writing "
+                    << closenessFields.second()->name() << endl;
                 closenessFields.second()->write();
 
                 if (writeVTK)
                 {
-                    const faceList faces(searchSurf.faces());
-
-                    vtkSurfaceWriter().write
+                    writeVTKFieldNames.append("internalCloseness");
+                    writeVTKFieldIsPointValues.append(false);
+                    writeVTKFieldscalarValues.append
                     (
-                        runTime.constantPath()/"triSurface",// outputDir
-                        searchSurf.objectRegistry::name(),  // surfaceName
-                        searchSurf.points(),
-                        faces,
-                        "internalCloseness",                // fieldName
-                        closenessFields.first(),
-                        false,                              // isNodeValues
-                        true                                // verbose
+                        new scalarField(closenessFields.first())
                     );
 
-                    vtkSurfaceWriter().write
+                    writeVTKFieldNames.append("externalCloseness");
+                    writeVTKFieldIsPointValues.append(false);
+                    writeVTKFieldscalarValues.append
                     (
-                        runTime.constantPath()/"triSurface",// outputDir
-                        searchSurf.objectRegistry::name(),  // surfaceName
-                        searchSurf.points(),
-                        faces,
-                        "externalCloseness",                // fieldName
-                        closenessFields.second(),
-                        false,                              // isNodeValues
-                        true                                // verbose
+                        new scalarField(closenessFields.second())
                     );
                 }
             }
 
+            if (pointCloseness)
             {
                 Pair<tmp<triSurfacePointScalarField >> closenessFields
                 (
-                    searchSurf.extractPointCloseness()
+                    searchSurf.extractPointCloseness
+                    (
+                        internalAngleTolerance,
+                        externalAngleTolerance
+                    )
                 );
 
+                Info<< "    writing "
+                    << closenessFields.first()->name() << endl;
                 closenessFields.first()->write();
+
+                Info<< "    writing "
+                    << closenessFields.second()->name() << endl;
                 closenessFields.second()->write();
 
                 if (writeVTK)
@@ -513,28 +560,18 @@ namespace Foam
                             externalClosenessPointField[meshPointMap[pi]];
                     }
 
-                    vtkSurfaceWriter().write
+                    writeVTKFieldNames.append("internalPointCloseness");
+                    writeVTKFieldIsPointValues.append(true);
+                    writeVTKFieldscalarValues.append
                     (
-                        runTime.constantPath()/"triSurface",// outputDir
-                        searchSurf.objectRegistry::name(),  // surfaceName
-                        searchSurf.points(),
-                        faces,
-                        "internalPointCloseness",           // fieldName
-                        internalCloseness,
-                        true,                               // isNodeValues
-                        true                                // verbose
+                        new scalarField(internalCloseness)
                     );
 
-                    vtkSurfaceWriter().write
+                    writeVTKFieldNames.append("externalPointCloseness");
+                    writeVTKFieldIsPointValues.append(true);
+                    writeVTKFieldscalarValues.append
                     (
-                        runTime.constantPath()/"triSurface",// outputDir
-                        searchSurf.objectRegistry::name(),  // surfaceName
-                        searchSurf.points(),
-                        faces,
-                        "externalPointCloseness",           // fieldName
-                        externalCloseness,
-                        true,                               // isNodeValues
-                        true                                // verbose
+                        new scalarField(externalCloseness)
                     );
                 }
             }
@@ -552,7 +589,7 @@ namespace Foam
                 (
                     sFeatFileName + ".curvature",
                     runTime.constant(),
-                    "triSurface",
+                    searchableSurface::geometryDir(runTime),
                     runTime
                 ),
                 surf,
@@ -564,17 +601,9 @@ namespace Foam
 
             if (writeVTK)
             {
-                vtkSurfaceWriter().write
-                (
-                    runTime.constantPath()/"triSurface",// outputDir
-                    sFeatFileName,                      // surfaceName
-                    surf.points(),
-                    faces,
-                    "curvature",                        // fieldName
-                    k,
-                    true,                               // isNodeValues
-                    true                                // verbose
-                );
+                writeVTKFieldNames.append("curvature");
+                writeVTKFieldIsPointValues.append(true);
+                writeVTKFieldscalarValues.append(new scalarField(k));
             }
         }
 
@@ -592,24 +621,22 @@ namespace Foam
             forAll(surf, fi)
             {
                 const triPointRef& tri = surf[fi].tri(surf.points());
-                const point& triCentre = tri.circumCentre();
 
-                const scalar radiusSqr = min
-                (
-                    sqr(4*tri.circumRadius()),
-                    sqr(searchDistance)
-                );
+                const Tuple2<point, scalar> circle = tri.circumCircle();
+                const point& c = circle.first();
+                const scalar rSqr =
+                    min(sqr(4*circle.second()), sqr(searchDistance));
 
                 pointIndexHitList hitList;
 
-                feMesh.allNearestFeatureEdges(triCentre, radiusSqr, hitList);
+                feMesh.allNearestFeatureEdges(c, rSqr, hitList);
                 featureProximity[fi] = min
                 (
                     feMesh.minDisconnectedDist(hitList),
                     featureProximity[fi]
                 );
 
-                feMesh.allNearestFeaturePoints(triCentre, radiusSqr, hitList);
+                feMesh.allNearestFeaturePoints(c, rSqr, hitList);
                 featureProximity[fi] = min
                 (
                     minDist(hitList),
@@ -623,7 +650,7 @@ namespace Foam
                 (
                     sFeatFileName + ".featureProximity",
                     runTime.constant(),
-                    "triSurface",
+                    searchableSurface::geometryDir(runTime),
                     runTime,
                     IOobject::NO_READ,
                     IOobject::NO_WRITE
@@ -637,18 +664,42 @@ namespace Foam
 
             if (writeVTK)
             {
-                vtkSurfaceWriter().write
+                writeVTKFieldNames.append("featureProximity");
+                writeVTKFieldIsPointValues.append(false);
+                writeVTKFieldscalarValues.append
                 (
-                    runTime.constantPath()/"triSurface",// outputDir
-                    sFeatFileName,                      // surfaceName
-                    surf.points(),
-                    faces,
-                    "featureProximity",                 // fieldName
-                    featureProximity,
-                    false,                              // isNodeValues
-                    true                                // verbose
+                    new scalarField(featureProximity)
                 );
             }
+        }
+
+        if (writeVTK)
+        {
+            #define WriteVTKResizeFieldTypeValues(Type, nullArg) \
+                writeVTKField##Type##Values.resize(writeVTKFieldNames.size());
+            FOR_ALL_FIELD_TYPES(WriteVTKResizeFieldTypeValues)
+            #undef WriteVTKResizeFieldTypeValues
+
+            vtkWritePolyData::write
+            (
+                runTime.path()
+               /runTime.constant()
+               /searchableSurface::geometryDir(runTime)
+               /sFeatFileName + "Features.vtk",
+                sFeatFileName,
+                runTime.writeFormat() == IOstream::BINARY,
+                surf.points(),
+                labelList(),
+                labelListList(),
+                faces,
+                writeVTKFieldNames,
+                writeVTKFieldIsPointValues,
+                UPtrList<const Field<label>>(writeVTKFieldNames.size())
+                #define WriteVTKFieldTypeValuesParameter(Type, nullArg) \
+                    , UPtrList<const Field<Type>>(writeVTKField##Type##Values)
+                FOR_ALL_FIELD_TYPES(WriteVTKFieldTypeValuesParameter)
+                #undef WriteVTKFieldTypeValuesParameter
+            );
         }
 
         Info<< endl;
@@ -685,12 +736,7 @@ int main(int argc, char *argv[])
     #include "setRootCase.H"
     #include "createTime.H"
 
-    const word dictName("surfaceFeaturesDict");
-    #include "setSystemRunTimeDictionaryIO.H"
-
-    Info<< "Reading " << dictName << nl << endl;
-
-    const IOdictionary dict(dictIO);
+    const dictionary dict(systemDict("surfaceFeaturesDict", args, runTime));
 
     if (dict.found("surfaces"))
     {

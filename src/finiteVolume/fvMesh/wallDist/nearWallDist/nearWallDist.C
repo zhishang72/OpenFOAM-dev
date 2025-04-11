@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,68 +24,14 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "nearWallDist.H"
-#include "fvMesh.H"
-#include "cellDistFuncs.H"
-#include "wallFvPatch.H"
-#include "surfaceFields.H"
+#include "fvPatchDistWave.H"
+#include "wallPolyPatch.H"
 
-// * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
+// * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
-void Foam::nearWallDist::calculate()
+namespace Foam
 {
-    cellDistFuncs wallUtils(mesh_);
-
-    // Get patch ids of walls
-    labelHashSet wallPatchIDs(wallUtils.getPatchIDs<wallPolyPatch>());
-
-    // Size neighbours array for maximum possible
-
-    labelList neighbours(wallUtils.maxPatchSize(wallPatchIDs));
-
-
-    // Correct all cells with face on wall
-
-    const volVectorField& cellCentres = mesh_.C();
-
-    forAll(mesh_.boundary(), patchi)
-    {
-        fvPatchScalarField& ypatch = operator[](patchi);
-
-        const fvPatch& patch = mesh_.boundary()[patchi];
-
-        if (isA<wallFvPatch>(patch))
-        {
-            const polyPatch& pPatch = patch.patch();
-
-            const labelUList& faceCells = patch.faceCells();
-
-            // Check cells with face on wall
-            forAll(patch, patchFacei)
-            {
-                label nNeighbours = wallUtils.getPointNeighbours
-                (
-                    pPatch,
-                    patchFacei,
-                    neighbours
-                );
-
-                label minFacei = -1;
-
-                ypatch[patchFacei] = wallUtils.smallestDist
-                (
-                    cellCentres[faceCells[patchFacei]],
-                    pPatch,
-                    nNeighbours,
-                    neighbours,
-                    minFacei
-                );
-            }
-        }
-        else
-        {
-            ypatch = 0.0;
-        }
-    }
+    defineTypeNameAndDebug(nearWallDist, 0);
 }
 
 
@@ -93,15 +39,38 @@ void Foam::nearWallDist::calculate()
 
 Foam::nearWallDist::nearWallDist(const Foam::fvMesh& mesh)
 :
-    volScalarField::Boundary
+    DemandDrivenMeshObject
+    <
+        fvMesh,
+        DeletableMeshObject,
+        nearWallDist
+    >(mesh),
+    y_
     (
         mesh.boundary(),
-        mesh.V(),           // Dummy internal field,
+        volScalarField::Internal::null(),
         calculatedFvPatchScalarField::typeName
-    ),
-    mesh_(mesh)
+    )
 {
-    calculate();
+    volScalarField yVf(volScalarField::New("y", mesh, dimLength));
+
+    fvPatchDistWave::correct
+    (
+        mesh,
+        mesh.boundaryMesh().findIndices<wallPolyPatch>(),
+        -vGreat,
+        2,
+        yVf
+    );
+
+    forAll(y_, patchi)
+    {
+        const labelUList& faceCells = mesh.boundary()[patchi].faceCells();
+        forAll(y_[patchi], patchFacei)
+        {
+            y_[patchi][patchFacei] = yVf[faceCells[patchFacei]];
+        }
+    }
 }
 
 
@@ -109,35 +78,6 @@ Foam::nearWallDist::nearWallDist(const Foam::fvMesh& mesh)
 
 Foam::nearWallDist::~nearWallDist()
 {}
-
-
-// * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
-
-void Foam::nearWallDist::correct()
-{
-    if (mesh_.topoChanging())
-    {
-        const DimensionedField<scalar, volMesh>& V = mesh_.V();
-        const fvBoundaryMesh& bnd = mesh_.boundary();
-
-        this->setSize(bnd.size());
-        forAll(*this, patchi)
-        {
-            this->set
-            (
-                patchi,
-                fvPatchField<scalar>::New
-                (
-                    calculatedFvPatchScalarField::typeName,
-                    bnd[patchi],
-                    V
-                )
-            );
-        }
-    }
-
-    calculate();
-}
 
 
 // ************************************************************************* //

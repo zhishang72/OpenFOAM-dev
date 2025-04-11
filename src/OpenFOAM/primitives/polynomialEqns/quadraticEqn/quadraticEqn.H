@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,7 +44,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                         Class quadraticEqn Declaration
+                        Class quadraticEqn Declaration
 \*---------------------------------------------------------------------------*/
 
 class quadraticEqn
@@ -65,7 +65,7 @@ public:
         //- Construct null
         inline quadraticEqn();
 
-        //- Construct initialized to zero
+        //- Construct initialised to zero
         inline quadraticEqn(const Foam::zero);
 
         //- Construct from components
@@ -94,7 +94,9 @@ public:
         inline scalar error(const scalar x) const;
 
         //- Get the roots
-        Roots<2> roots() const;
+        //  Set real true if the roots are known to be real
+        //  even if round-off error might cause them to be complex
+        Roots<2> roots(const bool real = false) const;
 };
 
 

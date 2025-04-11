@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -33,6 +33,7 @@ License
 #include "polyMesh.H"
 #include "surfMesh.H"
 #include "primitivePatch.H"
+#include "polygonTriangulate.H"
 #include "addToRunTimeSelectionTable.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
@@ -365,7 +366,7 @@ Foam::MeshedSurface<Face>::MeshedSurface
         IOobject
         (
             "dummyName",
-            t.timeName(),
+            t.name(),
             t,
             IOobject::MUST_READ_IF_MODIFIED,
             IOobject::NO_WRITE,
@@ -408,7 +409,7 @@ void Foam::MeshedSurface<Face>::remapFaces
 
         if (zones.size() == 1)
         {
-            // optimized for single zone case
+            // optimised for single zone case
             zones[0].size() = faceMap.size();
         }
         else if (zones.size())
@@ -457,10 +458,10 @@ void Foam::MeshedSurface<Face>::clear()
 
 
 template<class Face>
-void Foam::MeshedSurface<Face>::movePoints(const pointField& newPoints)
+void Foam::MeshedSurface<Face>::setPoints(const pointField& newPoints)
 {
     // Adapt for new point position
-    ParentType::movePoints(newPoints);
+    ParentType::clearGeom();
 
     // Copy new points
     storedPoints() = newPoints;
@@ -476,7 +477,7 @@ void Foam::MeshedSurface<Face>::scalePoints(const scalar scaleFactor)
         pointField newPoints(scaleFactor*this->points());
 
         // Adapt for new point position
-        ParentType::movePoints(newPoints);
+        ParentType::clearGeom();
 
         storedPoints() = newPoints;
     }
@@ -494,7 +495,7 @@ void Foam::MeshedSurface<Face>::reset
     ParentType::clearOut();
 
     // Take over new primitive data.
-    // Optimized to avoid overwriting data at all
+    // Optimised to avoid overwriting data at all
     if (notNull(pointLst))
     {
         storedPoints().transfer(pointLst);
@@ -523,7 +524,7 @@ void Foam::MeshedSurface<Face>::reset
     ParentType::clearOut();
 
     // Take over new primitive data.
-    // Optimized to avoid overwriting data at all
+    // Optimised to avoid overwriting data at all
     if (notNull(pointLst))
     {
         storedPoints().transfer(pointLst);
@@ -864,22 +865,18 @@ Foam::label Foam::MeshedSurface<Face>::triangulate
     else
     {
         // triangulate with points
-        List<face> tmpTri(maxTri);
+        polygonTriangulate triEngine;
 
         label newFacei = 0;
         forAll(faceLst, facei)
         {
-            // 'face' not '<Face>'
             const face& f = faceLst[facei];
 
-            label nTmp = 0;
-            f.triangles(this->points(), nTmp, tmpTri);
-            for (label triI = 0; triI < nTmp; triI++)
+            triEngine.triangulate(UIndirectList<point>(this->points(), f));
+
+            forAll(triEngine.triPoints(), triI)
             {
-                newFaces[newFacei] = Face
-                (
-                    static_cast<labelUList&>(tmpTri[triI])
-                );
+                newFaces[newFacei] = triEngine.triPoints(triI, f);
                 faceMap[newFacei] = facei;
                 newFacei++;
             }

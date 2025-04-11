@@ -2,7 +2,7 @@
 # =========                 |
 # \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
 #  \\    /   O peration     | Website:  https://openfoam.org
-#   \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+#   \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
 #    \\/     M anipulation  |
 #------------------------------------------------------------------------------
 # License
@@ -46,7 +46,27 @@ getNumberOfProcessors()
 
 getApplication()
 {
-    foamDictionary -entry application -value system/controlDict
+    # If there is an "application" entry then use its value. Otherwise if there
+    # is "solver" then use foamRun. Otherwise if there is "regionSolvers" then
+    # use foamMultiRun. Otherwise generate an error relating to the
+    # "application" entry being missing.
+    if foamDictionary -entry application -quiet system/controlDict
+    then
+        foamDictionary -entry application -value system/controlDict
+    elif foamDictionary -entry solver -quiet system/controlDict
+    then
+        echo foamRun
+    elif foamDictionary -entry regionSolvers -quiet system/controlDict
+    then
+        echo foamMultiRun
+    else
+        foamDictionary -entry application -value system/controlDict
+    fi
+}
+
+getSolver()
+{
+    foamDictionary -entry solver -value system/controlDict
 }
 
 runApplication()
@@ -81,9 +101,15 @@ runApplication()
         shift
     done
 
+    if [ -z "$APP_RUN" ]
+    then
+        echo "Error: application not specified"
+        return 1
+    fi
+
     if [ -f log.$LOG_SUFFIX ] && [ "$LOG_IGNORE" = "false" ]
     then
-        echo "$APP_NAME already run on $PWD:" \
+        echo "$APP_RUN already run on $PWD:" \
              "remove log file 'log.$LOG_SUFFIX' to re-run"
     else
         echo "Running $APP_RUN on $PWD"
@@ -132,9 +158,15 @@ runParallel()
         shift
     done
 
+    if [ -z "$APP_RUN" ]
+    then
+        echo "Error: application not specified"
+        return 1
+    fi
+
     if [ -f log.$LOG_SUFFIX ] && [ "$LOG_IGNORE" = "false" ]
     then
-        echo "$APP_NAME already run on $PWD:" \
+        echo "$APP_RUN already run on $PWD:" \
              "remove log file 'log.$LOG_SUFFIX' to re-run"
     else
         echo "Running $APP_RUN in parallel on $PWD using $nProcs processes"
@@ -170,7 +202,7 @@ cloneCase()
         mkdir -p $to
         for f in 0 system constant
         do
-            cp -r $from/$f $to
+            cp -R $from/$f $to
         done
         return 0
     fi
@@ -192,8 +224,24 @@ cloneMesh()
     else
         echo "Cloning $to mesh from $from"
         cp -pr $from $to
-        return 0
     fi
+
+    fromFv=$1/constant/fvMesh
+    toFv=$2/constant/fvMesh
+
+    if [ ! -d $fromFv ]
+    then
+        :
+    elif [ -d $toFv ]
+    then
+        echo "Mesh already cloned: remove fvMesh directory $toFv to clone"
+        return 1
+    else
+        echo "Cloning $toFv mesh from $fromFv"
+        cp -pr $fromFv $toFv
+    fi
+
+    return 0
 }
 
 #------------------------------------------------------------------------------

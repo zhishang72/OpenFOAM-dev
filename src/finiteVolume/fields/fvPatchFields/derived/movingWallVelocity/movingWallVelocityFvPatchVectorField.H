@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,8 +25,9 @@ Class
     Foam::movingWallVelocityFvPatchVectorField
 
 Description
-    This boundary condition provides a velocity condition for cases with
-    moving walls.
+    This boundary condition provides a no-slip velocity condition for ridged
+    moving walls or flexible moving walls on which the mesh vertices move
+    with the surface.
 
 Usage
     Example of the boundary condition specification:
@@ -57,7 +58,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-             Class movingWallVelocityFvPatchVectorField Declaration
+            Class movingWallVelocityFvPatchVectorField Declaration
 \*---------------------------------------------------------------------------*/
 
 class movingWallVelocityFvPatchVectorField
@@ -72,13 +73,6 @@ public:
 
 
     // Constructors
-
-        //- Construct from patch and internal field
-        movingWallVelocityFvPatchVectorField
-        (
-            const fvPatch&,
-            const DimensionedField<vector, volMesh>&
-        );
 
         //- Construct from patch, internal field and dictionary
         movingWallVelocityFvPatchVectorField
@@ -95,23 +89,14 @@ public:
             const movingWallVelocityFvPatchVectorField&,
             const fvPatch&,
             const DimensionedField<vector, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         movingWallVelocityFvPatchVectorField
         (
             const movingWallVelocityFvPatchVectorField&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchVectorField> clone() const
-        {
-            return tmp<fvPatchVectorField>
-            (
-                new movingWallVelocityFvPatchVectorField(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         movingWallVelocityFvPatchVectorField

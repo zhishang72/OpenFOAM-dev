@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -55,7 +55,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                   Class extrapolatedCalculatedFvPatchField Declaration
+             Class extrapolatedCalculatedFvPatchField Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -93,23 +93,14 @@ public:
             const extrapolatedCalculatedFvPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         extrapolatedCalculatedFvPatchField
         (
             const extrapolatedCalculatedFvPatchField<Type>&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchField<Type>> clone() const
-        {
-            return tmp<fvPatchField<Type>>
-            (
-                new extrapolatedCalculatedFvPatchField<Type>(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         extrapolatedCalculatedFvPatchField
@@ -133,11 +124,20 @@ public:
 
     // Member Functions
 
-        //- Evaluate the patch field
-        virtual void evaluate
-        (
-            const Pstream::commsTypes commsType=Pstream::commsTypes::blocking
-        );
+        // Mapping functions
+
+            //- Map the given fvPatchField onto this fvPatchField
+            virtual void map(const fvPatchField<Type>&, const fieldMapper&);
+
+
+        // Evaluation functions
+
+            //- Evaluate the patch field
+            virtual void evaluate
+            (
+                const Pstream::commsTypes commsType =
+                    Pstream::commsTypes::blocking
+            );
 };
 
 

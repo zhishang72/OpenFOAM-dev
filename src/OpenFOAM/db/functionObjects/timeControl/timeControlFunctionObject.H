@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,12 +25,7 @@ Class
     Foam::functionObjects::timeControl
 
 Description
-
-Note
-    Since the timeIndex is used directly from Foam::Time, it is unaffected
-    by user-time conversions. For example, Foam::engineTime might cause \a
-    writeInterval to be degrees crank angle, but the functionObject
-    execution \a interval would still be in timestep.
+    General time control for functionObjects
 
 SourceFiles
     timeControlFunctionObject.C
@@ -52,7 +47,7 @@ namespace functionObjects
 {
 
 /*---------------------------------------------------------------------------*\
-                 Class timeControl Declaration
+                         Class timeControl Declaration
 \*---------------------------------------------------------------------------*/
 
 class timeControl
@@ -63,23 +58,6 @@ class timeControl
 
         //- Reference to the time database
         const Time& time_;
-
-        //- Input dictionary
-        dictionary dict_;
-
-
-        // Optional user inputs
-
-            //- Activation time - defaults to -vGreat
-            scalar startTime_;
-
-            //- De-activation time - defaults to vGreat
-            scalar endTime_;
-
-            //- Number of steps before the dump-time during which deltaT
-            //  may be changed (valid for adjustableRunTime)
-            label nStepsToStartTimeChange_;
-
 
         //- Execute controls
         Foam::timeControl executeControl_;
@@ -92,9 +70,6 @@ class timeControl
 
 
     // Private Member Functions
-
-        //- Read relevant dictionary entries
-        void readControls();
 
         //- Returns true if within time bounds
         bool active() const;
@@ -127,9 +102,6 @@ public:
             //- Return time database
             inline const Time& time() const;
 
-            //- Return the input dictionary
-            inline const dictionary& dict() const;
-
             //- Return the execute control object
             inline const Foam::timeControl& executeControl() const;
 
@@ -142,34 +114,44 @@ public:
 
         // Function object control
 
+            //- Return the list of fields required
+            virtual wordList fields() const;
+
             //- Return true if the functionObject should be executed
             //  at the start
             virtual bool executeAtStart() const;
 
             //- Called at each ++ or += of the time-loop.
-            //  postProcess overrides the usual executeControl behaviour and
+            //  foamPostProcess overrides the usual executeControl behaviour and
             //  forces execution (used in post-processing mode)
             virtual bool execute();
 
             //- Called at each ++ or += of the time-loop.
-            //  postProcess overrides the usual writeControl behaviour and
+            //  foamPostProcess overrides the usual writeControl behaviour and
             //  forces writing (used in post-processing mode)
             virtual bool write();
 
             //- Called when Time::run() determines that the time-loop exits
             virtual bool end();
 
-            //- Return the time to the next write
-            virtual scalar timeToNextWrite();
+            //- Return the time to the next execute or write
+            //  if time requires adjustment
+            virtual scalar timeToNextAction();
 
             //- Read and set the function object if its data have changed
             virtual bool read(const dictionary&);
 
-            //- Update for changes of mesh
-            virtual void updateMesh(const mapPolyMesh& mpm);
-
-            //- Update for changes of mesh
+            //- Update topology using the given map
             virtual void movePoints(const polyMesh& mesh);
+
+            //- Update topology using the given map
+            virtual void topoChange(const polyTopoChangeMap& map);
+
+            //- Update from another mesh using the given map
+            virtual void mapMesh(const polyMeshMap&);
+
+            //- Redistribute or update using the given distribution map
+            virtual void distribute(const polyDistributionMap&);
 
 
     // Member Operators

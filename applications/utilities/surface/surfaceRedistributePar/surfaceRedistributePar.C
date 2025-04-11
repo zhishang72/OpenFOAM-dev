@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -29,11 +29,11 @@ Description
     or an already decomposed surface and redistributes it so that each
     processor has all triangles that overlap its mesh.
 
-Note
-    - best decomposition option is hierarchGeomDecomp since
-      guarantees square decompositions.
-    - triangles might be present on multiple processors.
-    - merging uses geometric tolerance so take care with writing precision.
+    Note
+      - best decomposition option is hierarchGeomDecomp since
+        guarantees square decompositions.
+      - triangles might be present on multiple processors.
+      - merging uses geometric tolerance so take care with writing precision.
 
 \*---------------------------------------------------------------------------*/
 
@@ -41,7 +41,7 @@ Note
 #include "Time.H"
 #include "polyMesh.H"
 #include "distributedTriSurfaceMesh.H"
-#include "mapDistribute.H"
+#include "distributionMap.H"
 #include "localIOdictionary.H"
 
 using namespace Foam;
@@ -109,8 +109,7 @@ int main(int argc, char *argv[])
     );
 
     #include "setRootCase.H"
-    #include "createTime.H"
-    runTime.functionObjects().off();
+    #include "createTimeNoFunctionObjects.H"
 
     const fileName surfFileName = args[1];
     const word distType = args[2];
@@ -156,23 +155,22 @@ int main(int argc, char *argv[])
         Pstream::scatterList(meshBb);
     }
 
-    IOobject io
+    typeIOobject<searchableSurface> io
     (
-        surfFileName,         // name
-        // runTime.findInstance("triSurface", surfFileName),   // instance
-        runTime.constant(),   // instance
-        "triSurface",         // local
-        runTime,              // registry
+        surfFileName,
+        runTime.constant(),
+        searchableSurface::geometryDir(runTime),
+        runTime,
         IOobject::MUST_READ,
         IOobject::AUTO_WRITE
     );
 
     // Look for file (using searchableSurface rules)
-    const fileName actualPath(typeFilePath<searchableSurface>(io));
+    const fileName actualPath(io.filePath());
     fileName localPath(actualPath);
     localPath.replace(runTime.rootPath() + '/', "");
 
-    if (actualPath == io.objectPath())
+    if (actualPath == io.objectPath(false))
     {
         Info<< "Loading local (decomposed) surface " << localPath << nl <<endl;
     }
@@ -235,7 +233,7 @@ int main(int argc, char *argv[])
                 IOobject
                 (
                     "faceCentres",                                  // name
-                    surfMesh.searchableSurface::time().timeName(),  // instance
+                    surfMesh.searchableSurface::time().name(),  // instance
                     surfMesh,
                     IOobject::NO_READ,
                     IOobject::AUTO_WRITE
@@ -258,8 +256,8 @@ int main(int argc, char *argv[])
 
     // Do redistribution
     Info<< "Redistributing surface" << nl << endl;
-    autoPtr<mapDistribute> faceMap;
-    autoPtr<mapDistribute> pointMap;
+    autoPtr<distributionMap> faceMap;
+    autoPtr<distributionMap> pointMap;
     surfMesh.distribute
     (
         meshBb[Pstream::myProcNo()],

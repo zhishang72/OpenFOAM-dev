@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -61,9 +61,9 @@ Description
     }
     \endverbatim
 
-Note
-    If reverse flow is possible or expected use the
-    pressureInletOutletVelocity condition instead.
+    Note:
+        If reverse flow is possible or expected use the
+        pressureInletOutletVelocity condition instead.
 
 See also
     Foam::zeroGradientFvPatchField
@@ -110,13 +110,6 @@ public:
 
     // Constructors
 
-        //- Construct from patch and internal field
-        fluxCorrectedVelocityFvPatchVectorField
-        (
-            const fvPatch&,
-            const DimensionedField<vector, volMesh>&
-        );
-
         //- Construct from patch, internal field and dictionary
         fluxCorrectedVelocityFvPatchVectorField
         (
@@ -132,17 +125,8 @@ public:
             const fluxCorrectedVelocityFvPatchVectorField&,
             const fvPatch&,
             const DimensionedField<vector, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchVectorField> clone() const
-        {
-            return tmp<fvPatchVectorField>
-            (
-                new fluxCorrectedVelocityFvPatchVectorField(*this)
-            );
-        }
 
         //- Construct as copy setting internal field reference
         fluxCorrectedVelocityFvPatchVectorField

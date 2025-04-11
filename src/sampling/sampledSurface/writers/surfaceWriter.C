@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -34,14 +34,49 @@ namespace Foam
 {
     defineTypeNameAndDebug(surfaceWriter, 0);
     defineRunTimeSelectionTable(surfaceWriter, word);
-    defineRunTimeSelectionTable(surfaceWriter, wordDict);
+    defineRunTimeSelectionTable(surfaceWriter, dict);
 }
 
 
-// * * * * * * * * * * * * * Static Member Functions * * * * * * * * * * * * //
+// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
+
+Foam::surfaceWriter::surfaceWriter
+(
+    const IOstream::streamFormat writeFormat,
+    const IOstream::compressionType writeCompression
+)
+:
+    writeFormat_(writeFormat),
+    writeCompression_(writeCompression)
+{}
+
+
+Foam::surfaceWriter::surfaceWriter(const dictionary& dict)
+:
+    writeFormat_
+    (
+        dict.found("writeFormat")
+      ? IOstream::formatEnum(dict.lookup("writeFormat"))
+      : IOstream::ASCII
+    ),
+    writeCompression_
+    (
+        dict.found("writeCompression")
+      ? IOstream::compressionEnum(dict.lookup("writeCompression"))
+      : IOstream::UNCOMPRESSED
+    )
+{}
+
+
+// * * * * * * * * * * * * * * * * Selectors * * * * * * * * * * * * * * * * //
 
 Foam::autoPtr<Foam::surfaceWriter>
-Foam::surfaceWriter::New(const word& writeType)
+Foam::surfaceWriter::New
+(
+    const word& writeType,
+    const IOstream::streamFormat writeFormat,
+    const IOstream::compressionType writeCompression
+)
 {
     wordConstructorTable::iterator cstrIter =
         wordConstructorTablePtr_->find(writeType);
@@ -67,31 +102,45 @@ Foam::surfaceWriter::New(const word& writeType)
         }
     }
 
-    return autoPtr<surfaceWriter>(cstrIter()());
+    return autoPtr<surfaceWriter>(cstrIter()(writeFormat, writeCompression));
 }
 
 
 Foam::autoPtr<Foam::surfaceWriter>
-Foam::surfaceWriter::New(const word& writeType, const dictionary& optDict)
+Foam::surfaceWriter::New
+(
+    const word& writeType,
+    const dictionary& dict
+)
 {
     // find constructors with dictionary options
-    wordDictConstructorTable::iterator cstrIter =
-        wordDictConstructorTablePtr_->find(writeType);
+    dictConstructorTable::iterator cstrIter =
+        dictConstructorTablePtr_->find(writeType);
 
-    if (cstrIter == wordDictConstructorTablePtr_->end())
+    if (cstrIter == dictConstructorTablePtr_->end())
     {
-        // revert to versions without options
-        return Foam::surfaceWriter::New(writeType);
+        const IOstream::streamFormat writeFormat =
+            dict.found("writeFormat")
+          ? IOstream::formatEnum(dict.lookup("writeFormat"))
+          : IOstream::ASCII;
+
+        const IOstream::compressionType writeCompression =
+            dict.found("writeCompression")
+          ? IOstream::compressionEnum(dict.lookup("writeCompression"))
+          : IOstream::UNCOMPRESSED;
+
+        // Revert to versions without options
+        return
+            Foam::surfaceWriter::New
+            (
+                writeType,
+                writeFormat,
+                writeCompression
+            );
     }
 
-    return autoPtr<surfaceWriter>(cstrIter()(optDict));
+    return autoPtr<surfaceWriter>(cstrIter()(dict));
 }
-
-
-// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
-
-Foam::surfaceWriter::surfaceWriter()
-{}
 
 
 // * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //

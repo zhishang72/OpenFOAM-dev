@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2018-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2018-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -31,29 +31,20 @@ License
 Foam::freestreamVelocityFvPatchVectorField::freestreamVelocityFvPatchVectorField
 (
     const fvPatch& p,
-    const DimensionedField<vector, volMesh>& iF
-)
-:
-    mixedFvPatchVectorField(p, iF)
-{}
-
-
-Foam::freestreamVelocityFvPatchVectorField::freestreamVelocityFvPatchVectorField
-(
-    const fvPatch& p,
     const DimensionedField<vector, volMesh>& iF,
     const dictionary& dict
 )
 :
-    mixedFvPatchVectorField(p, iF)
+    mixedFvPatchVectorField(p, iF, dict, false)
 {
-    freestreamValue() = vectorField("freestreamValue", dict, p.size());
+    freestreamValue() =
+        vectorField("freestreamValue", dimVelocity, dict, p.size());
 
     if (dict.found("value"))
     {
         fvPatchVectorField::operator=
         (
-            vectorField("value", dict, p.size())
+            vectorField("value", iF.dimensions(), dict, p.size())
         );
     }
     else
@@ -71,19 +62,10 @@ Foam::freestreamVelocityFvPatchVectorField::freestreamVelocityFvPatchVectorField
     const freestreamVelocityFvPatchVectorField& ptf,
     const fvPatch& p,
     const DimensionedField<vector, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     mixedFvPatchVectorField(ptf, p, iF, mapper)
-{}
-
-
-Foam::freestreamVelocityFvPatchVectorField::freestreamVelocityFvPatchVectorField
-(
-    const freestreamVelocityFvPatchVectorField& wbppsf
-)
-:
-    mixedFvPatchVectorField(wbppsf)
 {}
 
 
@@ -106,7 +88,7 @@ void Foam::freestreamVelocityFvPatchVectorField::updateCoeffs()
         return;
     }
 
-    const Field<vector>& Up = *this;
+    const Field<vector> Up(0.5*(patchInternalField() + *this));
     const Field<scalar> magUp(mag(Up));
 
     const Field<vector> nf(patch().nf());

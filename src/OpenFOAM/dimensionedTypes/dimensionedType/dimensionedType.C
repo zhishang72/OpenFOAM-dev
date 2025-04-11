@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -27,73 +27,97 @@ License
 #include "pTraits.H"
 #include "dictionary.H"
 
-// * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+// * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
 
 template<class Type>
-void Foam::dimensioned<Type>::initialize(Istream& is)
+void Foam::dimensioned<Type>::initialise
+(
+    const word& name,
+    const unitConversion& defaultUnits,
+    Istream& is
+)
 {
     token nextToken(is);
-    is.putBack(nextToken);
 
-    // Check if the original format is used in which the name is provided
-    // and reset the name to that read
-    if (nextToken.isWord())
+    // Set the name using the argument, if specified, or read it from the
+    // stream if it is present. If neither are, then it will be set to a word
+    // representation of the value lower down.
+    if (!name.empty())
     {
-        is >> name_;
-        is >> nextToken;
+        name_ = name;
+    }
+    else if (nextToken.isWord())
+    {
+        name_ = nextToken.wordToken();
+    }
+    else
+    {
+        name_ = word::null;
+    }
+
+    // Put the token back if it wasn't the name
+    if (!nextToken.isWord())
+    {
         is.putBack(nextToken);
     }
 
-    // If the dimensions are provided compare with the argument
-    scalar multiplier = 1.0;
+    // Read the units if they are before the value
+    unitConversion units(defaultUnits);
+    const bool haveUnits = units.readIfPresent(is);
 
-    if (nextToken == token::BEGIN_SQR)
+    // Read the value
+    value_ = pTraits<Type>(is);
+
+    // Read the units if they are after the value
+    if (!haveUnits && !is.eof())
     {
-        dimensionSet dims(dimless);
-        dims.read(is, multiplier);
-
-        if (dims != dimensions_)
-        {
-            FatalIOErrorInFunction
-            (
-                is
-            ) << "The dimensions " << dims
-              << " provided do not match the required dimensions "
-              << dimensions_
-              << abort(FatalIOError);
-        }
+        units.readIfPresent(is);
     }
 
-    is >> value_;
-    value_ *= multiplier;
+    // Set the name
+    if (name_.empty())
+    {
+        name_ = Foam::name(value_);
+    }
+
+    // Set the dimensions
+    dimensions_.reset(units.dimensions());
+
+    // Modify the value by the unit conversion
+    units.makeStandard(value_);
 }
 
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class Type>
-Foam::dimensioned<Type>::dimensioned
-(
-    const word& name,
-    const dimensionSet& dimSet,
-    const Type& t
-)
+Foam::dimensioned<Type>::dimensioned()
 :
-    name_(name),
-    dimensions_(dimSet),
-    value_(t)
+    name_("NaN"),
+    dimensions_(dimless),
+    value_(pTraits<Type>::nan)
 {}
 
 
 template<class Type>
 Foam::dimensioned<Type>::dimensioned
 (
-    const dimensionSet& dimSet,
+    const word& name,
+    const dimensionSet& dims,
     const Type& t
 )
 :
+    name_(name),
+    dimensions_(dims),
+    value_(t)
+{}
+
+
+template<class Type>
+Foam::dimensioned<Type>::dimensioned(const dimensionSet& dims, const Type& t)
+:
     name_(::Foam::name(t)),
-    dimensions_(dimSet),
+    dimensions_(dims),
     value_(t)
 {}
 
@@ -121,14 +145,21 @@ Foam::dimensioned<Type>::dimensioned
 
 
 template<class Type>
-Foam::dimensioned<Type>::dimensioned
-(
-    Istream& is
-)
+Foam::dimensioned<Type>::dimensioned(Istream& is)
 :
     dimensions_(dimless)
 {
-    read(is);
+    initialise(word::null, unitAny, is);
+}
+
+
+template<class Type>
+Foam::dimensioned<Type>::dimensioned(const word& name, Istream& is)
+:
+    name_(name),
+    dimensions_(dimless)
+{
+    initialise(name, unitAny, is);
 }
 
 
@@ -136,32 +167,15 @@ template<class Type>
 Foam::dimensioned<Type>::dimensioned
 (
     const word& name,
+    const dimensionSet& dims,
     Istream& is
 )
 :
     name_(name),
-    dimensions_(dimless)
-{
-    scalar multiplier;
-    dimensions_.read(is, multiplier);
-    is >> value_;
-    value_ *= multiplier;
-}
-
-
-template<class Type>
-Foam::dimensioned<Type>::dimensioned
-(
-    const word& name,
-    const dimensionSet& dimSet,
-    Istream& is
-)
-:
-    name_(name),
-    dimensions_(dimSet),
+    dimensions_(dims),
     value_(Zero)
 {
-    initialize(is);
+    initialise(name, dims, is);
 }
 
 
@@ -169,85 +183,136 @@ template<class Type>
 Foam::dimensioned<Type>::dimensioned
 (
     const word& name,
-    const dimensionSet& dimSet,
+    const unitConversion& units,
+    Istream& is
+)
+:
+    name_(name),
+    dimensions_(units.dimensions()),
+    value_(Zero)
+{
+    initialise(name, units, is);
+}
+
+
+template<class Type>
+Foam::dimensioned<Type>::dimensioned
+(
+    const word& name,
+    const dimensionSet& dims,
     const dictionary& dict
 )
 :
     name_(name),
-    dimensions_(dimSet),
+    dimensions_(dims),
     value_(Zero)
 {
-    initialize(dict.lookup(name));
+    initialise(name, dims, dict.lookup(name));
 }
 
 
 template<class Type>
 Foam::dimensioned<Type>::dimensioned
-()
-:
-    name_("undefined"),
-    dimensions_(dimless),
-    value_(Zero)
-{}
-
-
-// * * * * * * * * * * * * * Static Member Functions * * * * * * * * * * * * //
-
-template<class Type>
-Foam::dimensioned<Type> Foam::dimensioned<Type>::lookupOrDefault
 (
     const word& name,
-    const dictionary& dict,
-    const dimensionSet& dims,
-    const Type& defaultValue
+    const unitConversion& units,
+    const dictionary& dict
 )
+:
+    name_(name),
+    dimensions_(units.dimensions()),
+    value_(Zero)
+{
+    initialise(name, units, dict.lookup(name));
+}
+
+
+template<class Type>
+Foam::dimensioned<Type>::dimensioned
+(
+    const word& name,
+    const dimensionSet& dims,
+    const dictionary& dict,
+    const Type& defaultValue,
+    const bool writeDefault
+)
+:
+    name_(name),
+    dimensions_(dims),
+    value_(defaultValue)
 {
     if (dict.found(name))
     {
-        return dimensioned<Type>(name, dims, dict.lookup(name));
+        initialise(name, dims, dict.lookup(name));
     }
-    else
+    else if (writeDefault)
     {
-        return dimensioned<Type>(name, dims, defaultValue);
+        Info<< indent << "Default: " << name;
+
+        if (!dims.dimensionless())
+        {
+            Info<< " " << dims.info();
+        }
+
+        Info<< " " << defaultValue;
+
+        if (dict.name() != fileName::null)
+        {
+            Info<< " in " << dict.name().relativePath();
+        }
+        Info<< endl;
     }
 }
 
 
 template<class Type>
-Foam::dimensioned<Type> Foam::dimensioned<Type>::lookupOrDefault
+Foam::dimensioned<Type>::dimensioned
 (
     const word& name,
     const dictionary& dict,
-    const Type& defaultValue
+    const Type& defaultValue,
+    const bool writeDefault
 )
-{
-    return lookupOrDefault(name, dict, dimless, defaultValue);
-}
+:
+    dimensioned(name, dimless, dict, defaultValue, writeDefault)
+{}
 
 
 template<class Type>
-Foam::dimensioned<Type> Foam::dimensioned<Type>::lookupOrAddToDict
+Foam::dimensioned<Type>::dimensioned
 (
     const word& name,
-    dictionary& dict,
-    const dimensionSet& dims,
-    const Type& defaultValue
+    const unitConversion& units,
+    const dictionary& dict,
+    const Type& defaultValue,
+    const bool writeDefault
 )
+:
+    name_(name),
+    dimensions_(units.dimensions()),
+    value_(defaultValue)
 {
-    Type value = dict.lookupOrAddDefault<Type>(name, defaultValue);
-    return dimensioned<Type>(name, dims, value);
-}
+    if (dict.found(name))
+    {
+        initialise(name, units, dict.lookup(name));
+    }
+    else if (writeDefault)
+    {
+        Info<< indent << "Default: " << name;
 
+        if (!units.dimensions().dimensionless())
+        {
+            Info<< " " << units.info();
+        }
 
-template<class Type>
-Foam::dimensioned<Type> Foam::dimensioned<Type>::lookupOrAddToDict
-(
-    const word& name,
-    dictionary& dict,
-    const Type& defaultValue
-)
-{
-    return lookupOrAddToDict(name, dict, dimless, defaultValue);
+        Info<< " " << defaultValue;
+
+        if (dict.name() != fileName::null)
+        {
+            Info<< " in " << dict.name().relativePath();
+        }
+        Info<< endl;
+    }
 }
 
 
@@ -321,94 +386,52 @@ void Foam::dimensioned<Type>::replace
 
 
 template<class Type>
-void Foam::dimensioned<Type>::read(const dictionary& dict)
-{
-    dict.lookup(name_) >> value_;
-}
-
-
-template<class Type>
-bool Foam::dimensioned<Type>::readIfPresent(const dictionary& dict)
-{
-    return dict.readIfPresent(name_, value_);
-}
-
-
-template<class Type>
-Foam::Istream&
-Foam::dimensioned<Type>::read(Istream& is, const dictionary& readSet)
-{
-    // Read name
-    is >> name_;
-
-    // Read dimensionSet + multiplier
-    scalar mult;
-    dimensions_.read(is, mult, readSet);
-
-    // Read value
-    is >> value_;
-    value_ *= mult;
-
-    // Check state of Istream
-    is.check
-    (
-        "Istream& dimensioned<Type>::read(Istream& is, const dictionary&)"
-    );
-
-    return is;
-}
-
-
-template<class Type>
-Foam::Istream& Foam::dimensioned<Type>::read
+void Foam::dimensioned<Type>::read
 (
-    Istream& is,
-    const HashTable<dimensionedScalar>& readSet
+    const dictionary& dict,
+    const unitConversion& defaultUnits
 )
 {
-    // Read name
-    is >> name_;
-
-    // Read dimensionSet + multiplier
-    scalar mult;
-    dimensions_.read(is, mult, readSet);
-
-    // Read value
-    is >> value_;
-    value_ *= mult;
-
-    // Check state of Istream
-    is.check
+    initialise
     (
-        "Istream& dimensioned<Type>::read"
-        "(Istream& is, const HashTable<dimensionedScalar>&)"
+        name_,
+        isNull(defaultUnits) ? dimensions_ : defaultUnits,
+        dict.lookup(name_)
     );
-
-    return is;
 }
 
 
 template<class Type>
-Foam::Istream& Foam::dimensioned<Type>::read(Istream& is)
+bool Foam::dimensioned<Type>::readIfPresent
+(
+    const dictionary& dict,
+    const unitConversion& defaultUnits
+)
 {
-    // Read name
-    is >> name_;
+    const entry* entryPtr = dict.lookupEntryPtr(name_, false, true);
 
-    // Read dimensionSet + multiplier
-    scalar mult;
-    dimensions_.read(is, mult);
+    if (entryPtr)
+    {
+        initialise
+        (
+            name_,
+            isNull(defaultUnits) ? dimensions_ : defaultUnits,
+            entryPtr->stream()
+        );
+        return true;
+    }
+    else
+    {
+        if (dictionary::writeOptionalEntries)
+        {
+            IOInfoInFunction(dict)
+                << "Optional entry '" << name_ << "' is not present,"
+                << " the default value '" << *this << "' will be used."
+                << endl;
+        }
 
-    // Read value
-    is >> value_;
-    value_ *= mult;
-
-    // Check state of Istream
-    is.check
-    (
-        "Istream& dimensioned<Type>::read(Istream& is)"
-    );
-
-    return is;
+        return false;
+    }
 }
 
 
@@ -416,20 +439,14 @@ Foam::Istream& Foam::dimensioned<Type>::read(Istream& is)
 
 template<class Type>
 Foam::dimensioned<typename Foam::dimensioned<Type>::cmptType>
-Foam::dimensioned<Type>::operator[]
-(
-    const direction d
-) const
+Foam::dimensioned<Type>::operator[](const direction d) const
 {
     return component(d);
 }
 
 
 template<class Type>
-void Foam::dimensioned<Type>::operator+=
-(
-    const dimensioned<Type>& dt
-)
+void Foam::dimensioned<Type>::operator+=(const dimensioned<Type>& dt)
 {
     dimensions_ += dt.dimensions_;
     value_ += dt.value_;
@@ -437,10 +454,7 @@ void Foam::dimensioned<Type>::operator+=
 
 
 template<class Type>
-void Foam::dimensioned<Type>::operator-=
-(
-    const dimensioned<Type>& dt
-)
+void Foam::dimensioned<Type>::operator-=(const dimensioned<Type>& dt)
 {
     dimensions_ -= dt.dimensions_;
     value_ -= dt.value_;
@@ -448,20 +462,14 @@ void Foam::dimensioned<Type>::operator-=
 
 
 template<class Type>
-void Foam::dimensioned<Type>::operator*=
-(
-    const scalar s
-)
+void Foam::dimensioned<Type>::operator*=(const scalar s)
 {
     value_ *= s;
 }
 
 
 template<class Type>
-void Foam::dimensioned<Type>::operator/=
-(
-    const scalar s
-)
+void Foam::dimensioned<Type>::operator/=(const scalar s)
 {
     value_ /= s;
 }
@@ -494,6 +502,7 @@ Foam::sqr(const dimensioned<Type>& dt)
     );
 }
 
+
 template<class Type>
 Foam::dimensioned<Foam::scalar> Foam::magSqr(const dimensioned<Type>& dt)
 {
@@ -504,6 +513,7 @@ Foam::dimensioned<Foam::scalar> Foam::magSqr(const dimensioned<Type>& dt)
         magSqr(dt.value())
     );
 }
+
 
 template<class Type>
 Foam::dimensioned<Foam::scalar> Foam::mag(const dimensioned<Type>& dt)
@@ -531,6 +541,7 @@ Foam::dimensioned<Type> Foam::cmptMultiply
         cmptMultiply(dt1.value(), dt2.value())
     );
 }
+
 
 template<class Type>
 Foam::dimensioned<Type> Foam::cmptDivide
@@ -599,7 +610,13 @@ Foam::dimensioned<Type> Foam::min
 template<class Type>
 void Foam::writeEntry(Ostream& os, const dimensioned<Type>& dt)
 {
-    os << dt;
+    // Write the dimensions
+    dt.dimensions().write(os);
+
+    os << token::SPACE;
+
+    // Write the value
+    os << dt.value();
 }
 
 
@@ -608,28 +625,7 @@ void Foam::writeEntry(Ostream& os, const dimensioned<Type>& dt)
 template<class Type>
 Foam::Istream& Foam::operator>>(Istream& is, dimensioned<Type>& dt)
 {
-    token nextToken(is);
-    is.putBack(nextToken);
-
-    // Check if the original format is used in which the name is provided
-    // and reset the name to that read
-    if (nextToken.isWord())
-    {
-        is >> dt.name_;
-        is >> nextToken;
-        is.putBack(nextToken);
-    }
-
-    // If the dimensions are provided reset the dimensions to those read
-    scalar multiplier = 1.0;
-    if (nextToken == token::BEGIN_SQR)
-    {
-        dt.dimensions_.read(is, multiplier);
-    }
-
-    // Read the value
-    is >> dt.value_;
-    dt.value_ *= multiplier;
+    dt.initialise(word::null, unitAny, is);
 
     // Check state of Istream
     is.check("Istream& operator>>(Istream&, dimensioned<Type>&)");
@@ -645,13 +641,12 @@ Foam::Ostream& Foam::operator<<(Ostream& os, const dimensioned<Type>& dt)
     os << dt.name() << token::SPACE;
 
     // Write the dimensions
-    scalar mult;
-    dt.dimensions().write(os, mult);
+    dt.dimensions().write(os);
 
     os << token::SPACE;
 
     // Write the value
-    os << dt.value()/mult;
+    os << dt.value();
 
     // Check state of Ostream
     os.check("Ostream& operator<<(Ostream&, const dimensioned<Type>&)");
@@ -809,7 +804,6 @@ Foam::operator op                                                              \
         static_cast<const Form&>(t1) op dt2.value()                            \
     );                                                                         \
 }
-
 
 PRODUCT_OPERATOR(outerProduct, *, outer)
 PRODUCT_OPERATOR(crossProduct, ^, cross)

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -57,7 +57,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-               Class mixedEnergyFvPatchScalarField Declaration
+                Class mixedEnergyFvPatchScalarField Declaration
 \*---------------------------------------------------------------------------*/
 
 class mixedEnergyFvPatchScalarField
@@ -95,23 +95,14 @@ public:
             const mixedEnergyFvPatchScalarField&,
             const fvPatch&,
             const DimensionedField<scalar, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         mixedEnergyFvPatchScalarField
         (
             const mixedEnergyFvPatchScalarField&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchScalarField> clone() const
-        {
-            return tmp<fvPatchScalarField>
-            (
-                new mixedEnergyFvPatchScalarField(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         mixedEnergyFvPatchScalarField
@@ -134,6 +125,15 @@ public:
 
 
     // Member Functions
+
+        // Mapping functions
+
+            //- Map the given fvPatchField onto this fvPatchField
+            void map(const mixedEnergyFvPatchScalarField&, const fieldMapper&);
+
+            //- Map the given fvPatchField onto this fvPatchField
+            virtual void map(const fvPatchScalarField&, const fieldMapper&);
+
 
         // Access
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -23,10 +23,9 @@ License
 
 \*---------------------------------------------------------------------------*/
 
-#include "IOstream.H"
-#include "axesRotation.H"
 #include "coordinateSystem.H"
 #include "coordinateSystems.H"
+#include "axesRotation.H"
 #include "addToRunTimeSelectionTable.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
@@ -39,25 +38,15 @@ namespace Foam
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
-Foam::coordinateSystem::coordinateSystem()
-:
-    name_(),
-    note_(),
-    origin_(point::zero),
-    R_(new axesRotation(sphericalTensor::I))
-{}
-
-
 Foam::coordinateSystem::coordinateSystem
 (
     const word& name,
-    const coordinateSystem& cs
+    const point& origin
 )
 :
     name_(name),
-    note_(),
-    origin_(cs.origin_),
-    R_(const_cast<coordinateRotation*>(&cs.R()))
+    origin_(origin),
+    R_(new axesRotation(sphericalTensor::I))
 {}
 
 
@@ -69,9 +58,8 @@ Foam::coordinateSystem::coordinateSystem
 )
 :
     name_(name),
-    note_(),
     origin_(origin),
-    R_(const_cast<coordinateRotation*>(&cr))
+    R_(cr.clone())
 {}
 
 
@@ -84,7 +72,6 @@ Foam::coordinateSystem::coordinateSystem
 )
 :
     name_(name),
-    note_(),
     origin_(origin),
     R_(new axesRotation(axis, dirn))
 {}
@@ -97,83 +84,17 @@ Foam::coordinateSystem::coordinateSystem
 )
 :
     name_(name),
-    note_(),
-    origin_(point::zero),
-    R_()
-{
-    init(dict);
-}
+    origin_(dict.lookup("origin")),
+    R_(coordinateRotation::New(dict.subDict("coordinateRotation")).ptr())
+{}
 
 
-Foam::coordinateSystem::coordinateSystem(const dictionary& dict)
+Foam::coordinateSystem::coordinateSystem(const coordinateSystem& cs)
 :
-    name_(),
-    note_(),
-    origin_(point::zero),
-    R_()
-{
-    init(dict);
-}
-
-
-Foam::coordinateSystem::coordinateSystem
-(
-    const objectRegistry& obr,
-    const dictionary& dict
-)
-:
-    name_(),
-    note_(),
-    origin_(point::zero),
-    R_()
-{
-    const entry* entryPtr = dict.lookupEntryPtr(typeName_(), false, false);
-
-    // non-dictionary entry is a lookup into global coordinateSystems
-    if (entryPtr && !entryPtr->isDict())
-    {
-        keyType key(entryPtr->stream());
-
-        const coordinateSystems& lst = coordinateSystems::New(obr);
-        const label index = lst.findIndex(key);
-
-        if (debug)
-        {
-            InfoInFunction
-                << "Using global coordinate system: "
-                << key << "=" << index << endl;
-        }
-
-        if (index < 0)
-        {
-            FatalErrorInFunction
-                << "could not find coordinate system: " << key << nl
-                << "available coordinate systems: " << lst.toc() << nl << nl
-                << exit(FatalError);
-        }
-
-        // copy coordinateSystem, but assign the name as the typeName
-        // to avoid strange things in writeDict()
-        operator=(lst[index]);
-        name_ = typeName_();
-    }
-    else
-    {
-        init(dict, obr);
-    }
-}
-
-
-Foam::coordinateSystem::coordinateSystem(Istream& is)
-:
-    name_(is),
-    note_(),
-    origin_(point::zero),
-    R_()
-{
-    dictionary dict(is);
-    init(dict);
-}
+    name_(cs.name_),
+    origin_(cs.origin_),
+    R_(cs.R_, false)
+{}
 
 
 // * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
@@ -183,32 +104,6 @@ Foam::coordinateSystem::~coordinateSystem()
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
-
-Foam::dictionary Foam::coordinateSystem::dict(bool ignoreType) const
-{
-    dictionary dict;
-
-    dict.add("name", name_);
-
-    // only write type for derived types
-    if (!ignoreType && type() != typeName_())
-    {
-        dict.add("type", type());
-    }
-
-    // The note entry is optional
-    if (note_.size())
-    {
-        dict.add("note", note_);
-    }
-
-    dict.add("origin", origin_);
-    dict.add("e1", R_->e1());
-    dict.add("e3", R_->e3());
-
-    return dict;
-}
-
 
 Foam::vector Foam::coordinateSystem::localToGlobal
 (
@@ -278,14 +173,6 @@ Foam::tmp<Foam::vectorField> Foam::coordinateSystem::globalToLocal
 }
 
 
-void Foam::coordinateSystem::clear()
-{
-    note_.clear();
-    origin_ = Zero;
-    R_->clear();
-}
-
-
 void Foam::coordinateSystem::write(Ostream& os) const
 {
     os  << type() << " origin: " << origin() << nl;
@@ -302,16 +189,13 @@ void Foam::coordinateSystem::writeDict(Ostream& os, bool subDict) const
     }
 
     writeEntry(os, "type", type());
-
-
-    // The note entry is optional
-    if (note_.size())
-    {
-        writeEntry(os, "note", note_);
-    }
-
     writeEntry(os, "origin", origin_);
+
+    os  << indent << "coordinateRotation" << nl
+        << indent << token::BEGIN_BLOCK << incrIndent << nl;
+    writeEntry(os, "type", R_->type());
     R_->write(os);
+    os  << decrIndent << indent << token::END_BLOCK << endl;
 
     if (subDict)
     {
@@ -322,54 +206,11 @@ void Foam::coordinateSystem::writeDict(Ostream& os, bool subDict) const
 
 // * * * * * * * * * * * * * * * Member Operators  * * * * * * * * * * * * * //
 
-void Foam::coordinateSystem::init(const dictionary& rhs)
+void Foam::coordinateSystem::operator=(const coordinateSystem& cs)
 {
-    rhs.lookup("origin") >> origin_;
-    note_.clear();
-    rhs.readIfPresent("note", note_);
-    R_.reset(coordinateRotation::New(rhs.subDict("coordinateRotation")).ptr());
-}
-
-
-void Foam::coordinateSystem::init
-(
-    const dictionary& rhs,
-    const objectRegistry& obr
-)
-{
-    if (debug)
-    {
-        Pout<< "coordinateSystem::operator="
-                "("
-                    "const dictionary&, "
-                    "const objectRegistry&"
-                ") : "
-            << "assign from " << rhs << endl;
-    }
-
-    rhs.lookup("origin") >> origin_;
-
-    // The note entry is optional
-    note_.clear();
-    rhs.readIfPresent("note", note_);
-
-    R_.reset
-    (
-        coordinateRotation::New(rhs.subDict("coordinateRotation"), obr).ptr()
-    );
-}
-
-
-// * * * * * * * * * * * * * * * Friend Operators  * * * * * * * * * * * * * //
-
-bool Foam::operator!=(const coordinateSystem& a, const coordinateSystem& b)
-{
-    return
-    (
-        a.origin() != b.origin()
-     || a.R().R() != b.R().R()
-     || a.type() != b.type()
-    );
+    name_ = cs.name_;
+    origin_ = cs.origin_;
+    R_ = cs.R_->clone();
 }
 
 
@@ -377,7 +218,7 @@ bool Foam::operator!=(const coordinateSystem& a, const coordinateSystem& b)
 
 Foam::Ostream& Foam::operator<<(Ostream& os, const coordinateSystem& cs)
 {
-    cs.write(os);
+    cs.writeDict(os);
     os.check("Ostream& operator<<(Ostream&, const coordinateSystem&");
     return os;
 }

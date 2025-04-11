@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -35,10 +35,13 @@ Description
 
 \*---------------------------------------------------------------------------*/
 
-#include "fvCFD.H"
-#include "singlePhaseTransportModel.H"
-#include "turbulentTransportModel.H"
+#include "argList.H"
+#include "viscosityModel.H"
+#include "incompressibleMomentumTransportModels.H"
 #include "wallDist.H"
+#include "fvcFlux.H"
+
+using namespace Foam;
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -93,7 +96,7 @@ int main(int argc, char *argv[])
     }
 
     #include "createTime.H"
-    #include "createMesh.H"
+    #include "createMeshNoChangers.H"
     #include "createFields.H"
 
     // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -121,11 +124,11 @@ int main(int argc, char *argv[])
     #include "createPhi.H"
     phi.write();
 
-    singlePhaseTransportModel laminarTransport(U, phi);
+    autoPtr<viscosityModel> viscosity(viscosityModel::New(mesh));
 
-    autoPtr<incompressible::turbulenceModel> turbulence
+    autoPtr<incompressible::momentumTransportModel> turbulence
     (
-        incompressible::turbulenceModel::New(U, phi, laminarTransport)
+        incompressible::momentumTransportModel::New(U, phi, viscosity)
     );
 
     if (isA<incompressible::RASModel>(turbulence()))
@@ -154,10 +157,7 @@ int main(int argc, char *argv[])
         volScalarField& k = const_cast<volScalarField&>(tk());
         scalar ck0 = pow025(Cmu)*kappa;
         k = (1 - mask)*k + mask*sqr(nut/(ck0*min(y, ybl)));
-
-        // Do not correct BC - operation may use inconsistent fields wrt these
-        // local manipulations
-        // k.correctBoundaryConditions();
+        k.correctBoundaryConditions();
 
         Info<< "Writing k\n" << endl;
         k.write();
@@ -169,32 +169,30 @@ int main(int argc, char *argv[])
         scalar ce0 = ::pow(Cmu, 0.75)/kappa;
         epsilon = (1 - mask)*epsilon + mask*ce0*k*sqrt(k)/min(y, ybl);
 
-        // Do not correct BC - wall functions will use non-updated k from
-        // turbulence model
+        // Do not correct BC - G set by the wall-functions is not available
         // epsilon.correctBoundaryConditions();
 
         Info<< "Writing epsilon\n" << endl;
         epsilon.write();
 
         // Turbulence omega
-        IOobject omegaHeader
+        typeIOobject<volScalarField> omegaHeader
         (
             "omega",
-            runTime.timeName(),
+            runTime.name(),
             mesh,
             IOobject::MUST_READ,
             IOobject::NO_WRITE,
             false
         );
 
-        if (omegaHeader.typeHeaderOk<volScalarField>(true))
+        if (omegaHeader.headerOk())
         {
             volScalarField omega(omegaHeader, mesh);
-            dimensionedScalar k0("vSmall", k.dimensions(), vSmall);
-            omega = (1 - mask)*omega + mask*epsilon/(Cmu*k + k0);
 
-            // Do not correct BC - wall functions will use non-updated k from
-            // turbulence model
+            omega = (1 - mask)*omega + mask*ce0*sqrt(k)/(Cmu*min(y, ybl));
+
+            // Do not correct BC - G set by the wall-functions is not available
             // omega.correctBoundaryConditions();
 
             Info<< "Writing omega\n" << endl;
@@ -202,22 +200,22 @@ int main(int argc, char *argv[])
         }
 
         // Turbulence nuTilda
-        IOobject nuTildaHeader
+        typeIOobject<volScalarField> nuTildaHeader
         (
             "nuTilda",
-            runTime.timeName(),
+            runTime.name(),
             mesh,
             IOobject::MUST_READ,
             IOobject::NO_WRITE,
             false
         );
 
-        if (nuTildaHeader.typeHeaderOk<volScalarField>(true))
+        if (nuTildaHeader.headerOk())
         {
             volScalarField nuTilda(nuTildaHeader, mesh);
             nuTilda = nut;
 
-            // Do not correct BC
+            // Do not correct BC - G set by the wall-functions is not available
             // nuTilda.correctBoundaryConditions();
 
             Info<< "Writing nuTilda\n" << endl;

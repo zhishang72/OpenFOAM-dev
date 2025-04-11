@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,7 +24,7 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "faceZoneSet.H"
-#include "mapPolyMesh.H"
+#include "polyTopoChangeMap.H"
 #include "polyMesh.H"
 #include "setToFaceZone.H"
 #include "setsToFaceZone.H"
@@ -79,8 +79,8 @@ faceZoneSet::faceZoneSet
     addressing_(0),
     flipMap_(0)
 {
-    const faceZoneMesh& faceZones = mesh.faceZones();
-    label zoneID = faceZones.findZoneID(name);
+    const faceZoneList& faceZones = mesh.faceZones();
+    label zoneID = faceZones.findIndex(name);
 
     if
     (
@@ -474,8 +474,8 @@ bool faceZoneSet::writeObject
     const_cast<word&>(type()) = oldTypeName;
 
     // Modify faceZone
-    faceZoneMesh& faceZones = const_cast<polyMesh&>(mesh_).faceZones();
-    label zoneID = faceZones.findZoneID(name());
+    faceZoneList& faceZones = const_cast<polyMesh&>(mesh_).faceZones();
+    label zoneID = faceZones.findIndex(name());
 
     if (zoneID == -1)
     {
@@ -490,7 +490,6 @@ bool faceZoneSet::writeObject
                 name(),
                 addressing_,
                 flipMap_,
-                zoneID,
                 faceZones
             )
         );
@@ -499,13 +498,12 @@ bool faceZoneSet::writeObject
     {
         faceZones[zoneID].resetAddressing(addressing_, flipMap_);
     }
-    faceZones.clearAddressing();
 
     return ok && faceZones.write(write);
 }
 
 
-void faceZoneSet::updateMesh(const mapPolyMesh& morphMap)
+void faceZoneSet::topoChange(const polyTopoChangeMap& map)
 {
     // faceZone
     labelList newAddressing(addressing_.size());
@@ -515,7 +513,7 @@ void faceZoneSet::updateMesh(const mapPolyMesh& morphMap)
     forAll(addressing_, i)
     {
         label facei = addressing_[i];
-        label newFacei = morphMap.reverseFaceMap()[facei];
+        label newFacei = map.reverseFaceMap()[facei];
         if (newFacei >= 0)
         {
             newAddressing[n] = newFacei;

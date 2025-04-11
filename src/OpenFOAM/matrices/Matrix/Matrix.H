@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -71,6 +71,9 @@ class ConstMatrixBlock;
 template<class MatrixType>
 class MatrixBlock;
 
+template<class Form, class Cmpt, direction Mrows, direction Ncols>
+class MatrixSpace;
+
 
 /*---------------------------------------------------------------------------*\
                            Class Matrix Declaration
@@ -115,12 +118,29 @@ public:
         Matrix(const label m, const label n);
 
         //- Construct with given number of rows and columns
-        //  initializing all elements to zero
+        //  initialising all elements to zero
         Matrix(const label m, const label n, const zero);
 
         //- Construct with given number of rows and columns
-        //  initializing all elements to the given value
+        //  initialising all elements to the given value
         Matrix(const label m, const label n, const Type&);
+
+        //- Construct with given number of rows and columns
+        //  and start and end iterators
+        template<class InputIterator>
+        Matrix
+        (
+            const label m,
+            const label n,
+            InputIterator first,
+            InputIterator last
+        );
+
+        //- Construct with given number of rows and columns and initialiser list
+        Matrix(const label m, const label n, std::initializer_list<Type>);
+
+        //- Construct from initialiser list list
+        Matrix(std::initializer_list<std::initializer_list<Type>>);
 
         //- Copy constructor.
         Matrix(const mType&);
@@ -136,6 +156,9 @@ public:
         //- Construct from a block of another matrix
         template<class MatrixType>
         Matrix(const MatrixBlock<MatrixType>&);
+
+        template<class MSForm, direction Mrows, direction Ncols>
+        Matrix(const MatrixSpace<MSForm, Type, Mrows, Ncols>&);
 
         //- Construct from Istream.
         Matrix(Istream&);
@@ -308,6 +331,9 @@ public:
 
 
 // Global functions and operators
+
+template<class Form, class Type>
+void writeEntry(Ostream&, const Matrix<Form, Type>&);
 
 template<class Form, class Type>
 const Type& max(const Matrix<Form, Type>&);

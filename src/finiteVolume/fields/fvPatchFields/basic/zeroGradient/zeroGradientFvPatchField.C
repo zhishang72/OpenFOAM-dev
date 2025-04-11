@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,9 +24,9 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "zeroGradientFvPatchField.H"
-#include "fvPatchFieldMapper.H"
+#include "fieldMapper.H"
 
-// * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class Type>
 Foam::zeroGradientFvPatchField<Type>::zeroGradientFvPatchField
@@ -59,21 +59,13 @@ Foam::zeroGradientFvPatchField<Type>::zeroGradientFvPatchField
     const zeroGradientFvPatchField<Type>& ptf,
     const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
-    fvPatchField<Type>(ptf, p, iF, mapper)
-{}
-
-
-template<class Type>
-Foam::zeroGradientFvPatchField<Type>::zeroGradientFvPatchField
-(
-    const zeroGradientFvPatchField& zgpf
-)
-:
-    fvPatchField<Type>(zgpf)
-{}
+    fvPatchField<Type>(ptf, p, iF, mapper, false)
+{
+    mapper(*this, ptf, [&](){ return this->patchInternalField(); });
+}
 
 
 template<class Type>
@@ -88,6 +80,17 @@ Foam::zeroGradientFvPatchField<Type>::zeroGradientFvPatchField
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+
+template<class Type>
+void Foam::zeroGradientFvPatchField<Type>::map
+(
+    const fvPatchField<Type>& ptf,
+    const fieldMapper& mapper
+)
+{
+    mapper(*this, ptf, [&](){ return this->patchInternalField(); });
+}
+
 
 template<class Type>
 void Foam::zeroGradientFvPatchField<Type>::evaluate(const Pstream::commsTypes)

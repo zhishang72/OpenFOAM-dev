@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2019-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -30,7 +30,7 @@ Description
     This condition models a baffle which adsorbs some species and not others.
     It must be used in conjunction with a
     specieTransferVelocityFvPatchVectorField velocity condition, and a
-    specieTransferTemperatureFvPatchScalarField  temperature condition.
+    specieTransferTemperatureFvPatchScalarField temperature condition.
 
     The mass flux of a species is calculated as a coefficient multiplied by the
     concentration adjacent to the patch.
@@ -42,7 +42,7 @@ Description
             \phi_{Yi}  | Flux of the adsorbing specie [kg/s]
             c          | Transfer coefficient [kg/m^2/s/<property-dimensions>]
             A          | Patch face area [m^2]
-            \C_i       | Property adjacent to the patch [<property-dimensions>]
+            C_i        | Property adjacent to the patch [<property-dimensions>]
         \endvartable
 
     A species that is adsorbed by the patch will, therefore, have a coefficient
@@ -91,10 +91,8 @@ SourceFiles
 namespace Foam
 {
 
-class basicSpecieMixture;
-
 /*---------------------------------------------------------------------------*\
-      Class adsorptionMassFractionFvPatchScalarField Declaration
+          Class adsorptionMassFractionFvPatchScalarField Declaration
 \*---------------------------------------------------------------------------*/
 
 class adsorptionMassFractionFvPatchScalarField
@@ -108,13 +106,6 @@ public:
 
 
     // Constructors
-
-        //- Construct from patch and internal field
-        adsorptionMassFractionFvPatchScalarField
-        (
-            const fvPatch&,
-            const DimensionedField<scalar, volMesh>&
-        );
 
         //- Construct from patch, internal field and dictionary
         adsorptionMassFractionFvPatchScalarField
@@ -131,23 +122,15 @@ public:
             const adsorptionMassFractionFvPatchScalarField&,
             const fvPatch&,
             const DimensionedField<scalar, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+
+        //- Disallow copy without setting internal field reference
         adsorptionMassFractionFvPatchScalarField
         (
             const adsorptionMassFractionFvPatchScalarField&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchScalarField> clone() const
-        {
-            return tmp<fvPatchScalarField>
-            (
-                new adsorptionMassFractionFvPatchScalarField(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         adsorptionMassFractionFvPatchScalarField

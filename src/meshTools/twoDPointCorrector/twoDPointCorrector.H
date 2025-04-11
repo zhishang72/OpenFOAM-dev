@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -42,7 +42,7 @@ SourceFiles
 #ifndef twoDPointCorrector_H
 #define twoDPointCorrector_H
 
-#include "MeshObject.H"
+#include "DemandDrivenMeshObject.H"
 #include "pointField.H"
 #include "labelList.H"
 #include "vector.H"
@@ -61,7 +61,12 @@ class polyMesh;
 
 class twoDPointCorrector
 :
-    public MeshObject<polyMesh, UpdateableMeshObject, twoDPointCorrector>
+    public DemandDrivenMeshObject
+    <
+        polyMesh,
+        TopoChangeableMeshObject,
+        twoDPointCorrector
+    >
 {
     // Private Data
 
@@ -102,6 +107,21 @@ class twoDPointCorrector
         static const scalar edgeOrthogonalityTol;
 
 
+protected:
+
+    friend class DemandDrivenMeshObject
+    <
+        polyMesh,
+        TopoChangeableMeshObject,
+        twoDPointCorrector
+    >;
+
+    // Protected Constructors
+
+        //- Construct from mesh
+        explicit twoDPointCorrector(const polyMesh& mesh);
+
+
 public:
 
     // Declare name of the class and its debug switch
@@ -109,9 +129,6 @@ public:
 
 
     // Constructors
-
-        //- Construct from components
-        twoDPointCorrector(const polyMesh& mesh);
 
         //- Disallow default bitwise copy construction
         twoDPointCorrector(const twoDPointCorrector&) = delete;
@@ -145,10 +162,16 @@ public:
         void correctDisplacement(const pointField& p, vectorField& disp) const;
 
         //- Update topology
-        void updateMesh(const mapPolyMesh&);
+        virtual void topoChange(const polyTopoChangeMap&);
+
+        //- Update from another mesh using the given map
+        virtual void mapMesh(const polyMeshMap&);
+
+        //- Redistribute or update using the given distribution map
+        virtual void distribute(const polyDistributionMap&);
 
         //- Correct weighting factors for moving mesh.
-        bool movePoints();
+        virtual bool movePoints();
 
 
     // Member Operators

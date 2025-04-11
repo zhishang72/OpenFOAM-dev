@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -37,31 +37,26 @@ bool Foam::functionObjects::components::calcFieldComponents()
 
     resultNames_.setSize(Type::nComponents);
 
-    bool stored = true;
-
     for (direction i=0; i<Type::nComponents; i++)
     {
         resultNames_[i] = fieldName_ + word(Type::componentNames[i]);
-        stored = stored && store(resultNames_[i], field.component(i));
+        store(resultNames_[i], field.component(i));
     }
 
-    return stored;
+    return true;
 }
 
 
 template<class Type>
 bool Foam::functionObjects::components::calcComponents()
 {
-    typedef GeometricField<Type, fvPatchField, volMesh> VolFieldType;
-    typedef GeometricField<Type, fvsPatchField, surfaceMesh> SurfaceFieldType;
-
-    if (foundObject<VolFieldType>(fieldName_))
+    if (foundObject<VolField<Type>>(fieldName_))
     {
-        return calcFieldComponents<VolFieldType>();
+        return calcFieldComponents<VolField<Type>>();
     }
-    else if (foundObject<SurfaceFieldType>(fieldName_))
+    else if (foundObject<SurfaceField<Type>>(fieldName_))
     {
-        return calcFieldComponents<SurfaceFieldType>();
+        return calcFieldComponents<SurfaceField<Type>>();
     }
     else
     {

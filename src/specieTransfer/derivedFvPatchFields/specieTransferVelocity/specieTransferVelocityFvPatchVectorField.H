@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2019-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -62,7 +62,7 @@ SourceFiles
 #ifndef specieTransferVelocityFvPatchVectorField_H
 #define specieTransferVelocityFvPatchVectorField_H
 
-#include "fixedValueFvPatchFields.H"
+#include "fixedValueInletOutletFvPatchFields.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -70,12 +70,12 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-       Class specieTransferVelocityFvPatchVectorField Declaration
+          Class specieTransferVelocityFvPatchVectorField Declaration
 \*---------------------------------------------------------------------------*/
 
 class specieTransferVelocityFvPatchVectorField
 :
-    public fixedValueFvPatchVectorField
+    public fixedValueInletOutletFvPatchField<vector>
 {
     // Private Data
 
@@ -91,20 +91,12 @@ public:
 
     // Constructors
 
-        //- Construct from patch and internal field
-        specieTransferVelocityFvPatchVectorField
-        (
-            const fvPatch&,
-            const DimensionedField<vector, volMesh>&
-        );
-
         //- Construct from patch, internal field and dictionary
         specieTransferVelocityFvPatchVectorField
         (
             const fvPatch&,
             const DimensionedField<vector, volMesh>&,
-            const dictionary&,
-            const bool readValue = true
+            const dictionary&
         );
 
         //- Construct by mapping given fixedValueTypeFvPatchField
@@ -114,23 +106,14 @@ public:
             const specieTransferVelocityFvPatchVectorField&,
             const fvPatch&,
             const DimensionedField<vector, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         specieTransferVelocityFvPatchVectorField
         (
             const specieTransferVelocityFvPatchVectorField&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchVectorField> clone() const
-        {
-            return tmp<fvPatchVectorField>
-            (
-                new specieTransferVelocityFvPatchVectorField(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         specieTransferVelocityFvPatchVectorField

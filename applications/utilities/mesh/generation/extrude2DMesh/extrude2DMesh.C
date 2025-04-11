@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -28,8 +28,9 @@ Description
     Takes 2D mesh (all faces 2 points only, no front and back faces) and
     creates a 3D mesh by extruding with specified thickness.
 
-Note
-    Not sure about the walking of the faces to create the front and back faces.
+    Note:
+        Not sure about the walking of the faces to create the front and
+        back faces.
 
 \*---------------------------------------------------------------------------*/
 
@@ -41,7 +42,6 @@ Note
 #include "polyTopoChange.H"
 #include "MeshedSurface.H"
 #include "edgeCollapser.H"
-#include "addPatchCellLayer.H"
 #include "patchToPoly2DMesh.H"
 #include "globalIndex.H"
 #include "IOdictionary.H"
@@ -103,7 +103,7 @@ static const NamedEnum<ExtrudeMode, 2> ExtrudeModeNames;
 //          - layer0Points[meshPointi];
 //    }
 
-//    fMesh.movePoints(layer0Points);
+//    fMesh.setPoints(layer0Points);
 
 //    return displacement;
 //}
@@ -124,16 +124,15 @@ int main(int argc, char *argv[])
     (
         Time::controlDictName,
         args.rootPath(),
-        args.caseName()
+        args.caseName(),
+        false
     );
-
-    runTimeExtruded.functionObjects().off();
 
     const ExtrudeMode surfaceFormat = ExtrudeModeNames[args[1]];
     const bool overwrite = args.optionFound("overwrite");
 
     Info<< "Extruding from " << ExtrudeModeNames[surfaceFormat]
-        << " at time " << runTimeExtruded.timeName() << endl;
+        << " at time " << runTimeExtruded.name() << endl;
 
     IOdictionary extrude2DMeshDict
     (
@@ -233,7 +232,7 @@ int main(int argc, char *argv[])
                 Foam::IOobject
                 (
                     Foam::polyMesh::defaultRegion,
-                    runTimeExtruded.timeName(),
+                    runTimeExtruded.name(),
                     runTimeExtruded,
                     Foam::IOobject::MUST_READ
                 )
@@ -251,9 +250,11 @@ int main(int argc, char *argv[])
     extruder.setRefinement(meshMod());
 
     // Create a mesh from topo changes.
-    autoPtr<mapPolyMesh> morphMap = meshMod().changeMesh(mesh(), false);
+    autoPtr<polyTopoChangeMap> map = meshMod().changeMesh(mesh());
 
-    mesh().updateMesh(morphMap);
+    extruder.updateZones();
+
+    mesh().topoChange(map);
 
     {
         edgeCollapser collapser(mesh());
@@ -301,10 +302,9 @@ int main(int argc, char *argv[])
         collapser.setRefinement(allPointInfo, meshModCollapse);
 
         // Create a mesh from topo changes.
-        autoPtr<mapPolyMesh> morphMap
-            = meshModCollapse.changeMesh(mesh(), false);
+        autoPtr<polyTopoChangeMap> map = meshModCollapse.changeMesh(mesh());
 
-        mesh().updateMesh(morphMap);
+        mesh().topoChange(map);
     }
 
     if (!overwrite)
@@ -317,7 +317,7 @@ int main(int argc, char *argv[])
     }
 
     // Take over refinement levels and write to new time directory.
-    Info<< "\nWriting extruded mesh to time = " << runTimeExtruded.timeName()
+    Info<< "\nWriting extruded mesh to time = " << runTimeExtruded.name()
         << nl << endl;
 
     mesh().write();

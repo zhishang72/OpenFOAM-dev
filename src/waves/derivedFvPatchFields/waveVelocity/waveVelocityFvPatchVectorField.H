@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -30,39 +30,10 @@ Description
     wave modelling parameters are obtained from a centrally registered
     waveSuperposition class.
 
-    Flow reversal will occur in the event that the amplitude of the velocity
-    oscillation is greater than the mean flow. This triggers special handling,
-    the form of which depends on the inletOutlet flag and whether a wave
-    pressure condition is being used.
-
-    If a wave pressure condition is not being used, and inletOutlet is false,
-    then this is a standard fixed value condition, with the value supplied by
-    the wave model. If flow reversal occurs this state may be unstable. The
-    corresponding pressure condition should be fixedFluxPressure.
-
-    If a wave pressure condition is not being used, and inletOutlet is true or
-    not specified then the proportion of the patch over which the flow is
-    reversed functions in a manner similar to the flowRateOutletVelocity
-    condition; i.e., the velocity is extrapolated and then scaled to match the
-    required outlet flow rate. Numerically, this is still a fixedValue
-    constraint on the normal velocity, just one which tends to avoid
-    instability. Again, the corresponding pressure condition should be
-    fixedFluxPressure.
-
-    If a wave pressure condition is being used, then the normal velocity
-    condition becomes fixedGradient on outlet faces. This gradient is
-    calculated numerically by evaluating the wave model on both the patch face
-    and the adjacent cell. The pressure boundary in this case should be a
-    wavePressure condition. This will do the opposite; it will fix the pressure
-    value on outlet faces, and the gradient otherwise.
-
 Usage
     \table
-        Property    | Description                            | Req'd? | Default
-        phi         | Name of the flux field                 | no     | phi
-        p           | Name of the pressure field             | no     | p
-        inletOutlet | does the condition behave like inletOutlet | no | true
-        ramp        | ramping function for the mean flow speed | no   | None
+        Property  | Description                            | Required? | Default
+        phi       | Name of the flux field                 | no        | phi
     \endtable
 
     Example of the boundary condition specification:
@@ -70,10 +41,7 @@ Usage
     <patchName>
     {
         type        waveVelocity;
-        phi         phi;
-        p           p;
-        inletOutlet yes;
-        ramp        constant 1;
+        libs        ("libwaves.so");
     }
     \endverbatim
 
@@ -88,7 +56,7 @@ SourceFiles
 #ifndef waveVelocityFvPatchVectorField_H
 #define waveVelocityFvPatchVectorField_H
 
-#include "directionMixedFvPatchFields.H"
+#include "fixedValueInletOutletFvPatchFields.H"
 #include "waveSuperposition.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -99,23 +67,14 @@ namespace Foam
 class fvMeshSubset;
 
 /*---------------------------------------------------------------------------*\
-                Class waveVelocityFvPatchVectorField Declaration
+               Class waveVelocityFvPatchVectorField Declaration
 \*---------------------------------------------------------------------------*/
 
 class waveVelocityFvPatchVectorField
 :
-    public directionMixedFvPatchVectorField
+    public fixedValueInletOutletFvPatchField<vector>
 {
     // Private Data
-
-        //- Name of the flux field
-        const word phiName_;
-
-        //- Name of the pressure field
-        const word pName_;
-
-        //- Act as an inlet/outlet patch?
-        const Switch inletOutlet_;
 
         //- Mesh subset corresponding to the patch adjacent cells
         mutable autoPtr<fvMeshSubset> faceCellSubset_;
@@ -132,13 +91,6 @@ public:
 
     // Constructors
 
-        //- Construct from patch and internal field
-        waveVelocityFvPatchVectorField
-        (
-            const fvPatch&,
-            const DimensionedField<vector, volMesh>&
-        );
-
         //- Construct from patch, internal field and dictionary
         waveVelocityFvPatchVectorField
         (
@@ -153,23 +105,14 @@ public:
             const waveVelocityFvPatchVectorField&,
             const fvPatch&,
             const DimensionedField<vector, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         waveVelocityFvPatchVectorField
         (
             const waveVelocityFvPatchVectorField&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchVectorField> clone() const
-        {
-            return tmp<fvPatchVectorField>
-            (
-                new waveVelocityFvPatchVectorField(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         waveVelocityFvPatchVectorField
@@ -195,12 +138,6 @@ public:
 
         // Access
 
-            //- Access the name of the pressure field
-            const word& pName() const
-            {
-                return pName_;
-            }
-
             //- Access the face-cell subset
             const fvMeshSubset& faceCellSubset() const;
 
@@ -208,17 +145,15 @@ public:
         // Evaluation functions
 
             //- Return the current modelled velocity field on the patch faces
-            tmp<vectorField> U() const;
+            //  at the given time
+            tmp<vectorField> U(const scalar t) const;
 
-            //- Return the current modelled velocity field in the neighbour cell
-            tmp<vectorField> Un() const;
+            //- Return the current modelled velocity field in the neighbour
+            //  cells at the given time
+            tmp<vectorField> Un(const scalar t) const;
 
             //- Update the coefficients associated with the patch field
             virtual void updateCoeffs();
-
-
-        //- Write
-        virtual void write(Ostream&) const;
 };
 
 

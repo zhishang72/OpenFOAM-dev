@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -20,10 +20,6 @@ License
 
     You should have received a copy of the GNU General Public License
     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
-
-Note
-    The const_cast used in this file is a temporary hack for to work around
-    bugs in OpenMPI for versions < 1.7.4
 
 \*---------------------------------------------------------------------------*/
 
@@ -619,11 +615,11 @@ void Foam::UPstream::allocatePstreamCommunicator
         int numProcs;
         MPI_Comm_size(PstreamGlobals::MPICommunicators_[index], &numProcs);
 
-        // procIDs_[index] = identity(numProcs);
-        procIDs_[index].setSize(numProcs);
-        forAll(procIDs_[index], i)
+        // procIndices_[index] = identityMap(numProcs);
+        procIndices_[index].setSize(numProcs);
+        forAll(procIndices_[index], i)
         {
-            procIDs_[index][i] = i;
+            procIndices_[index][i] = i;
         }
     }
     else
@@ -632,8 +628,8 @@ void Foam::UPstream::allocatePstreamCommunicator
         MPI_Group_incl
         (
             PstreamGlobals::MPIGroups_[parentIndex],
-            procIDs_[index].size(),
-            procIDs_[index].begin(),
+            procIndices_[index].size(),
+            procIndices_[index].begin(),
            &PstreamGlobals::MPIGroups_[index]
         );
 
@@ -663,7 +659,7 @@ void Foam::UPstream::allocatePstreamCommunicator
                 FatalErrorInFunction
                     << "Problem :"
                     << " when allocating communicator at " << index
-                    << " from ranks " << procIDs_[index]
+                    << " from ranks " << procIndices_[index]
                     << " of parent " << parentIndex
                     << " cannot find my own rank"
                     << Foam::exit(FatalError);

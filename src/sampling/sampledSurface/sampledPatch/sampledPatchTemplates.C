@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -31,7 +31,7 @@ template<class Type>
 Foam::tmp<Foam::Field<Type>>
 Foam::sampledSurfaces::patch::sampleField
 (
-    const GeometricField<Type, fvPatchField, volMesh>& vField
+    const VolField<Type>& vField
 ) const
 {
     // One value per face
@@ -39,7 +39,7 @@ Foam::sampledSurfaces::patch::sampleField
     Field<Type>& values = tvalues.ref();
     forAll(patchFaceLabels_, i)
     {
-        label patchi = patchIDs_[patchIndex_[i]];
+        label patchi = patchIndices_[patchIndex_[i]];
         const Field<Type>& bField = vField.boundaryField()[patchi];
         values[i] = bField[patchFaceLabels_[i]];
     }
@@ -52,7 +52,7 @@ template<class Type>
 Foam::tmp<Foam::Field<Type>>
 Foam::sampledSurfaces::patch::sampleField
 (
-    const GeometricField<Type, fvsPatchField, surfaceMesh>& sField
+    const SurfaceField<Type>& sField
 ) const
 {
     // One value per face
@@ -61,7 +61,7 @@ Foam::sampledSurfaces::patch::sampleField
 
     forAll(patchFaceLabels_, i)
     {
-        label patchi = patchIDs_[patchIndex_[i]];
+        label patchi = patchIndices_[patchIndex_[i]];
         values[i] = sField.boundaryField()[patchi][patchFaceLabels_[i]];
     }
 
@@ -86,7 +86,7 @@ Foam::sampledSurfaces::patch::interpolateField
 
     forAll(faces(), cutFacei)
     {
-        label patchi = patchIDs_[patchIndex_[cutFacei]];
+        label patchi = patchIndices_[patchIndex_[cutFacei]];
         const polyPatch& pp = mesh().boundaryMesh()[patchi];
         label patchFacei = patchFaceLabels()[cutFacei];
         const face& f = faces()[cutFacei];

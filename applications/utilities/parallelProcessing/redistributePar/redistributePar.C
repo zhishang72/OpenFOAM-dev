@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -39,83 +39,28 @@ Description
         mkdir processorN
 
         # Copy undecomposed polyMesh
-        cp -r constant processor0
+        cp -R constant processor0
 
         # Distribute
         mpirun -np ddd redistributePar -parallel
     \endverbatim
 \*---------------------------------------------------------------------------*/
 
-#include "fvMesh.H"
+#include "argList.H"
+#include "timeSelector.H"
 #include "decompositionMethod.H"
 #include "PstreamReduceOps.H"
-#include "fvCFD.H"
+#include "volFields.H"
 #include "fvMeshDistribute.H"
-#include "mapDistributePolyMesh.H"
+#include "polyDistributionMap.H"
 #include "IOobjectList.H"
 #include "globalIndex.H"
 #include "loadOrCreateMesh.H"
+#include "extrapolatedCalculatedFvPatchFields.H"
+
+using namespace Foam;
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-// Tolerance (as fraction of the bounding box). Needs to be fairly lax since
-// usually meshes get written with limited precision (6 digits)
-static const scalar defaultMergeTol = 1e-6;
-
-
-// Get merging distance when matching face centres
-scalar getMergeDistance
-(
-    const argList& args,
-    const Time& runTime,
-    const boundBox& bb
-)
-{
-    scalar mergeTol = defaultMergeTol;
-    args.optionReadIfPresent("mergeTol", mergeTol);
-
-    scalar writeTol =
-        Foam::pow(scalar(10.0), -scalar(IOstream::defaultPrecision()));
-
-    Info<< "Merge tolerance : " << mergeTol << nl
-        << "Write tolerance : " << writeTol << endl;
-
-    if (runTime.writeFormat() == IOstream::ASCII && mergeTol < writeTol)
-    {
-        FatalErrorInFunction
-            << "Your current settings specify ASCII writing with "
-            << IOstream::defaultPrecision() << " digits precision." << endl
-            << "Your merging tolerance (" << mergeTol << ") is finer than this."
-            << endl
-            << "Please change your writeFormat to binary"
-            << " or increase the writePrecision" << endl
-            << "or adjust the merge tolerance (-mergeTol)."
-            << exit(FatalError);
-    }
-
-    scalar mergeDist = mergeTol * bb.mag();
-
-    Info<< "Overall meshes bounding box : " << bb << nl
-        << "Relative tolerance          : " << mergeTol << nl
-        << "Absolute matching distance  : " << mergeDist << nl
-        << endl;
-
-    return mergeDist;
-}
-
-
-//void printMeshData(Ostream& os, const polyMesh& mesh)
-//{
-//    os  << "Number of points:           " << mesh.points().size() << nl
-//        << "          faces:            " << mesh.faces().size() << nl
-//        << "          internal faces:   " << mesh.faceNeighbour().size() << nl
-//        << "          cells:            " << mesh.cells().size() << nl
-//        << "          boundary patches: " << mesh.boundaryMesh().size() << nl
-//        << "          point zones:      " << mesh.pointZones().size() << nl
-//        << "          face zones:       " << mesh.faceZones().size() << nl
-//        << "          cell zones:       " << mesh.cellZones().size() << nl;
-//}
-
 
 void printMeshData(const polyMesh& mesh)
 {
@@ -229,7 +174,7 @@ void writeDecomposition
         IOobject
         (
             name,
-            mesh.time().timeName(),
+            mesh.time().name(),
             mesh,
             IOobject::NO_READ,
             IOobject::AUTO_WRITE,
@@ -335,7 +280,7 @@ void readFields
                     IOobject
                     (
                         name,
-                        mesh.thisDb().time().timeName(),
+                        mesh.thisDb().time().name(),
                         mesh.thisDb(),
                         IOobject::NO_READ,
                         IOobject::AUTO_WRITE
@@ -365,76 +310,17 @@ void readFields
 }
 
 
-// Debugging: compare two fields.
-void compareFields
-(
-    const scalar tolDim,
-    const volVectorField& a,
-    const volVectorField& b
-)
-{
-    forAll(a, celli)
-    {
-        if (mag(b[celli] - a[celli]) > tolDim)
-        {
-            FatalErrorInFunction
-                << "Did not map volVectorField correctly:" << nl
-                << "cell:" << celli
-                << " transfer b:" << b[celli]
-                << " real cc:" << a[celli]
-                << abort(FatalError);
-        }
-    }
-    forAll(a.boundaryField(), patchi)
-    {
-        // We have real mesh cellcentre and
-        // mapped original cell centre.
-
-        const fvPatchVectorField& aBoundary =
-            a.boundaryField()[patchi];
-
-        const fvPatchVectorField& bBoundary =
-            b.boundaryField()[patchi];
-
-        if (!bBoundary.coupled())
-        {
-            forAll(aBoundary, i)
-            {
-                if (mag(aBoundary[i] - bBoundary[i]) > tolDim)
-                {
-                    WarningInFunction
-                        << "Did not map volVectorField correctly:"
-                        << endl
-                        << "patch:" << patchi << " patchFace:" << i
-                        << " cc:" << endl
-                        << "    real    :" << aBoundary[i] << endl
-                        << "    mapped  :" << bBoundary[i] << endl
-                        << "This might be just a precision entry"
-                        << " on writing the mesh." << endl;
-                        //<< abort(FatalError);
-                }
-            }
-        }
-    }
-}
-
-
-
 int main(int argc, char *argv[])
 {
+    #include "addMeshOption.H"
     #include "addRegionOption.H"
     #include "addOverwriteOption.H"
-    argList::addOption
-    (
-        "mergeTol",
-        "scalar",
-        "specify the merge distance relative to the bounding box size "
-        "(default 1e-6)"
-    );
+
     // Include explicit constant options, have zero from time range
     timeSelector::addOptions();
 
     #include "setRootCase.H"
+    #include "setMeshPath.H"
 
     if (env("FOAM_SIGFPE"))
     {
@@ -456,12 +342,10 @@ int main(int argc, char *argv[])
 
     // Make sure we do not use the master-only reading.
     regIOobject::fileModificationChecking = regIOobject::timeStamp;
-    #include "createTime.H"
+    #include "createTimeNoFunctionObjects.H"
     // Allow override of time
     instantList times = timeSelector::selectIfPresent(runTime, args);
     runTime.setTime(times[0], 0);
-
-    runTime.functionObjects().off();
 
     word regionName = polyMesh::defaultRegion;
     fileName meshSubDir;
@@ -490,13 +374,13 @@ int main(int argc, char *argv[])
     Pstream::scatter(masterInstDir);
 
     // Check who has a mesh
-    const fileName meshPath = runTime.path()/masterInstDir/meshSubDir;
+    const fileName meshAbsolutePath = runTime.path()/masterInstDir/meshSubDir;
 
-    Info<< "Found points in " << meshPath << nl << endl;
+    Info<< "Found points in " << meshAbsolutePath << nl << endl;
 
 
     boolList haveMesh(Pstream::nProcs(), false);
-    haveMesh[Pstream::myProcNo()] = isDir(meshPath);
+    haveMesh[Pstream::myProcNo()] = isDir(meshAbsolutePath);
     Pstream::gatherList(haveMesh);
     Pstream::scatterList(haveMesh);
     Info<< "Per processor mesh availability : " << haveMesh << endl;
@@ -508,6 +392,7 @@ int main(int argc, char *argv[])
         (
             regionName,
             masterInstDir,
+            meshPath,
             runTime,
             Foam::IOobject::MUST_READ
         )
@@ -520,45 +405,19 @@ int main(int argc, char *argv[])
     printMeshData(mesh);
 
 
-
-    IOdictionary decompositionDict
-    (
-        IOobject
-        (
-            "decomposeParDict",
-            runTime.system(),
-            mesh,
-            IOobject::MUST_READ_IF_MODIFIED,
-            IOobject::NO_WRITE
-        )
-    );
-
     labelList finalDecomp;
 
     // Create decompositionMethod and new decomposition
     {
-        autoPtr<decompositionMethod> decomposer
+        autoPtr<decompositionMethod> distributor
         (
-            decompositionMethod::New
+            decompositionMethod::NewDistributor
             (
-                decompositionDict
+                decompositionMethod::decomposeParDict(runTime)
             )
         );
 
-        if (!decomposer().parallelAware())
-        {
-            WarningInFunction
-                << "You have selected decomposition method "
-                << decomposer().typeName
-                << " which does" << endl
-                << "not synchronise the decomposition across"
-                << " processor patches." << endl
-                << "    You might want to select a decomposition method which"
-                << " is aware of this. Continuing."
-                << endl;
-        }
-
-        finalDecomp = decomposer().decompose(mesh, mesh.cellCentres());
+        finalDecomp = distributor().decompose(mesh, mesh.cellCentres());
     }
 
     // Dump decomposition to volScalarField
@@ -607,7 +466,7 @@ int main(int argc, char *argv[])
 
 
     // Get original objects (before incrementing time!)
-    IOobjectList objects(mesh, runTime.timeName());
+    IOobjectList objects(mesh, runTime.name());
     // We don't want to map the decomposition (mapping already tested when
     // mapping the cell centre field)
     IOobjectList::iterator iter = objects.find("decomposition");
@@ -781,22 +640,14 @@ int main(int argc, char *argv[])
     // Used to test correctness of mapping
     // volVectorField mapCc("mapCc", 1*mesh.C());
 
-    // Global matching tolerance
-    const scalar tolDim = getMergeDistance
-    (
-        args,
-        runTime,
-        mesh.bounds()
-    );
-
     // Mesh distribution engine
-    fvMeshDistribute distributor(mesh, tolDim);
+    fvMeshDistribute distributor(mesh);
 
     // Pout<< "Wanted distribution:"
     //    << distributor.countCells(finalDecomp) << nl << endl;
 
     // Do actual sending/receiving of mesh
-    autoPtr<mapDistributePolyMesh> map = distributor.distribute(finalDecomp);
+    autoPtr<polyDistributionMap> map = distributor.distribute(finalDecomp);
 
     //// Distribute any non-registered data accordingly
     // map().distributeFaceData(faceCc);
@@ -815,12 +666,9 @@ int main(int argc, char *argv[])
     {
         mesh.setInstance(masterInstDir);
     }
-    Info<< "Writing redistributed mesh to " << runTime.timeName() << nl << endl;
+    Info<< "Writing redistributed mesh to " << runTime.name() << nl << endl;
     mesh.write();
 
-
-    // Debugging: test mapped cellcentre field.
-    // compareFields(tolDim, mesh.C(), mapCc);
 
     // Print nice message
     // ~~~~~~~~~~~~~~~~~~
@@ -833,7 +681,7 @@ int main(int argc, char *argv[])
 
     Info<< nl
         << "You can pick up the redecomposed mesh from the polyMesh directory"
-        << " in " << runTime.timeName() << "." << nl
+        << " in " << runTime.name() << "." << nl
         << "If you redecomposed the mesh to less processors you can delete"
         << nl
         << "the processor directories with 0 sized meshes in them." << nl
@@ -851,7 +699,7 @@ int main(int argc, char *argv[])
         }
         else
         {
-            fileName timeDir = procDir/runTime.timeName()/meshSubDir;
+            fileName timeDir = procDir/runTime.name()/meshSubDir;
             fileName constDir = procDir/runTime.constant()/meshSubDir;
 
             Info<< "    rm -r " << constDir.c_str() << nl

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2015-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2015-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -53,7 +53,7 @@ SourceFiles
 #ifndef wallDist_H
 #define wallDist_H
 
-#include "MeshObject.H"
+#include "DemandDrivenMeshObject.H"
 #include "patchDistMethod.H"
 #include "volFields.H"
 
@@ -68,12 +68,12 @@ namespace Foam
 
 class wallDist
 :
-    public MeshObject<fvMesh, UpdateableMeshObject, wallDist>
+    public DemandDrivenMeshObject<fvMesh, DeletableMeshObject, wallDist>
 {
     // Private Data
 
         //- Set of patch IDs
-        const labelHashSet patchIDs_;
+        const labelHashSet patchIndices_;
 
         //- Name for the patch set, e.g. "wall"
         const word patchTypeName_;
@@ -88,7 +88,7 @@ class wallDist
         mutable bool nRequired_;
 
         //- Normal-to-wall field
-        mutable tmp<volVectorField> n_;
+        mutable autoPtr<volVectorField> n_;
 
 
     // Private Member Functions
@@ -97,13 +97,16 @@ class wallDist
         void constructn() const;
 
 
-public:
+protected:
 
-    // Declare name of the class and its debug switch
-    ClassName("wallDist");
+    friend class DemandDrivenMeshObject
+    <
+        fvMesh,
+        DeletableMeshObject,
+        wallDist
+    >;
 
-
-    // Constructors
+    // Protected Constructors
 
         //- Construct from mesh and optional patch type name
         wallDist
@@ -120,6 +123,15 @@ public:
             const word& patchTypeName = "patch"
         );
 
+
+public:
+
+    // Declare name of the class and its debug switch
+    ClassName("wallDist");
+
+
+    // Constructors
+
         //- Disallow default bitwise copy construction
         wallDist(const wallDist&) = delete;
 
@@ -131,9 +143,9 @@ public:
     // Member Functions
 
         //- Return the patchIDs
-        const labelHashSet& patchIDs() const
+        const labelHashSet& patchIndices() const
         {
-            return patchIDs_;
+            return patchIndices_;
         }
 
         //- Return reference to cached distance-to-wall field
@@ -144,12 +156,6 @@ public:
 
         //- Return reference to cached normal-to-wall field
         const volVectorField& n() const;
-
-        //- Update the y-field when the mesh moves
-        virtual bool movePoints();
-
-        //- Update the y-field when the mesh changes
-        virtual void updateMesh(const mapPolyMesh&);
 
 
     // Member Operators

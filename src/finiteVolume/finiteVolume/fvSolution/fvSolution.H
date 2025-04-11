@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -42,7 +42,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class fvSolution Declaration
+                         Class fvSolution Declaration
 \*---------------------------------------------------------------------------*/
 
 class fvSolution
@@ -66,7 +66,7 @@ public:
     // Member Operators
 
         //- Disallow default bitwise assignment
-        void operator=(const fvSolution&);
+        void operator=(const fvSolution&) = delete;
 };
 
 

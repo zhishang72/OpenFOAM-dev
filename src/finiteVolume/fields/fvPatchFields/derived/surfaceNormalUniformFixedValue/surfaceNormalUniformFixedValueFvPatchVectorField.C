@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2019-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -26,21 +26,9 @@ License
 #include "surfaceNormalUniformFixedValueFvPatchVectorField.H"
 #include "addToRunTimeSelectionTable.H"
 #include "volFields.H"
-#include "fvPatchFieldMapper.H"
+#include "fieldMapper.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
-
-Foam::surfaceNormalUniformFixedValueFvPatchVectorField::
-surfaceNormalUniformFixedValueFvPatchVectorField
-(
-    const fvPatch& p,
-    const DimensionedField<vector, volMesh>& iF
-)
-:
-    fixedValueFvPatchVectorField(p, iF),
-    uniformValue_()
-{}
-
 
 Foam::surfaceNormalUniformFixedValueFvPatchVectorField::
 surfaceNormalUniformFixedValueFvPatchVectorField
@@ -51,7 +39,16 @@ surfaceNormalUniformFixedValueFvPatchVectorField
 )
 :
     fixedValueFvPatchVectorField(p, iF, dict, false),
-    uniformValue_(Function1<scalar>::New("uniformValue", dict))
+    uniformValue_
+    (
+        Function1<scalar>::New
+        (
+            "uniformValue",
+            db().time().userUnits(),
+            iF.dimensions(),
+            dict
+        )
+    )
 {
     this->evaluate();
 }
@@ -63,7 +60,7 @@ surfaceNormalUniformFixedValueFvPatchVectorField
     const surfaceNormalUniformFixedValueFvPatchVectorField& pvf,
     const fvPatch& p,
     const DimensionedField<vector, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     fixedValueFvPatchVectorField(pvf, p, iF, mapper, false), // Don't map
@@ -72,17 +69,6 @@ surfaceNormalUniformFixedValueFvPatchVectorField
     // Evaluate since value not mapped
     this->evaluate();
 }
-
-
-Foam::surfaceNormalUniformFixedValueFvPatchVectorField::
-surfaceNormalUniformFixedValueFvPatchVectorField
-(
-    const surfaceNormalUniformFixedValueFvPatchVectorField& pvf
-)
-:
-    fixedValueFvPatchVectorField(pvf),
-    uniformValue_(pvf.uniformValue_, false)
-{}
 
 
 Foam::surfaceNormalUniformFixedValueFvPatchVectorField::
@@ -112,8 +98,10 @@ void Foam::surfaceNormalUniformFixedValueFvPatchVectorField::updateCoeffs()
         return;
     }
 
-    const scalar t = this->db().time().timeOutputValue();
-    fvPatchVectorField::operator=(uniformValue_->value(t)*patch().nf());
+    fvPatchVectorField::operator=
+    (
+        uniformValue_->value(db().time().value())*patch().nf()
+    );
 
     fvPatchVectorField::updateCoeffs();
 }
@@ -125,7 +113,13 @@ void Foam::surfaceNormalUniformFixedValueFvPatchVectorField::write
 ) const
 {
     fvPatchVectorField::write(os);
-    writeEntry(os, uniformValue_());
+    writeEntry
+    (
+        os,
+        db().time().userUnits(),
+        internalField().dimensions(),
+        uniformValue_()
+    );
 }
 
 

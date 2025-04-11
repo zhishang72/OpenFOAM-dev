@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2014-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2014-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -51,7 +51,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-          Class zeroFixedValuePointPatchField Declaration
+                Class zeroFixedValuePointPatchField Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -89,26 +89,14 @@ public:
             const zeroFixedValuePointPatchField<Type>&,
             const pointPatch&,
             const DimensionedField<Type, pointMesh>&,
-            const pointPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         zeroFixedValuePointPatchField
         (
             const zeroFixedValuePointPatchField<Type>&
-        );
-
-        //- Construct and return a clone
-        virtual autoPtr<pointPatchField<Type>> clone() const
-        {
-            return autoPtr<pointPatchField<Type>>
-            (
-                new zeroFixedValuePointPatchField<Type>
-                (
-                    *this
-                )
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         zeroFixedValuePointPatchField
@@ -116,7 +104,6 @@ public:
             const zeroFixedValuePointPatchField<Type>&,
             const DimensionedField<Type, pointMesh>&
         );
-
 
         //- Construct and return a clone setting internal field reference
         virtual autoPtr<pointPatchField<Type>> clone
@@ -133,7 +120,6 @@ public:
                 )
             );
         }
-
 };
 
 

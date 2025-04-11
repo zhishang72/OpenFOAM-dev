@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -133,7 +133,7 @@ bool intersectSurfaces
                 if (nIters != 0)
                 {
                     // Update geometric quantities
-                    surf.movePoints(points);
+                    surf.setPoints(points);
                     hasMoved = true;
                 }
             }
@@ -206,7 +206,7 @@ bool intersectSurfaces
                 if (nIters1 != 0)
                 {
                     // Update geometric quantities
-                    surf1.movePoints(points1);
+                    surf1.setPoints(points1);
                     hasMoved1 = true;
                 }
             }
@@ -249,7 +249,7 @@ bool intersectSurfaces
                 if (nIters2 != 0)
                 {
                     // Update geometric quantities
-                    surf2.movePoints(points2);
+                    surf2.setPoints(points2);
                     hasMoved2 = true;
                 }
             }
@@ -645,7 +645,6 @@ int main(int argc, char *argv[])
     label nIntOrExt = 0;
     label nFlat = 0;
     label nOpen = 0;
-    label nMultiple = 0;
 
     forAll(edgeNormals, eI)
     {
@@ -671,7 +670,6 @@ int main(int argc, char *argv[])
         }
         else if (nEdNorms > 2)
         {
-            nMultiple++;
         }
     }
 
@@ -780,10 +778,10 @@ int main(int argc, char *argv[])
         (
             IOobject
             (
-                sFeatFileName + ".eMesh",   // name
-                runTime.constant(),                         // instance
-                "triSurface",
-                runTime,                                    // registry
+                sFeatFileName + ".eMesh",
+                runTime.constant(),
+                searchableSurface::geometryDir(runTime),
+                runTime,
                 IOobject::NO_READ,
                 IOobject::NO_WRITE,
                 false
@@ -793,7 +791,7 @@ int main(int argc, char *argv[])
         );
 
         Info<< nl << "Writing featureEdgeMesh to "
-            << bfeMesh.objectPath() << endl;
+            << bfeMesh.relativeObjectPath() << endl;
 
         bfeMesh.regIOobject::write();
     }

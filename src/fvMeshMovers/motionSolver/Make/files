@@ -1,0 +1,3 @@
+motionSolver_fvMeshMover.C
+
+LIB = $(FOAM_LIBBIN)/libmotionSolver_fvMeshMover

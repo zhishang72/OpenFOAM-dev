@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -29,21 +29,8 @@ License
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
-Foam::variableHeightFlowRateInletVelocityFvPatchVectorField
-::variableHeightFlowRateInletVelocityFvPatchVectorField
-(
-    const fvPatch& p,
-    const DimensionedField<vector, volMesh>& iF
-)
-:
-    fixedValueFvPatchField<vector>(p, iF),
-    flowRate_(),
-    alphaName_("none")
-{}
-
-
-Foam::variableHeightFlowRateInletVelocityFvPatchVectorField
-::variableHeightFlowRateInletVelocityFvPatchVectorField
+Foam::variableHeightFlowRateInletVelocityFvPatchVectorField::
+variableHeightFlowRateInletVelocityFvPatchVectorField
 (
     const fvPatch& p,
     const DimensionedField<vector, volMesh>& iF,
@@ -51,18 +38,27 @@ Foam::variableHeightFlowRateInletVelocityFvPatchVectorField
 )
 :
     fixedValueFvPatchField<vector>(p, iF, dict),
-    flowRate_(Function1<scalar>::New("flowRate", dict)),
+    flowRate_
+    (
+        Function1<scalar>::New
+        (
+            "flowRate",
+            db().time().userUnits(),
+            dimVolumetricFlux,
+            dict
+        )
+    ),
     alphaName_(dict.lookup("alpha"))
 {}
 
 
-Foam::variableHeightFlowRateInletVelocityFvPatchVectorField
-::variableHeightFlowRateInletVelocityFvPatchVectorField
+Foam::variableHeightFlowRateInletVelocityFvPatchVectorField::
+variableHeightFlowRateInletVelocityFvPatchVectorField
 (
     const variableHeightFlowRateInletVelocityFvPatchVectorField& ptf,
     const fvPatch& p,
     const DimensionedField<vector, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     fixedValueFvPatchField<vector>(ptf, p, iF, mapper),
@@ -71,20 +67,8 @@ Foam::variableHeightFlowRateInletVelocityFvPatchVectorField
 {}
 
 
-Foam::variableHeightFlowRateInletVelocityFvPatchVectorField
-::variableHeightFlowRateInletVelocityFvPatchVectorField
-(
-    const variableHeightFlowRateInletVelocityFvPatchVectorField& ptf
-)
-:
-    fixedValueFvPatchField<vector>(ptf),
-    flowRate_(ptf.flowRate_, false),
-    alphaName_(ptf.alphaName_)
-{}
-
-
-Foam::variableHeightFlowRateInletVelocityFvPatchVectorField
-::variableHeightFlowRateInletVelocityFvPatchVectorField
+Foam::variableHeightFlowRateInletVelocityFvPatchVectorField::
+variableHeightFlowRateInletVelocityFvPatchVectorField
 (
     const variableHeightFlowRateInletVelocityFvPatchVectorField& ptf,
     const DimensionedField<vector, volMesh>& iF
@@ -98,8 +82,8 @@ Foam::variableHeightFlowRateInletVelocityFvPatchVectorField
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-void Foam::variableHeightFlowRateInletVelocityFvPatchVectorField
-::updateCoeffs()
+void Foam::variableHeightFlowRateInletVelocityFvPatchVectorField::
+updateCoeffs()
 {
     if (updated())
     {
@@ -112,8 +96,7 @@ void Foam::variableHeightFlowRateInletVelocityFvPatchVectorField
     alphap = max(alphap, scalar(0));
     alphap = min(alphap, scalar(1));
 
-    const scalar t = db().time().timeOutputValue();
-    scalar flowRate = flowRate_->value(t);
+    scalar flowRate = flowRate_->value(db().time().value());
 
     // a simpler way of doing this would be nice
     scalar avgU = -flowRate/gSum(patch().magSf()*alphap);
@@ -132,7 +115,7 @@ void Foam::variableHeightFlowRateInletVelocityFvPatchVectorField::write
 ) const
 {
     fvPatchField<vector>::write(os);
-    writeEntry(os, flowRate_());
+    writeEntry(os, db().time().userUnits(), dimVolumetricFlux, flowRate_());
     writeEntry(os, "alpha", alphaName_);
     writeEntry(os, "value", *this);
 }

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ Class
     Foam::SlicedGeometricField
 
 Description
-    Specialization of GeometricField which holds slices of given complete
+    Specialisation of GeometricField which holds slices of given complete
     fields in a form that they act as a GeometricField.
 
     The destructor is wrapped to avoid deallocation of the storage of the
@@ -44,6 +44,7 @@ SourceFiles
 #define SlicedGeometricField_H
 
 #include "GeometricField.H"
+#include "SlicedDimensionedField.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -51,35 +52,39 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                     Class SlicedGeometricField Declaration
+                    Class SlicedGeometricField Declaration
 \*---------------------------------------------------------------------------*/
 
-template
-<
-    class Type,
-    template<class> class PatchField,
-    template<class> class SlicedPatchField,
-    class GeoMesh
->
+template<class Type, class GeoMesh>
 class SlicedGeometricField
 :
-    public GeometricField<Type, PatchField, GeoMesh>
+    public GeometricField<Type, GeoMesh>
 {
 public:
 
-    typedef typename GeoMesh::Mesh Mesh;
-    typedef typename GeoMesh::BoundaryMesh BoundaryMesh;
+    // Public Typedefs
 
-    class Internal;
+        //- Type of mesh on which this SlicedGeometricField is instantiated
+        typedef typename GeoMesh::Mesh Mesh;
+
+        //- Type of the internal field from which this SlicedGeometricField is
+        //  derived
+        typedef SlicedDimensionedField<Type, GeoMesh> Internal;
+
+        //- Type of the patch field of which the Boundary is composed
+        typedef typename GeoMesh::template PatchField<Type> Patch;
+
+        //- Type of the sliced patch field of which the Boundary is composed
+        typedef typename Patch::Sliced SlicedPatch;
 
 
 private:
 
     // Private Member Functions
 
-        //- Slice the given field and a create a PtrList of SlicedPatchField
+        //- Slice the given field and a create a PtrList of sliced patch fields
         //  from which the boundary field is built
-        tmp<FieldField<PatchField, Type>>  slicedBoundaryField
+        tmp<FieldField<GeoMesh::template PatchField, Type>> slicedBoundaryField
         (
             const Mesh& mesh,
             const Field<Type>& completeField,
@@ -87,12 +92,12 @@ private:
             const bool preserveProcessorOnly = false
         );
 
-        //- Slice the given field and a create a PtrList of SlicedPatchField
+        //- Slice the given field and a create a PtrList of sliced patch fields
         //  from which the boundary field is built
-        tmp<FieldField<PatchField, Type>>  slicedBoundaryField
+        tmp<FieldField<GeoMesh::template PatchField, Type>> slicedBoundaryField
         (
             const Mesh& mesh,
-            const FieldField<PatchField, Type>& bField,
+            const FieldField<GeoMesh::template PatchField, Type>& bField,
             const bool preserveCouples
         );
 
@@ -129,25 +134,15 @@ public:
         SlicedGeometricField
         (
             const IOobject&,
-            const GeometricField<Type, PatchField, GeoMesh>&,
+            const GeometricField<Type, GeoMesh>&,
             const bool preserveCouples=true
         );
 
         //- Copy constructor
-        SlicedGeometricField
-        (
-            const SlicedGeometricField
-            <
-                Type,
-                PatchField,
-                SlicedPatchField,
-                GeoMesh
-            >&
-        );
+        SlicedGeometricField(const SlicedGeometricField<Type, GeoMesh>&);
 
         //- Clone
-        tmp<SlicedGeometricField<Type, PatchField, SlicedPatchField, GeoMesh>>
-            clone() const;
+        tmp<SlicedGeometricField<Type, GeoMesh>> clone() const;
 
 
     //- Destructor
@@ -155,6 +150,9 @@ public:
 
 
     // Member Functions
+
+        //- Splice the sliced field and return the complete field
+        tmp<Field<Type>> splice() const;
 
         //- Correct boundary field
         void correctBoundaryConditions();
@@ -167,54 +165,11 @@ public:
 
         //- Disallow standard assignment to GeometricField,
         //  == assignment is allowed.
-        void operator=
-        (
-            const GeometricField<Type, PatchField, GeoMesh>&
-        ) = delete;
+        void operator=(const GeometricField<Type, GeoMesh>&) = delete;
 
         //- Disallow standard assignment to tmp<GeometricField>,
         //  == assignment is allowed.
-        void operator=
-        (
-            const tmp<GeometricField<Type, PatchField, GeoMesh>>&
-        ) = delete;
-};
-
-
-/*---------------------------------------------------------------------------*\
-       Class SlicedGeometricField::Internal Declaration
-\*---------------------------------------------------------------------------*/
-
-//- The internalField of a SlicedGeometricField
-template
-<
-    class Type,
-    template<class> class PatchField,
-    template<class> class SlicedPatchField,
-    class GeoMesh
->
-class SlicedGeometricField<Type, PatchField, SlicedPatchField, GeoMesh>::
-Internal
-:
-    public GeometricField<Type, PatchField, GeoMesh>::Internal
-{
-
-public:
-
-    // Constructors
-
-        //- Construct from components and field to slice
-        Internal
-        (
-            const IOobject&,
-            const Mesh&,
-            const dimensionSet&,
-            const Field<Type>& iField
-        );
-
-
-    //- Destructor
-    ~Internal();
+        void operator=(const tmp<GeometricField<Type, GeoMesh>>&) = delete;
 };
 
 

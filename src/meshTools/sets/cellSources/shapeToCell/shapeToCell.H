@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -46,25 +46,22 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class shapeToCell Declaration
+                         Class shapeToCell Declaration
 \*---------------------------------------------------------------------------*/
 
 class shapeToCell
 :
     public topoSetSource
 {
-
     // Private Data
 
-        //- Add usage string
-        static addToUsageTable usage_;
+        //- Cell shape name
+        word shape_;
 
-        //- Name of cell type
-        word type_;
 
     // Private Member Functions
 
-        //- Depending on cell type add to or delete from cellSet.
+        //- Depending on cell shape add to or delete from cellSet.
         void combine(topoSet& set, const bool add) const;
 
 
@@ -79,13 +76,14 @@ public:
         //- Cos of feature angle for polyHedral to be splitHex
         static scalar featureCos;
 
+
     // Constructors
 
         //- Construct from components
         shapeToCell
         (
             const polyMesh& mesh,
-            const word& type
+            const word& shape
         );
 
         //- Construct from dictionary
@@ -93,13 +91,6 @@ public:
         (
             const polyMesh& mesh,
             const dictionary& dict
-        );
-
-        //- Construct from Istream
-        shapeToCell
-        (
-            const polyMesh& mesh,
-            Istream&
         );
 
 
@@ -119,7 +110,6 @@ public:
             const topoSetSource::setAction action,
             topoSet&
         ) const;
-
 };
 
 

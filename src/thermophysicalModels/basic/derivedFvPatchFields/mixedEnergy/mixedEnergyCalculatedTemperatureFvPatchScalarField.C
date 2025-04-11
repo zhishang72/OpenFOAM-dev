@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2019-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -76,26 +76,13 @@ mixedEnergyCalculatedTemperatureFvPatchScalarField
     const mixedEnergyCalculatedTemperatureFvPatchScalarField& ptf,
     const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     calculatedFvPatchScalarField(ptf, p, iF, mapper),
     heRefValue_(mapper(ptf.heRefValue_)),
     heRefGrad_(mapper(ptf.heRefGrad_)),
     heValueFraction_(mapper(ptf.heValueFraction_))
-{}
-
-
-Foam::mixedEnergyCalculatedTemperatureFvPatchScalarField::
-mixedEnergyCalculatedTemperatureFvPatchScalarField
-(
-    const mixedEnergyCalculatedTemperatureFvPatchScalarField& ptf
-)
-:
-    calculatedFvPatchScalarField(ptf),
-    heRefValue_(ptf.heRefValue_),
-    heRefGrad_(ptf.heRefGrad_),
-    heValueFraction_(ptf.heValueFraction_)
 {}
 
 
@@ -115,32 +102,36 @@ mixedEnergyCalculatedTemperatureFvPatchScalarField
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-void Foam::mixedEnergyCalculatedTemperatureFvPatchScalarField::autoMap
-(
-    const fvPatchFieldMapper& m
-)
-{
-    calculatedFvPatchScalarField::autoMap(m);
-    m(heRefValue_, heRefValue_);
-    m(heRefGrad_, heRefGrad_);
-    m(heValueFraction_, heValueFraction_);
-}
-
-
-void Foam::mixedEnergyCalculatedTemperatureFvPatchScalarField::rmap
+void Foam::mixedEnergyCalculatedTemperatureFvPatchScalarField::map
 (
     const fvPatchScalarField& ptf,
-    const labelList& addr
+    const fieldMapper& mapper
 )
 {
-    calculatedFvPatchScalarField::rmap(ptf, addr);
+    calculatedFvPatchScalarField::map(ptf, mapper);
 
     const mixedEnergyCalculatedTemperatureFvPatchScalarField& mptf =
         refCast<const mixedEnergyCalculatedTemperatureFvPatchScalarField>(ptf);
 
-    heRefValue_.rmap(mptf.heRefValue_, addr);
-    heRefGrad_.rmap(mptf.heRefGrad_, addr);
-    heValueFraction_.rmap(mptf.heValueFraction_, addr);
+    mapper(heRefValue_, mptf.heRefValue_);
+    mapper(heRefGrad_, mptf.heRefGrad_);
+    mapper(heValueFraction_, mptf.heValueFraction_);
+}
+
+
+void Foam::mixedEnergyCalculatedTemperatureFvPatchScalarField::reset
+(
+    const fvPatchScalarField& ptf
+)
+{
+    calculatedFvPatchScalarField::reset(ptf);
+
+    const mixedEnergyCalculatedTemperatureFvPatchScalarField& mptf =
+        refCast<const mixedEnergyCalculatedTemperatureFvPatchScalarField>(ptf);
+
+    heRefValue_.reset(mptf.heRefValue_);
+    heRefGrad_.reset(mptf.heRefGrad_);
+    heValueFraction_.reset(mptf.heValueFraction_);
 }
 
 

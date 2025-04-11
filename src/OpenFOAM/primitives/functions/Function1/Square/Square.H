@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -47,8 +47,8 @@ Description
 
     Example for a scalar:
     \verbatim
-        <entryName> square;
-        <entryName>Coeffs
+        <name> square;
+        <name>Coeffs
         {
             amplitude 2e-7;
             frequency 10;
@@ -60,8 +60,8 @@ Description
 
     Example for a vector:
     \verbatim
-        <entryName> square;
-        <entryName>Coeffs
+        <name> square;
+        <name>Coeffs
         {
             amplitude (1 0.1 0);
             frequency 10;
@@ -100,30 +100,24 @@ class Square
     // Private Data
 
         //- Scalar amplitude of the square function
-        autoPtr<Function1<Type>> amplitude_;
+        const autoPtr<Function1<Type>> amplitude_;
 
         //- Frequency of the square function
-        scalar frequency_;
+        const scalar frequency_;
 
         //- Argument offset
-        scalar start_;
+        const scalar start_;
 
         //- Level to which the square function is added
-        autoPtr<Function1<Type>> level_;
+        const autoPtr<Function1<Type>> level_;
 
         //- Mark/space ratio of the square function; the fraction of one period
         //  in which the function value is at the higher of the two possible
         //  values.
-        scalar markSpace_;
+        const scalar markSpace_;
 
         //- Is this function integrable?
-        bool integrable_;
-
-
-    // Private Member Functions
-
-        //- Read the coefficients from the given dictionary
-        void read(const dictionary& coeffs);
+        const bool integrable_;
 
 
 public:
@@ -134,10 +128,11 @@ public:
 
     // Constructors
 
-        //- Construct from entry name and dictionary
+        //- Construct from name and dictionary
         Square
         (
-            const word& entryName,
+            const word& name,
+            const unitConversions& units,
             const dictionary& dict
         );
 
@@ -155,10 +150,10 @@ public:
         virtual inline Type value(const scalar x) const;
 
         //- Integrate between two values
-        virtual inline Type integrate(const scalar x1, const scalar x2) const;
+        virtual inline Type integral(const scalar x1, const scalar x2) const;
 
-        //- Write in dictionary format
-        virtual void writeData(Ostream& os) const;
+        //- Write data to dictionary stream
+        virtual void write(Ostream& os, const unitConversions& units) const;
 
 
     // Member Operators

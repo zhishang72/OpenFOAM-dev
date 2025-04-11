@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -32,7 +32,7 @@ Description
 #ifndef interpolationCellPointFace_H
 #define interpolationCellPointFace_H
 
-#include "interpolation.H"
+#include "interpolationVolPointInterpolation.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -40,21 +40,19 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class interpolationCellPointFace Declaration
+                 Class interpolationCellPointFace Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
 class interpolationCellPointFace
 :
-    public interpolation<Type>
+    public fieldInterpolation<Type, interpolationCellPointFace<Type>>,
+    public interpolationVolPointInterpolation<Type>
 {
     // Private Data
 
-        //- Interpolated volfield
-        const GeometricField<Type, pointPatchField, pointMesh> psip_;
-
         //- Linearly interpolated volfield
-        const GeometricField<Type, fvsPatchField, surfaceMesh> psis_;
+        const SurfaceField<Type> psis_;
 
         bool findTet
         (
@@ -89,11 +87,29 @@ public:
         //- Construct from components
         interpolationCellPointFace
         (
-            const GeometricField<Type, fvPatchField, volMesh>& psi
+            const VolField<Type>& psi
         );
+
+        //- Copy construct
+        interpolationCellPointFace
+        (
+            const interpolationCellPointFace<Type>& i
+        );
+
+        //- Clone
+        virtual autoPtr<interpolation<Type>> clone() const
+        {
+            return autoPtr<interpolation<Type>>
+            (
+                new interpolationCellPointFace<Type>(*this)
+            );
+        }
 
 
     // Member Functions
+
+        //- Inherit interpolate from interpolation
+        using interpolation<Type>::interpolate;
 
         //- Interpolate field to the given point in the given cell
         Type interpolate

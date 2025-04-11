@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -46,7 +46,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                         Class coupledFvPatch Declaration
+                       Class coupledFvPatch Declaration
 \*---------------------------------------------------------------------------*/
 
 class coupledFvPatch
@@ -56,21 +56,24 @@ class coupledFvPatch
 {
     // Private Data
 
+        //- Reference to the coupled polyPatch
         const coupledPolyPatch& coupledPolyPatch_;
 
 
 protected:
 
-    // Protected Member Functions
+    // Protected Member functions
 
         //- Make patch weighting factors
-        virtual void makeWeights(scalarField&) const = 0;
+        void makeWeights
+        (
+            scalarField& w,
+            const vectorField& nbrSf,
+            const vectorField& nbrDelta
+        ) const;
 
 
 public:
-
-    friend class surfaceInterpolation;
-
 
     //- Runtime type information
     TypeName(coupledPolyPatch::typeName_());
@@ -100,20 +103,29 @@ public:
                 return coupledPolyPatch_.coupled();
             }
 
-            //- Are the cyclic planes parallel.
-            virtual bool parallel() const = 0;
+            //- Does this side own the patch ?
+            virtual bool owner() const
+            {
+                return coupledPolyPatch_.owner();
+            }
 
-            //- Return face transformation tensor.
-            virtual const tensorField& forwardT() const = 0;
+            //- Does the coupled side own the patch ?
+            virtual bool neighbour() const
+            {
+                return !owner();
+            }
 
-            //- Return neighbour-cell transformation tensor.
-            virtual const tensorField& reverseT() const = 0;
+            //- Return transformation between the coupled patches
+            virtual const transformer& transform() const = 0;
 
             //- Return faceCell addressing
             virtual const labelUList& faceCells() const
             {
                 return fvPatch::faceCells();
             }
+
+            //- Make patch weighting factors
+            virtual void makeWeights(scalarField& w) const = 0;
 
             //- Return delta (P to N) vectors across coupled patch
             virtual tmp<vectorField> delta() const = 0;

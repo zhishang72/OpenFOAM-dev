@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -37,13 +37,13 @@ Usage
         type            pressureInletVelocity;
         phi             phi;
         rho             rho;
-        value           uniform 0;
+        value           uniform (0 0 0);
     }
     \endverbatim
 
-Note
-    If reverse flow is possible or expected use
-    the pressureInletOutletVelocityFvPatchVectorField condition instead.
+    Note:
+        If reverse flow is possible or expected use
+        the pressureInletOutletVelocityFvPatchVectorField condition instead.
 
 See also
     Foam::fixedValueFvPatchField
@@ -90,13 +90,6 @@ public:
 
     // Constructors
 
-        //- Construct from patch and internal field
-        pressureInletVelocityFvPatchVectorField
-        (
-            const fvPatch&,
-            const DimensionedField<vector, volMesh>&
-        );
-
         //- Construct from patch, internal field and dictionary
         pressureInletVelocityFvPatchVectorField
         (
@@ -112,23 +105,14 @@ public:
             const pressureInletVelocityFvPatchVectorField&,
             const fvPatch&,
             const DimensionedField<vector, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         pressureInletVelocityFvPatchVectorField
         (
             const pressureInletVelocityFvPatchVectorField&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchVectorField> clone() const
-        {
-            return tmp<fvPatchVectorField>
-            (
-                new pressureInletVelocityFvPatchVectorField(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         pressureInletVelocityFvPatchVectorField

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -62,7 +62,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-          Class surfaceSlipDisplacementPointPatchVectorField Declaration
+        Class surfaceSlipDisplacementPointPatchVectorField Declaration
 \*---------------------------------------------------------------------------*/
 
 class surfaceSlipDisplacementPointPatchVectorField
@@ -120,13 +120,6 @@ public:
 
     // Constructors
 
-        //- Construct from patch and internal field
-        surfaceSlipDisplacementPointPatchVectorField
-        (
-            const pointPatch&,
-            const DimensionedField<vector, pointMesh>&
-        );
-
         //- Construct from patch, internal field and dictionary
         surfaceSlipDisplacementPointPatchVectorField
         (
@@ -141,26 +134,14 @@ public:
             const surfaceSlipDisplacementPointPatchVectorField&,
             const pointPatch&,
             const DimensionedField<vector, pointMesh>&,
-            const pointPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         surfaceSlipDisplacementPointPatchVectorField
         (
             const surfaceSlipDisplacementPointPatchVectorField&
-        );
-
-        //- Construct and return a clone
-        virtual autoPtr<pointPatchVectorField> clone() const
-        {
-            return autoPtr<pointPatchVectorField>
-            (
-                new surfaceSlipDisplacementPointPatchVectorField
-                (
-                    *this
-                )
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         surfaceSlipDisplacementPointPatchVectorField

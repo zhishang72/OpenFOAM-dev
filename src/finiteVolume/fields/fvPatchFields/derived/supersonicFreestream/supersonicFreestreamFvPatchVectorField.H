@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -38,7 +38,7 @@ Usage
         Property     | Description             | Required    | Default value
         T            | Temperature field name  | no          | T
         p            | Pressure field name     | no          | p
-        psi          | Compressibility field name | no       | thermo:psi
+        psi          | Compressibility field name | no       | psi
         UInf         | free-stream velocity    | yes         |
         pInf         | free-stream pressure    | yes         |
         TInf         | free-stream temperature | yes         |
@@ -57,9 +57,9 @@ Usage
     }
     \endverbatim
 
-Note
-    This boundary condition is ill-posed if the free-stream flow is normal
-    to the boundary.
+    Note:
+        This boundary condition is ill-posed if the free-stream flow is normal
+        to the boundary.
 
 SourceFiles
     supersonicFreestreamFvPatchVectorField.C
@@ -93,7 +93,7 @@ class supersonicFreestreamFvPatchVectorField
         //- Name of pressure field, default = "p"
         word pName_;
 
-        //- Name of compressibility field field, default = "thermo:psi"
+        //- Name of compressibility field field, default = "psi"
         word psiName_;
 
         //- Velocity of the free stream
@@ -117,13 +117,6 @@ public:
 
     // Constructors
 
-        //- Construct from patch and internal field
-        supersonicFreestreamFvPatchVectorField
-        (
-            const fvPatch&,
-            const DimensionedField<vector, volMesh>&
-        );
-
         //- Construct from patch, internal field and dictionary
         supersonicFreestreamFvPatchVectorField
         (
@@ -139,23 +132,14 @@ public:
             const supersonicFreestreamFvPatchVectorField&,
             const fvPatch&,
             const DimensionedField<vector, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         supersonicFreestreamFvPatchVectorField
         (
             const supersonicFreestreamFvPatchVectorField&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchVectorField> clone() const
-        {
-            return tmp<fvPatchVectorField>
-            (
-                new supersonicFreestreamFvPatchVectorField(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         supersonicFreestreamFvPatchVectorField

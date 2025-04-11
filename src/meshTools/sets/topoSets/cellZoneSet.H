@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,7 +44,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class cellZoneSet Declaration
+                         Class cellZoneSet Declaration
 \*---------------------------------------------------------------------------*/
 
 class cellZoneSet
@@ -56,6 +56,7 @@ class cellZoneSet
         const polyMesh& mesh_;
 
         labelList addressing_;
+
 
 public:
 
@@ -147,7 +148,7 @@ public:
         ) const;
 
         //- Update any stored data for new labels
-        virtual void updateMesh(const mapPolyMesh& morphMap);
+        virtual void topoChange(const polyTopoChangeMap& map);
 
         //- Return max index+1.
         virtual label maxSize(const polyMesh& mesh) const;

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -52,7 +52,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                      Class processorPointPatch Declaration
+                     Class processorPointPatch Declaration
 \*---------------------------------------------------------------------------*/
 
 class processorPointPatch
@@ -69,7 +69,7 @@ class processorPointPatch
     // Private Member Functions
 
         //- Initialise the calculation of the patch geometry
-        virtual void initGeometry(PstreamBuffers&);
+        virtual void initCalcGeometry(PstreamBuffers&);
 
         //- Calculate the patch geometry
         virtual void calcGeometry(PstreamBuffers&);
@@ -81,17 +81,11 @@ class processorPointPatch
         virtual void movePoints(PstreamBuffers&, const pointField&);
 
         //- Initialise the update of the patch topology
-        virtual void initUpdateMesh(PstreamBuffers&);
+        virtual void initTopoChange(PstreamBuffers&);
 
         //- Update of the patch topology
-        virtual void updateMesh(PstreamBuffers&);
+        virtual void topoChange(PstreamBuffers&);
 
-
-        //- Disallow default bitwise copy construction
-        processorPointPatch(const processorPointPatch&);
-
-        //- Disallow default bitwise assignment
-        void operator=(const processorPointPatch&);
 
 public:
 
@@ -107,6 +101,9 @@ public:
             const polyPatch& patch,
             const pointBoundaryMesh& bm
         );
+
+        //- Disallow default bitwise copy construction
+        processorPointPatch(const processorPointPatch&) = delete;
 
 
     //- Destructor
@@ -125,12 +122,6 @@ public:
         virtual label comm() const
         {
             return procPolyPatch_.comm();
-        }
-
-        //- Return the constraint type this pointPatch implements.
-        virtual const word& constraintType() const
-        {
-            return type();
         }
 
         //- Return processor number
@@ -157,15 +148,14 @@ public:
             return !isMaster();
         }
 
-        //- Return the underlying processorPolyPatch
-        const processorPolyPatch& procPolyPatch() const
-        {
-            return procPolyPatch_;
-        }
-
         //- Return mesh points in the correct order for the receiving side
         const labelList& reverseMeshPoints() const;
 
+
+    // Member Operators
+
+        //- Disallow default bitwise assignment
+        void operator=(const processorPointPatch&) = delete;
 };
 
 

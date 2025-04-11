@@ -84,7 +84,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-     Class CONSTRUCT Declaration
+                          Class CONSTRUCT Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -132,13 +132,6 @@ public:
 
     // Constructors
 
-        //- Construct from patch and internal field
-        CONSTRUCT
-        (
-            const fvPatch&,
-            const DimensionedField<TYPE, volMesh>&
-        );
-
         //- Construct from patch, internal field and dictionary
         CONSTRUCT
         (
@@ -154,23 +147,14 @@ public:
             const CLASS&,
             const fvPatch&,
             const DimensionedField<TYPE, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         CONSTRUCT
         (
             const CLASS&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<FVPATCHF> clone() const
-        {
-            return tmp<FVPATCHF>
-            (
-                new CLASS(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         CONSTRUCT
@@ -200,13 +184,12 @@ public:
 
         // Mapping functions
 
-            //- Map (and resize as needed) from self given a mapping object
-            //  Used to update fields following mesh topology change
-            virtual void autoMap(const fvPatchFieldMapper&);
+            //- Map the given fvPatchField onto this fvPatchField
+            virtual void map(const FVPATCHF&, const fieldMapper&);
 
-            //- Reverse map the given fvPatchField onto this fvPatchField
-            //  Used to reconstruct fields
-            virtual void rmap(const FVPATCHF&, const labelList&);
+            //- Reset the fvPatchField to the given fvPatchField
+            //  Used for mesh to mesh mapping
+            virtual void reset(const FVPATCHF&);
 
 
         // Evaluation functions

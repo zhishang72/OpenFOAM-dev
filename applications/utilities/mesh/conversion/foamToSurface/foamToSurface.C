@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -86,7 +86,7 @@ int main(int argc, char *argv[])
     }
 
     #include "createTime.H"
-    instantList timeDirs = timeSelector::select0(runTime, args);
+    const instantList timeDirs = timeSelector::select0(runTime, args);
     #include "createPolyMesh.H"
 
     forAll(timeDirs, timeI)
@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
             else
             {
                 exportName =
-                    exportBase + '_' + runTime.timeName() + "." + exportExt;
+                    exportBase + '_' + runTime.name() + "." + exportExt;
             }
 
             meshedSurface surf(mesh.boundaryMesh());

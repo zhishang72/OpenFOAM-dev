@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -45,16 +45,16 @@ namespace Foam
 Foam::porosityModels::powerLaw::powerLaw
 (
     const word& name,
-    const word& modelType,
     const fvMesh& mesh,
     const dictionary& dict,
+    const dictionary& coeffDict,
     const word& cellZoneName
 )
 :
-    porosityModel(name, modelType, mesh, dict, cellZoneName),
-    C0_(coeffs_.lookup<scalar>("C0")),
-    C1_(coeffs_.lookup<scalar>("C1")),
-    rhoName_(coeffs_.lookupOrDefault<word>("rho", "rho"))
+    porosityModel(name, mesh, dict, coeffDict, cellZoneName),
+    C0_(coeffDict.lookup<scalar>("C0")),
+    C1_(coeffDict.lookup<scalar>("C1")),
+    rhoName_(coeffDict.lookupOrDefault<word>("rho", "rho"))
 {}
 
 
@@ -116,21 +116,6 @@ void Foam::porosityModels::powerLaw::correct
 
 void Foam::porosityModels::powerLaw::correct
 (
-    fvVectorMatrix& UEqn,
-    const volScalarField& rho,
-    const volScalarField& mu
-) const
-{
-    const vectorField& U = UEqn.psi();
-    const scalarField& V = mesh_.V();
-    scalarField& Udiag = UEqn.diag();
-
-    apply(Udiag, V, rho, U);
-}
-
-
-void Foam::porosityModels::powerLaw::correct
-(
     const fvVectorMatrix& UEqn,
     volTensorField& AU
 ) const
@@ -150,15 +135,6 @@ void Foam::porosityModels::powerLaw::correct
     {
         apply(AU, geometricOneField(), U);
     }
-}
-
-
-bool Foam::porosityModels::powerLaw::writeData(Ostream& os) const
-{
-    os  << indent << name_ << endl;
-    dict_.write(os);
-
-    return true;
 }
 
 

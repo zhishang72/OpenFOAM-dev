@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -35,7 +35,8 @@ Foam::UniformDimensionedField<Type>::UniformDimensionedField
 )
 :
     regIOobject(io),
-    dimensioned<Type>(dt)
+    dimensioned<Type>(dt),
+    OldTimeField<UniformDimensionedField>(this->time().timeIndex())
 {
     // Read value
     if
@@ -48,10 +49,10 @@ Foam::UniformDimensionedField<Type>::UniformDimensionedField
     )
     {
         dictionary dict(readStream(typeName));
-        scalar multiplier;
-        this->dimensions().read(dict.lookup("dimensions"), multiplier);
-        dict.lookup("value") >> this->value();
-        this->value() *= multiplier;
+
+        this->dimensions().read(dict.lookup("dimensions"));
+
+        this->value() = dict.lookup<Type>("value", this->dimensions());
     }
 }
 
@@ -59,11 +60,12 @@ Foam::UniformDimensionedField<Type>::UniformDimensionedField
 template<class Type>
 Foam::UniformDimensionedField<Type>::UniformDimensionedField
 (
-    const UniformDimensionedField<Type>& rdt
+    const UniformDimensionedField<Type>& udt
 )
 :
-    regIOobject(rdt),
-    dimensioned<Type>(rdt)
+    regIOobject(udt),
+    dimensioned<Type>(udt),
+    OldTimeField<UniformDimensionedField>(udt)
 {}
 
 
@@ -74,13 +76,14 @@ Foam::UniformDimensionedField<Type>::UniformDimensionedField
 )
 :
     regIOobject(io),
-    dimensioned<Type>(regIOobject::name(), dimless, Zero)
+    dimensioned<Type>(regIOobject::name(), dimless, Zero),
+    OldTimeField<UniformDimensionedField>(this->time().timeIndex())
 {
     dictionary dict(readStream(typeName));
-    scalar multiplier;
-    this->dimensions().read(dict.lookup("dimensions"), multiplier);
-    dict.lookup("value") >> this->value();
-    this->value() *= multiplier;
+
+    this->dimensions().read(dict.lookup("dimensions"));
+
+    this->value() = dict.lookup<Type>("value", this->dimensions());
 }
 
 
@@ -94,12 +97,36 @@ Foam::UniformDimensionedField<Type>::~UniformDimensionedField()
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class Type>
+Type& Foam::UniformDimensionedField<Type>::value()
+{
+    this->storeOldTimes();
+    return dimensioned<Type>::value();
+}
+
+
+template<class Type>
+const Type& Foam::UniformDimensionedField<Type>::value() const
+{
+    return dimensioned<Type>::value();
+}
+
+
+template<class Type>
+void Foam::UniformDimensionedField<Type>::reset
+(
+    const UniformDimensionedField<Type>& rhs
+)
+{
+    dimensioned<Type>::operator=(rhs);
+}
+
+
+template<class Type>
 bool Foam::UniformDimensionedField<Type>::writeData(Ostream& os) const
 {
-    scalar multiplier;
     writeKeyword(os, "dimensions");
-    this->dimensions().write(os, multiplier) << token::END_STATEMENT << nl;
-    writeEntry(os, "value", this->value()/multiplier);
+    this->dimensions().write(os) << token::END_STATEMENT << nl;
+    writeEntry(os, "value", this->value());
     os << nl;
 
     return (os.good());
@@ -107,6 +134,16 @@ bool Foam::UniformDimensionedField<Type>::writeData(Ostream& os) const
 
 
 // * * * * * * * * * * * * * * Member Operators  * * * * * * * * * * * * * * //
+
+template<class Type>
+void Foam::UniformDimensionedField<Type>::operator==
+(
+    const UniformDimensionedField<Type>& rhs
+)
+{
+    dimensioned<Type>::operator=(rhs);
+}
+
 
 template<class Type>
 void Foam::UniformDimensionedField<Type>::operator=
@@ -125,6 +162,13 @@ void Foam::UniformDimensionedField<Type>::operator=
 )
 {
     dimensioned<Type>::operator=(rhs);
+}
+
+
+template<class Type>
+const Type& Foam::UniformDimensionedField<Type>::operator[](const label) const
+{
+    return this->value();
 }
 
 

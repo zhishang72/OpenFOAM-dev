@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -43,27 +43,13 @@ Foam::partialSlipFvPatchField<Type>::partialSlipFvPatchField
 template<class Type>
 Foam::partialSlipFvPatchField<Type>::partialSlipFvPatchField
 (
-    const partialSlipFvPatchField<Type>& ptf,
-    const fvPatch& p,
-    const DimensionedField<Type, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
-)
-:
-    transformFvPatchField<Type>(ptf, p, iF, mapper),
-    valueFraction_(mapper(ptf.valueFraction_))
-{}
-
-
-template<class Type>
-Foam::partialSlipFvPatchField<Type>::partialSlipFvPatchField
-(
     const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
     const dictionary& dict
 )
 :
     transformFvPatchField<Type>(p, iF),
-    valueFraction_("valueFraction", dict, p.size())
+    valueFraction_("valueFraction", unitFraction, dict, p.size())
 {
     evaluate();
 }
@@ -72,11 +58,14 @@ Foam::partialSlipFvPatchField<Type>::partialSlipFvPatchField
 template<class Type>
 Foam::partialSlipFvPatchField<Type>::partialSlipFvPatchField
 (
-    const partialSlipFvPatchField<Type>& ptf
+    const partialSlipFvPatchField<Type>& ptf,
+    const fvPatch& p,
+    const DimensionedField<Type, volMesh>& iF,
+    const fieldMapper& mapper
 )
 :
-    transformFvPatchField<Type>(ptf),
-    valueFraction_(ptf.valueFraction_)
+    transformFvPatchField<Type>(ptf, p, iF, mapper),
+    valueFraction_(mapper(ptf.valueFraction_))
 {}
 
 
@@ -95,29 +84,33 @@ Foam::partialSlipFvPatchField<Type>::partialSlipFvPatchField
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class Type>
-void Foam::partialSlipFvPatchField<Type>::autoMap
-(
-    const fvPatchFieldMapper& m
-)
-{
-    transformFvPatchField<Type>::autoMap(m);
-    m(valueFraction_, valueFraction_);
-}
-
-
-template<class Type>
-void Foam::partialSlipFvPatchField<Type>::rmap
+void Foam::partialSlipFvPatchField<Type>::map
 (
     const fvPatchField<Type>& ptf,
-    const labelList& addr
+    const fieldMapper& mapper
 )
 {
-    transformFvPatchField<Type>::rmap(ptf, addr);
+    transformFvPatchField<Type>::map(ptf, mapper);
 
     const partialSlipFvPatchField<Type>& dmptf =
         refCast<const partialSlipFvPatchField<Type>>(ptf);
 
-    valueFraction_.rmap(dmptf.valueFraction_, addr);
+    mapper(valueFraction_, dmptf.valueFraction_);
+}
+
+
+template<class Type>
+void Foam::partialSlipFvPatchField<Type>::reset
+(
+    const fvPatchField<Type>& ptf
+)
+{
+    transformFvPatchField<Type>::reset(ptf);
+
+    const partialSlipFvPatchField<Type>& dmptf =
+        refCast<const partialSlipFvPatchField<Type>>(ptf);
+
+    valueFraction_.reset(dmptf.valueFraction_);
 }
 
 

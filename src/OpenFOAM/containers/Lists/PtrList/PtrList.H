@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -104,7 +104,7 @@ public:
         //- Move constructor
         PtrList(PtrList<T>&&);
 
-        //- Construct as copy or re-use as specified
+        //- Construct as copy or reuse as specified
         PtrList(PtrList<T>&, bool reuse);
 
         //- Construct as copy of SLPtrList<T>
@@ -134,13 +134,20 @@ public:
             //- Alias for setSize(const label)
             inline void resize(const label);
 
+            //- Shrink the allocated space to the number of elements used.
+            void shrink();
+
             //- Clear the PtrList, i.e. set size to zero deleting all the
             //  allocated entries
             void clear();
 
             //- Append an element at the end of the list
             inline void append(T*);
+
+            //- Append an element at the end of the list
             inline void append(const autoPtr<T>&);
+
+            //- Append an element at the end of the list
             inline void append(const tmp<T>&);
 
             //- Transfer the contents of the argument PtrList into this PtrList

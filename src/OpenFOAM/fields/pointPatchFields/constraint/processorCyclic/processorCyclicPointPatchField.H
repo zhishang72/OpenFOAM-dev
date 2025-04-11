@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,7 +44,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                 Class processorCyclicPointPatchField Declaration
+               Class processorCyclicPointPatchField Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -56,9 +56,6 @@ class processorCyclicPointPatchField
 
         //- Local reference to processor patch
         const processorCyclicPointPatch& procPatch_;
-
-        //- Receive buffer for non-blocking communication
-        mutable Field<Type> receiveBuf_;
 
 
 public:
@@ -90,20 +87,8 @@ public:
             const processorCyclicPointPatchField<Type>&,
             const pointPatch&,
             const DimensionedField<Type, pointMesh>&,
-            const pointPatchFieldMapper&
+            const fieldMapper&
         );
-
-        //- Construct and return a clone
-        virtual autoPtr<pointPatchField<Type>> clone() const
-        {
-            return autoPtr<pointPatchField<Type>>
-            (
-                new processorCyclicPointPatchField<Type>
-                (
-                    *this
-                )
-            );
-        }
 
         //- Construct as copy setting internal field reference
         processorCyclicPointPatchField
@@ -123,6 +108,24 @@ public:
                 new processorCyclicPointPatchField<Type>
                 (
                     *this,
+                    iF
+                )
+            );
+        }
+
+        //- Construct and return a clone onto a new patch
+        //  setting internal field reference
+        virtual autoPtr<pointPatchField<Type>> clone
+        (
+            const pointPatch& patch,
+            const DimensionedField<Type, pointMesh>& iF
+        ) const
+        {
+            return autoPtr<pointPatchField<Type>>
+            (
+                new processorCyclicPointPatchField<Type>
+                (
+                    patch,
                     iF
                 )
             );
@@ -150,16 +153,6 @@ public:
                 }
             }
 
-            //- Does the patch field perform the transformation
-            virtual bool doTransform() const
-            {
-                return
-                   !(
-                        pTraits<Type>::rank == 0
-                     || procPatch_.procPolyPatch().parallel()
-                    );
-            }
-
 
         // Evaluation functions
 
@@ -170,20 +163,6 @@ public:
                     Pstream::commsTypes::blocking
             )
             {}
-
-            //- Initialise swap of non-collocated patch point values
-            virtual void initSwapAddSeparated
-            (
-                const Pstream::commsTypes commsType,
-                Field<Type>&
-            ) const;
-
-            //- Complete swap of patch point values and add to local values
-            virtual void swapAddSeparated
-            (
-                const Pstream::commsTypes commsType,
-                Field<Type>&
-            ) const;
 };
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ License
 
 #include "atmBoundaryLayerInletKFvPatchScalarField.H"
 #include "addToRunTimeSelectionTable.H"
-#include "fvPatchFieldMapper.H"
+#include "fieldMapper.H"
 #include "volFields.H"
 #include "surfaceFields.H"
 
@@ -35,18 +35,6 @@ namespace Foam
 {
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
-
-atmBoundaryLayerInletKFvPatchScalarField::
-atmBoundaryLayerInletKFvPatchScalarField
-(
-    const fvPatch& p,
-    const DimensionedField<scalar, volMesh>& iF
-)
-:
-    inletOutletFvPatchScalarField(p, iF),
-    atmBoundaryLayer()
-{}
-
 
 atmBoundaryLayerInletKFvPatchScalarField::
 atmBoundaryLayerInletKFvPatchScalarField
@@ -67,7 +55,10 @@ atmBoundaryLayerInletKFvPatchScalarField
 
     if (dict.found("value"))
     {
-        scalarField::operator=(scalarField("value", dict, p.size()));
+        scalarField::operator=
+        (
+            scalarField("value", iF.dimensions(), dict, p.size())
+        );
     }
     else
     {
@@ -82,7 +73,7 @@ atmBoundaryLayerInletKFvPatchScalarField
     const atmBoundaryLayerInletKFvPatchScalarField& psf,
     const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     inletOutletFvPatchScalarField(psf, p, iF, mapper),
@@ -104,28 +95,32 @@ atmBoundaryLayerInletKFvPatchScalarField
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-void atmBoundaryLayerInletKFvPatchScalarField::autoMap
-(
-    const fvPatchFieldMapper& m
-)
-{
-    inletOutletFvPatchScalarField::autoMap(m);
-    atmBoundaryLayer::autoMap(m);
-}
-
-
-void atmBoundaryLayerInletKFvPatchScalarField::rmap
+void atmBoundaryLayerInletKFvPatchScalarField::map
 (
     const fvPatchScalarField& psf,
-    const labelList& addr
+    const fieldMapper& mapper
 )
 {
-    inletOutletFvPatchScalarField::rmap(psf, addr);
+    inletOutletFvPatchScalarField::map(psf, mapper);
 
     const atmBoundaryLayerInletKFvPatchScalarField& blpsf =
         refCast<const atmBoundaryLayerInletKFvPatchScalarField>(psf);
 
-    atmBoundaryLayer::rmap(blpsf, addr);
+    atmBoundaryLayer::map(blpsf, mapper);
+}
+
+
+void atmBoundaryLayerInletKFvPatchScalarField::reset
+(
+    const fvPatchScalarField& psf
+)
+{
+    inletOutletFvPatchScalarField::reset(psf);
+
+    const atmBoundaryLayerInletKFvPatchScalarField& blpsf =
+        refCast<const atmBoundaryLayerInletKFvPatchScalarField>(psf);
+
+    atmBoundaryLayer::reset(blpsf);
 }
 
 

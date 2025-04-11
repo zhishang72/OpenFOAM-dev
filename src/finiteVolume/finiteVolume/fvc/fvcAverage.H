@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -45,38 +45,38 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                     Namespace fvc functions Declaration
+                      Namespace fvc functions Declaration
 \*---------------------------------------------------------------------------*/
 
 namespace fvc
 {
     //- Area-weighted average a surfaceField creating a volField
     template<class Type>
-    tmp<GeometricField<Type, fvPatchField, volMesh>> average
+    tmp<VolField<Type>> average
     (
-        const GeometricField<Type, fvsPatchField, surfaceMesh>&
+        const SurfaceField<Type>&
     );
 
     //- Area-weighted average a surfaceField creating a volField
     template<class Type>
-    tmp<GeometricField<Type, fvPatchField, volMesh>> average
+    tmp<VolField<Type>> average
     (
-        const tmp<GeometricField<Type, fvsPatchField, surfaceMesh>>&
+        const tmp<SurfaceField<Type>>&
     );
 
 
     //- Area-weighted average a surfaceField creating a volField
     template<class Type>
-    tmp<GeometricField<Type, fvPatchField, volMesh>> average
+    tmp<VolField<Type>> average
     (
-        const GeometricField<Type, fvPatchField, volMesh>&
+        const VolField<Type>&
     );
 
     //- Area-weighted average a surfaceField creating a volField
     template<class Type>
-    tmp<GeometricField<Type, fvPatchField, volMesh>> average
+    tmp<VolField<Type>> average
     (
-        const tmp<GeometricField<Type, fvPatchField, volMesh>>&
+        const tmp<VolField<Type>>&
     );
 }
 

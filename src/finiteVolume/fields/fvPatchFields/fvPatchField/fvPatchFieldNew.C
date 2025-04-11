@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -38,7 +38,8 @@ Foam::tmp<Foam::fvPatchField<Type>> Foam::fvPatchField<Type>::New
     {
         InfoInFunction
             << "patchFieldType = " << patchFieldType
-            << " : " << p.type()
+            << ", actualPatchType = " << actualPatchType
+            << ", patchType = " << p.type()
             << endl;
     }
 
@@ -48,15 +49,13 @@ Foam::tmp<Foam::fvPatchField<Type>> Foam::fvPatchField<Type>::New
     if (cstrIter == patchConstructorTablePtr_->end())
     {
         FatalErrorInFunction
-            << "Unknown patchField type "
-            << patchFieldType << nl << nl
-            << "Valid patchField types are :" << endl
+            << "Unknown null-constructable patchField type " << patchFieldType
+            << " for patch " << p.name() << " of type " << p.type()
+            << " for field " << iF.name() << nl << nl
+            << "Valid null-constructable patchField types are :" << endl
             << patchConstructorTablePtr_->sortedToc()
-            << exit(FatalError);
+            << abort(FatalError);
     }
-
-    typename patchConstructorTable::iterator patchTypeCstrIter =
-        patchConstructorTablePtr_->find(p.type());
 
     if
     (
@@ -64,6 +63,9 @@ Foam::tmp<Foam::fvPatchField<Type>> Foam::fvPatchField<Type>::New
      || actualPatchType != p.type()
     )
     {
+        typename patchConstructorTable::iterator patchTypeCstrIter =
+            patchConstructorTablePtr_->find(p.type());
+
         if (patchTypeCstrIter != patchConstructorTablePtr_->end())
         {
             return patchTypeCstrIter()(p, iF);
@@ -75,14 +77,7 @@ Foam::tmp<Foam::fvPatchField<Type>> Foam::fvPatchField<Type>::New
     }
     else
     {
-        tmp<fvPatchField<Type>> tfvp = cstrIter()(p, iF);
-
-        // Check if constraint type override and store patchType if so
-        if ((patchTypeCstrIter != patchConstructorTablePtr_->end()))
-        {
-            tfvp.ref().patchType() = actualPatchType;
-        }
-        return tfvp;
+        return cstrIter()(p, iF);
     }
 }
 
@@ -113,8 +108,18 @@ Foam::tmp<Foam::fvPatchField<Type>> Foam::fvPatchField<Type>::New
     {
         InfoInFunction
             << "patchFieldType = " << patchFieldType
+            << ", actualPatchType = "
+            << dict.lookupOrDefault<word>("patchType", word::null)
+            << ", patchType = " << p.type()
             << endl;
     }
+
+    libs.open
+    (
+        dict,
+        "libs",
+        dictionaryConstructorTablePtr_
+    );
 
     typename dictionaryConstructorTable::iterator cstrIter
         = dictionaryConstructorTablePtr_->find(patchFieldType);
@@ -132,7 +137,8 @@ Foam::tmp<Foam::fvPatchField<Type>> Foam::fvPatchField<Type>::New
             (
                 dict
             )   << "Unknown patchField type " << patchFieldType
-                << " for patch type " << p.type() << nl << nl
+                << " for patch " << p.name() << " of type " << p.type()
+                << " for field " << iF.name() << nl << nl
                 << "Valid patchField types are :" << endl
                 << dictionaryConstructorTablePtr_->sortedToc()
                 << exit(FatalIOError);
@@ -160,6 +166,7 @@ Foam::tmp<Foam::fvPatchField<Type>> Foam::fvPatchField<Type>::New
             )   << "inconsistent patch and patchField types for \n"
                    "    patch type " << p.type()
                 << " and patchField type " << patchFieldType
+                << " for field " << iF.name()
                 << exit(FatalIOError);
         }
     }
@@ -174,7 +181,7 @@ Foam::tmp<Foam::fvPatchField<Type>> Foam::fvPatchField<Type>::New
     const fvPatchField<Type>& ptf,
     const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
-    const fvPatchFieldMapper& pfMapper
+    const fieldMapper& pfMapper
 )
 {
     if (debug)
@@ -188,7 +195,9 @@ Foam::tmp<Foam::fvPatchField<Type>> Foam::fvPatchField<Type>::New
     if (cstrIter == patchMapperConstructorTablePtr_->end())
     {
         FatalErrorInFunction
-            << "Unknown patchField type " << ptf.type() << nl << nl
+            << "Unknown patchField type " << ptf.type()
+            << " for patch " << p.name() << " of type " << p.type()
+            << " for field " << iF.name() << nl << nl
             << "Valid patchField types are :" << endl
             << patchMapperConstructorTablePtr_->sortedToc()
             << exit(FatalError);

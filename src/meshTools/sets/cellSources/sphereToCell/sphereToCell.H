@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -43,18 +43,14 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                       Class sphereToCell Declaration
+                        Class sphereToCell Declaration
 \*---------------------------------------------------------------------------*/
 
 class sphereToCell
 :
     public topoSetSource
 {
-
     // Private Data
-
-        //- Add usage string
-        static addToUsageTable usage_;
 
         //- Centre
         vector centre_;
@@ -91,13 +87,6 @@ public:
             const dictionary& dict
         );
 
-        //- Construct from Istream
-        sphereToCell
-        (
-            const polyMesh& mesh,
-            Istream&
-        );
-
 
     //- Destructor
     virtual ~sphereToCell();
@@ -115,7 +104,6 @@ public:
             const topoSetSource::setAction action,
             topoSet&
         ) const;
-
 };
 
 

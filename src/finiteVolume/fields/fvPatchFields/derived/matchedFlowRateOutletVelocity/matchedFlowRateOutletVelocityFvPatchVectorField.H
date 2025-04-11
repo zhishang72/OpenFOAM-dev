@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -65,7 +65,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-           Class matchedFlowRateOutletVelocityFvPatchVectorField Declaration
+       Class matchedFlowRateOutletVelocityFvPatchVectorField Declaration
 \*---------------------------------------------------------------------------*/
 
 class matchedFlowRateOutletVelocityFvPatchVectorField
@@ -80,7 +80,7 @@ class matchedFlowRateOutletVelocityFvPatchVectorField
         //- Is volumetric?
         bool volumetric_;
 
-        //- Name of the density field used to normalize the mass flux
+        //- Name of the density field used to normalise the mass flux
         word rhoName_;
 
 
@@ -104,13 +104,6 @@ public:
 
    // Constructors
 
-        //- Construct from patch and internal field
-        matchedFlowRateOutletVelocityFvPatchVectorField
-        (
-            const fvPatch&,
-            const DimensionedField<vector, volMesh>&
-        );
-
         //- Construct from patch, internal field and dictionary
         matchedFlowRateOutletVelocityFvPatchVectorField
         (
@@ -127,23 +120,14 @@ public:
             const matchedFlowRateOutletVelocityFvPatchVectorField&,
             const fvPatch&,
             const DimensionedField<vector, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         matchedFlowRateOutletVelocityFvPatchVectorField
         (
             const matchedFlowRateOutletVelocityFvPatchVectorField&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchVectorField> clone() const
-        {
-            return tmp<fvPatchVectorField>
-            (
-                new matchedFlowRateOutletVelocityFvPatchVectorField(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         matchedFlowRateOutletVelocityFvPatchVectorField

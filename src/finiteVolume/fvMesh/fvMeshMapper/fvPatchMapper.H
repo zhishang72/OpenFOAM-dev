@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -35,7 +35,7 @@ SourceFiles
 #ifndef fvPatchMapper_H
 #define fvPatchMapper_H
 
-#include "fvPatchFieldMapper.H"
+#include "generalFieldMapper.H"
 #include "faceMapper.H"
 #include "fvPatch.H"
 #include "primitiveFields.H"
@@ -47,15 +47,15 @@ namespace Foam
 
 // Forward declaration of classes
 class fvPatch;
-class mapPolyMesh;
+class polyTopoChangeMap;
 
 /*---------------------------------------------------------------------------*\
-                       Class fvPatchMapper Declaration
+                        Class fvPatchMapper Declaration
 \*---------------------------------------------------------------------------*/
 
 class fvPatchMapper
 :
-    public generalFvPatchFieldMapper
+    public generalFieldMapper
 {
     // Private Data
 
@@ -70,8 +70,6 @@ class fvPatchMapper
 
 
     // Demand-driven private data
-
-        mutable bool hasUnmapped_;
 
         //- Direct addressing (only one for of addressing is used)
         mutable labelList* directAddrPtr_;
@@ -94,8 +92,6 @@ class fvPatchMapper
 
 public:
 
-    // Static Data Members
-
     // Constructors
 
         //- Construct from mappers
@@ -106,10 +102,7 @@ public:
         );
 
         //- Disallow default bitwise copy construction
-        fvPatchMapper
-        (
-            const fvPatchMapper&
-        );
+        fvPatchMapper(const fvPatchMapper&) = delete;
 
 
     //- Destructor
@@ -119,20 +112,15 @@ public:
     // Member Functions
 
         //- Return size of field before mapping
-        virtual label sizeBeforeMapping() const
+        label sizeBeforeMapping() const
         {
             return sizeBeforeMapping_;
         }
 
-        //- Is the mapping direct
+        //- Is the mapping direct?
         virtual bool direct() const
         {
             return faceMap_.direct();
-        }
-
-        virtual bool hasUnmapped() const
-        {
-            return hasUnmapped_;
         }
 
         //- Return direct addressing

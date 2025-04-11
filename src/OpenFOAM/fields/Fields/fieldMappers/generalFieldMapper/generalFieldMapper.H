@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2019-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -40,18 +40,20 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class generalFieldMapper Declaration
+                     Class generalFieldMapper Declaration
 \*---------------------------------------------------------------------------*/
 
 class generalFieldMapper
 :
-    virtual public fieldMapper
+    public fieldMapper
 {
     // Private Member Functions
 
+        //- Map a field in-place
         template<class Type>
         void map(Field<Type>& f, const Field<Type>& mapF) const;
 
+        //- Map a field and return the result
         template<class Type>
         tmp<Field<Type>> map(const Field<Type>& f) const;
 
@@ -72,88 +74,32 @@ public:
 
     // Member Functions
 
+        //- Is the mapper direct?
         virtual bool direct() const = 0;
 
-        //- Are there unmapped values? I.e. do all size() elements get
-        //  get value
-        virtual bool hasUnmapped() const = 0;
-
+        //- Access the direct addressing
         virtual const labelUList& directAddressing() const;
 
+        //- Access the general addressing
         virtual const labelListList& addressing() const;
 
+        //- Access the general weights
         virtual const scalarListList& weights() const;
 
 
     // Member Operators
 
-        virtual void operator()
-        (
-            Field<scalar>& f,
-            const Field<scalar>& mapF
-        ) const;
+        //- Map a field
+        FOR_ALL_FIELD_TYPES(DEFINE_FIELD_MAPPER_MAP_OPERATOR, );
 
-        virtual void operator()
-        (
-            Field<vector>& f,
-            const Field<vector>& mapF
-        ) const;
-
-        virtual void operator()
-        (
-            Field<sphericalTensor>& f,
-            const Field<sphericalTensor>& mapF
-        ) const;
-
-        virtual void operator()
-        (
-            Field<symmTensor>& f,
-            const Field<symmTensor>& mapF
-        ) const;
-
-        virtual void operator()
-        (
-            Field<tensor>& f,
-            const Field<tensor>& mapF
-        ) const;
-
-
-        virtual tmp<Field<scalar>> operator()
-        (
-            const Field<scalar>& mapF
-        ) const;
-
-        virtual tmp<Field<vector>> operator()
-        (
-            const Field<vector>& mapF
-        ) const;
-
-        virtual tmp<Field<sphericalTensor>> operator()
-        (
-            const Field<sphericalTensor>& mapF
-        ) const;
-
-        virtual tmp<Field<symmTensor>> operator()
-        (
-            const Field<symmTensor>& mapF
-        ) const;
-
-        virtual tmp<Field<tensor>> operator()
-        (
-            const Field<tensor>& mapF
-        ) const;
+        //- Map a label field
+        DEFINE_FIELD_MAPPER_MAP_OPERATOR(label, );
 };
 
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 } // End namespace Foam
-
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-#ifdef NoRepository
-    #include "generalFieldMapperTemplates.C"
-#endif
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

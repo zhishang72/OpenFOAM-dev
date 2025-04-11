@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,56 +25,58 @@ Application
     transformPoints
 
 Description
-    Transforms the mesh points in the polyMesh directory according to the
-    translate, rotate and scale options.
+    Transform (translate, rotate, scale) the mesh points, and optionally also
+    any vector and tensor fields.
 
 Usage
-    \b transformPoints [OPTION]
+    \b transformPoints "\<transformations\>" [OPTION]
+
+    Supported transformations:
+      - \par translate=<translation vector>
+        Translational transformation by given vector
+      - \par rotate=(\<n1 vector\> \<n2 vector\>)
+        Rotational transformation from unit vector n1 to n2
+      - \par Rx=\<angle [deg] about x-axis\>
+        Rotational transformation by given angle about x-axis
+      - \par Ry=\<angle [deg] about y-axis\>
+        Rotational transformation by given angle about y-axis
+      - \par Rz=\<angle [deg] about z-axis\>
+        Rotational transformation by given angle about z-axis
+      - \par Ra=\<axis vector\> \<angle [deg] about axis\>
+        Rotational transformation by given angle about given axis
+      - \par scale=\<x-y-z scaling vector\>
+        Anisotropic scaling by the given vector in the x, y, z
+        coordinate directions
 
     Options:
-      - \par -translate \<vector\> \n
-        Translates the points by the given vector.
-
-      - \par -rotate (\<vector\> \<vector\>) \n
-        Rotates the points from the first vector to the second.
-
-      - \par -yawPitchRoll (\<yawdegrees\> \<pitchdegrees\> \<rolldegrees\>) \n
-        Alternative rotation specification:
-            yaw (rotation about z)
-            pitch (rotation about y)
-            roll (rotation about x)
-
-      - \par -rollPitchYaw (\<rolldegrees\> \<pitchdegrees\> \<yawdegrees\>) \n
-        Alternative rotation specification:
-            roll (rotation about x)
-            pitch (rotation about y)
-            yaw (rotation about z)
-
       - \par -rotateFields \n
-        In combination with \a -rotate, \a -yawPitchRoll or \a -rollPitchYaw
-        additionally transform vector and tensor fields.
+        Additionally transform vector and tensor fields.
+      - \par -pointSet \<name\> \n
+        Only transform points in the given point set.
 
-      - \par -scale \<vector\> \n
-        Scales the points by the given vector.
+    Example usage:
+        transformPoints \
+            "translate=(-0.05 -0.05 0), \
+            Rz=45, \
+            translate=(0.05 0.05 0)"
 
-    Any or all of the three transformation option types may be specified and are
-    processed in the above order.
+See also
+    Foam::transformer
+    surfaceTransformPoints
 
 \*---------------------------------------------------------------------------*/
 
 #include "argList.H"
 #include "fvMesh.H"
-#include "regionProperties.H"
 #include "volFields.H"
 #include "surfaceFields.H"
 #include "ReadFields.H"
 #include "pointFields.H"
+#include "pointSet.H"
 #include "transformField.H"
 #include "transformGeometricField.H"
-#include "mathematicalConstants.H"
 
 using namespace Foam;
-using namespace Foam::constant::mathematical;
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -97,44 +99,39 @@ void readAndRotateFields
 }
 
 
-void rotateFields(const argList& args, const Time& runTime, const tensor& T)
+void rotateFields
+(
+    const argList& args,
+    const Time& runTime,
+    const tensor& T
+)
 {
-    #include "createNamedMesh.H"
+    #include "createSpecifiedMeshNoChangers.H"
 
     // Read objects in time directory
-    IOobjectList objects(mesh, runTime.timeName());
+    IOobjectList objects(mesh, runTime.name());
 
     // Read vol fields.
-
     PtrList<volScalarField> vsFlds;
     readAndRotateFields(vsFlds, mesh, T, objects);
-
     PtrList<volVectorField> vvFlds;
     readAndRotateFields(vvFlds, mesh, T, objects);
-
     PtrList<volSphericalTensorField> vstFlds;
     readAndRotateFields(vstFlds, mesh, T, objects);
-
     PtrList<volSymmTensorField> vsymtFlds;
     readAndRotateFields(vsymtFlds, mesh, T, objects);
-
     PtrList<volTensorField> vtFlds;
     readAndRotateFields(vtFlds, mesh, T, objects);
 
     // Read surface fields.
-
     PtrList<surfaceScalarField> ssFlds;
     readAndRotateFields(ssFlds, mesh, T, objects);
-
     PtrList<surfaceVectorField> svFlds;
     readAndRotateFields(svFlds, mesh, T, objects);
-
     PtrList<surfaceSphericalTensorField> sstFlds;
     readAndRotateFields(sstFlds, mesh, T, objects);
-
     PtrList<surfaceSymmTensorField> ssymtFlds;
     readAndRotateFields(ssymtFlds, mesh, T, objects);
-
     PtrList<surfaceTensorField> stFlds;
     readAndRotateFields(stFlds, mesh, T, objects);
 
@@ -146,57 +143,84 @@ void rotateFields(const argList& args, const Time& runTime, const tensor& T)
 
 int main(int argc, char *argv[])
 {
-    argList::addOption
+    argList::addNote
     (
-        "translate",
-        "vector",
-        "translate by the specified <vector> - eg, '(1 0 0)'"
+        "Transforms a mesh by translation, rotation and/or scaling.\n"
+        "The <transformations> are listed comma-separated in a string "
+        "and executed in sequence.\n\n"
+        "transformations:\n"
+        "  translate=<vector>        "
+        "translation by vector, e.g. (1 2 3)\n"
+        "  rotate=(<n1> <n2>)        "
+        "rotation from unit vector n1 to n2\n"
+        "  Rx=<angle>                "
+        "rotation by given angle [deg], e.g. 90, about x-axis\n"
+        "  Ry=<angle>                "
+        "rotation by given angle [deg] about y-axis\n"
+        "  Rz=<angle>                "
+        "rotation by given angle [deg] about z-axis\n"
+        "  Ra=<axis vector> <angle>  "
+        "rotation by given angle [deg] about specified axis\n"
+        "  scale=<vector>            "
+        "scale by factors from vector in x, y, z directions,\n"
+        "                            "
+        "e.g. (0.001 0.001 0.001) to scale from mm to m\n\n"
+        "example:\n"
+        "  transformPoints "
+        "\"translate=(1.2 0 0), Rx=90, translate=(-1.2 0 0)\""
     );
-    argList::addOption
-    (
-        "rotate",
-        "(vectorA vectorB)",
-        "transform in terms of a rotation between <vectorA> and <vectorB> "
-        "- eg, '( (1 0 0) (0 0 1) )'"
-    );
-    argList::addOption
-    (
-        "rollPitchYaw",
-        "vector",
-        "transform in terms of '(roll pitch yaw)' in degrees"
-    );
-    argList::addOption
-    (
-        "yawPitchRoll",
-        "vector",
-        "transform in terms of '(yaw pitch roll)' in degrees"
-    );
+
+    argList::validArgs.append("transformations");
+
     argList::addBoolOption
     (
         "rotateFields",
-        "read and transform vector and tensor fields too"
-    );
-    argList::addOption
-    (
-        "scale",
-        "vector",
-        "scale by the specified amount - eg, '(0.001 0.001 0.001)' for a "
-        "uniform [mm] to [m] scaling"
+        "transform vector and tensor fields"
     );
 
+    argList::addOption
+    (
+        "pointSet",
+        "pointSet",
+        "Point set to limit the transformation to"
+    );
+
+    #include "addMeshOption.H"
     #include "addRegionOption.H"
     #include "addAllRegionsOption.H"
     #include "setRootCase.H"
+    #include "setMeshPath.H"
     #include "createTime.H"
 
-    const wordList regionNames(selectRegionNames(args, runTime));
+    const string transformationString(args[1]);
+
+    #include "createTransforms.H"
+
+    #include "setRegionNames.H"
+
+    const bool doRotateFields = args.optionFound("rotateFields");
+
+    word pointSetName = word::null;
+    const bool doPointSet = args.optionReadIfPresent("pointSet", pointSetName);
+
+    if (doRotateFields && doPointSet)
+    {
+        FatalErrorInFunction
+            << "Rotation of fields across the entire mesh, and limiting the "
+            << "transformation of points to a set, cannot be done "
+            << "simultaneously" << exit(FatalError);
+    }
 
     forAll(regionNames, regioni)
     {
         const word& regionName = regionNames[regioni];
-        const word& regionDir = Foam::regionDir(regionName);
 
-        fileName meshDir(regionDir/polyMesh::meshSubDir);
+        const word& regionDir =
+            regionName == polyMesh::defaultRegion
+          ? word::null
+          : regionName;
+
+        const fileName meshDir(meshPath/regionDir/polyMesh::meshSubDir);
 
         pointIOField points
         (
@@ -212,98 +236,39 @@ int main(int argc, char *argv[])
             )
         );
 
-        const bool doRotateFields = args.optionFound("rotateFields");
-
-        // this is not actually stringent enough:
-        if (args.options().empty())
+        if (doPointSet)
         {
-            FatalErrorInFunction
-                << "No options supplied, please use one or more of "
-                   "-translate, -rotate or -scale options."
-                << exit(FatalError);
-        }
-
-        vector v;
-        if (args.optionReadIfPresent("translate", v))
-        {
-            Info<< "Translating points by " << v << endl;
-
-            points += v;
-        }
-
-        if (args.optionFound("rotate"))
-        {
-            Pair<vector> n1n2
+            const labelList setPointIDs
             (
-                args.optionLookup("rotate")()
+                pointSet
+                (
+                    IOobject
+                    (
+                        pointSetName,
+                        runTime.findInstance(meshDir/"sets", word::null),
+                        polyMesh::meshSubDir/"sets",
+                        runTime,
+                        IOobject::MUST_READ,
+                        IOobject::NO_WRITE,
+                        false
+                    )
+                ).toc()
             );
-            n1n2[0] /= mag(n1n2[0]);
-            n1n2[1] /= mag(n1n2[1]);
-            tensor T = rotationTensor(n1n2[0], n1n2[1]);
 
-            Info<< "Rotating points by " << T << endl;
+            pointField setPoints(UIndirectList<point>(points, setPointIDs));
 
-            points = transform(T, points);
+            transforms.transformPosition(setPoints, setPoints);
 
-            if (doRotateFields)
-            {
-                rotateFields(args, runTime, T);
-            }
+            UIndirectList<point>(points, setPointIDs) = setPoints;
         }
-        else if (args.optionReadIfPresent("rollPitchYaw", v))
+        else
         {
-            Info<< "Rotating points by" << nl
-                << "    roll  " << v.x() << nl
-                << "    pitch " << v.y() << nl
-                << "    yaw   " << v.z() << nl;
-
-            // Convert to radians
-            v *= pi/180.0;
-
-            quaternion R(quaternion::rotationSequence::XYZ, v);
-
-            Info<< "Rotating points by quaternion " << R << endl;
-            points = transform(R, points);
-
-            if (doRotateFields)
-            {
-                rotateFields(args, runTime, R.R());
-            }
-        }
-        else if (args.optionReadIfPresent("yawPitchRoll", v))
-        {
-            Info<< "Rotating points by" << nl
-                << "    yaw   " << v.x() << nl
-                << "    pitch " << v.y() << nl
-                << "    roll  " << v.z() << nl;
-
-            // Convert to radians
-            v *= pi/180.0;
-
-            scalar yaw = v.x();
-            scalar pitch = v.y();
-            scalar roll = v.z();
-
-            quaternion R = quaternion(vector(0, 0, 1), yaw);
-            R *= quaternion(vector(0, 1, 0), pitch);
-            R *= quaternion(vector(1, 0, 0), roll);
-
-            Info<< "Rotating points by quaternion " << R << endl;
-            points = transform(R, points);
-
-            if (doRotateFields)
-            {
-                rotateFields(args, runTime, R.R());
-            }
+            transforms.transformPosition(points, points);
         }
 
-        if (args.optionReadIfPresent("scale", v))
+        if (doRotateFields)
         {
-            Info<< "Scaling points by " << v << endl;
-
-            points.replace(vector::X, v.x()*points.component(vector::X));
-            points.replace(vector::Y, v.y()*points.component(vector::Y));
-            points.replace(vector::Z, v.z()*points.component(vector::Z));
+            rotateFields(args, runTime, transforms.T());
         }
 
         // Set the precision of the points data to 10

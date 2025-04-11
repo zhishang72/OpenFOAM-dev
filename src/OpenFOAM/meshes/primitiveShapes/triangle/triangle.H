@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -39,7 +39,7 @@ SourceFiles
 #include "vector.H"
 #include "tensor.H"
 #include "pointHit.H"
-#include "Random.H"
+#include "randomGenerator.H"
 #include "FixedList.H"
 #include "UList.H"
 #include "linePointRef.H"
@@ -140,11 +140,8 @@ public:
             //- Return unit normal
             inline vector normal() const;
 
-            //- Return circum-centre
-            inline Point circumCentre() const;
-
-            //- Return circum-radius
-            inline scalar circumRadius() const;
+            //- Return the circum centre and radius
+            inline Tuple2<Point, scalar> circumCircle() const;
 
             //- Return quality: Ratio of triangle and circum-circle
             //  area, scaled so that an equilateral triangle has a
@@ -156,7 +153,7 @@ public:
 
             //- Return the inertia tensor, with optional reference
             //  point and density specification
-            inline tensor inertia
+            inline symmTensor inertia
             (
                 PointRef refPt = vector::zero,
                 scalar density = 1.0
@@ -164,7 +161,7 @@ public:
 
             //- Return a random point on the triangle from a uniform
             //  distribution
-            inline Point randomPoint(Random& rndGen) const;
+            inline Point randomPoint(randomGenerator& rndGen) const;
 
             //- Calculate the point from the given barycentric coordinates.
             inline Point barycentricToPoint(const barycentric2D& bary) const;

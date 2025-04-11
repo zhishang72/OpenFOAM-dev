@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -99,24 +99,12 @@ public:
             const fixedValueFvPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, volMesh>&,
-            const fvPatchFieldMapper&,
+            const fieldMapper&,
             const bool mappingRequired=true
         );
 
-        //- Copy constructor
-        fixedValueFvPatchField
-        (
-            const fixedValueFvPatchField<Type>&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchField<Type>> clone() const
-        {
-            return tmp<fvPatchField<Type>>
-            (
-                new fixedValueFvPatchField<Type>(*this)
-            );
-        }
+        //- Disallow copy without setting internal field reference
+        fixedValueFvPatchField(const fixedValueFvPatchField<Type>&) = delete;
 
         //- Copy constructor setting internal field reference
         fixedValueFvPatchField

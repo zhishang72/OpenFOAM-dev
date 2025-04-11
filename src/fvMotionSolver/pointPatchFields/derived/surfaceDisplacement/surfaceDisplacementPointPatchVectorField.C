@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -27,7 +27,7 @@ License
 #include "addToRunTimeSelectionTable.H"
 #include "Time.H"
 #include "transformField.H"
-#include "dynamicMotionSolverFvMesh.H"
+#include "motionSolver_fvMeshMover.H"
 #include "displacementMotionSolver.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -85,7 +85,7 @@ void surfaceDisplacementPointPatchVectorField::calcProjection
 
     if (frozenPointsZone_.size() > 0)
     {
-        const pointZoneMesh& pZones = mesh.pointZones();
+        const pointZoneList& pZones = mesh.pointZones();
 
         zonePtr = &pZones[frozenPointsZone_];
 
@@ -94,9 +94,12 @@ void surfaceDisplacementPointPatchVectorField::calcProjection
             << endl;
     }
 
-    // Get the motionSolver from the dynamic mesh
+    // Get the motionSolver from the mesh
     const motionSolver& motion =
-        refCast<const dynamicMotionSolverFvMesh>(mesh).motion();
+        refCast<const fvMeshMovers::motionSolver>
+        (
+            refCast<const fvMesh>(mesh).mover()
+        ).motion();
 
     // Get the starting locations from the motionSolver
     const pointField& points0 =
@@ -124,7 +127,7 @@ void surfaceDisplacementPointPatchVectorField::calcProjection
 
         forAll(nearest, i)
         {
-            if (zonePtr && (zonePtr->whichPoint(meshPoints[i]) >= 0))
+            if (zonePtr && (zonePtr->localIndex(meshPoints[i]) >= 0))
             {
                 // Fixed point. Reset to point0 location.
                 displacement[i] = points0[meshPoints[i]] - localPoints[i];
@@ -214,7 +217,7 @@ void surfaceDisplacementPointPatchVectorField::calcProjection
         // 3. Choose either -fixed, nearest, right, left.
         forAll(displacement, i)
         {
-            if (zonePtr && (zonePtr->whichPoint(meshPoints[i]) >= 0))
+            if (zonePtr && (zonePtr->localIndex(meshPoints[i]) >= 0))
             {
                 // Fixed point. Reset to point0 location.
                 displacement[i] = points0[meshPoints[i]] - localPoints[i];
@@ -305,30 +308,15 @@ surfaceDisplacementPointPatchVectorField::
 surfaceDisplacementPointPatchVectorField
 (
     const pointPatch& p,
-    const DimensionedField<vector, pointMesh>& iF
-)
-:
-    fixedValuePointPatchVectorField(p, iF),
-    velocity_(Zero),
-    projectMode_(NEAREST),
-    projectDir_(Zero),
-    wedgePlane_(-1)
-{}
-
-
-surfaceDisplacementPointPatchVectorField::
-surfaceDisplacementPointPatchVectorField
-(
-    const pointPatch& p,
     const DimensionedField<vector, pointMesh>& iF,
     const dictionary& dict
 )
 :
     fixedValuePointPatchVectorField(p, iF, dict),
-    velocity_(dict.lookup("velocity")),
+    velocity_(dict.lookup<vector>("velocity", dimVelocity)),
     surfacesDict_(dict.subDict("geometry")),
     projectMode_(projectModeNames_.read(dict.lookup("projectMode"))),
-    projectDir_(dict.lookup("projectDirection")),
+    projectDir_(dict.lookup<vector>("projectDirection", dimless)),
     wedgePlane_(dict.lookupOrDefault("wedgePlane", -1)),
     frozenPointsZone_(dict.lookupOrDefault("frozenPointsZone", word::null))
 {
@@ -349,26 +337,10 @@ surfaceDisplacementPointPatchVectorField
     const surfaceDisplacementPointPatchVectorField& ppf,
     const pointPatch& p,
     const DimensionedField<vector, pointMesh>& iF,
-    const pointPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     fixedValuePointPatchVectorField(ppf, p, iF, mapper),
-    velocity_(ppf.velocity_),
-    surfacesDict_(ppf.surfacesDict_),
-    projectMode_(ppf.projectMode_),
-    projectDir_(ppf.projectDir_),
-    wedgePlane_(ppf.wedgePlane_),
-    frozenPointsZone_(ppf.frozenPointsZone_)
-{}
-
-
-surfaceDisplacementPointPatchVectorField::
-surfaceDisplacementPointPatchVectorField
-(
-    const surfaceDisplacementPointPatchVectorField& ppf
-)
-:
-    fixedValuePointPatchVectorField(ppf),
     velocity_(ppf.velocity_),
     surfacesDict_(ppf.surfacesDict_),
     projectMode_(ppf.projectMode_),
@@ -408,10 +380,10 @@ surfaceDisplacementPointPatchVectorField::surfaces() const
             (
                 IOobject
                 (
-                    "abc",                              // dummy name
-                    db().time().constant(),             // directory
-                    "triSurface",                       // instance
-                    db().time(),                        // registry
+                    "abc",             // dummy name
+                    db().time().constant(),
+                    searchableSurface::geometryDir(db().time()),
+                    db().time(),
                     IOobject::MUST_READ,
                     IOobject::NO_WRITE
                 ),

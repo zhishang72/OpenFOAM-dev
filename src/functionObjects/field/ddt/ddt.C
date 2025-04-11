@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -45,7 +45,7 @@ bool Foam::functionObjects::ddt::calc()
     if (functionObject::postProcess)
     {
         WarningInFunction
-            << "ddt is not supported with the postProcess utility"
+            << "ddt is not supported with the foamPostProcess utility"
             << endl;
 
         return false;
@@ -53,11 +53,14 @@ bool Foam::functionObjects::ddt::calc()
 
     bool processed = false;
 
-    processed = processed || calcDdt<scalar>();
-    processed = processed || calcDdt<vector>();
-    processed = processed || calcDdt<sphericalTensor>();
-    processed = processed || calcDdt<symmTensor>();
-    processed = processed || calcDdt<tensor>();
+    #define processType(fieldType, none)                                       \
+        processed = processed || calcDdt<fieldType>();
+    FOR_ALL_FIELD_TYPES(processType)
+
+    if (!processed)
+    {
+        cannotFindObject(fieldName_);
+    }
 
     return processed;
 }

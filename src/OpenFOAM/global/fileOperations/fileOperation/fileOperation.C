@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,15 +24,10 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "fileOperation.H"
-#include "uncollatedFileOperation.H"
-#include "regIOobject.H"
-#include "argList.H"
-#include "HashSet.H"
-#include "objectRegistry.H"
 #include "decomposedBlockData.H"
 #include "polyMesh.H"
-#include "registerSwitch.H"
 #include "Time.H"
+#include "OSspecific.H"
 
 /* * * * * * * * * * * * * * * Static Member Data  * * * * * * * * * * * * * */
 
@@ -71,9 +66,7 @@ namespace Foam
         (
             "fileHandler",
             // Foam::fileOperations::uncollatedFileOperation::typeName,
-            word("uncollated"),
-            false,
-            false
+            word("uncollated")
         )
     );
 
@@ -365,7 +358,7 @@ Foam::fileOperation::lookupProcessorsPath(const fileName& fName) const
 bool Foam::fileOperation::exists(IOobject& io) const
 {
     // Generate output filename for object
-    fileName objPath(objectPath(io, word::null));
+    fileName objPath(objectPath(io));
 
     // Test for either directory or a (valid) file & IOobject
     bool ok;
@@ -375,16 +368,15 @@ bool Foam::fileOperation::exists(IOobject& io) const
     }
     else
     {
-        ok =
-            isFile(objPath)
-         && io.typeHeaderOk<IOList<label>>(false);// object with local scope
+        // IOobject::headerOk assumes local scope
+        ok = isFile(objPath) && io.headerOk();
     }
 
     if (!ok)
     {
         // Re-test with searched for objectPath. This is for backwards
         // compatibility
-        fileName originalPath(filePath(io.objectPath()));
+        fileName originalPath(filePath(io.objectPath(false)));
         if (originalPath != objPath)
         {
             // Test for either directory or a (valid) file & IOobject
@@ -394,9 +386,8 @@ bool Foam::fileOperation::exists(IOobject& io) const
             }
             else
             {
-                ok =
-                    isFile(originalPath)
-                 && io.typeHeaderOk<IOList<label>>(false);
+                // IOobject::headerOk assumes local scope
+                ok = isFile(originalPath) && io.headerOk();
             }
         }
     }
@@ -444,13 +435,9 @@ Foam::fileOperation::~fileOperation()
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-Foam::fileName Foam::fileOperation::objectPath
-(
-    const IOobject& io,
-    const word& typeName
-) const
+Foam::fileName Foam::fileOperation::objectPath(const IOobject& io) const
 {
-    return io.objectPath();
+    return io.objectPath(false);
 }
 
 
@@ -465,15 +452,15 @@ bool Foam::fileOperation::writeObject
 {
     if (write)
     {
-        fileName pathName(io.objectPath());
+        const fileName filePath(io.objectPath());
 
-        mkDir(pathName.path());
+        mkDir(filePath.path());
 
         autoPtr<Ostream> osPtr
         (
             NewOFstream
             (
-                pathName,
+                filePath,
                 fmt,
                 ver,
                 cmp
@@ -506,6 +493,7 @@ bool Foam::fileOperation::writeObject
 
         IOobject::writeEndDivider(os);
     }
+
     return true;
 }
 
@@ -671,6 +659,7 @@ void Foam::fileOperation::setUnmodified(const label watchFd) const
 
 Foam::instantList Foam::fileOperation::findTimes
 (
+    const Time&,
     const fileName& directory,
     const word& constantName
 ) const
@@ -765,7 +754,11 @@ Foam::IOobject Foam::fileOperation::findInstance
 
     for (instanceI = ts.size()-1; instanceI >= 0; --instanceI)
     {
-        if (ts[instanceI].value() <= startValue)
+        if
+        (
+            ts[instanceI].name() == time.constant()
+         || ts[instanceI].value() <= startValue
+        )
         {
             break;
         }
@@ -894,7 +887,7 @@ Foam::fileNameList Foam::fileOperation::readObjects
             << " instance:" << instance << endl;
     }
 
-    fileName path(db.path(instance, db.dbDir()/local));
+    fileName path(db.path(instance, local));
 
     newInstance = word::null;
     fileNameList objectNames;
@@ -915,6 +908,7 @@ Foam::fileNameList Foam::fileOperation::readObjects
             objectNames = Foam::readDir(procsPath, fileType::file);
         }
     }
+
     return objectNames;
 }
 

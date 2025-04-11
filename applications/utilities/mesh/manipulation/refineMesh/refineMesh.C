@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -45,6 +45,7 @@ Description
 #include "labelIOList.H"
 #include "IOdictionary.H"
 #include "syncTools.H"
+#include "systemDict.H"
 
 using namespace Foam;
 
@@ -158,6 +159,7 @@ int main(int argc, char *argv[])
     );
 
     #include "addOverwriteOption.H"
+    #include "addMeshOption.H"
     #include "addRegionOption.H"
     #include "addDictOption.H"
 
@@ -168,9 +170,8 @@ int main(int argc, char *argv[])
     );
 
     #include "setRootCase.H"
-    #include "createTime.H"
-    runTime.functionObjects().off();
-    #include "createNamedPolyMesh.H"
+    #include "createTimeNoFunctionObjects.H"
+    #include "createSpecifiedPolyMesh.H"
     const word oldInstance = mesh.pointsInstance();
 
     printEdgeStats(mesh);
@@ -187,55 +188,43 @@ int main(int argc, char *argv[])
     labelList refCells;
 
     // Dictionary to control refinement
-    dictionary refineDict;
     const word dictName("refineMeshDict");
-
+    typeIOobject<IOdictionary> dictIO
+    (
+        systemDictIO(dictName, args, runTime, regionName)
+    );
+    dictionary refineDict;
     if (readDict)
     {
-        fileName dictPath = args["dict"];
-        if (isDir(dictPath))
+        if (dictIO.headerOk())
         {
-            dictPath = dictPath/dictName;
-        }
-
-        IOobject dictIO
-        (
-            dictPath,
-            mesh,
-            IOobject::MUST_READ
-        );
-
-        if (!dictIO.typeHeaderOk<IOdictionary>(true))
-        {
-            FatalErrorInFunction
-                << "Cannot open specified refinement dictionary "
-                << dictPath
-                << exit(FatalError);
-        }
-
-        Info<< "Refining according to " << dictPath << nl << endl;
-
-        refineDict = IOdictionary(dictIO);
-    }
-    else if (!refineAllCells)
-    {
-        IOobject dictIO
-        (
-            dictName,
-            runTime.system(),
-            mesh,
-            IOobject::MUST_READ
-        );
-
-        if (dictIO.typeHeaderOk<IOdictionary>(true))
-        {
-            Info<< "Refining according to " << dictName << nl << endl;
-
+            Info<< "Refining according to "
+                << dictIO.path(typeGlobalFile<IOdictionary>::global)
+                << nl << endl;
             refineDict = IOdictionary(dictIO);
         }
         else
         {
-            Info<< "Refinement dictionary " << dictName << " not found" << endl;
+            FatalErrorInFunction
+                << "Cannot open specified refinement dictionary "
+                << dictIO.path(typeGlobalFile<IOdictionary>::global)
+                << exit(FatalError);
+        }
+    }
+    else if (!refineAllCells)
+    {
+        if (dictIO.headerOk())
+        {
+            Info<< "Refining according to "
+                << dictIO.path(typeGlobalFile<IOdictionary>::global)
+                << nl << endl;
+            refineDict = IOdictionary(dictIO);
+        }
+        else
+        {
+            Info<< "Refinement dictionary "
+                << dictIO.path(typeGlobalFile<IOdictionary>::global)
+                << " not found" << nl << endl;
         }
     }
 
@@ -257,16 +246,16 @@ int main(int argc, char *argv[])
         Info<< "Refining all cells" << nl << endl;
 
         // Select all cells
-        refCells = identity(mesh.nCells());
+        refCells = identityMap(mesh.nCells());
 
         if (mesh.nGeometricD() == 3)
         {
             Info<< "3D case; refining all directions" << nl << endl;
 
             wordList directions(3);
-            directions[0] = "tan1";
-            directions[1] = "tan2";
-            directions[2] = "normal";
+            directions[0] = "e1";
+            directions[1] = "e2";
+            directions[2] = "e3";
             refineDict.add("directions", directions);
 
             // Use hex cutter
@@ -281,20 +270,20 @@ int main(int argc, char *argv[])
             if (dirs.x() == -1)
             {
                 Info<< "2D case; refining in directions y,z\n" << endl;
-                directions[0] = "tan2";
-                directions[1] = "normal";
+                directions[0] = "e2";
+                directions[1] = "e3";
             }
             else if (dirs.y() == -1)
             {
                 Info<< "2D case; refining in directions x,z\n" << endl;
-                directions[0] = "tan1";
-                directions[1] = "normal";
+                directions[0] = "e1";
+                directions[1] = "e3";
             }
             else
             {
                 Info<< "2D case; refining in directions x,y\n" << endl;
-                directions[0] = "tan1";
-                directions[1] = "tan2";
+                directions[0] = "e1";
+                directions[1] = "e2";
             }
 
             refineDict.add("directions", directions);
@@ -305,17 +294,17 @@ int main(int argc, char *argv[])
 
         refineDict.add("coordinateSystem", "global");
 
-        dictionary coeffsDict;
-        coeffsDict.add("tan1", vector(1, 0, 0));
-        coeffsDict.add("tan2", vector(0, 1, 0));
-        refineDict.add("globalCoeffs", coeffsDict);
+        dictionary coeffDict;
+        coeffDict.add("e1", vector(1, 0, 0));
+        coeffDict.add("e2", vector(0, 1, 0));
+        refineDict.add("globalCoeffs", coeffDict);
 
         refineDict.add("geometricCut", "false");
         refineDict.add("writeMesh", "false");
     }
 
 
-    string oldTimeName(runTime.timeName());
+    string oldTimeName(runTime.name());
 
     if (!overwrite)
     {
@@ -372,7 +361,7 @@ int main(int argc, char *argv[])
         IOobject
         (
             "cellMap",
-            runTime.timeName(),
+            runTime.name(),
             polyMesh::meshSubDir,
             mesh,
             IOobject::NO_READ,
@@ -382,7 +371,7 @@ int main(int argc, char *argv[])
     );
     newToOld.note() =
         "From cells in mesh at "
-      + runTime.timeName()
+      + runTime.name()
       + " to cells in mesh at "
       + oldTimeName;
 
@@ -406,7 +395,7 @@ int main(int argc, char *argv[])
     }
 
     Info<< "Writing map from new to old cell to "
-        << newToOld.objectPath() << nl << endl;
+        << newToOld.relativeObjectPath() << nl << endl;
 
     newToOld.write();
 

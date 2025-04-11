@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -30,14 +30,14 @@ Description
 
 SourceFiles
     volPointInterpolation.C
-    volPointInterpolate.C
+    volPointInterpolationTemplates.C
 
 \*---------------------------------------------------------------------------*/
 
 #ifndef volPointInterpolation_H
 #define volPointInterpolation_H
 
-#include "MeshObject.H"
+#include "DemandDrivenMeshObject.H"
 #include "scalarList.H"
 #include "volFields.H"
 #include "pointFields.H"
@@ -47,71 +47,47 @@ SourceFiles
 namespace Foam
 {
 
-class fvMesh;
-class pointMesh;
-
 /*---------------------------------------------------------------------------*\
-                       Class volPointInterpolation Declaration
+                    Class volPointInterpolation Declaration
 \*---------------------------------------------------------------------------*/
 
 class volPointInterpolation
 :
-    public MeshObject<fvMesh, UpdateableMeshObject, volPointInterpolation>
+    public DemandDrivenMeshObject
+    <
+        fvMesh,
+        DeletableMeshObject,
+        volPointInterpolation
+    >
 {
     // Private Data
 
         //- Interpolation scheme weighting factor array.
         scalarListList pointWeights_;
 
+        //- Boundary addressing
+        primitivePatch boundary_;
 
-        // Boundary handling
+        //- Per boundary point the weights per pointFaces.
+        List<scalarListList> boundaryPointWeights_;
 
-            //- Boundary addressing
-            autoPtr<primitivePatch> boundaryPtr_;
-
-            //- Per boundary face whether is on non-coupled patch
-            boolList boundaryIsPatchFace_;
-
-            //- Per mesh(!) point whether is on non-coupled patch (on any
-            //  processor)
-            boolList isPatchPoint_;
-
-            //- Per boundary point the weights per pointFaces.
-            scalarListList boundaryPointWeights_;
+        //- Per boundary point the weights per pointFaces.
+        List<scalarListList> boundaryPointNbrWeights_;
 
 
-    // Private Member Functions
+protected:
 
-        //- Construct addressing over all boundary faces
-        void calcBoundaryAddressing();
+    friend class DemandDrivenMeshObject
+    <
+        fvMesh,
+        DeletableMeshObject,
+        volPointInterpolation
+    >;
 
-        //- Make weights for internal and coupled-only boundarypoints
-        void makeInternalWeights(scalarField& sumWeights);
+    // Protected Constructors
 
-        //- Make weights for points on uncoupled patches
-        void makeBoundaryWeights(scalarField& sumWeights);
-
-        //- Construct all point weighting factors
-        void makeWeights();
-
-        //- Helper: push master point data to collocated points
-        template<class Type>
-        void pushUntransformedData(List<Type>&) const;
-
-        //- Get boundary field in same order as boundary faces. Field is
-        //  zero on all coupled and empty patches
-        template<class Type>
-        tmp<Field<Type>> flatBoundaryField
-        (
-            const GeometricField<Type, fvPatchField, volMesh>& vf
-        ) const;
-
-        //- Add separated contributions
-        template<class Type>
-        void addSeparated
-        (
-            GeometricField<Type, pointPatchField, pointMesh>&
-        ) const;
+        //- Constructor given fvMesh
+        explicit volPointInterpolation(const fvMesh&);
 
 
 public:
@@ -121,9 +97,6 @@ public:
 
 
     // Constructors
-
-        //- Constructor given fvMesh and pointMesh.
-        explicit volPointInterpolation(const fvMesh&);
 
         //- Disallow default bitwise copy construction
         volPointInterpolation(const volPointInterpolation&) = delete;
@@ -135,83 +108,32 @@ public:
 
     // Member Functions
 
-        // Edit
-
-            //- Update mesh topology using the morph engine
-            void updateMesh(const mapPolyMesh&);
-
-            //- Correct weighting factors for moving mesh.
-            bool movePoints();
-
-
-    // Interpolation functions
-
         //- Interpolate volField using inverse distance weighting
         //  returning pointField
         template<class Type>
-        tmp<GeometricField<Type, pointPatchField, pointMesh>> interpolate
+        tmp<PointField<Type>> interpolate
         (
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         ) const;
 
         //- Interpolate tmp<volField> using inverse distance weighting
         //  returning pointField
         template<class Type>
-        tmp<GeometricField<Type, pointPatchField, pointMesh>> interpolate
+        tmp<PointField<Type>> interpolate
         (
-            const tmp<GeometricField<Type, fvPatchField, volMesh>>&
-        ) const;
-
-        //- Interpolate volField using inverse distance weighting
-        //  returning pointField with the same patchField types. Assigns
-        //  to any fixedValue boundary conditions to make them consistent
-        //  with internal field
-        template<class Type>
-        tmp<GeometricField<Type, pointPatchField, pointMesh>> interpolate
-        (
-            const GeometricField<Type, fvPatchField, volMesh>&,
-            const wordList& patchFieldTypes
-        ) const;
-
-        //- Interpolate tmp<volField> using inverse distance weighting
-        //  returning pointField with the same patchField types. Assigns
-        //  to any fixedValue boundary conditions to make them consistent
-        //  with internal field
-        template<class Type>
-        tmp<GeometricField<Type, pointPatchField, pointMesh>> interpolate
-        (
-            const tmp<GeometricField<Type, fvPatchField, volMesh>>&,
-            const wordList& patchFieldTypes
+            const tmp<VolField<Type>>&
         ) const;
 
 
         // Low level
 
-            //- Interpolate internal field from volField to pointField
+            //- Interpolate from volField to pointField
             //  using inverse distance weighting
             template<class Type>
-            void interpolateInternalField
+            void interpolateUnconstrained
             (
-                const GeometricField<Type, fvPatchField, volMesh>&,
-                GeometricField<Type, pointPatchField, pointMesh>&
-            ) const;
-
-            //- Interpolate boundary field without applying constraints/boundary
-            //  conditions
-            template<class Type>
-            void interpolateBoundaryField
-            (
-                const GeometricField<Type, fvPatchField, volMesh>& vf,
-                GeometricField<Type, pointPatchField, pointMesh>& pf
-            ) const;
-
-            //- Interpolate boundary with constraints/boundary conditions
-            template<class Type>
-            void interpolateBoundaryField
-            (
-                const GeometricField<Type, fvPatchField, volMesh>& vf,
-                GeometricField<Type, pointPatchField, pointMesh>& pf,
-                const bool overrideFixedValue
+                const VolField<Type>&,
+                PointField<Type>&
             ) const;
 
             //- Interpolate from volField to pointField
@@ -219,16 +141,16 @@ public:
             template<class Type>
             void interpolate
             (
-                const GeometricField<Type, fvPatchField, volMesh>&,
-                GeometricField<Type, pointPatchField, pointMesh>&
+                const VolField<Type>&,
+                PointField<Type>&
             ) const;
 
             //- Interpolate volField using inverse distance weighting
-            //  returning pointField with name. Optionally caches
+            //  returning pointField with name. Optionally caches.
             template<class Type>
-            tmp<GeometricField<Type, pointPatchField, pointMesh>> interpolate
+            tmp<PointField<Type>> interpolate
             (
-                const GeometricField<Type, fvPatchField, volMesh>&,
+                const VolField<Type>&,
                 const word& name,
                 const bool cache
             ) const;
@@ -259,7 +181,7 @@ public:
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 #ifdef NoRepository
-    #include "volPointInterpolate.C"
+    #include "volPointInterpolationTemplates.C"
 #endif
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

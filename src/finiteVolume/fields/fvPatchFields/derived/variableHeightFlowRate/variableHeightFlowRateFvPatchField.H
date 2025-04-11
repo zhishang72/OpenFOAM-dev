@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -103,13 +103,6 @@ public:
 
     // Constructors
 
-        //- Construct from patch and internal field
-        variableHeightFlowRateFvPatchScalarField
-        (
-            const fvPatch&,
-            const DimensionedField<scalar, volMesh>&
-        );
-
         //- Construct from patch, internal field and dictionary
         variableHeightFlowRateFvPatchScalarField
         (
@@ -125,23 +118,14 @@ public:
             const variableHeightFlowRateFvPatchScalarField&,
             const fvPatch&,
             const DimensionedField<scalar, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         variableHeightFlowRateFvPatchScalarField
         (
             const variableHeightFlowRateFvPatchScalarField&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchField<scalar>> clone() const
-        {
-            return tmp<fvPatchField<scalar>>
-            (
-                new variableHeightFlowRateFvPatchScalarField(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         variableHeightFlowRateFvPatchScalarField

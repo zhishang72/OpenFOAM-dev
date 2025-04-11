@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -51,7 +51,7 @@ extern const labelList emptyLabelList;
 template<class Type>
 static const List<Type>& emptyList()
 {
-    return *reinterpret_cast<const List<Type>* >(&emptyLabelList);
+    return *reinterpret_cast<const List<Type>*>(&emptyLabelList);
 }
 
 //- Renumber the values (not the indices) of a list.
@@ -59,11 +59,20 @@ static const List<Type>& emptyList()
 template<class ListType>
 ListType renumber(const labelUList& oldToNew, const ListType&);
 
+//- As above, but given a pre-constructed result list
+template<class ListType>
+void renumber(const labelUList& oldToNew, const ListType&, ListType&);
+
+//- As above, but for a single label. Termination condition.
+inline void renumber(const labelUList& oldToNew, const label, label&);
+
 //- Inplace renumber the values of a list.
 //  Negative ListType elements are left as is.
 template<class ListType>
 void inplaceRenumber(const labelUList& oldToNew, ListType&);
 
+//- As above, but for a single label. Termination condition.
+inline void inplaceRenumber(const labelUList& oldToNew, label&);
 
 //- Reorder the elements (indices, not values) of a list.
 //  Negative ListType elements are left as is.
@@ -75,10 +84,6 @@ ListType reorder(const labelUList& oldToNew, const ListType&);
 template<class ListType>
 void inplaceReorder(const labelUList& oldToNew, ListType&);
 
-
-// Variants to work with iterators and sparse tables.
-// Need to have iterators and insert()
-
 //- Map values. Do not map negative values.
 template<class Container>
 void inplaceMapValue(const labelUList& oldToNew, Container&);
@@ -87,11 +92,12 @@ void inplaceMapValue(const labelUList& oldToNew, Container&);
 template<class Container>
 void inplaceMapKey(const labelUList& oldToNew, Container&);
 
-
 //- Generate the (stable) sort order for the list
 template<class T>
 void sortedOrder(const UList<T>&, labelList& order);
 
+//- Generate the (stable) sort order for the list, for a given comparison
+//  operator
 template<class T, class Cmp>
 void sortedOrder(const UList<T>&, labelList& order, const Cmp& cmp);
 
@@ -99,6 +105,8 @@ void sortedOrder(const UList<T>&, labelList& order, const Cmp& cmp);
 template<class T>
 void duplicateOrder(const UList<T>&, labelList& order);
 
+//- Generate (sorted) indices corresponding to duplicate list values, for a
+//  given comparison operator
 template<class T, class Cmp>
 void duplicateOrder(const UList<T>&, labelList& order, const Cmp& cmp);
 
@@ -106,6 +114,8 @@ void duplicateOrder(const UList<T>&, labelList& order, const Cmp& cmp);
 template<class T>
 void uniqueOrder(const UList<T>&, labelList& order);
 
+//- Generate (sorted) indices corresponding to unique list values, for a given
+//  comparison operator
 template<class T, class Cmp>
 void uniqueOrder(const UList<T>&, labelList& order, const Cmp& cmp);
 
@@ -147,6 +157,7 @@ labelListList invertOneToMany(const label len, const labelUList&);
 template<class InList, class OutList>
 void invertManyToMany(const label len, const UList<InList>&, List<OutList>&);
 
+//- Invert many-to-many.
 template<class InList, class OutList>
 List<OutList> invertManyToMany(const label len, const UList<InList>& in)
 {
@@ -156,7 +167,14 @@ List<OutList> invertManyToMany(const label len, const UList<InList>& in)
 }
 
 //- Create identity map (map[i] == i) of given length
-labelList identity(const label len);
+labelList identityMap(const label len);
+
+//- Create identity map (map[i] == start + i) of given length
+labelList identityMap(const label start, const label len);
+
+//- Count the number of occurrences of a value in a list
+template<class ListType>
+label count(const ListType& l, typename ListType::const_reference x);
 
 //- Find first occurrence of given element and return index,
 //  return -1 if not found. Linear search.
@@ -201,12 +219,10 @@ ListType createWithValues
 template<class ListType>
 label findMax(const ListType&, const label start=0);
 
-
 //- Find index of min element (and less than given element).
 //  return -1 if not found. Linear search.
 template<class ListType>
 label findMin(const ListType&, const label start=0);
-
 
 //- Find first occurrence of given element in sorted list and return index,
 //  return -1 if not found. Binary search.
@@ -217,7 +233,6 @@ label findSortedIndex
     typename ListType::const_reference,
     const label start=0
 );
-
 
 //- Find last element < given value in sorted list and return index,
 //  return -1 if not found. Binary search.
@@ -230,7 +245,6 @@ label findLower
     const BinaryOp& bop
 );
 
-
 //- Find last element < given value in sorted list and return index,
 //  return -1 if not found. Binary search.
 template<class ListType>
@@ -241,48 +255,55 @@ label findLower
     const label start=0
 );
 
-
 //- To construct a List from a C array. Has extra Container type
 //  to initialise e.g. wordList from arrays of char*.
 template<class Container, class T, int mRows>
 List<Container> initList(const T[mRows]);
-
 
 //- To construct a (square) ListList from a C array. Has extra Container type
 //  to initialise e.g. faceList from arrays of labels.
 template<class Container, class T, int mRows, int nColumns>
 List<Container> initListList(const T[mRows][nColumns]);
 
-
-//- Helper class for list to append y onto the end of x
-template<class T>
-class ListAppendEqOp
-{
-public:
-    void operator()(List<T>& x, const List<T>& y) const;
-};
-
-
 //- Reverse a list. First element becomes last element etc.
 template<class ListType>
 ListType reverseList(const ListType& list);
 
-
 //- Inplace reversal of a list using Swap.
 template<class ListType>
 void inplaceReverseList(ListType& list);
-
 
 //- Rotate a list by n places. If n is positive rotate clockwise/right/down.
 //  If n is negative rotate anti-clockwise/left/up.
 template<class ListType>
 ListType rotateList(const ListType& list, const label n);
 
-
 //- Inplace reversal of a list using the Reversal Block Swapping algorithm.
 template<template<typename> class ListType, class DataType>
 void inplaceRotateList(ListType<DataType>& list, label n);
 
+//- Operator to apply a binary operation to a pair of lists
+template<class BinaryOp>
+struct ListOp
+{
+    template<class Type>
+    List<Type> operator()(const List<Type>& a, const List<Type>& b) const;
+};
+
+//- Operator to apply a binary-equals operation to a pair of lists
+template<class BinaryOp>
+struct ListEqOp
+{
+    template<class Type>
+    void operator()(List<Type>& a, const List<Type>& b) const;
+};
+
+//- List operator to append one list onto another
+template<class T>
+struct ListAppendEqOp
+{
+    void operator()(List<T>& x, const List<T>& y) const;
+};
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

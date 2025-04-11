@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -227,8 +227,8 @@ Foam::labelList Foam::polyMeshTetDecomposition::findFaceBasePts
         fI++, bFI++
     )
     {
-        label patchi =
-            mesh.boundaryMesh().patchID()[bFI];
+        const label patchi =
+            mesh.boundaryMesh().patchIndices()[bFI];
 
         if (patches[patchi].coupled())
         {
@@ -300,7 +300,7 @@ Foam::labelList Foam::polyMeshTetDecomposition::findFaceBasePts
             continue;
         }
 
-        label patchi = mesh.boundaryMesh().patchID()[bFI];
+        const label patchi = mesh.boundaryMesh().patchIndices()[bFI];
 
         if (patches[patchi].coupled())
         {
@@ -436,7 +436,8 @@ bool Foam::polyMeshTetDecomposition::checkFaceTets
         }
         else
         {
-            label patchi = patches.patchID()[facei - mesh.nInternalFaces()];
+            const label patchi =
+                patches.patchIndices()[facei - mesh.nInternalFaces()];
 
             if (patches[patchi].coupled())
             {
@@ -551,7 +552,7 @@ Foam::List<Foam::tetIndices> Foam::polyMeshTetDecomposition::cellTetIndices
         cellTets.append(faceTetIndices(mesh, fI, cI));
     }
 
-    return move(cellTets);
+    return cellTets;
 }
 
 

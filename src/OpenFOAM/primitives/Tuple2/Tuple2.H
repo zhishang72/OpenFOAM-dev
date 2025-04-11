@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -36,6 +36,7 @@ See also
 #define Tuple2_H
 
 #include "Istream.H"
+#include "Hash.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -48,6 +49,9 @@ template<class Type1, class Type2>
 class Tuple2;
 
 template<class Type1, class Type2>
+void writeEntry(Ostream& os, const Tuple2<Type1, Type2>&);
+
+template<class Type1, class Type2>
 inline Istream& operator>>(Istream&, Tuple2<Type1, Type2>&);
 
 template<class Type1, class Type2>
@@ -55,7 +59,7 @@ inline Ostream& operator<<(Ostream&, const Tuple2<Type1, Type2>&);
 
 
 /*---------------------------------------------------------------------------*\
-                           class Tuple2 Declaration
+                           Class Tuple2 Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type1, class Type2>
@@ -68,6 +72,22 @@ class Tuple2
 
 
 public:
+
+    //- Hashing function class
+    template<class HashT1=Hash<Type1>, class HashT2=Hash<Type2>>
+    class Hash
+    {
+    public:
+        Hash()
+        {}
+
+        inline unsigned operator()
+        (
+            const Tuple2<Type1, Type2>&,
+            unsigned seed = 0
+        ) const;
+    };
+
 
     // Static Data Members
 
@@ -139,6 +159,22 @@ public:
 };
 
 
+template<class Type1, class Type2>
+template<class HashT1, class HashT2>
+inline unsigned Tuple2<Type1, Type2>::Hash<HashT1, HashT2>::operator()
+(
+    const Tuple2<Type1, Type2>& t,
+    unsigned seed
+) const
+{
+    // Hash incrementally
+    unsigned val = seed;
+    val = HashT1()(t.first(), val);
+    val = HashT2()(t.second(), val);
+    return val;
+}
+
+
 //- Return reverse of a tuple2
 template<class Type1, class Type2>
 inline Tuple2<Type2, Type1> reverse(const Tuple2<Type1, Type2>& t)
@@ -191,6 +227,13 @@ inline Ostream& operator<<(Ostream& os, const Tuple2<Type1, Type2>& t2)
         << token::END_LIST;
 
     return os;
+}
+
+
+template<class Type1, class Type2>
+void writeEntry(Ostream& os, const Tuple2<Type1, Type2>& t2)
+{
+    os << t2;
 }
 
 

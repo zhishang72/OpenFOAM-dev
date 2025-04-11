@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -30,7 +30,7 @@ Description
     This method is defined only for vectors. The point field is extrapolated
     from the cells to the wall faces, and then rotated towards the (reverse)
     point normal so that the vectors do not point out of the domain. The result
-    is also scaled so so if the necessary rotation exceeds 90 degrees, it is
+    is also scaled so if the necessary rotation exceeds 90 degrees, it is
     clamped to zero.
 
     This prevents unresolvable drag-rebound couplings when applied to the
@@ -62,9 +62,9 @@ class interpolationCellPointWallModified
         //- Compute the point field for a type. This just throws an error. This
         //  interpolation method is only defined for vector fields.
         template <class TYPE>
-        tmp<GeometricField<TYPE, pointPatchField, pointMesh>> calcPointField
+        tmp<PointField<TYPE>> calcPointField
         (
-            const GeometricField<TYPE, fvPatchField, volMesh>& psi
+            const VolField<TYPE>& psi
         ) const;
 
         //- Compute the point field for a vector type
@@ -82,8 +82,23 @@ public:
         //- Construct from components
         interpolationCellPointWallModified
         (
-            const GeometricField<Type, fvPatchField, volMesh>& psi
+            const VolField<Type>& psi
         );
+
+        //- Copy construct
+        interpolationCellPointWallModified
+        (
+            const interpolationCellPointWallModified<Type>& i
+        );
+
+        //- Clone
+        virtual autoPtr<interpolation<Type>> clone() const
+        {
+            return autoPtr<interpolation<Type>>
+            (
+                new interpolationCellPointWallModified<Type>(*this)
+            );
+        }
 };
 
 

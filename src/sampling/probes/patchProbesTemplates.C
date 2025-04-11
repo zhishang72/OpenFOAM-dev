@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -33,7 +33,7 @@ License
 template<class Type>
 void Foam::patchProbes::sampleAndWrite
 (
-    const GeometricField<Type, fvPatchField, volMesh>& vField
+    const VolField<Type>& vField
 )
 {
     Field<Type> values(sample(vField));
@@ -45,7 +45,7 @@ void Foam::patchProbes::sampleAndWrite
 
         probeStream
             << setw(w)
-            << vField.time().timeToUserTime(vField.time().value());
+            << vField.time().userTimeValue();
 
         forAll(values, probei)
         {
@@ -59,7 +59,7 @@ void Foam::patchProbes::sampleAndWrite
 template<class Type>
 void Foam::patchProbes::sampleAndWrite
 (
-    const GeometricField<Type, fvsPatchField, surfaceMesh>& sField
+    const SurfaceField<Type>& sField
 )
 {
     Field<Type> values(sample(sField));
@@ -71,7 +71,7 @@ void Foam::patchProbes::sampleAndWrite
 
         probeStream
             << setw(w)
-            << sField.time().timeToUserTime(sField.time().value());
+            << sField.time().userTimeValue();
 
         forAll(values, probei)
         {
@@ -90,45 +90,23 @@ void Foam::patchProbes::sampleAndWrite
 {
     forAll(fields, fieldi)
     {
-        if (loadFromFiles_)
+        objectRegistry::const_iterator iter = mesh_.find(fields[fieldi]);
+
+        if
+        (
+            iter != objectRegistry::end()
+         && iter()->type()
+         == VolField<Type>::typeName
+        )
         {
             sampleAndWrite
             (
-                GeometricField<Type, fvPatchField, volMesh>
+                mesh_.lookupObject
+                <VolField<Type>>
                 (
-                    IOobject
-                    (
-                        fields[fieldi],
-                        mesh_.time().timeName(),
-                        mesh_,
-                        IOobject::MUST_READ,
-                        IOobject::NO_WRITE,
-                        false
-                    ),
-                    mesh_
+                    fields[fieldi]
                 )
             );
-        }
-        else
-        {
-            objectRegistry::const_iterator iter = mesh_.find(fields[fieldi]);
-
-            if
-            (
-                iter != objectRegistry::end()
-             && iter()->type()
-             == GeometricField<Type, fvPatchField, volMesh>::typeName
-            )
-            {
-                sampleAndWrite
-                (
-                    mesh_.lookupObject
-                    <GeometricField<Type, fvPatchField, volMesh>>
-                    (
-                        fields[fieldi]
-                    )
-                );
-            }
         }
     }
 }
@@ -142,45 +120,23 @@ void Foam::patchProbes::sampleAndWriteSurfaceFields
 {
     forAll(fields, fieldi)
     {
-        if (loadFromFiles_)
+        objectRegistry::const_iterator iter = mesh_.find(fields[fieldi]);
+
+        if
+        (
+            iter != objectRegistry::end()
+         && iter()->type()
+         == SurfaceField<Type>::typeName
+        )
         {
             sampleAndWrite
             (
-                GeometricField<Type, fvsPatchField, surfaceMesh>
+                mesh_.lookupObject
+                <SurfaceField<Type>>
                 (
-                    IOobject
-                    (
-                        fields[fieldi],
-                        mesh_.time().timeName(),
-                        mesh_,
-                        IOobject::MUST_READ,
-                        IOobject::NO_WRITE,
-                        false
-                    ),
-                    mesh_
+                    fields[fieldi]
                 )
             );
-        }
-        else
-        {
-            objectRegistry::const_iterator iter = mesh_.find(fields[fieldi]);
-
-            if
-            (
-                iter != objectRegistry::end()
-             && iter()->type()
-             == GeometricField<Type, fvsPatchField, surfaceMesh>::typeName
-            )
-            {
-                sampleAndWrite
-                (
-                    mesh_.lookupObject
-                    <GeometricField<Type, fvsPatchField, surfaceMesh>>
-                    (
-                        fields[fieldi]
-                    )
-                );
-            }
         }
     }
 }
@@ -192,7 +148,7 @@ template<class Type>
 Foam::tmp<Foam::Field<Type>>
 Foam::patchProbes::sample
 (
-    const GeometricField<Type, fvPatchField, volMesh>& vField
+    const VolField<Type>& vField
 ) const
 {
     const Type unsetVal(-vGreat*pTraits<Type>::one);
@@ -231,7 +187,7 @@ Foam::patchProbes::sample(const word& fieldName) const
 {
     return sample
     (
-        mesh_.lookupObject<GeometricField<Type, fvPatchField, volMesh>>
+        mesh_.lookupObject<VolField<Type>>
         (
             fieldName
         )
@@ -243,7 +199,7 @@ template<class Type>
 Foam::tmp<Foam::Field<Type>>
 Foam::patchProbes::sample
 (
-    const GeometricField<Type, fvsPatchField, surfaceMesh>& sField
+    const SurfaceField<Type>& sField
 ) const
 {
     const Type unsetVal(-vGreat*pTraits<Type>::one);

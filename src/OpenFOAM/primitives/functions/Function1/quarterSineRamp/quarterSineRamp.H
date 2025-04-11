@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -49,7 +49,7 @@ namespace Function1s
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class quarterSineRamp Declaration
+                       Class quarterSineRamp Declaration
 \*---------------------------------------------------------------------------*/
 
 class quarterSineRamp
@@ -65,10 +65,11 @@ public:
 
     // Constructors
 
-        //- Construct from entry name and dictionary
+        //- Construct from name and dictionary
         quarterSineRamp
         (
-            const word& entryName,
+            const word& name,
+            const unitConversions& units,
             const dictionary& dict
         );
 
@@ -83,7 +84,7 @@ public:
         virtual inline scalar value(const scalar t) const;
 
         //- Return the integral between times t1 and t2
-        virtual inline scalar integrate
+        virtual inline scalar integral
         (
             const scalar t1,
             const scalar t2

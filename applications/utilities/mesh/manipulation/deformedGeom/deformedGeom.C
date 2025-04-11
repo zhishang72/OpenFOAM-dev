@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -42,6 +42,8 @@ using namespace Foam;
 
 int main(int argc, char *argv[])
 {
+    #include "addMeshOption.H"
+    #include "addRegionOption.H"
     argList::validArgs.append("scaling factor");
 
     #include "setRootCase.H"
@@ -49,9 +51,9 @@ int main(int argc, char *argv[])
     const scalar scaleFactor = args.argRead<scalar>(1);
 
     #include "createTime.H"
-    #include "createMesh.H"
+    #include "createSpecifiedMeshNoChangers.H"
 
-    volPointInterpolation pInterp(mesh);
+    const volPointInterpolation& pInterp(volPointInterpolation::New(mesh));
 
     // Get times list
     instantList Times = runTime.times();
@@ -63,18 +65,18 @@ int main(int argc, char *argv[])
     {
         runTime.setTime(Times[timeI], timeI);
 
-        Info<< "Time = " << runTime.timeName() << endl;
+        Info<< "Time = " << runTime.userTimeName() << endl;
 
-        IOobject Uheader
+        typeIOobject<volVectorField> Uheader
         (
             "U",
-            runTime.timeName(),
+            runTime.name(),
             mesh,
             IOobject::MUST_READ
         );
 
         // Check U exists
-        if (Uheader.typeHeaderOk<volVectorField>(true))
+        if (Uheader.headerOk())
         {
             Info<< "    Reading U" << endl;
             volVectorField U(Uheader, mesh);
@@ -85,7 +87,7 @@ int main(int argc, char *argv[])
               + scaleFactor*pInterp.interpolate(U)().primitiveField()
             );
 
-            mesh.polyMesh::movePoints(newPoints);
+            mesh.setPoints(newPoints);
             mesh.write();
         }
         else

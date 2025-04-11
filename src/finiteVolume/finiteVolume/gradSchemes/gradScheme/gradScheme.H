@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -54,7 +54,7 @@ namespace fv
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class gradScheme Declaration
+                         Class gradScheme Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -65,15 +65,6 @@ class gradScheme
     // Private Data
 
         const fvMesh& mesh_;
-
-
-    // Private Member Functions
-
-        //- Disallow default bitwise copy construction
-        gradScheme(const gradScheme&);
-
-        //- Disallow default bitwise assignment
-        void operator=(const gradScheme&) = delete;
 
 
 public:
@@ -102,6 +93,9 @@ public:
             mesh_(mesh)
         {}
 
+        //- Disallow default bitwise copy construction
+        gradScheme(const gradScheme&) = delete;
+
 
     // Selectors
 
@@ -128,51 +122,45 @@ public:
         //- Calculate and return the grad of the given field.
         //  Used by grad either to recalculate the cached gradient when it is
         //  out of date with respect to the field or when it is not cached.
-        virtual tmp
-        <
-            GeometricField
-            <typename outerProduct<vector, Type>::type, fvPatchField, volMesh>
-        > calcGrad
+        virtual tmp<VolField<typename outerProduct<vector, Type>::type>>
+        calcGrad
         (
-            const GeometricField<Type, fvPatchField, volMesh>&,
+            const VolField<Type>&,
             const word& name
         ) const = 0;
 
         //- Calculate and return the grad of the given field
         //  which may have been cached
-        tmp
-        <
-            GeometricField
-            <typename outerProduct<vector, Type>::type, fvPatchField, volMesh>
-        > grad
+        tmp<VolField<typename outerProduct<vector, Type>::type>>
+        grad
         (
-            const GeometricField<Type, fvPatchField, volMesh>&,
+            const VolField<Type>&,
             const word& name
         ) const;
 
         //- Calculate and return the grad of the given field
         //  with the default name
         //  which may have been cached
-        tmp
-        <
-            GeometricField
-            <typename outerProduct<vector, Type>::type, fvPatchField, volMesh>
-        > grad
+        tmp<VolField<typename outerProduct<vector, Type>::type>>
+        grad
         (
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         ) const;
 
         //- Calculate and return the grad of the given field
         //  with the default name
         //  which may have been cached
-        tmp
-        <
-            GeometricField
-            <typename outerProduct<vector, Type>::type, fvPatchField, volMesh>
-        > grad
+        tmp<VolField<typename outerProduct<vector, Type>::type>>
+        grad
         (
-            const tmp<GeometricField<Type, fvPatchField, volMesh>>&
+            const tmp<VolField<Type>>&
         ) const;
+
+
+    // Member Operators
+
+        //- Disallow default bitwise assignment
+        void operator=(const gradScheme&) = delete;
 };
 
 

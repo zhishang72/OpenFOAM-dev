@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -45,7 +45,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class surfaceSlipDisplacementFvPatch Declaration
+               Class surfaceSlipDisplacementFvPatch Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -90,30 +90,17 @@ public:
             const surfaceSlipDisplacementFvPatchField<Type>& ptf,
             const fvPatch& p,
             const DimensionedField<Type, volMesh>& iF,
-            const fvPatchFieldMapper& mapper
+            const fieldMapper& mapper
         )
         :
             slipFvPatchField<Type>(ptf, p, iF, mapper)
         {}
 
-
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         surfaceSlipDisplacementFvPatchField
         (
             const surfaceSlipDisplacementFvPatchField<Type>& ptf
-        )
-        :
-            slipFvPatchField<Type>(ptf)
-        {}
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchField<Type>> clone() const
-        {
-            return tmp<fvPatchField<Type>>
-            (
-                new surfaceSlipDisplacementFvPatchField<Type>(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         surfaceSlipDisplacementFvPatchField

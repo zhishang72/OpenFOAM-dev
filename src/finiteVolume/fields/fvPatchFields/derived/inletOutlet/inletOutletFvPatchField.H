@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -49,10 +49,10 @@ Usage
     The mode of operation is determined by the sign of the flux across the
     patch faces.
 
-Note
-    Sign conventions:
-    - Positive flux (out of domain): apply zero-gradient condition
-    - Negative flux (into of domain): apply the "inletValue" fixed-value
+    Note:
+        Sign conventions:
+      - Positive flux (out of domain): apply zero-gradient condition
+      - Negative flux (into of domain): apply the "inletValue" fixed-value
 
 See also
     Foam::mixedFvPatchField
@@ -121,23 +121,11 @@ public:
             const inletOutletFvPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
-        inletOutletFvPatchField
-        (
-            const inletOutletFvPatchField<Type>&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchField<Type>> clone() const
-        {
-            return tmp<fvPatchField<Type>>
-            (
-                new inletOutletFvPatchField<Type>(*this)
-            );
-        }
+        //- Disallow copy without setting internal field reference
+        inletOutletFvPatchField(const inletOutletFvPatchField<Type>&) = delete;
 
         //- Copy constructor setting internal field reference
         inletOutletFvPatchField
@@ -167,6 +155,18 @@ public:
             virtual bool assignable() const
             {
                 return true;
+            }
+
+            //- Return the flux-field name
+            const word& phiName() const
+            {
+                return phiName_;
+            }
+
+            //- Return access to the flux-field name
+            word& phiName()
+            {
+                return phiName_;
             }
 
 

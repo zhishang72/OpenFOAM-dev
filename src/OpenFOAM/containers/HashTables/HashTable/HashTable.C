@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -76,6 +76,31 @@ Foam::HashTable<T, Key, Hash>::HashTable
     table_(nullptr)
 {
     transfer(ht);
+}
+
+
+template<class T, class Key, class Hash>
+Foam::HashTable<T, Key, Hash>::HashTable
+(
+    const UList<Key>& keyList,
+    const UList<T>& elmtList
+)
+:
+    HashTable<T, Key, Hash>(keyList.size())
+{
+    if (keyList.size() != elmtList.size())
+    {
+        FatalErrorInFunction
+            << "Lists of keys and elements have different sizes" << nl
+            << "    number of keys: " << keyList.size()
+            << ", number of elements: " << elmtList.size()
+            << abort(FatalError);
+    }
+
+    forAll(keyList, i)
+    {
+        insert(keyList[i], elmtList[i]);
+    }
 }
 
 
@@ -224,6 +249,35 @@ Foam::List<Key> Foam::HashTable<T, Key, Hash>::sortedToc() const
 
 
 template<class T, class Key, class Hash>
+Foam::List<typename Foam::HashTable<T, Key, Hash>::const_iterator>
+Foam::HashTable<T, Key, Hash>::sorted() const
+{
+    List<const_iterator> sortedLst(size());
+
+    label i = 0;
+    for (const_iterator iter = cbegin(); iter != cend(); ++iter)
+    {
+        sortedLst[i++] = iter;
+    }
+
+    sort
+    (
+        sortedLst,
+        []
+        (
+            const const_iterator& a,
+            const const_iterator& b
+        )
+        {
+            return a.key() < b.key();
+        }
+    );
+
+    return sortedLst;
+}
+
+
+template<class T, class Key, class Hash>
 bool Foam::HashTable<T, Key, Hash>::set
 (
     const Key& key,
@@ -302,6 +356,26 @@ bool Foam::HashTable<T, Key, Hash>::set
     }
 
     return true;
+}
+
+
+template<class T, class Key, class Hash>
+void Foam::HashTable<T, Key, Hash>::insert(const HashTable<T, Key, Hash>& ht)
+{
+    for (const_iterator iter = ht.cbegin(); iter != ht.cend(); ++iter)
+    {
+        insert(iter.key(), *iter);
+    }
+}
+
+
+template<class T, class Key, class Hash>
+void Foam::HashTable<T, Key, Hash>::set(const HashTable<T, Key, Hash>& ht)
+{
+    for (const_iterator iter = ht.cbegin(); iter != ht.cend(); ++iter)
+    {
+        set(iter.key(), *iter);
+    }
 }
 
 
@@ -415,7 +489,7 @@ Foam::label Foam::HashTable<T, Key, Hash>::erase
     label count = 0;
 
     // Remove rhs keys from this table - terminates early if possible
-    // Could optimize depending on which hash is smaller ...
+    // Could optimise depending on which hash is smaller ...
     for (iterator iter = begin(); iter != end(); ++iter)
     {
         if (rhs.found(iter.key()) && erase(iter))

@@ -7,7 +7,6 @@
 \*---------------------------------------------------------------------------*/
 FoamFile
 {
-    version     2.0;
     format      ascii;
     class       dictionary;
     object      snappyHexMeshDict;
@@ -55,7 +54,7 @@ castellatedMeshControls
             level (2 2);
             faceZone    solid;
             cellZone    solid;
-            cellZoneInside  inside;
+            mode        inside;
         }
 
         CAD
@@ -96,20 +95,20 @@ castellatedMeshControls
     {
         CAD
         {
-            mode inside;
-            levels ((1E15 1));
+            mode    inside;
+            level   1;
         }
     }
 
-    locationInMesh (1e-5 1e-5 1e-5); // Offset from (0 0 0) to avoid
+    insidePoint (1e-5 1e-5 1e-5); // Offset from (0 0 0) to avoid
                                      // coinciding with face or edge
     nCellsBetweenLevels 3;
 }
 
 snapControls
 {
-    explicitFeatureSnap    true;
-    implicitFeatureSnap    false;
+    explicitFeatureSnap    on;
+    implicitFeatureSnap    off;
 }
 
 addLayersControls
@@ -122,13 +121,13 @@ addLayersControls
         }
     }
 
-    relativeSizes       true; // false, usually with firstLayerThickness
+    relativeSizes       on;   // off, usually with firstLayerThickness
     expansionRatio      1.2;
     finalLayerThickness 0.5;
     minThickness        1e-3;
 //  firstLayerThickness 0.01;
 
-//  maxThicknessToMedialRatio 0.6;
+//  maxThicknessToMedialRatio 0.3;
 }
 
 writeFlags

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -54,24 +54,18 @@ class refCount
         int count_;
 
 
-    // Private Member Functions
-
-        //- Dissallow copy
-        refCount(const refCount&);
-
-        //- Dissallow bitwise assignment
-        void operator=(const refCount&);
-
-
 protected:
 
     // Constructors
 
-        //- Construct null initializing count to 0
+        //- Construct null initialising count to 0
         refCount()
         :
             count_(0)
         {}
+
+        //- Disallow copy
+        refCount(const refCount&) = delete;
 
 
 public:
@@ -116,6 +110,9 @@ public:
         {
             count_--;
         }
+
+        //- Disallow bitwise assignment
+        void operator=(const refCount&) = delete;
 };
 
 

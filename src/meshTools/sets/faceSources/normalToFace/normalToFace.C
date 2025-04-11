@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -34,17 +34,7 @@ namespace Foam
 {
     defineTypeNameAndDebug(normalToFace, 0);
     addToRunTimeSelectionTable(topoSetSource, normalToFace, word);
-    addToRunTimeSelectionTable(topoSetSource, normalToFace, istream);
 }
-
-
-Foam::topoSetSource::addToUsageTable Foam::normalToFace::usage_
-(
-    normalToFace::typeName,
-    "\n    Usage: normalToFace (nx ny nz) <tol>\n\n"
-    "    Select faces with normal aligned to unit vector (nx ny nz)\n"
-    "    to within tol\n"
-);
 
 
 // * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
@@ -53,7 +43,7 @@ void Foam::normalToFace::setNormal()
 {
     normal_ /= mag(normal_) + vSmall;
 
-    Info<< "    normalToFace : Normalized vector to " << normal_ << endl;
+    Info<< "    normalToFace : Normalised vector to " << normal_ << endl;
 
     if (tol_ < -1 || tol_ > 1)
     {
@@ -84,18 +74,8 @@ Foam::normalToFace::normalToFace
 Foam::normalToFace::normalToFace(const polyMesh& mesh, const dictionary& dict)
 :
     topoSetSource(mesh),
-    normal_(dict.lookup("normal")),
-    tol_(dict.lookup<scalar>("cos"))
-{
-    setNormal();
-}
-
-
-Foam::normalToFace::normalToFace(const polyMesh& mesh, Istream& is)
-:
-    topoSetSource(mesh),
-    normal_(checkIs(is)),
-    tol_(readScalar(checkIs(is)))
+    normal_(dict.lookup<vector>("normal", dimless)),
+    tol_(dict.lookup<scalar>("cos", dimless))
 {
     setNormal();
 }

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -29,11 +29,27 @@ License
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class EquationOfState>
-Foam::eConstThermo<EquationOfState>::eConstThermo(const dictionary& dict)
+Foam::eConstThermo<EquationOfState>::eConstThermo
+(
+    const word& name,
+    const dictionary& dict
+)
 :
-    EquationOfState(dict),
+    EquationOfState(name, dict),
     Cv_(dict.subDict("thermodynamics").lookup<scalar>("Cv")),
-    Hf_(dict.subDict("thermodynamics").lookup<scalar>("Hf"))
+    hf_
+    (
+        dict
+       .subDict("thermodynamics")
+       .lookupBackwardsCompatible<scalar>({"hf", "Hf"})
+    ),
+    Tref_(dict.subDict("thermodynamics").lookupOrDefault<scalar>("Tref", Tstd)),
+    esRef_
+    (
+        dict
+       .subDict("thermodynamics")
+       .lookupOrDefaultBackwardsCompatible<scalar>({"esRef", "Esref"}, 0)
+    )
 {}
 
 
@@ -46,7 +62,15 @@ void Foam::eConstThermo<EquationOfState>::write(Ostream& os) const
 
     dictionary dict("thermodynamics");
     dict.add("Cv", Cv_);
-    dict.add("Hf", Hf_);
+    dict.add("hf", hf_);
+    if (Tref_ != Tstd)
+    {
+        dict.add("Tref", Tref_);
+    }
+    if (esRef_ != 0)
+    {
+        dict.add("esRef", esRef_);
+    }
     os  << indent << dict.dictName() << dict;
 }
 

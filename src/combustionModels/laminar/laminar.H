@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -35,7 +35,9 @@ SourceFiles
 #ifndef laminar_H
 #define laminar_H
 
-#include "ChemistryCombustion.H"
+#include "autoPtr.H"
+#include "combustionModel.H"
+#include "basicChemistryModel.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -45,27 +47,35 @@ namespace combustionModels
 {
 
 /*---------------------------------------------------------------------------*\
-                            Class laminar Declaration
+                           Class laminar Declaration
 \*---------------------------------------------------------------------------*/
 
-template<class ReactionThermo>
 class laminar
 :
-    public ChemistryCombustion<ReactionThermo>
+    public combustionModel
 {
     // Private Data
 
         //- Integrate reaction rate over the time-step
-        //  using the selected ODE solver
+        //  using the selected ODE solver. Default true.
         bool integrateReactionRate_;
 
+        //- Maximum integration time permitted. Default vGreat.
+        scalar maxIntegrationTime_;
+
+        //- Run chemistry rate calculation on every outer iteration. Default
+        //  false. Has no effect if integrating.
+        bool outerCorrect_;
+
+        //- The time index of the last correction
+        label timeIndex_;
 
 protected:
 
-    // Protected Member Functions
+    // Protected Data
 
-        //- Return the chemical time scale
-        tmp<volScalarField> tc() const;
+        //- Pointer to chemistry model
+        autoPtr<basicChemistryModel> chemistryPtr_;
 
 
 public:
@@ -80,13 +90,13 @@ public:
         laminar
         (
             const word& modelType,
-            const ReactionThermo& thermo,
-            const compressibleTurbulenceModel& turb,
+            const fluidMulticomponentThermo& thermo,
+            const compressibleMomentumTransportModel& turb,
             const word& combustionProperties
         );
 
         //- Disallow default bitwise copy construction
-        laminar(const laminar&);
+        laminar(const laminar&) = delete;
 
 
     //- Destructor
@@ -98,7 +108,10 @@ public:
         //- Correct combustion rate
         virtual void correct();
 
-        //- Fuel consumption rate matrix.
+        //- Specie consumption rate field
+        virtual tmp<volScalarField::Internal> R(const label speciei) const;
+
+        //- Specie consumption rate matrix
         virtual tmp<fvScalarMatrix> R(volScalarField& Y) const;
 
         //- Heat release rate [kg/m/s^3]
@@ -119,12 +132,6 @@ public:
 
 } // End namespace combustionModels
 } // End namespace Foam
-
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-#ifdef NoRepository
-    #include "laminar.C"
-#endif
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

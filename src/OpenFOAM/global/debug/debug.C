@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -32,7 +32,6 @@ Description
 #include "etcFiles.H"
 #include "Ostream.H"
 #include "demandDrivenData.H"
-#include "simpleObjectRegistry.H"
 #include "IOobject.H"
 #include "HashSet.H"
 
@@ -47,16 +46,44 @@ namespace debug
 //- Skip documentation : local scope only
 
 dictionary* controlDictPtr_(nullptr);
+
 dictionary* debugSwitchesPtr_(nullptr);
 dictionary* infoSwitchesPtr_(nullptr);
 dictionary* optimisationSwitchesPtr_(nullptr);
 
-// Debug switch read and write callback tables.
-simpleObjectRegistry* debugObjectsPtr_(nullptr);
-simpleObjectRegistry* infoObjectsPtr_(nullptr);
-simpleObjectRegistry* optimisationObjectsPtr_(nullptr);
-simpleObjectRegistry* dimensionSetObjectsPtr_(nullptr);
-simpleObjectRegistry* dimensionedConstantObjectsPtr_(nullptr);
+dictionary* debugDefaultSwitchesPtr_(nullptr);
+dictionary* infoDefaultSwitchesPtr_(nullptr);
+dictionary* optimisationDefaultSwitchesPtr_(nullptr);
+
+dictionary& debugDefaultSwitches()
+{
+    if (!debugDefaultSwitchesPtr_)
+    {
+        debugDefaultSwitchesPtr_ = new dictionary();
+    }
+
+    return *debugDefaultSwitchesPtr_;
+}
+
+dictionary& infoDefaultSwitches()
+{
+    if (!infoDefaultSwitchesPtr_)
+    {
+        infoDefaultSwitchesPtr_ = new dictionary();
+    }
+
+    return *infoDefaultSwitchesPtr_;
+}
+
+dictionary& optimisationDefaultSwitches()
+{
+    if (!optimisationDefaultSwitchesPtr_)
+    {
+        optimisationDefaultSwitchesPtr_ = new dictionary();
+    }
+
+    return *optimisationDefaultSwitchesPtr_;
+}
 
 
 // To ensure controlDictPtr_ is deleted at the end of the run
@@ -69,15 +96,14 @@ public:
 
     ~deleteControlDictPtr()
     {
-        deleteDemandDrivenData(debugObjectsPtr_);
-        deleteDemandDrivenData(infoObjectsPtr_);
-        deleteDemandDrivenData(optimisationObjectsPtr_);
-        deleteDemandDrivenData(dimensionSetObjectsPtr_);
-        deleteDemandDrivenData(dimensionedConstantObjectsPtr_);
+        deleteDemandDrivenData(debugDefaultSwitchesPtr_);
+        deleteDemandDrivenData(infoDefaultSwitchesPtr_);
+        deleteDemandDrivenData(optimisationDefaultSwitchesPtr_);
 
         debugSwitchesPtr_ = nullptr;
         infoSwitchesPtr_ = nullptr;
         optimisationSwitchesPtr_ = nullptr;
+
         deleteDemandDrivenData(controlDictPtr_);
     }
 };
@@ -120,6 +146,13 @@ Foam::dictionary& Foam::debug::controlDict()
                 }
                 controlDictPtr_->merge(dictionary(ifs));
             }
+        }
+
+        IFstream ifs("system/controlDict");
+        if (ifs.good())
+        {
+            entry::disableFunctionEntries = true;
+            controlDictPtr_->merge(dictionary(ifs));
         }
     }
 
@@ -177,28 +210,58 @@ Foam::dictionary& Foam::debug::optimisationSwitches()
 
 int Foam::debug::debugSwitch(const char* name, const int defaultValue)
 {
-    return debugSwitches().lookupOrAddDefault
+    if
     (
-        name, defaultValue, false, false
-    );
+        debugDefaultSwitches().found(name)
+     && debugDefaultSwitches().lookup<int>(name) != defaultValue
+    )
+    {
+        FatalErrorInFunction
+            << "Multiple defaults set for debug switch " << name
+            << exit(FatalError);
+    }
+
+    debugDefaultSwitches().set(name, defaultValue);
+
+    return debugSwitches().lookupOrAddDefault(name, defaultValue);
 }
 
 
 int Foam::debug::infoSwitch(const char* name, const int defaultValue)
 {
-    return infoSwitches().lookupOrAddDefault
+    if
     (
-        name, defaultValue, false, false
-    );
+        infoDefaultSwitches().found(name)
+     && infoDefaultSwitches().lookup<int>(name) != defaultValue
+    )
+    {
+        FatalErrorInFunction
+            << "Multiple defaults set for info switch " << name
+            << exit(FatalError);
+    }
+
+    infoDefaultSwitches().set(name, defaultValue);
+
+    return infoSwitches().lookupOrAddDefault(name, defaultValue);
 }
 
 
 int Foam::debug::optimisationSwitch(const char* name, const int defaultValue)
 {
-    return optimisationSwitches().lookupOrAddDefault
+    if
     (
-        name, defaultValue, false, false
-    );
+        optimisationDefaultSwitches().found(name)
+     && optimisationDefaultSwitches().lookup<int>(name) != defaultValue
+    )
+    {
+        FatalErrorInFunction
+            << "Multiple defaults set for optimisation switch " << name
+            << exit(FatalError);
+    }
+
+    optimisationDefaultSwitches().set(name, defaultValue);
+
+    return optimisationSwitches().lookupOrAddDefault(name, defaultValue);
 }
 
 
@@ -208,187 +271,45 @@ float Foam::debug::floatOptimisationSwitch
     const float defaultValue
 )
 {
-    return optimisationSwitches().lookupOrAddDefault
+    if
     (
-        name, defaultValue, false, false
-    );
+        optimisationDefaultSwitches().found(name)
+     && optimisationDefaultSwitches().lookup<float>(name) != defaultValue
+    )
+    {
+        FatalErrorInFunction
+            << exit(FatalError);
+    }
+
+    optimisationDefaultSwitches().set(name, defaultValue);
+
+    return optimisationSwitches().lookupOrAddDefault(name, defaultValue);
 }
 
 
-void Foam::debug::addDebugObject(const char* name, simpleRegIOobject* obj)
-{
-    simpleObjectRegistryEntry* ptr = debugObjects().lookupPtr(name);
-    if (ptr)
-    {
-        ptr->append(obj);
-    }
-    else
-    {
-        debugObjects().append
-        (
-            name,
-            new simpleObjectRegistryEntry
-            (
-                List<simpleRegIOobject*>(1, obj)
-            )
-        );
-    }
-}
-
-
-void Foam::debug::addInfoObject(const char* name, simpleRegIOobject* obj)
-{
-    simpleObjectRegistryEntry* ptr = infoObjects().lookupPtr(name);
-    if (ptr)
-    {
-        ptr->append(obj);
-    }
-    else
-    {
-        infoObjects().append
-        (
-            name,
-            new simpleObjectRegistryEntry
-            (
-                List<simpleRegIOobject*>(1, obj)
-            )
-        );
-    }
-}
-
-
-void Foam::debug::addOptimisationObject
+const Foam::word Foam::debug::wordOptimisationSwitch
 (
     const char* name,
-    simpleRegIOobject* obj
+    const word& defaultValue
 )
 {
-    simpleObjectRegistryEntry* ptr = optimisationObjects().lookupPtr(name);
-    if (ptr)
-    {
-        ptr->append(obj);
-    }
-    else
-    {
-        optimisationObjects().append
-        (
-            name,
-            new simpleObjectRegistryEntry
-            (
-                List<simpleRegIOobject*>(1, obj)
-            )
-        );
-    }
-}
-
-
-void Foam::debug::addDimensionSetObject
-(
-    const char* name,
-    simpleRegIOobject* obj
-)
-{
-    simpleObjectRegistryEntry* ptr = dimensionSetObjects().lookupPtr(name);
-    if (ptr)
-    {
-        ptr->append(obj);
-    }
-    else
-    {
-        dimensionSetObjects().append
-        (
-            name,
-            new simpleObjectRegistryEntry
-            (
-                List<simpleRegIOobject*>(1, obj)
-            )
-        );
-    }
-}
-
-
-void Foam::debug::addDimensionedConstantObject
-(
-    const char* name,
-    simpleRegIOobject* obj
-)
-{
-    simpleObjectRegistryEntry* ptr = dimensionedConstantObjects().lookupPtr
+    if
     (
-        name
-    );
-    if (ptr)
+        optimisationDefaultSwitches().found(name)
+     && optimisationDefaultSwitches().lookup<word>(name) != defaultValue
+    )
     {
-        ptr->append(obj);
+        FatalErrorInFunction
+            << exit(FatalError);
     }
-    else
-    {
-        dimensionedConstantObjects().append
-        (
-            name,
-            new simpleObjectRegistryEntry
-            (
-                List<simpleRegIOobject*>(1, obj)
-            )
-        );
-    }
+
+    optimisationDefaultSwitches().set(name, defaultValue);
+
+    return optimisationSwitches().lookupOrAddDefault(name, defaultValue);
 }
 
 
-Foam::simpleObjectRegistry& Foam::debug::debugObjects()
-{
-    if (!debugObjectsPtr_)
-    {
-        debugObjectsPtr_ = new simpleObjectRegistry(1000);
-    }
-
-    return *debugObjectsPtr_;
-}
-
-
-Foam::simpleObjectRegistry& Foam::debug::infoObjects()
-{
-    if (!infoObjectsPtr_)
-    {
-        infoObjectsPtr_ = new simpleObjectRegistry(100);
-    }
-
-    return *infoObjectsPtr_;
-}
-
-
-Foam::simpleObjectRegistry& Foam::debug::optimisationObjects()
-{
-    if (!optimisationObjectsPtr_)
-    {
-        optimisationObjectsPtr_ = new simpleObjectRegistry(100);
-    }
-
-    return *optimisationObjectsPtr_;
-}
-
-
-Foam::simpleObjectRegistry& Foam::debug::dimensionSetObjects()
-{
-    if (!dimensionSetObjectsPtr_)
-    {
-        dimensionSetObjectsPtr_ = new simpleObjectRegistry(100);
-    }
-
-    return *dimensionSetObjectsPtr_;
-}
-
-
-Foam::simpleObjectRegistry& Foam::debug::dimensionedConstantObjects()
-{
-    if (!dimensionedConstantObjectsPtr_)
-    {
-        dimensionedConstantObjectsPtr_ = new simpleObjectRegistry(100);
-    }
-
-    return *dimensionedConstantObjectsPtr_;
-}
-
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
 {
@@ -450,29 +371,107 @@ void listSwitches
     }
 }
 
-}
 
-
-void Foam::debug::listSwitches(const bool unset)
+void listSwitches
+(
+    const word& name,
+    const dictionary& switches,
+    const dictionary& defaultSwitches
+)
 {
-    listSwitches
+    wordHashSet defaultSet;
+    wordHashSet nonDefaultSet;
+    wordHashSet noDefaultSet;
+
+    forAllConstIter(dictionary, switches, iter)
+    {
+        const word& name = iter().keyword();
+
+        const bool hasDefault = defaultSwitches.found(name);
+
+        const bool isDefault =
+            hasDefault
+         && defaultSwitches.lookupEntry(name, false, false) == iter();
+
+        if (hasDefault)
+        {
+            if (isDefault)
+            {
+                defaultSet.insert(name);
+            }
+            else
+            {
+                nonDefaultSet.insert(name);
+            }
+        }
+        else
+        {
+            noDefaultSet.insert(name);
+        }
+    }
+
+    auto print = [&](const char* heading, const wordList& names)
+    {
+        Info<< indent << "// " << heading << endl;
+
+        forAll(names, i)
+        {
+            Info<< switches.lookupEntry(names[i], false, false);
+        }
+    };
+
+    Info<< name << endl
+        << token::BEGIN_BLOCK << endl << incrIndent;
+
+    print
     (
-        debug::debugSwitches().sortedToc(),
-        debug::infoSwitches().sortedToc(),
-        debug::optimisationSwitches().sortedToc(),
-        unset
+        "Switches with default values",
+        defaultSet.sortedToc()
     );
+    Info<< nl;
+    print
+    (
+        "Switches with non-default values",
+        nonDefaultSet.sortedToc()
+    );
+    Info<< nl;
+    print
+    (
+        "Switches without defaults",
+        noDefaultSet.sortedToc()
+    );
+
+    Info<< decrIndent << token::END_BLOCK << endl;
 }
 
+} // End namespace Foam
 
-void Foam::debug::listRegisteredSwitches(const bool unset)
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+void Foam::debug::listSwitches()
 {
     listSwitches
     (
-        debug::debugObjects().sortedToc(),
-        debug::infoObjects().sortedToc(),
-        debug::optimisationObjects().sortedToc(),
-        unset
+        "DebugSwitches",
+        debug::debugSwitches(),
+        debug::debugDefaultSwitches()
+    );
+    Info<< endl;
+
+    listSwitches
+    (
+        "InfoSwitches",
+        debug::infoSwitches(),
+        debug::infoDefaultSwitches()
+    );
+    Info<< endl;
+
+    listSwitches
+    (
+        "OptimisationSwitches",
+        debug::optimisationSwitches(),
+        debug::optimisationDefaultSwitches()
     );
 }
 

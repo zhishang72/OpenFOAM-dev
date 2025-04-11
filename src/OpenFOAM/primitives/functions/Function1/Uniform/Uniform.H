@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -30,9 +30,10 @@ Description
     Provides backward-compatibility for cases where a field is spatially
     "uniform" and may be treated as a constant value.
 
-    Usage - for entry \<entryName\> returning the value <value>:
+Usage
+    For entry \<name\> returning the value <value>:
     \verbatim
-        <entryName>    uniform  <value>
+        <name>    uniform  <value>
     \endverbatim
 
 SourceFiles
@@ -70,14 +71,14 @@ public:
 
     // Constructors
 
-        //- Construct from entry name and dictionary
-        Uniform(const word& entryName, const dictionary& dict);
+        //- Inherit constructors
+        using Constant<Type>::Constant;
 
-
-    // Member Operators
-
-        //- Disallow default bitwise assignment
-        void operator=(const Uniform<Type>&) = delete;
+        //- Construct and return a clone
+        virtual tmp<Function1<Type>> clone() const
+        {
+            return tmp<Function1<Type>>(new Uniform<Type>(*this));
+        }
 };
 
 
@@ -85,12 +86,6 @@ public:
 
 } // End namespace Function1s
 } // End namespace Foam
-
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-#ifdef NoRepository
-    #include "Uniform.C"
-#endif
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -23,6 +23,9 @@ License
 
 \*---------------------------------------------------------------------------*/
 
+#include "LandauTellerReactionRate.H"
+#include "physicoChemicalConstants.H"
+
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 inline Foam::LandauTellerReactionRate::LandauTellerReactionRate
@@ -34,8 +37,8 @@ inline Foam::LandauTellerReactionRate::LandauTellerReactionRate
     const scalar C
 )
 :
-    A_(A),
     beta_(beta),
+    A_(A),
     Ta_(Ta),
     B_(B),
     C_(C)
@@ -45,18 +48,33 @@ inline Foam::LandauTellerReactionRate::LandauTellerReactionRate
 inline Foam::LandauTellerReactionRate::LandauTellerReactionRate
 (
     const speciesTable&,
+    const dimensionSet& dims,
     const dictionary& dict
 )
 :
-    A_(dict.lookup<scalar>("A")),
-    beta_(dict.lookup<scalar>("beta")),
-    Ta_(dict.lookup<scalar>("Ta")),
-    B_(dict.lookup<scalar>("B")),
-    C_(dict.lookup<scalar>("C"))
+    beta_(dict.lookup<scalar>("beta", dimless)),
+    A_(dict.lookup<scalar>("A", dims/pow(dimTemperature, beta_))),
+    Ta_
+    (
+        dict.found("Ta") || !dict.found("Ea")
+      ? dict.lookup<scalar>("Ta", dimTemperature)
+      : dict.lookup<scalar>("Ea", dimEnergy/dimMoles)
+       /constant::physicoChemical::RR.value()
+    ),
+    B_(dict.lookup<scalar>("B", cbrt(dimTemperature))),
+    C_(dict.lookup<scalar>("C", sqr(cbrt(dimTemperature))))
 {}
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+
+inline void Foam::LandauTellerReactionRate::preEvaluate() const
+{}
+
+
+inline void Foam::LandauTellerReactionRate::postEvaluate() const
+{}
+
 
 inline Foam::scalar Foam::LandauTellerReactionRate::operator()
 (
@@ -87,7 +105,7 @@ inline Foam::scalar Foam::LandauTellerReactionRate::operator()
 
     if (mag(C_) > vSmall)
     {
-        expArg += C_/pow(T, 2.0/3.0);
+        expArg += C_/sqr(cbrt(T));
     }
 
     if (mag(expArg) > vSmall)
@@ -133,7 +151,7 @@ inline Foam::scalar Foam::LandauTellerReactionRate::ddT
 
     if (mag(C_) > vSmall)
     {
-        scalar CT = C_/pow(T, 2.0/3.0);
+        scalar CT = C_/sqr(cbrt(T));
         expArg += CT;
         deriv -= 2*CT/3;
     }
@@ -143,37 +161,26 @@ inline Foam::scalar Foam::LandauTellerReactionRate::ddT
         lta *= exp(expArg);
     }
 
-    return lta*(beta_+deriv)/T;
+    return lta*(beta_ + deriv)/T;
 }
 
 
-inline const Foam::List<Foam::Tuple2<Foam::label, Foam::scalar>>&
-Foam::LandauTellerReactionRate::beta() const
+inline bool Foam::LandauTellerReactionRate::hasDdc() const
 {
-    return NullObjectRef<List<Tuple2<label, scalar>>>();
+    return false;
 }
 
 
-inline void Foam::LandauTellerReactionRate::dcidc
+inline void Foam::LandauTellerReactionRate::ddc
 (
     const scalar p,
     const scalar T,
     const scalarField& c,
     const label li,
-    scalarField& dcidc
-) const
-{}
-
-
-inline Foam::scalar Foam::LandauTellerReactionRate::dcidT
-(
-    const scalar p,
-    const scalar T,
-    const scalarField& c,
-    const label li
+    scalarField& ddc
 ) const
 {
-    return 0;
+    ddc = 0;
 }
 
 

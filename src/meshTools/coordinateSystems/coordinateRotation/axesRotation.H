@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -59,7 +59,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                    Class axesRotation Declaration
+                        Class axesRotation Declaration
 \*---------------------------------------------------------------------------*/
 
 class axesRotation
@@ -100,25 +100,22 @@ public:
 
     // Constructors
 
-        //- Construct null
-        axesRotation();
-
         //- Construct from 2 axes
         axesRotation(const vector& axis, const vector& dir);
-
-        //- Construct from dictionary
-        axesRotation(const dictionary&);
 
         //- Construct from components
         axesRotation(const tensor& R);
 
-        //- Construct from dictionary and mesh
-        axesRotation(const dictionary&, const objectRegistry&);
+        //- Construct from dictionary
+        axesRotation(const dictionary&);
 
-        //- Return clone
-        autoPtr<axesRotation> clone() const
+        //- Construct from dictionary and list of points
+        axesRotation(const dictionary&, const UList<vector>& points);
+
+        //- Construct and return a clone
+        virtual autoPtr<coordinateRotation> clone() const
         {
-            return autoPtr<axesRotation>(new axesRotation(*this));
+            return autoPtr<coordinateRotation>(new axesRotation(*this));
         }
 
 
@@ -129,27 +126,14 @@ public:
 
     // Member Functions
 
-        //- Reset rotation to an identity rotation
-        virtual void clear()
-        {
-            R_ = sphericalTensor::I;
-            Rtr_ = sphericalTensor::I;
-        }
-
-        //- Update the rotation for a list of cells
-        virtual void updateCells(const polyMesh&, const labelList&)
+        //- Update the rotation for a list of points
+        virtual void updatePoints(const UList<vector>& points)
         {}
 
         //- Return local-to-global transformation tensor
         virtual const tensor& R() const
         {
             return R_;
-        }
-
-        //- Return global-to-local transformation tensor
-        virtual const tensor& Rtr() const
-        {
-            return Rtr_;
         }
 
         //- Return local Cartesian x-axis in global coordinates
@@ -170,44 +154,38 @@ public:
             return Rtr_.z();
         }
 
-        //- Return transformation tensor field
-        virtual const tensorField& Tr() const;
+        //- Transform vector using transformation tensor
+        virtual vector transform(const vector& v) const;
 
         //- Transform vectorField using transformation tensor field
-        virtual tmp<vectorField> transform(const vectorField& st) const;
-
-        //- Transform vector using transformation tensor
-        virtual vector transform(const vector& st) const;
-
-        //- Inverse transform vectorField using transformation tensor field
-        virtual tmp<vectorField> invTransform(const vectorField& st) const;
+        virtual tmp<vectorField> transform(const vectorField& tf) const;
 
         //- Inverse transform vector using transformation tensor
-        virtual vector invTransform(const vector& st) const;
+        virtual vector invTransform(const vector& v) const;
 
-        //- Transform tensor field using transformation tensorField
-        virtual tmp<tensorField> transformTensor(const tensorField& st) const;
+        //- Inverse transform vectorField using transformation tensor field
+        virtual tmp<vectorField> invTransform(const vectorField& vf) const;
 
         //- Transform tensor using transformation tensorField
-        virtual tensor transformTensor(const tensor& st) const;
+        virtual tensor transform(const vector& p, const tensor& t) const;
 
-        //- Transform tensor sub-field using transformation tensorField
-        virtual tmp<tensorField> transformTensor
+        //- Transform tensor field using transformation tensorField
+        virtual tmp<tensorField> transform(const tensorField& tf) const;
+
+        //- Transform diagTensor masquerading as a vector using transformation
+        //  tensor and return symmTensor
+        virtual symmTensor transformDiagTensor
         (
-            const tensorField& st,
-            const labelList& cellMap
+            const vector& p,
+            const vector& v
         ) const;
 
-        //- Transform vectorField using transformation tensorField and return
-        //  symmetric tensorField
-        virtual tmp<symmTensorField> transformVector
+        //- Transform diagTensorField masquerading as a vectorField
+        //  using transformation tensorField and return symmTensorField
+        virtual tmp<symmTensorField> transformDiagTensor
         (
-            const vectorField& st
+            const vectorField& vf
         ) const;
-
-        //- Transform vector using transformation tensor and return
-        //  symmetric tensor
-        virtual symmTensor transformVector(const vector& st) const;
 
 
     // Member Operators

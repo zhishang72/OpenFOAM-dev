@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ License
 
 #include "logFiles.H"
 #include "Time.H"
-#include "IFstream.H"
+#include "OSspecific.H"
 
 // * * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * * //
 
@@ -33,29 +33,16 @@ void Foam::functionObjects::logFiles::createFiles()
 {
     if (Pstream::master())
     {
-        const word startTimeName =
-            fileObr_.time().timeName(fileObr_.time().startTime().value());
+        const word timeName = fileObr_.time().name();
 
         forAll(names_, i)
         {
             if (!filePtrs_.set(i))
             {
-                fileName outputDir(baseFileDir()/prefix_/startTimeName);
+                const fileName outputDir(baseFileDir()/prefix_/timeName);
                 mkDir(outputDir);
-
-                word fName(names_[i]);
-
-                // Check if file already exists
-                IFstream is(outputDir/(fName + ".dat"));
-                if (is.good())
-                {
-                    fName = fName + "_" + fileObr_.time().timeName();
-                }
-
-                filePtrs_.set(i, new OFstream(outputDir/(fName + ".dat")));
-
+                filePtrs_.set(i, new OFstream(outputDir/(names_[i] + ".dat")));
                 initStream(filePtrs_[i]);
-
                 writeFileHeader(i);
             }
         }
@@ -110,6 +97,12 @@ Foam::functionObjects::logFiles::~logFiles()
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+
+const Foam::wordList& Foam::functionObjects::logFiles::toc() const
+{
+    return names_;
+}
+
 
 const Foam::wordList& Foam::functionObjects::logFiles::names() const
 {

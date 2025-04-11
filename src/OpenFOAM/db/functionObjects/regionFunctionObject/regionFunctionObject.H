@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,11 +25,11 @@ Class
     Foam::functionObjects::regionFunctionObject
 
 Description
-    Specialization of Foam::functionObject for a region and providing a
-    reference to the region Foam::objectRegistry.
+    Specialisation of Foam::functionObject for a region
 
 See also
     Foam::functionObject
+    Foam::functionObjects::objectRegistryFunctionObject
 
 SourceFiles
     regionFunctionObject.C
@@ -39,73 +39,23 @@ SourceFiles
 #ifndef functionObjects_regionFunctionObject_H
 #define functionObjects_regionFunctionObject_H
 
-#include "functionObject.H"
+#include "objectRegistryFunctionObject.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
 {
-
-// Forward declaration of classes
-class objectRegistry;
-
 namespace functionObjects
 {
 
 /*---------------------------------------------------------------------------*\
-                     Class regionFunctionObject Declaration
+                    Class regionFunctionObject Declaration
 \*---------------------------------------------------------------------------*/
 
 class regionFunctionObject
 :
-    public functionObject
+    public objectRegistryFunctionObject
 {
-
-protected:
-
-    // Protected member data
-
-        //- Reference to the Time
-        const Time& time_;
-
-        //- Reference to the region objectRegistry
-        const objectRegistry& obr_;
-
-
-    // Protected member functions
-
-        //- Find field in the objectRegistry
-        template<class ObjectType>
-        bool foundObject(const word& fieldName) const;
-
-        //- Lookup object from the objectRegistry
-        template<class ObjectType>
-        const ObjectType& lookupObject(const word& fieldName) const;
-
-        //- Lookup non-const object reference from the objectRegistry
-        template<class ObjectType>
-        ObjectType& lookupObjectRef(const word& fieldName);
-
-        //- Store the given field in the objectRegistry
-        template<class ObjectType>
-        bool store(const tmp<ObjectType>& tfield);
-
-        //- Store the given field in the objectRegistry under the given name
-        template<class ObjectType>
-        bool store
-        (
-            const word& fieldName,
-            const tmp<ObjectType>& tfield,
-            bool cacheable = false
-        );
-
-        //- Write field if present in objectRegistry
-        bool writeObject(const word& fieldName);
-
-        //- Clear field from the objectRegistry if present
-        bool clearObject(const word& fieldName);
-
-
 public:
 
     //- Runtime type information
@@ -124,12 +74,11 @@ public:
             const dictionary& dict
         );
 
-        //- Construct from the region objectRegistry and dictionary
+        //- Construct from the region objectRegistry
         regionFunctionObject
         (
             const word& name,
-            const objectRegistry& obr,
-            const dictionary& dict
+            const objectRegistry& obr
         );
 
         //- Disallow default bitwise copy construction
@@ -138,12 +87,6 @@ public:
 
     //- Destructor
     virtual ~regionFunctionObject();
-
-
-    // Member Functions
-
-        //- Read optional controls
-        virtual bool read(const dictionary&);
 
 
     // Member Operators
@@ -157,12 +100,6 @@ public:
 
 } // End namespace functionObjects
 } // End namespace Foam
-
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-#ifdef NoRepository
-    #include "regionFunctionObjectTemplates.C"
-#endif
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

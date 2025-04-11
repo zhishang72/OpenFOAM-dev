@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,14 +25,33 @@ Class
     Foam::hPowerThermo
 
 Description
-    Power-function based thermodynamics package templated on EquationOfState.
+    Enthalpy based thermodynamics package using a power function of temperature
+    for the constant heat capacity at constant volume which is particularly
+    suitable for solids at low temperatures:
 
-    In this thermodynamics package the heat capacity is a simple power of
-    temperature:
+    \verbatim
+        Cp = c0*pow(T/Tref, n0)
+    \endverbatim
 
-        Cp(T) = c0*(T/Tref)^n0;
+Usage
+    \table
+        Property     | Description
+        c0           | Reference heat capacity at constant pressure [J/kg/K]
+        n0           | Exponent of the power function
+        Tref         | Reference temperature [K]
+        hf           | Heat of formation [J/kg]
+    \endtable
 
-    which is particularly suitable for solids.
+    Example specification of hPowerThermo:
+    \verbatim
+    thermodynamics
+    {
+        c0          230;
+        Tref        470;
+        n0          3;
+        hf          0;
+    }
+    \endverbatim
 
 SourceFiles
     hPowerThermoI.H
@@ -86,7 +105,7 @@ Ostream& operator<<
 
 
 /*---------------------------------------------------------------------------*\
-                         Class hPowerThermo Declaration
+                        Class hPowerThermo Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class EquationOfState>
@@ -99,13 +118,18 @@ class hPowerThermo
         scalar c0_;
         scalar n0_;
         scalar Tref_;
-        scalar Hf_;
+        scalar hf_;
 
 
     // Private Member Functions
 
         //- Check given temperature is within the range of the fitted coeffs
         inline void checkT(const scalar T) const;
+
+
+public:
+
+    // Constructors
 
         //- Construct from components
         inline hPowerThermo
@@ -114,16 +138,11 @@ class hPowerThermo
             const scalar c0,
             const scalar n0,
             const scalar Tref,
-            const scalar Hf
+            const scalar hf
         );
 
-
-public:
-
-    // Constructors
-
-        //- Construct from dictionary
-        hPowerThermo(const dictionary&);
+        //- Construct from name and dictionary
+        hPowerThermo(const word& name, const dictionary& dict);
 
         //- Construct as a named copy
         inline hPowerThermo
@@ -134,9 +153,6 @@ public:
 
          //- Construct and return a clone
         inline autoPtr<hPowerThermo> clone() const;
-
-        //- Selector from dictionary
-        inline static autoPtr<hPowerThermo> New(const dictionary& dict);
 
 
     // Member Functions
@@ -157,27 +173,24 @@ public:
             inline scalar Cp(const scalar p, const scalar T) const;
 
             //- Absolute enthalpy [J/kg]
-            inline scalar Ha(const scalar p, const scalar T) const;
+            inline scalar ha(const scalar p, const scalar T) const;
 
             //- Sensible enthalpy [J/kg]
-            inline scalar Hs(const scalar p, const scalar T) const;
+            inline scalar hs(const scalar p, const scalar T) const;
 
-            //- Chemical enthalpy [J/kg]
-            inline scalar Hc() const;
+            //- Enthalpy of formation [J/kg]
+            inline scalar hf() const;
 
             //- Entropy [J/kg/K]
-            inline scalar S(const scalar p, const scalar T) const;
+            inline scalar s(const scalar p, const scalar T) const;
 
             //- Gibbs free energy of the mixture in the standard state [J/kg]
-            inline scalar Gstd(const scalar T) const;
+            inline scalar gStd(const scalar T) const;
 
             #include "HtoEthermo.H"
 
 
         // Derivative term used for Jacobian
-
-            //- Derivative of Gibbs free energy w.r.t. temperature
-            inline scalar dGdT(const scalar p, const scalar T) const;
 
             //- Temperature derivative of heat capacity at constant pressure
             inline scalar dCpdT(const scalar p, const scalar T) const;

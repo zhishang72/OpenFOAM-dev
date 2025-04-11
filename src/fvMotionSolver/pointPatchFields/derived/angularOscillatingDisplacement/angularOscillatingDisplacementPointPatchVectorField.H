@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -35,6 +35,7 @@ SourceFiles
 #ifndef angularOscillatingDisplacementPointPatchVectorField_H
 #define angularOscillatingDisplacementPointPatchVectorField_H
 
+#include "pointPatchFields.H"
 #include "fixedValuePointPatchField.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -43,7 +44,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-        Class angularOscillatingDisplacementPointPatchVectorField Declaration
+     Class angularOscillatingDisplacementPointPatchVectorField Declaration
 \*---------------------------------------------------------------------------*/
 
 class angularOscillatingDisplacementPointPatchVectorField
@@ -69,13 +70,6 @@ public:
 
     // Constructors
 
-        //- Construct from patch and internal field
-        angularOscillatingDisplacementPointPatchVectorField
-        (
-            const pointPatch&,
-            const DimensionedField<vector, pointMesh>&
-        );
-
         //- Construct from patch, internal field and dictionary
         angularOscillatingDisplacementPointPatchVectorField
         (
@@ -84,26 +78,16 @@ public:
             const dictionary&
         );
 
-        //- Construct by mapping given patchField<vector> onto a new patch
+        //- Construct by mapping given
+        //  angularOscillatingDisplacementPointPatchVectorField
+        //  onto a new patch
         angularOscillatingDisplacementPointPatchVectorField
         (
             const angularOscillatingDisplacementPointPatchVectorField&,
             const pointPatch&,
             const DimensionedField<vector, pointMesh>&,
-            const pointPatchFieldMapper&
+            const fieldMapper&
         );
-
-        //- Construct and return a clone
-        virtual autoPtr<pointPatchField<vector>> clone() const
-        {
-            return autoPtr<pointPatchField<vector>>
-            (
-                new angularOscillatingDisplacementPointPatchVectorField
-                (
-                    *this
-                )
-            );
-        }
 
         //- Construct as copy setting internal field reference
         angularOscillatingDisplacementPointPatchVectorField
@@ -133,13 +117,12 @@ public:
 
         // Mapping functions
 
-            //- Map (and resize as needed) from self given a mapping object
-            //  Used to update fields following mesh topology change
-            virtual void autoMap(const pointPatchFieldMapper&);
+            //- Map the given pointPatchField onto this pointPatchField
+            virtual void map(const pointPatchVectorField&, const fieldMapper&);
 
-            //- Reverse map the given pointPatchField onto this pointPatchField
-            //  Used to reconstruct fields
-            virtual void rmap(const pointPatchField<vector>&, const labelList&);
+            //- Reset the pointPatchField to the given pointPatchField
+            //  Used for mesh to mesh mapping
+            virtual void reset(const pointPatchField<vector>&);
 
 
         // Evaluation functions

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -48,6 +48,7 @@ SourceFiles
 #ifndef error_H
 #define error_H
 
+#include "OStringStream.H"
 #include "messageStream.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -81,7 +82,9 @@ protected:
         bool abort_;
 
         bool throwExceptions_;
-        OStringStream* messageStreamPtr_;
+
+        OStringStream messageStream_;
+
 
 public:
 
@@ -89,16 +92,6 @@ public:
 
         //- Construct from title string
         error(const string& title);
-
-        //- Construct from dictionary
-        error(const dictionary&);
-
-        //- Copy constructor
-        error(const error&);
-
-
-    //- Destructor
-    virtual ~error() throw();
 
 
     // Member Functions
@@ -148,19 +141,17 @@ public:
             const int sourceFileLineNumber = 0
         );
 
-        //- Convert to OSstream
-        //  Prints basic message and returns OSstream for further info.
-        operator OSstream&();
-
         //- Explicitly convert to OSstream for << operations
-        OSstream& operator()()
+        OSstream& operator()();
+
+        //- Convert to OSstream for << operations
+        operator OSstream&()
         {
-            return operator OSstream&();
+            return this->operator()();
         }
 
         //- Create and return a dictionary
         operator dictionary() const;
-
 
         //- Helper function to print a stack (if OpenFOAM IO not yet
         //  initialised)
@@ -190,21 +181,76 @@ Ostream& operator<<(Ostream&, const IOerror&);
 
 
 /*---------------------------------------------------------------------------*\
-                           Class IOerror Declaration
+                       Class IOerrorLocation Declaration
 \*---------------------------------------------------------------------------*/
 
-//- Report an I/O error
-class IOerror
-:
-    public error
+class IOerrorLocation
 {
     // Private Data
 
+        //- File name
         string ioFileName_;
-        label ioStartLineNumber_;
-        label ioEndLineNumber_;
+
+        //- Line number
+        label ioLineNumber_;
+
+        //- Is file global
+        bool ioGlobal_;
 
 
+public:
+
+    // Constructors
+
+        //- Construct null
+        IOerrorLocation();
+
+        //- Construct from components
+        IOerrorLocation
+        (
+            const string& ioFileName,
+            const label ioLineNumber = -1,
+            const bool ioGlobal = false
+        );
+
+        //- Construct from a stream
+        IOerrorLocation(const IOstream&);
+
+        //- Construct from a dictionary
+        IOerrorLocation(const dictionary&);
+
+
+    // Member Functions
+
+        //- Access the file name
+        inline const string& ioFileName() const
+        {
+            return ioFileName_;
+        }
+
+        //- Access the start line number
+        inline label ioLineNumber() const
+        {
+            return ioLineNumber_;
+        }
+
+        //- Assess to the global/local file switch
+        inline bool ioGlobal() const
+        {
+            return ioGlobal_;
+        }
+};
+
+
+/*---------------------------------------------------------------------------*\
+                           Class IOerror Declaration
+\*---------------------------------------------------------------------------*/
+
+class IOerror
+:
+    public error,
+    public IOerrorLocation
+{
 public:
 
     // Constructors
@@ -212,31 +258,9 @@ public:
         //- Construct from title string
         IOerror(const string& title);
 
-        //- Construct from dictionary
-        IOerror(const dictionary&);
-
-
-    //- Destructor
-    virtual ~IOerror() throw();
-
 
     // Member Functions
 
-        const string& ioFileName() const
-        {
-            return ioFileName_;
-        }
-
-        label ioStartLineNumber() const
-        {
-            return ioStartLineNumber_;
-        }
-
-        label ioEndLineNumber() const
-        {
-            return ioEndLineNumber_;
-        }
-
         //- Convert to OSstream
         //  Prints basic message and returns OSstream for further info.
         OSstream& operator()
@@ -244,29 +268,7 @@ public:
             const char* functionName,
             const char* sourceFileName,
             const int sourceFileLineNumber,
-            const string& ioFileName,
-            const label ioStartLineNumber = -1,
-            const label ioEndLineNumber = -1
-        );
-
-        //- Convert to OSstream
-        //  Prints basic message and returns OSstream for further info.
-        OSstream& operator()
-        (
-            const char* functionName,
-            const char* sourceFileName,
-            const int sourceFileLineNumber,
-            const IOstream&
-        );
-
-        //- Convert to OSstream
-        //  Prints basic message and returns OSstream for further info.
-        OSstream& operator()
-        (
-            const char* functionName,
-            const char* sourceFileName,
-            const int sourceFileLineNumber,
-            const dictionary&
+            const IOerrorLocation& location
         );
 
         //- Print basic message and exit. Uses cerr if streams not constructed
@@ -282,7 +284,6 @@ public:
 
         //- Create and return a dictionary
         operator dictionary() const;
-
 
         //- Exit : can be called for any error to exit program
         void exit(const int errNo = 1);
@@ -302,6 +303,10 @@ public:
 
 extern error   FatalError;
 extern IOerror FatalIOError;
+
+// Template argument dependent "false" for static_assert in templated functions
+template <class... T>
+constexpr bool False = false;
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -356,7 +361,7 @@ extern IOerror FatalIOError;
 //  called for this derived class.
 #define notImplemented(functionName)                                           \
     FatalErrorIn(functionName)                                                 \
-        << "Not implemented" << ::Foam::abort(FatalError);
+        << "Not implemented" << ::Foam::abort(::Foam::FatalError);
 
 //- Issue a FatalErrorIn for a function not currently implemented.
 //  The FUNCTION_NAME is printed and then abort is called.

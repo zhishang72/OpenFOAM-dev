@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,7 +24,7 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "fixedFluxPressureFvPatchScalarField.H"
-#include "fvPatchFieldMapper.H"
+#include "fieldMapper.H"
 #include "volFields.H"
 #include "surfaceFields.H"
 #include "addToRunTimeSelectionTable.H"
@@ -34,36 +34,26 @@ License
 Foam::fixedFluxPressureFvPatchScalarField::fixedFluxPressureFvPatchScalarField
 (
     const fvPatch& p,
-    const DimensionedField<scalar, volMesh>& iF
-)
-:
-    fixedGradientFvPatchScalarField(p, iF),
-    curTimeIndex_(-1)
-{}
-
-
-Foam::fixedFluxPressureFvPatchScalarField::fixedFluxPressureFvPatchScalarField
-(
-    const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF,
     const dictionary& dict
 )
 :
-    fixedGradientFvPatchScalarField(p, iF),
+    fixedGradientFvPatchScalarField(p, iF, dict, false),
     curTimeIndex_(-1)
 {
     if (dict.found("value") && dict.found("gradient"))
     {
         fvPatchField<scalar>::operator=
         (
-            scalarField("value", dict, p.size())
+            scalarField("value", iF.dimensions(), dict, p.size())
         );
-        gradient() = scalarField("gradient", dict, p.size());
+        gradient() =
+            scalarField("gradient", iF.dimensions()/dimLength, dict, p.size());
     }
     else
     {
         fvPatchField<scalar>::operator=(patchInternalField());
-        gradient() = 0.0;
+        gradient() = Zero;
     }
 }
 
@@ -73,46 +63,14 @@ Foam::fixedFluxPressureFvPatchScalarField::fixedFluxPressureFvPatchScalarField
     const fixedFluxPressureFvPatchScalarField& ptf,
     const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
-    fixedGradientFvPatchScalarField(p, iF),
+    fixedGradientFvPatchScalarField(ptf, p, iF, mapper, false),
     curTimeIndex_(-1)
 {
-    patchType() = ptf.patchType();
-
-    // Map gradient. Set unmapped values and overwrite with mapped ptf
-    gradient() = 0.0;
-    mapper(gradient(), ptf.gradient());
-
-    // Evaluate the value field from the gradient if the internal field is valid
-    if (notNull(iF) && iF.size())
-    {
-        scalarField::operator=
-        (
-            // patchInternalField() + gradient()/patch().deltaCoeffs()
-            // ***HGW Hack to avoid the construction of mesh.deltaCoeffs
-            // which fails for AMI patches for some mapping operations
-            patchInternalField() + gradient()*(patch().nf() & patch().delta())
-        );
-    }
-    else
-    {
-        // Enforce mapping of values so we have a valid starting value. This
-        // constructor is used when reconstructing fields
-        mapper(*this, ptf);
-    }
+    map(refCast<const fixedFluxPressureFvPatchScalarField>(ptf), mapper);
 }
-
-
-Foam::fixedFluxPressureFvPatchScalarField::fixedFluxPressureFvPatchScalarField
-(
-    const fixedFluxPressureFvPatchScalarField& wbppsf
-)
-:
-    fixedGradientFvPatchScalarField(wbppsf),
-    curTimeIndex_(-1)
-{}
 
 
 Foam::fixedFluxPressureFvPatchScalarField::fixedFluxPressureFvPatchScalarField
@@ -127,6 +85,27 @@ Foam::fixedFluxPressureFvPatchScalarField::fixedFluxPressureFvPatchScalarField
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+
+void Foam::fixedFluxPressureFvPatchScalarField::map
+(
+    const fixedFluxPressureFvPatchScalarField& ptf,
+    const fieldMapper& mapper
+)
+{
+    mapper(*this, ptf, [&](){ return patchInternalField(); });
+    mapper(gradient(), ptf.gradient(), scalar(0));
+}
+
+
+void Foam::fixedFluxPressureFvPatchScalarField::map
+(
+    const fvPatchScalarField& ptf,
+    const fieldMapper& mapper
+)
+{
+    map(refCast<const fixedFluxPressureFvPatchScalarField>(ptf), mapper);
+}
+
 
 void Foam::fixedFluxPressureFvPatchScalarField::updateCoeffs
 (

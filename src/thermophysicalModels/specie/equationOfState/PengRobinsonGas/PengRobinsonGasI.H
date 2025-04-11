@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2014-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2014-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -26,7 +26,7 @@ License
 #include "PengRobinsonGas.H"
 #include "mathematicalConstants.H"
 
-// * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
+// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class Specie>
 inline Foam::PengRobinsonGas<Specie>::PengRobinsonGas
@@ -47,8 +47,6 @@ inline Foam::PengRobinsonGas<Specie>::PengRobinsonGas
     omega_(omega)
 {}
 
-
-// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class Specie>
 inline Foam::PengRobinsonGas<Specie>::PengRobinsonGas
@@ -77,20 +75,6 @@ Foam::PengRobinsonGas<Specie>::clone() const
 }
 
 
-template<class Specie>
-inline Foam::autoPtr<Foam::PengRobinsonGas<Specie>>
-Foam::PengRobinsonGas<Specie>::New
-(
-    const dictionary& dict
-)
-{
-    return autoPtr<PengRobinsonGas<Specie>>
-    (
-        new PengRobinsonGas<Specie>(dict)
-    );
-}
-
-
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class Specie>
@@ -106,7 +90,7 @@ inline Foam::scalar Foam::PengRobinsonGas<Specie>::rho
 
 
 template<class Specie>
-inline Foam::scalar Foam::PengRobinsonGas<Specie>::H(scalar p, scalar T) const
+inline Foam::scalar Foam::PengRobinsonGas<Specie>::h(scalar p, scalar T) const
 {
     const scalar Pr = p/Pc_;
     const scalar Tr = T/Tc_;
@@ -159,7 +143,7 @@ inline Foam::scalar Foam::PengRobinsonGas<Specie>::Cp(scalar p, scalar T) const
 
 
 template<class Specie>
-inline Foam::scalar Foam::PengRobinsonGas<Specie>::E(scalar p, scalar T) const
+inline Foam::scalar Foam::PengRobinsonGas<Specie>::e(scalar p, scalar T) const
 {
     const scalar Pr = p/Pc_;
     const scalar Tr = T/Tc_;
@@ -203,7 +187,7 @@ inline Foam::scalar Foam::PengRobinsonGas<Specie>::Cv(scalar p, scalar T) const
 
 
 template<class Specie>
-inline Foam::scalar Foam::PengRobinsonGas<Specie>::S
+inline Foam::scalar Foam::PengRobinsonGas<Specie>::sp
 (
     scalar p,
     scalar T
@@ -226,6 +210,18 @@ inline Foam::scalar Foam::PengRobinsonGas<Specie>::S
                *log((Z + 2.414*B)/(Z - 0.414*B))
             )
         );
+}
+
+
+template<class Specie>
+inline Foam::scalar Foam::PengRobinsonGas<Specie>::sv
+(
+    scalar p,
+    scalar T
+) const
+{
+    NotImplemented;
+    return 0;
 }
 
 
@@ -327,6 +323,18 @@ inline Foam::scalar Foam::PengRobinsonGas<Specie>::CpMCv
     const scalar N = ap*B/(b*RR);
 
     return this->R()*sqr(M - N)/(sqr(M) - 2*A*(Z + B));
+}
+
+
+template<class Specie>
+inline Foam::scalar Foam::PengRobinsonGas<Specie>::alphav
+(
+    scalar p,
+    scalar T
+) const
+{
+    NotImplemented;
+    return 0;
 }
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -29,11 +29,10 @@ Description
 
 \*---------------------------------------------------------------------------*/
 
-#include "PatchTools.H"
 #include "argList.H"
+#include "timeSelector.H"
 #include "fvMesh.H"
-#include "volFields.H"
-#include "Time.H"
+#include "PatchTools.H"
 #include "OBJstream.H"
 
 using namespace Foam;
@@ -57,7 +56,7 @@ using namespace Foam;
 //    const globalMeshData& globalData = mesh.globalData();
 //    const indirectPrimitivePatch& coupledPatch = globalData.coupledPatch();
 //    const Map<label>& coupledPatchMP = coupledPatch.meshPointMap();
-//    const mapDistribute& map = globalData.globalPointSlavesMap();
+//    const distributionMap& map = globalData.globalPointSlavesMap();
 //    const globalIndexAndTransform& transforms =
 //        globalData.globalTransforms();
 //
@@ -173,7 +172,7 @@ using namespace Foam;
 //        transforms,
 //        coupledPointNormals.size(),
 //        coupledPointNormals,
-//        mapDistribute::transform()
+//        distributionMap::transform()
 //    );
 //
 //
@@ -200,15 +199,16 @@ using namespace Foam;
 
 int main(int argc, char *argv[])
 {
-    #include "addTimeOptions.H"
+    timeSelector::addOptions();
     argList::validArgs.append("patch");
     #include "setRootCase.H"
     #include "createTime.H"
+    timeSelector::select0(runTime, args);
 
     #include "createMesh.H"
 
     const word patchName = args[1];
-    label patchi = mesh.boundaryMesh().findPatchID(patchName);
+    label patchi = mesh.boundaryMesh().findIndex(patchName);
     const polyPatch& pp = mesh.boundaryMesh()[patchi];
 
     const indirectPrimitivePatch& cpp = mesh.globalData().coupledPatch();
@@ -261,7 +261,7 @@ int main(int argc, char *argv[])
 //            (
 //                mesh,
 //                pp,
-//                identity(pp.size())+pp.start()
+//                identityMap(pp.size())+pp.start()
 //            )
 //        );
 //        forAll(pn, pointi)
@@ -278,7 +278,7 @@ int main(int argc, char *argv[])
 //            (
 //                mesh,
 //                pp,
-//                identity(pp.size())+pp.start()
+//                identityMap(pp.size())+pp.start()
 //            )
 //        );
 //        forAll(pn, pointi)

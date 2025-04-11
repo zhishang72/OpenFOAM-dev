@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,6 +24,7 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "SymmTensor.H"
+#include "DiagTensor.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
@@ -76,6 +77,15 @@ inline Foam::Tensor<Cmpt>::Tensor(const SymmTensor<Cmpt>& st)
     this->v_[XX] = st.xx(); this->v_[XY] = st.xy(); this->v_[XZ] = st.xz();
     this->v_[YX] = st.xy(); this->v_[YY] = st.yy(); this->v_[YZ] = st.yz();
     this->v_[ZX] = st.xz(); this->v_[ZY] = st.yz(); this->v_[ZZ] = st.zz();
+}
+
+
+template<class Cmpt>
+inline Foam::Tensor<Cmpt>::Tensor(const DiagTensor<Cmpt>& st)
+{
+    this->v_[XX] = st.xx(); this->v_[XY] = 0; this->v_[XZ] = 0;
+    this->v_[YX] = 0; this->v_[YY] = st.yy(); this->v_[YZ] = 0;
+    this->v_[ZX] = 0; this->v_[ZY] = 0; this->v_[ZZ] = st.zz();
 }
 
 
@@ -368,9 +378,18 @@ inline void Foam::Tensor<Cmpt>::operator=
 template<class Cmpt>
 inline void Foam::Tensor<Cmpt>::operator=(const SphericalTensor<Cmpt>& st)
 {
-    this->v_[XX] = st.ii(); this->v_[XY] = 0; this->v_[XZ] = 0;
-    this->v_[YX] = 0; this->v_[YY] = st.ii(); this->v_[YZ] = 0;
-    this->v_[ZX] = 0; this->v_[ZY] = 0; this->v_[ZZ] = st.ii();
+    this->v_[XX] = st.ii(); this->v_[XY] = 0;       this->v_[XZ] = 0;
+    this->v_[YX] = 0;       this->v_[YY] = st.ii(); this->v_[YZ] = 0;
+    this->v_[ZX] = 0;       this->v_[ZY] = 0;       this->v_[ZZ] = st.ii();
+}
+
+
+template<class Cmpt>
+inline void Foam::Tensor<Cmpt>::operator=(const DiagTensor<Cmpt>& dt)
+{
+    this->v_[XX] = dt.xx(); this->v_[XY] = 0;       this->v_[XZ] = 0;
+    this->v_[YX] = 0;       this->v_[YY] = dt.yy(); this->v_[YZ] = 0;
+    this->v_[ZX] = 0;       this->v_[ZY] = 0;       this->v_[ZZ] = dt.zz();
 }
 
 

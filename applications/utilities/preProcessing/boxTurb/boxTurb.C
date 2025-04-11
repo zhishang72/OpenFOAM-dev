@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -30,14 +30,15 @@ Description
 
 \*---------------------------------------------------------------------------*/
 
-#include "fvCFD.H"
-#include "graph.H"
+#include "argList.H"
+#include "volFields.H"
 #include "OFstream.H"
 #include "Kmesh.H"
 #include "turbGen.H"
-#include "calcEk.H"
+#include "writeEk.H"
 #include "writeFile.H"
 
+using namespace Foam;
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -47,7 +48,7 @@ int main(int argc, char *argv[])
     #include "setRootCase.H"
 
     #include "createTime.H"
-    #include "createMesh.H"
+    #include "createMeshNoChangers.H"
     #include "createFields.H"
     #include "readBoxTurbDict.H"
 
@@ -62,21 +63,13 @@ int main(int argc, char *argv[])
     U.correctBoundaryConditions();
 
     Info<< "k("
-         << runTime.timeName()
+         << runTime.name()
          << ") = "
          << 3.0/2.0*average(magSqr(U)).value() << endl;
 
     U.write();
 
-    calcEk(U, K).write
-    (
-        runTime.path()
-       /functionObjects::writeFile::outputPrefix
-       /"graphs"
-       /runTime.timeName(),
-        "Ek",
-        runTime.graphFormat()
-    );
+    writeEk(U, K);
 
     Info<< "end" << endl;
 

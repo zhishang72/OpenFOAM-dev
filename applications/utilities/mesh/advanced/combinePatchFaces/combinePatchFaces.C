@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -49,14 +49,10 @@ Description
 #include "argList.H"
 #include "Time.H"
 #include "polyTopoChange.H"
-#include "polyModifyFace.H"
-#include "polyAddFace.H"
 #include "combineFaces.H"
 #include "removePoints.H"
-#include "polyMesh.H"
-#include "mapPolyMesh.H"
-#include "unitConversion.H"
-#include "motionSmoother.H"
+#include "meshCheck.H"
+#include "polyTopoChangeMap.H"
 
 using namespace Foam;
 
@@ -96,7 +92,7 @@ label mergePatchFaces
             );
         }
 
-        autoPtr<mapPolyMesh> map;
+        autoPtr<polyTopoChangeMap> map;
         {
             // Topology changes container
             polyTopoChange meshMod(mesh);
@@ -104,22 +100,11 @@ label mergePatchFaces
             // Merge all faces of a set into the first face of the set.
             faceCombiner.setRefinement(allFaceSets, meshMod);
 
-            // Change the mesh (no inflation)
-            map = meshMod.changeMesh(mesh, false, true);
+            // Change the mesh
+            map = meshMod.changeMesh(mesh, true);
 
             // Update fields
-            mesh.updateMesh(map);
-
-            // Move mesh (since morphing does not do this)
-            if (map().hasMotionPoints())
-            {
-                mesh.movePoints(map().preMotionPoints());
-            }
-            else
-            {
-                // Delete mesh volumes. No other way to do this?
-                mesh.clearOut();
-            }
+            mesh.topoChange(map);
         }
 
 
@@ -131,11 +116,11 @@ label mergePatchFaces
 
         if (qualDictPtr.valid())
         {
-            motionSmoother::checkMesh(false, mesh, qualDictPtr(), errorFaces);
+            meshCheck::checkMesh(false, mesh, qualDictPtr(), errorFaces);
         }
         else
         {
-            mesh.checkFacePyramids(false, -small, &errorFaces);
+            meshCheck::checkFacePyramids(mesh, false, -small, &errorFaces);
         }
 
         // Sets where the master is in error
@@ -205,35 +190,21 @@ label mergePatchFaces
                 // Restore. Get face properties.
 
                 label own = mesh.faceOwner()[newMasterI];
-                label zoneID = mesh.faceZones().whichZone(newMasterI);
-                bool zoneFlip = false;
-                if (zoneID >= 0)
-                {
-                    const faceZone& fZone = mesh.faceZones()[zoneID];
-                    zoneFlip = fZone.flipMap()[fZone.whichFace(newMasterI)];
-                }
                 label patchID = mesh.boundaryMesh().whichPatch(newMasterI);
 
                 Pout<< "Restoring new master face " << newMasterI
                     << " to vertices " << setFaceVerts[0] << endl;
 
                 // Modify the master face.
-                meshMod.setAction
+                meshMod.modifyFace
                 (
-                    polyModifyFace
-                    (
-                        setFaceVerts[0],                // original face
-                        newMasterI,                     // label of face
-                        own,                            // owner
-                        -1,                             // neighbour
-                        false,                          // face flip
-                        patchID,                        // patch for face
-                        false,                          // remove from zone
-                        zoneID,                         // zone for face
-                        zoneFlip                        // face flip in zone
-                    )
+                    setFaceVerts[0],                // original face
+                    newMasterI,                     // label of face
+                    own,                            // owner
+                    -1,                             // neighbour
+                    false,                          // face flip
+                    patchID                         // patch for face
                 );
-
 
                 // Add the previously removed faces
                 for (label i = 1; i < setFaces.size(); i++)
@@ -241,41 +212,23 @@ label mergePatchFaces
                     Pout<< "Restoring removed face " << setFaces[i]
                         << " with vertices " << setFaceVerts[i] << endl;
 
-                    meshMod.setAction
+                    meshMod.addFace
                     (
-                        polyAddFace
-                        (
-                            setFaceVerts[i],        // vertices
-                            own,                    // owner,
-                            -1,                     // neighbour,
-                            -1,                     // masterPointID,
-                            -1,                     // masterEdgeID,
-                            newMasterI,             // masterFaceID,
-                            false,                  // flipFaceFlux,
-                            patchID,                // patchID,
-                            zoneID,                 // zoneID,
-                            zoneFlip                // zoneFlip
-                        )
+                        setFaceVerts[i],        // vertices
+                        own,                    // owner,
+                        -1,                     // neighbour,
+                        newMasterI,             // masterFaceID,
+                        false,                  // flipFaceFlux,
+                        patchID                 // patchID,
                     );
                 }
             }
 
-            // Change the mesh (no inflation)
-            map = meshMod.changeMesh(mesh, false, true);
+            // Change the mesh
+            map = meshMod.changeMesh(mesh, true);
 
             // Update fields
-            mesh.updateMesh(map);
-
-            // Move mesh (since morphing does not do this)
-            if (map().hasMotionPoints())
-            {
-                mesh.movePoints(map().preMotionPoints());
-            }
-            else
-            {
-                // Delete mesh volumes. No other way to do this?
-                mesh.clearOut();
-            }
+            mesh.topoChange(map);
         }
     }
     else
@@ -313,22 +266,11 @@ label mergeEdges(const scalar minCos, polyMesh& mesh)
 
         pointRemover.setRefinement(pointCanBeDeleted, meshMod);
 
-        // Change the mesh (no inflation)
-        autoPtr<mapPolyMesh> map = meshMod.changeMesh(mesh, false, true);
+        // Change the mesh
+        autoPtr<polyTopoChangeMap> map = meshMod.changeMesh(mesh);
 
         // Update fields
-        mesh.updateMesh(map);
-
-        // Move mesh (since morphing does not do this)
-        if (map().hasMotionPoints())
-        {
-            mesh.movePoints(map().preMotionPoints());
-        }
-        else
-        {
-            // Delete mesh volumes. No other way to do this?
-            mesh.clearOut();
-        }
+        mesh.topoChange(map);
     }
     else
     {
@@ -358,29 +300,29 @@ int main(int argc, char *argv[])
     );
 
     #include "setRootCase.H"
-    #include "createTime.H"
-    runTime.functionObjects().off();
+    #include "createTimeNoFunctionObjects.H"
     #include "createPolyMesh.H"
     const word oldInstance = mesh.pointsInstance();
 
-    const scalar featureAngle = args.argRead<scalar>(1);
-    const scalar minCos = Foam::cos(degToRad(featureAngle));
+    const scalar featureAngle = degToRad(args.argRead<scalar>(1));
+    const scalar minCos = Foam::cos(featureAngle);
 
     // Sin of angle between two consecutive edges on a face.
     // If sin(angle) larger than this the face will be considered concave.
-    scalar concaveAngle = args.optionLookupOrDefault("concaveAngle", 30.0);
-    scalar concaveSin = Foam::sin(degToRad(concaveAngle));
+    const scalar concaveAngle =
+        degToRad(args.optionLookupOrDefault("concaveAngle", 30.0));
+    const scalar concaveSin = Foam::sin(concaveAngle);
 
     const bool overwrite = args.optionFound("overwrite");
     const bool meshQuality = args.optionFound("meshQuality");
 
     Info<< "Merging all faces of a cell" << nl
         << "    - which are on the same patch" << nl
-        << "    - which make an angle < " << featureAngle << " degrees"
-        << nl
+        << "    - which make an angle < " << radToDeg(featureAngle)
+        << " degrees" << nl
         << "      (cos:" << minCos << ')' << nl
         << "    - even when resulting face becomes concave by more than "
-        << concaveAngle << " degrees" << nl
+        << radToDeg(concaveAngle) << " degrees" << nl
         << "      (sin:" << concaveSin << ')' << nl
         << endl;
 
@@ -444,7 +386,7 @@ int main(int argc, char *argv[])
             mesh.setInstance(oldInstance);
         }
 
-        Info<< "Writing morphed mesh to time " << runTime.timeName() << endl;
+        Info<< "Writing morphed mesh to time " << runTime.name() << endl;
 
         mesh.write();
     }

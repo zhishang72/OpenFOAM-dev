@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -37,7 +37,7 @@ SourceFiles
 #ifndef GAMGAgglomeration_H
 #define GAMGAgglomeration_H
 
-#include "MeshObject.H"
+#include "DemandDrivenMeshObject.H"
 #include "lduPrimitiveMesh.H"
 #include "lduInterfacePtrsList.H"
 #include "primitiveFields.H"
@@ -52,16 +52,21 @@ namespace Foam
 
 class lduMesh;
 class lduMatrix;
-class mapDistribute;
+class distributionMap;
 class GAMGProcAgglomeration;
 
 /*---------------------------------------------------------------------------*\
-                    Class GAMGAgglomeration Declaration
+                      Class GAMGAgglomeration Declaration
 \*---------------------------------------------------------------------------*/
 
 class GAMGAgglomeration
 :
-    public MeshObject<lduMesh, GeometricMeshObject, GAMGAgglomeration>
+    public DemandDrivenMeshObject
+    <
+        lduMesh,
+        DeletableMeshObject,
+        GAMGAgglomeration
+    >
 {
 protected:
 
@@ -122,7 +127,7 @@ protected:
 
             //- Per level the set of processors to agglomerate. Element 0 is
             //  the 'master' of the cluster.
-            mutable PtrList<labelList> agglomProcIDs_;
+            mutable PtrList<labelList> agglomProcIndices_;
 
             //- Communicator for given level
             mutable labelList procCommunicator_;
@@ -418,7 +423,7 @@ public:
             ) const;
 
 
-        // Procesor agglomeration. Note that the mesh and agglomeration is
+        // Processor agglomeration. Note that the mesh and agglomeration is
         // stored per fineLevel (even though it is the coarse level mesh that
         // has been agglomerated). This is just for convenience and consistency
         // with GAMGSolver notation.

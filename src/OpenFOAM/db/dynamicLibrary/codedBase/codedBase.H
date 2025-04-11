@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -35,7 +35,7 @@ SourceFiles
 #ifndef codedBase_H
 #define codedBase_H
 
-#include "dictionary.H"
+#include "dynamicCodeContext.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -44,24 +44,31 @@ namespace Foam
 
 // Forward declaration of classes
 class dynamicCode;
-class dynamicCodeContext;
-class dlLibraryTable;
 
 /*---------------------------------------------------------------------------*\
-                       Class codedBase Declaration
+                          Class codedBase Declaration
 \*---------------------------------------------------------------------------*/
 
 class codedBase
 {
-    // Private Data
+    // Private Member Data
+
+        //- Name of the dynamically generated CodedType
+        const word codeName_;
+
+        dynamicCodeContext codeContext_;
 
         //- Previously loaded library
         mutable fileName oldLibPath_;
+
 
     // Private Member Functions
 
         //- Global loader/unloader function type
         typedef void (*loaderFunctionType)(bool);
+
+        //- Create a code name from the given function name
+        static word codeName(const word& name);
 
         //- Load specified library and execute globalFuncName(true)
         void* loadLibrary
@@ -79,51 +86,79 @@ class codedBase
             const dictionary& contextDict
         ) const;
 
+        verbatimString expandCodeString
+        (
+            const word& codeKey,
+            const word& codeDictVar,
+            const dictionary& dict
+        ) const;
+
         //- Create library based on the dynamicCodeContext
-        void createLibrary(dynamicCode&, const dynamicCodeContext&) const;
-
-
-protected:
-
-        //- Update library as required
-        void updateLibrary(const word& name) const;
-
-        //- Get the loaded dynamic libraries
-        virtual dlLibraryTable& libs() const = 0;
+        void createLibrary
+        (
+            const dictionary& dict,
+            dynamicCode&,
+            const dynamicCodeContext&
+        ) const;
 
         //- Adapt the context for the current object
         virtual void prepare(dynamicCode&, const dynamicCodeContext&) const = 0;
-
-        //- Return a description (type + name) for the output
-        virtual string description() const = 0;
-
-        //- Clear any redirected objects
-        virtual void clearRedirect() const = 0;
-
-        //- Get the dictionary to initialize the codeContext
-        virtual const dictionary& codeDict() const = 0;
-
-        //- Get the keywords associated with source code
-        virtual const wordList& codeKeys() const = 0;
 
 
 public:
 
     //- Runtime type information
-    ClassName("codedBase");
+    TypeName("codedBase");
 
 
     // Constructors
 
-        //- Construct null
-        codedBase();
+        //- Construct from name and dictionary
+        codedBase
+        (
+            const word& name,
+            const dictionary& dict,
+            const wordList& codeKeys,
+            const wordList& codeDictVars
+        );
 
-        //- Disallow default bitwise copy construction
-        codedBase(const codedBase&) = delete;
+        //- Construct from dictionary
+        codedBase
+        (
+            const dictionary& dict,
+            const wordList& codeKeys,
+            const wordList& codeDictVars
+        );
+
+        //- Copy constructor
+        codedBase(const codedBase& cb);
 
 
     //- Destructor
     virtual ~codedBase();
+
+
+    // Member Functions
+
+        //- Name of the dynamically generated CodedType
+        const word& codeName() const;
+
+        //- Return a description (type + name) for the output
+        string description() const;
+
+        word codeTemplateC(const word& baseTypeName) const;
+
+        word codeTemplateH(const word& baseTypeName) const;
+
+        //- Update library from given updated dictionary as required
+        //  Returns true if the library was updated, otherwise false
+        bool updateLibrary(const dictionary& dict) const;
+
+        //- Read the dictionary and update the code
+        void read(const dictionary& dict);
+
+        //- Write the code for restart
+        void write(Ostream& os) const;
 
 
     // Member Operators

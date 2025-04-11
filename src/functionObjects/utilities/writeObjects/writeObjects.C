@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -75,7 +75,7 @@ void Foam::functionObjects::writeObjects::writeObject
     {
         case writeOption::AUTO_WRITE:
         {
-            if(obj.writeOpt() != IOobject::AUTO_WRITE)
+            if (obj.writeOpt() != IOobject::AUTO_WRITE)
             {
                 return;
             }
@@ -84,7 +84,7 @@ void Foam::functionObjects::writeObjects::writeObject
         }
         case writeOption::NO_WRITE:
         {
-            if(obj.writeOpt() != IOobject::NO_WRITE)
+            if (obj.writeOpt() != IOobject::NO_WRITE)
             {
                 return;
             }
@@ -108,14 +108,26 @@ void Foam::functionObjects::writeObjects::writeObject
     if
     (
         obj.writeOpt() == IOobject::AUTO_WRITE
-     && writeObr_.time().writeTime()
+     && time_.writeTime()
     )
     {
         Log << "    automatically written object " << obj.name() << endl;
     }
     else
     {
-        writeObjectsBase::writeObject(obj);
+        if (obj.db().cacheTemporaryObject(obj.name()))
+        {
+            // If the object is a temporary field expression wrap with tmp<...>
+            const word name(obj.name());
+            regIOobject& objRef = const_cast<regIOobject&>(obj);
+            objRef.IOobject::rename("tmp<" + name + ">");
+            writeObjectsBase::writeObject(obj);
+            objRef.IOobject::rename(name);
+        }
+        else
+        {
+            writeObjectsBase::writeObject(obj);
+        }
     }
 }
 
@@ -129,7 +141,7 @@ Foam::functionObjects::writeObjects::writeObjects
     const dictionary& dict
 )
 :
-    functionObject(name),
+    functionObject(name, runTime),
     writeObjectsBase
     (
         runTime.lookupObject<objectRegistry>
@@ -177,6 +189,8 @@ bool Foam::functionObjects::writeObjects::read(const dictionary& dict)
         writeOption_ = writeOption::ANY_WRITE;
     }
 
+    executeAtStart_ = dict.lookupOrDefault<Switch>("executeAtStart", false);
+
     return functionObject::read(dict);
 }
 
@@ -189,7 +203,7 @@ bool Foam::functionObjects::writeObjects::execute()
 
 bool Foam::functionObjects::writeObjects::write()
 {
-    Info<< type() << " " << name() << " write:" << nl;
+    Log << type() << " " << name() << " write:" << nl;
 
     writeObjectsBase::write();
 

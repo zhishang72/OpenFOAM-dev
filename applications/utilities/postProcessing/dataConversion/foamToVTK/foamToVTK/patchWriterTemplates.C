@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,41 +24,41 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "patchWriter.H"
-#include "writeFuns.H"
+#include "vtkWriteFieldOps.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 template<class Type>
 void Foam::patchWriter::write
 (
-    const UPtrList<const GeometricField<Type, fvPatchField, volMesh>>& flds
+    const UPtrList<const VolField<Type>>& flds
 )
 {
     forAll(flds, fieldi)
     {
-        const GeometricField<Type, fvPatchField, volMesh>& fld = flds[fieldi];
+        const VolField<Type>& fld = flds[fieldi];
 
         os_ << fld.name() << ' ' << pTraits<Type>::nComponents << ' '
             << nFaces_ << " float" << std::endl;
 
         DynamicList<floatScalar> fField(pTraits<Type>::nComponents*nFaces_);
 
-        forAll(patchIDs_, j)
+        forAll(patchIndices_, j)
         {
-            label patchi = patchIDs_[j];
+            label patchi = patchIndices_[j];
 
             const fvPatchField<Type>& pfld = fld.boundaryField()[patchi];
 
             if (nearCellValue_)
             {
-                writeFuns::insert(pfld.patchInternalField()(), fField);
+                vtkWriteOps::insert(pfld.patchInternalField()(), fField);
             }
             else
             {
-                writeFuns::insert(pfld, fField);
+                vtkWriteOps::insert(pfld, fField);
             }
         }
-        writeFuns::write(os_, binary_, fField);
+        vtkWriteOps::write(os_, binary_, fField);
     }
 }
 
@@ -66,12 +66,12 @@ void Foam::patchWriter::write
 template<class Type>
 void Foam::patchWriter::write
 (
-    const UPtrList<const GeometricField<Type, pointPatchField, pointMesh>>& flds
+    const UPtrList<const PointField<Type>>& flds
 )
 {
     forAll(flds, fieldi)
     {
-        const GeometricField<Type, pointPatchField, pointMesh>& fld =
+        const PointField<Type>& fld =
             flds[fieldi];
 
         os_ << fld.name() << ' ' << pTraits<Type>::nComponents << ' '
@@ -79,15 +79,15 @@ void Foam::patchWriter::write
 
         DynamicList<floatScalar> fField(pTraits<Type>::nComponents*nPoints_);
 
-        forAll(patchIDs_, j)
+        forAll(patchIndices_, j)
         {
-            label patchi = patchIDs_[j];
+            label patchi = patchIndices_[j];
 
             const pointPatchField<Type>& pfld = fld.boundaryField()[patchi];
 
-            writeFuns::insert(pfld.patchInternalField()(), fField);
+            vtkWriteOps::insert(pfld.patchInternalField()(), fField);
         }
-        writeFuns::write(os_, binary_, fField);
+        vtkWriteOps::write(os_, binary_, fField);
     }
 }
 
@@ -96,27 +96,27 @@ template<class Type>
 void Foam::patchWriter::write
 (
     const PrimitivePatchInterpolation<primitivePatch>& pInter,
-    const UPtrList<const GeometricField<Type, fvPatchField, volMesh>>& flds
+    const UPtrList<const VolField<Type>>& flds
 )
 {
     forAll(flds, fieldi)
     {
-        const GeometricField<Type, fvPatchField, volMesh>& fld = flds[fieldi];
+        const VolField<Type>& fld = flds[fieldi];
 
         os_ << fld.name() << ' ' << pTraits<Type>::nComponents << ' '
             << nPoints_ << " float" << std::endl;
 
         DynamicList<floatScalar> fField(pTraits<Type>::nComponents*nPoints_);
 
-        forAll(patchIDs_, j)
+        forAll(patchIndices_, j)
         {
-            label patchi = patchIDs_[j];
+            label patchi = patchIndices_[j];
 
             const fvPatchField<Type>& pfld = fld.boundaryField()[patchi];
 
             if (nearCellValue_)
             {
-                writeFuns::insert
+                vtkWriteOps::insert
                 (
                     pInter.faceToPointInterpolate
                     (
@@ -127,14 +127,14 @@ void Foam::patchWriter::write
             }
             else
             {
-                writeFuns::insert
+                vtkWriteOps::insert
                 (
                     pInter.faceToPointInterpolate(pfld)(),
                     fField
                 );
             }
         }
-        writeFuns::write(os_, binary_, fField);
+        vtkWriteOps::write(os_, binary_, fField);
     }
 }
 

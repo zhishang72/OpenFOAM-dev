@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2019-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -37,7 +37,7 @@ SourceFiles
 #define liquid_H
 
 #include "liquidProperties.H"
-#include "thermophysicalFunction.H"
+#include "Function1.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -54,19 +54,32 @@ class liquid
 {
     // Private Data
 
-        autoPtr<thermophysicalFunction> rho_;
-        autoPtr<thermophysicalFunction> pv_;
-        autoPtr<thermophysicalFunction> hl_;
-        autoPtr<thermophysicalFunction> Cp_;
-        autoPtr<thermophysicalFunction> h_;
-        autoPtr<thermophysicalFunction> Cpg_;
-        autoPtr<thermophysicalFunction> B_;
-        autoPtr<thermophysicalFunction> mu_;
-        autoPtr<thermophysicalFunction> mug_;
-        autoPtr<thermophysicalFunction> kappa_;
-        autoPtr<thermophysicalFunction> kappag_;
-        autoPtr<thermophysicalFunction> sigma_;
-        autoPtr<thermophysicalFunction> D_;
+        autoPtr<Function1<scalar>> rho_;
+        autoPtr<Function1<scalar>> pv_;
+        autoPtr<Function1<scalar>> hl_;
+        autoPtr<Function1<scalar>> Cp_;
+        autoPtr<Function1<scalar>> h_;
+        autoPtr<Function1<scalar>> Cpg_;
+        autoPtr<Function1<scalar>> B_;
+        autoPtr<Function1<scalar>> mu_;
+        autoPtr<Function1<scalar>> mug_;
+        autoPtr<Function1<scalar>> kappa_;
+        autoPtr<Function1<scalar>> kappag_;
+        autoPtr<Function1<scalar>> sigma_;
+        autoPtr<Function1<scalar>> D_;
+
+        //- Liquid heat of formation [J/kg]
+        scalar hf_;
+
+
+    // Private Member Functions
+
+        autoPtr<Function1<scalar>> New
+        (
+            const word& name,
+            const dimensionSet& dims,
+            const dictionary& dict
+        );
 
 
 public:
@@ -81,6 +94,9 @@ public:
 
         //- Construct from dictionary
         liquid(const dictionary& dict);
+
+        //- Copy constructor
+        liquid(const liquid& lm);
 
         //- Construct and return clone
         virtual autoPtr<liquidProperties> clone() const
@@ -103,8 +119,14 @@ public:
         //- Liquid heat capacity [J/kg/K]
         inline scalar Cp(scalar p, scalar T) const;
 
-        //- Liquid enthalpy [J/kg]
-        inline scalar h(scalar p, scalar T) const;
+        //- Liquid sensible enthalpy [J/kg]
+        inline scalar hs(scalar p, scalar T) const;
+
+        //- Liquid heat of formation [J/kg]
+        inline scalar hf() const;
+
+        //- Liquid absolute enthalpy [J/kg]
+        inline scalar ha(scalar p, scalar T) const;
 
         //- Ideal gas heat capacity [J/kg/K]
         inline scalar Cpg(scalar p, scalar T) const;

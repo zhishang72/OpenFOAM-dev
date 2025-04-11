@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,9 @@ Application
     topoSet
 
 Description
-    Operates on cellSets/faceSets/pointSets through a dictionary.
+    Executes the sequence of topoSet actions specified in the topoSetDict.
+
+Usage
 
 \*---------------------------------------------------------------------------*/
 
@@ -39,7 +41,7 @@ Description
 #include "cellZoneSet.H"
 #include "faceZoneSet.H"
 #include "pointZoneSet.H"
-#include "IOdictionary.H"
+#include "systemDict.H"
 
 using namespace Foam;
 
@@ -47,7 +49,7 @@ using namespace Foam;
 
 void printMesh(const Time& runTime, const polyMesh& mesh)
 {
-    Info<< "Time:" << runTime.timeName()
+    Info<< "Time:" << runTime.name()
         << "  cells:" << mesh.globalData().nTotalCells()
         << "  faces:" << mesh.globalData().nTotalFaces()
         << "  points:" << mesh.globalData().nTotalPoints()
@@ -56,14 +58,10 @@ void printMesh(const Time& runTime, const polyMesh& mesh)
 }
 
 
-template<class ZoneType>
-void removeZone
-(
-    ZoneMesh<ZoneType, polyMesh>& zones,
-    const word& setName
-)
+template<class ZonesType>
+void removeZone(ZonesType& zones, const word& setName)
 {
-    label zoneID = zones.findZoneID(setName);
+    label zoneID = zones.findIndex(setName);
 
     if (zoneID != -1)
     {
@@ -114,7 +112,7 @@ void removeSet
     if (objects.found(setName))
     {
         // Remove file
-        fileName object = objects[setName]->objectPath();
+        const fileName object = objects[setName]->objectPath(false);
         Info<< "Removing file " << object << endl;
         rm(object);
     }
@@ -124,7 +122,7 @@ void removeSet
     {
         removeZone
         (
-            const_cast<cellZoneMesh&>(mesh.cellZones()),
+            const_cast<cellZoneList&>(mesh.cellZones()),
             setName
         );
     }
@@ -132,7 +130,7 @@ void removeSet
     {
         removeZone
         (
-            const_cast<faceZoneMesh&>(mesh.faceZones()),
+            const_cast<faceZoneList&>(mesh.faceZones()),
             setName
         );
     }
@@ -140,7 +138,7 @@ void removeSet
     {
         removeZone
         (
-            const_cast<pointZoneMesh&>(mesh.pointZones()),
+            const_cast<pointZoneList&>(mesh.pointZones()),
             setName
         );
     }
@@ -195,6 +193,7 @@ int main(int argc, char *argv[])
 {
     timeSelector::addOptions(true, false);
     #include "addDictOption.H"
+    #include "addMeshOption.H"
     #include "addRegionOption.H"
     argList::addBoolOption
     (
@@ -205,26 +204,21 @@ int main(int argc, char *argv[])
     #include "setRootCase.H"
     #include "createTime.H"
 
-    instantList timeDirs = timeSelector::selectIfPresent(runTime, args);
+    const instantList timeDirs = timeSelector::selectIfPresent(runTime, args);
 
-    #include "createNamedPolyMesh.H"
+    #include "createSpecifiedPolyMesh.H"
 
     const bool noSync = args.optionFound("noSync");
 
-    const word dictName("topoSetDict");
-    #include "setSystemMeshDictionaryIO.H"
-
-    Info<< "Reading " << dictName << "\n" << endl;
-
-    IOdictionary topoSetDict(dictIO);
+    const dictionary topoSetDict(systemDict("topoSetDict", args, mesh));
 
     // Read set construct info from dictionary
     PtrList<dictionary> actions(topoSetDict.lookup("actions"));
 
-    forAll(timeDirs, timeI)
+    forAll(timeDirs, timei)
     {
-        runTime.setTime(timeDirs[timeI], timeI);
-        Info<< "Time = " << runTime.timeName() << endl;
+        runTime.setTime(timeDirs[timei], timei);
+        Info<< "Time = " << runTime.userTimeName() << endl;
 
         // Optionally re-read mesh
         meshReadUpdate(mesh);
@@ -237,7 +231,6 @@ int main(int argc, char *argv[])
             const word setName(dict.lookup("name"));
             const word actionName(dict.lookup("action"));
             const word setType(dict.lookup("type"));
-
 
             topoSetSource::setAction action = topoSetSource::toAction
             (
@@ -275,7 +268,6 @@ int main(int argc, char *argv[])
             }
 
 
-
             // Handle special actions (clear, invert) locally, rest through
             // sources.
             switch (action)
@@ -290,11 +282,11 @@ int main(int argc, char *argv[])
                     (
                         dict.lookup("source"),
                         mesh,
-                        dict.subDict("sourceInfo")
+                        dict.optionalSubDict("sourceInfo")
                     );
 
                     source().applyToSet(action, currentSet());
-                    // Synchronize for coupled patches.
+                    // Synchronise for coupled patches.
                     if (!noSync) currentSet().sync(mesh);
                     currentSet().write();
                     fileHandler().flush();
@@ -309,7 +301,7 @@ int main(int argc, char *argv[])
                     (
                         dict.lookup("source"),
                         mesh,
-                        dict.subDict("sourceInfo")
+                        dict.optionalSubDict("sourceInfo")
                     );
 
                     // Backup current set.
@@ -329,7 +321,7 @@ int main(int argc, char *argv[])
 
                     // Combine new value of currentSet with old one.
                     currentSet().subset(oldSet());
-                    // Synchronize for coupled patches.
+                    // Synchronise for coupled patches.
                     if (!noSync) currentSet().sync(mesh);
                     currentSet().write();
                     fileHandler().flush();

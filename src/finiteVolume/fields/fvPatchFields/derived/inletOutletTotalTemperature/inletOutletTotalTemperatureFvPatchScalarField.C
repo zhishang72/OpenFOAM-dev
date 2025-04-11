@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,47 +25,11 @@ License
 
 #include "inletOutletTotalTemperatureFvPatchScalarField.H"
 #include "addToRunTimeSelectionTable.H"
-#include "fvPatchFieldMapper.H"
+#include "fieldMapper.H"
 #include "volFields.H"
 #include "surfaceFields.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
-
-Foam::inletOutletTotalTemperatureFvPatchScalarField::
-inletOutletTotalTemperatureFvPatchScalarField
-(
-    const fvPatch& p,
-    const DimensionedField<scalar, volMesh>& iF
-)
-:
-    inletOutletFvPatchScalarField(p, iF),
-    UName_("U"),
-    psiName_("psi"),
-    gamma_(0.0),
-    T0_(p.size(), 0.0)
-{
-    this->refValue() = Zero;
-    this->refGrad() = Zero;
-    this->valueFraction() = 0.0;
-}
-
-
-Foam::inletOutletTotalTemperatureFvPatchScalarField::
-inletOutletTotalTemperatureFvPatchScalarField
-(
-    const inletOutletTotalTemperatureFvPatchScalarField& ptf,
-    const fvPatch& p,
-    const DimensionedField<scalar, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
-)
-:
-    inletOutletFvPatchScalarField(ptf, p, iF, mapper),
-    UName_(ptf.UName_),
-    psiName_(ptf.psiName_),
-    gamma_(ptf.gamma_),
-    T0_(mapper(ptf.T0_))
-{}
-
 
 Foam::inletOutletTotalTemperatureFvPatchScalarField::
 inletOutletTotalTemperatureFvPatchScalarField
@@ -77,9 +41,9 @@ inletOutletTotalTemperatureFvPatchScalarField
 :
     inletOutletFvPatchScalarField(p, iF),
     UName_(dict.lookupOrDefault<word>("U", "U")),
-    psiName_(dict.lookupOrDefault<word>("psi", "thermo:psi")),
-    gamma_(dict.lookup<scalar>("gamma")),
-    T0_("T0", dict, p.size())
+    psiName_(dict.lookupOrDefault<word>("psi", "psi")),
+    gamma_(dict.lookup<scalar>("gamma", dimless)),
+    T0_("T0", dimTemperature, dict, p.size())
 {
     this->phiName_ = dict.lookupOrDefault<word>("phi", "phi");
 
@@ -88,7 +52,7 @@ inletOutletTotalTemperatureFvPatchScalarField
     {
         fvPatchField<scalar>::operator=
         (
-            scalarField("value", dict, p.size())
+            scalarField("value", iF.dimensions(), dict, p.size())
         );
     }
     else
@@ -104,14 +68,17 @@ inletOutletTotalTemperatureFvPatchScalarField
 Foam::inletOutletTotalTemperatureFvPatchScalarField::
 inletOutletTotalTemperatureFvPatchScalarField
 (
-    const inletOutletTotalTemperatureFvPatchScalarField& tppsf
+    const inletOutletTotalTemperatureFvPatchScalarField& ptf,
+    const fvPatch& p,
+    const DimensionedField<scalar, volMesh>& iF,
+    const fieldMapper& mapper
 )
 :
-    inletOutletFvPatchScalarField(tppsf),
-    UName_(tppsf.UName_),
-    psiName_(tppsf.psiName_),
-    gamma_(tppsf.gamma_),
-    T0_(tppsf.T0_)
+    inletOutletFvPatchScalarField(ptf, p, iF, mapper),
+    UName_(ptf.UName_),
+    psiName_(ptf.psiName_),
+    gamma_(ptf.gamma_),
+    T0_(mapper(ptf.T0_))
 {}
 
 
@@ -132,28 +99,32 @@ inletOutletTotalTemperatureFvPatchScalarField
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-void Foam::inletOutletTotalTemperatureFvPatchScalarField::autoMap
-(
-    const fvPatchFieldMapper& m
-)
-{
-    inletOutletFvPatchScalarField::autoMap(m);
-    m(T0_, T0_);
-}
-
-
-void Foam::inletOutletTotalTemperatureFvPatchScalarField::rmap
+void Foam::inletOutletTotalTemperatureFvPatchScalarField::map
 (
     const fvPatchScalarField& ptf,
-    const labelList& addr
+    const fieldMapper& mapper
 )
 {
-    inletOutletFvPatchScalarField::rmap(ptf, addr);
+    inletOutletFvPatchScalarField::map(ptf, mapper);
 
     const inletOutletTotalTemperatureFvPatchScalarField& tiptf =
         refCast<const inletOutletTotalTemperatureFvPatchScalarField>(ptf);
 
-    T0_.rmap(tiptf.T0_, addr);
+    mapper(T0_, tiptf.T0_);
+}
+
+
+void Foam::inletOutletTotalTemperatureFvPatchScalarField::reset
+(
+    const fvPatchScalarField& ptf
+)
+{
+    inletOutletFvPatchScalarField::reset(ptf);
+
+    const inletOutletTotalTemperatureFvPatchScalarField& tiptf =
+        refCast<const inletOutletTotalTemperatureFvPatchScalarField>(ptf);
+
+    T0_.reset(tiptf.T0_);
 }
 
 
@@ -176,8 +147,8 @@ void Foam::inletOutletTotalTemperatureFvPatchScalarField::updateCoeffs()
     scalar gM1ByG = (gamma_ - 1.0)/gamma_;
 
     this->refValue() =
-        T0_/(1.0 + 0.5*psip*gM1ByG*(1.0 - pos0(phip))*magSqr(Up));
-    this->valueFraction() = 1.0 - pos0(phip);
+        T0_/(1.0 + 0.5*psip*gM1ByG*neg(phip)*magSqr(Up));
+    this->valueFraction() = neg(phip);
 
     inletOutletFvPatchScalarField::updateCoeffs();
 }

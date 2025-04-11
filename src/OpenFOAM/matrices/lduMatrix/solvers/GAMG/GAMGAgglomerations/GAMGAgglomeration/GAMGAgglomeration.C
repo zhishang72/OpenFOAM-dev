@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -61,7 +61,7 @@ void Foam::GAMGAgglomeration::compactLevels(const label nCreatedLevels)
     if (processorAgglomerate())
     {
         procAgglomMap_.setSize(nCreatedLevels);
-        agglomProcIDs_.setSize(nCreatedLevels);
+        agglomProcIndices_.setSize(nCreatedLevels);
         procCellOffsets_.setSize(nCreatedLevels);
         procFaceMap_.setSize(nCreatedLevels);
         procBoundaryMap_.setSize(nCreatedLevels);
@@ -231,7 +231,12 @@ Foam::GAMGAgglomeration::GAMGAgglomeration
     const dictionary& controlDict
 )
 :
-    MeshObject<lduMesh, Foam::GeometricMeshObject, GAMGAgglomeration>(mesh),
+    DemandDrivenMeshObject
+    <
+        lduMesh,
+        DeletableMeshObject,
+        GAMGAgglomeration
+    >(mesh),
 
     maxLevels_(50),
 
@@ -269,7 +274,7 @@ Foam::GAMGAgglomeration::GAMGAgglomeration
     if (processorAgglomerate())
     {
         procAgglomMap_.setSize(maxLevels_);
-        agglomProcIDs_.setSize(maxLevels_);
+        agglomProcIndices_.setSize(maxLevels_);
         procCellOffsets_.setSize(maxLevels_);
         procFaceMap_.setSize(maxLevels_);
         procBoundaryMap_.setSize(maxLevels_);
@@ -297,7 +302,7 @@ const Foam::GAMGAgglomeration& Foam::GAMGAgglomeration::New
             controlDict.lookupOrDefault<word>("agglomerator", "faceAreaPair")
         );
 
-        const_cast<Time&>(mesh.thisDb().time()).libs().open
+        libs.open
         (
             controlDict,
             "geometricGAMGAgglomerationLibs",
@@ -352,7 +357,7 @@ const Foam::GAMGAgglomeration& Foam::GAMGAgglomeration::New
             controlDict.lookupOrDefault<word>("agglomerator", "faceAreaPair")
         );
 
-        const_cast<Time&>(mesh.thisDb().time()).libs().open
+        libs.open
         (
             controlDict,
             "algebraicGAMGAgglomerationLibs",
@@ -398,7 +403,7 @@ Foam::autoPtr<Foam::GAMGAgglomeration> Foam::GAMGAgglomeration::New
         controlDict.lookupOrDefault<word>("agglomerator", "faceAreaPair")
     );
 
-    const_cast<Time&>(mesh.thisDb().time()).libs().open
+    libs.open
     (
         controlDict,
         "geometricGAMGAgglomerationLibs",
@@ -446,7 +451,7 @@ const Foam::lduMesh& Foam::GAMGAgglomeration::meshLevel
 {
     if (i == 0)
     {
-        return mesh_;
+        return mesh();
     }
     else
     {
@@ -518,7 +523,7 @@ const Foam::labelList& Foam::GAMGAgglomeration::agglomProcIDs
     const label leveli
 ) const
 {
-    return agglomProcIDs_[leveli];
+    return agglomProcIndices_[leveli];
 }
 
 
@@ -588,7 +593,7 @@ bool Foam::GAMGAgglomeration::checkRestriction
     }
 
     // Seed (master) for every region
-    labelList master(identity(fineAddressing.size()));
+    labelList master(identityMap(fineAddressing.size()));
 
     // Now loop and transport master through region
     const labelUList& lower = fineAddressing.lowerAddr();

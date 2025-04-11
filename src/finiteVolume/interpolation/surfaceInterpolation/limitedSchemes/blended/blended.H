@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ Class
     Foam::blended
 
 Description
-    linear/upwind blended differencing scheme.
+    linear/upwind blended interpolation scheme.
 
 SourceFiles
     blended.C
@@ -117,7 +117,7 @@ public:
         //- Return the face-based blending factor
         virtual tmp<surfaceScalarField> blendingFactor
         (
-             const GeometricField<Type, fvPatchField, volMesh>& vf
+             const VolField<Type>& vf
         ) const
         {
             return surfaceScalarField::New
@@ -131,7 +131,7 @@ public:
         //- Return the interpolation limiter
         virtual tmp<surfaceScalarField> limiter
         (
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         ) const
         {
             return surfaceScalarField::New
@@ -145,7 +145,7 @@ public:
         //- Return the interpolation weighting factors
         virtual tmp<surfaceScalarField> weights
         (
-            const GeometricField<Type, fvPatchField, volMesh>& vf
+            const VolField<Type>& vf
         ) const
         {
             return

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -31,37 +31,21 @@ template<class Type>
 Foam::uniformFixedValueFvPatchField<Type>::uniformFixedValueFvPatchField
 (
     const fvPatch& p,
-    const DimensionedField<Type, volMesh>& iF
-)
-:
-    fixedValueFvPatchField<Type>(p, iF),
-    uniformValue_()
-{}
-
-
-template<class Type>
-Foam::uniformFixedValueFvPatchField<Type>::uniformFixedValueFvPatchField
-(
-    const fvPatch& p,
-    const DimensionedField<Type, volMesh>& iF,
-    const Field<Type>& fld
-)
-:
-    fixedValueFvPatchField<Type>(p, iF, fld),
-    uniformValue_()
-{}
-
-
-template<class Type>
-Foam::uniformFixedValueFvPatchField<Type>::uniformFixedValueFvPatchField
-(
-    const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
     const dictionary& dict
 )
 :
     fixedValueFvPatchField<Type>(p, iF, dict, false),
-    uniformValue_(Function1<Type>::New("uniformValue", dict))
+    uniformValue_
+    (
+        Function1<Type>::New
+        (
+            "uniformValue",
+            this->db().time().userUnits(),
+            iF.dimensions(),
+            dict
+        )
+    )
 {
     this->evaluate();
 }
@@ -73,7 +57,7 @@ Foam::uniformFixedValueFvPatchField<Type>::uniformFixedValueFvPatchField
     const uniformFixedValueFvPatchField<Type>& ptf,
     const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     fixedValueFvPatchField<Type>(ptf, p, iF, mapper, false), // Don't map
@@ -82,17 +66,6 @@ Foam::uniformFixedValueFvPatchField<Type>::uniformFixedValueFvPatchField
     // Evaluate since value not mapped
     this->evaluate();
 }
-
-
-template<class Type>
-Foam::uniformFixedValueFvPatchField<Type>::uniformFixedValueFvPatchField
-(
-    const uniformFixedValueFvPatchField<Type>& ptf
-)
-:
-    fixedValueFvPatchField<Type>(ptf),
-    uniformValue_(ptf.uniformValue_, false)
-{}
 
 
 template<class Type>
@@ -123,8 +96,10 @@ void Foam::uniformFixedValueFvPatchField<Type>::updateCoeffs()
         return;
     }
 
-    const scalar t = this->db().time().timeOutputValue();
-    fvPatchField<Type>::operator==(uniformValue_->value(t));
+    fvPatchField<Type>::operator==
+    (
+        uniformValue_->value(this->db().time().value())
+    );
 
     fixedValueFvPatchField<Type>::updateCoeffs();
 }
@@ -134,7 +109,13 @@ template<class Type>
 void Foam::uniformFixedValueFvPatchField<Type>::write(Ostream& os) const
 {
     fvPatchField<Type>::write(os);
-    writeEntry(os, uniformValue_());
+    writeEntry
+    (
+        os,
+        this->db().time().userUnits(),
+        this->internalField().dimensions(),
+        uniformValue_()
+    );
     writeEntry(os, "value", *this);
 }
 

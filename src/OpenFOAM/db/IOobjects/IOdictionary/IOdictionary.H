@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,10 +25,10 @@ Class
     Foam::IOdictionary
 
 Description
-    IOdictionary is derived from dictionary and IOobject to give the dictionary
-    automatic IO functionality via the objectRegistry.  To facilitate IO,
-    IOdictionary is provided with a constructor from IOobject and writeData and
-    write functions.
+    IOdictionary is derived from dictionary and IOobject to give the
+    dictionary automatic IO functionality via the objectRegistry.  To facilitate
+    IO, IOdictionary is provided with a constructor from IOobject and writeData
+    and write functions.
 
 SourceFiles
     IOdictionary.C
@@ -39,7 +39,8 @@ SourceFiles
 #ifndef IOdictionary_H
 #define IOdictionary_H
 
-#include "baseIOdictionary.H"
+#include "dictionary.H"
+#include "regIOobject.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -47,15 +48,32 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class IOdictionary Declaration
+                        Class IOdictionary Declaration
 \*---------------------------------------------------------------------------*/
 
 class IOdictionary
 :
-    public baseIOdictionary
+    public regIOobject,
+    public dictionary
 {
 
+protected:
+
+    // Protected constructors
+
+        //- Construct given an IOobject, supply wanted typeName
+        IOdictionary(const IOobject& io, const word& wantedType);
+
+
 public:
+
+    TypeName("dictionary");
+
+
+    // Public static data
+
+        static bool writeDictionaries;
+
 
     // Constructors
 
@@ -81,33 +99,37 @@ public:
 
     // Member Functions
 
-        //- Is object global
+        using regIOobject::name;
+
+        //- Return true as object is global, i.e. same for all processors
         virtual bool global() const
         {
             return true;
         }
 
-        //- Return complete path + object name if the file exists
-        //  either in the case/processor or case otherwise null
-        virtual fileName filePath() const
-        {
-            return globalFilePath(type());
-        }
+        //- ReadData function required for regIOobject read operation
+        virtual bool readData(Istream&);
+
+        //- WriteData function required for regIOobject write operation
+        virtual bool writeData(Ostream&) const;
 
 
     // Member Operators
 
-        //- Move assignment
+        //- Assignment of dictionary entries only
+        void operator=(const IOdictionary&);
+
+        //- Move assignment of dictionary entries only
         void operator=(IOdictionary&&);
 };
 
 
-//- Template function for obtaining global status
+//- Trait for obtaining global status
 template<>
-inline bool typeGlobal<IOdictionary>()
+struct typeGlobal<IOdictionary>
 {
-    return true;
-}
+    static const bool global = true;
+};
 
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

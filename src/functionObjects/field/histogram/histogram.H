@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -69,7 +69,7 @@ SourceFiles
 
 #include "fvMeshFunctionObject.H"
 #include "writeFile.H"
-#include "writer.H"
+#include "setWriter.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -79,7 +79,7 @@ namespace functionObjects
 {
 
 /*---------------------------------------------------------------------------*\
-                         Class histogram Declaration
+                          Class histogram Declaration
 \*---------------------------------------------------------------------------*/
 
 class histogram
@@ -103,17 +103,7 @@ class histogram
         label nBins_;
 
         //- Output formatter to write
-        autoPtr<writer<scalar>> formatterPtr_;
-
-
-    // Private Member Functions
-
-        void writeGraph
-        (
-            const coordSet& coords,
-            const word& valueName,
-            const scalarField& values
-        ) const;
+        autoPtr<setWriter> formatterPtr_;
 
 
 public:
@@ -145,11 +135,14 @@ public:
         //- Read the histogram data
         virtual bool read(const dictionary&);
 
+        //- Return the list of fields required
+        virtual wordList fields() const;
+
         //- Execute, currently does nothing
         virtual bool execute();
 
         //- Calculate the histogram and write.
-        //  postProcess overrides the usual writeControl behaviour and
+        //  foamPostProcess overrides the usual writeControl behaviour and
         //  forces writing always (used in post-processing mode)
         virtual bool write();
 

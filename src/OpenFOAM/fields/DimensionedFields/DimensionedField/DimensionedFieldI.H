@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -23,49 +23,44 @@ License
 
 \*---------------------------------------------------------------------------*/
 
+#include "DimensionedField.H"
+
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-template<class Type, class GeoMesh>
-inline const Foam::DimensionedField<Type, GeoMesh>&
-Foam::DimensionedField<Type, GeoMesh>::null()
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+inline const Foam::DimensionedField<Type, GeoMesh, PrimitiveField>&
+Foam::DimensionedField<Type, GeoMesh, PrimitiveField>::null()
 {
-    return NullObjectRef<DimensionedField<Type, GeoMesh>>();
+    return NullObjectRef<DimensionedField<Type, GeoMesh, PrimitiveField>>();
 }
 
 
-template<class Type, class GeoMesh>
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
 inline const typename GeoMesh::Mesh&
-Foam::DimensionedField<Type, GeoMesh>::mesh() const
+Foam::DimensionedField<Type, GeoMesh, PrimitiveField>::mesh() const
 {
     return mesh_;
 }
 
 
-template<class Type, class GeoMesh>
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
 inline const Foam::dimensionSet&
-Foam::DimensionedField<Type, GeoMesh>::dimensions() const
+Foam::DimensionedField<Type, GeoMesh, PrimitiveField>::dimensions() const
 {
     return dimensions_;
 }
 
-template<class Type, class GeoMesh>
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
 inline Foam::dimensionSet&
-Foam::DimensionedField<Type, GeoMesh>::dimensions()
+Foam::DimensionedField<Type, GeoMesh, PrimitiveField>::dimensions()
 {
     return dimensions_;
 }
 
 
-template<class Type, class GeoMesh>
-inline const Foam::Field<Type>&
-Foam::DimensionedField<Type, GeoMesh>::field() const
-{
-    return *this;
-}
-
-template<class Type, class GeoMesh>
-inline Foam::Field<Type>&
-Foam::DimensionedField<Type, GeoMesh>::field()
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+inline const PrimitiveField<Type>&
+Foam::DimensionedField<Type, GeoMesh, PrimitiveField>::primitiveField() const
 {
     return *this;
 }

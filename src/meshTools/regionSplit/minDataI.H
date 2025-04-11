@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2014-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2014-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -62,35 +62,12 @@ inline bool Foam::minData::sameGeometry
 
 
 template<class TrackingData>
-inline void Foam::minData::leaveDomain
-(
-    const polyMesh&,
-    const polyPatch& patch,
-    const label patchFacei,
-    const point& faceCentre,
-    TrackingData&
-)
-{}
-
-
-template<class TrackingData>
 inline void Foam::minData::transform
 (
-    const polyMesh&,
-    const tensor& rotTensor,
-    TrackingData&
-)
-{}
-
-
-template<class TrackingData>
-inline void Foam::minData::enterDomain
-(
-    const polyMesh&,
     const polyPatch& patch,
     const label patchFacei,
-    const point& faceCentre,
-    TrackingData&
+    const transformer& transform,
+    TrackingData& td
 )
 {}
 
@@ -199,7 +176,7 @@ inline bool Foam::minData::operator!=
 
 // * * * * * * * * * * * * * * * Friend Operators  * * * * * * * * * * * * * //
 
-Foam::Ostream& Foam::operator<<
+inline Foam::Ostream& Foam::operator<<
 (
     Foam::Ostream& os,
     const Foam::minData& wDist
@@ -209,7 +186,7 @@ Foam::Ostream& Foam::operator<<
 }
 
 
-Foam::Istream& Foam::operator>>
+inline Foam::Istream& Foam::operator>>
 (
     Foam::Istream& is,
     Foam::minData& wDist

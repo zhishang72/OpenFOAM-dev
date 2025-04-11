@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -48,10 +48,10 @@ namespace Foam
 class objectRegistry;
 class dictionary;
 class fvMesh;
-class mapPolyMesh;
+class polyTopoChangeMap;
 
 /*---------------------------------------------------------------------------*\
-                          Class patchProbes Declaration
+                         Class patchProbes Declaration
 \*---------------------------------------------------------------------------*/
 
 class patchProbes
@@ -70,7 +70,7 @@ class patchProbes
         template<class Type>
         void sampleAndWrite
         (
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         );
 
 
@@ -78,7 +78,7 @@ class patchProbes
         template<class Type>
         void sampleAndWrite
         (
-            const GeometricField<Type, fvsPatchField, surfaceMesh>&
+            const SurfaceField<Type>&
         );
 
 
@@ -96,7 +96,7 @@ class patchProbes
         template<class Type>
         tmp<Field<Type>> sample
         (
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         ) const;
 
 
@@ -104,7 +104,7 @@ class patchProbes
         template<class Type>
         tmp<Field<Type>> sample
         (
-            const GeometricField<Type, fvsPatchField, surfaceMesh>&
+            const SurfaceField<Type>&
         ) const;
 
 
@@ -127,16 +127,6 @@ public:
             const word& name,
             const Time& time,
             const dictionary& dict
-        );
-
-        //- Construct for given objectRegistry and dictionary.
-        //  Allow the possibility to load fields from files
-        patchProbes
-        (
-            const word& name,
-            const objectRegistry&,
-            const dictionary&,
-            const bool loadFromFiles = false
         );
 
         //- Disallow default bitwise copy construction

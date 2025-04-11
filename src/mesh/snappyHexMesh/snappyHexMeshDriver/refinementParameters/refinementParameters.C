@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -40,11 +40,12 @@ Foam::refinementParameters::refinementParameters(const dictionary& dict)
         dict.lookupOrDefault
         (
             "planarAngle",
-            dict.lookup<scalar>("resolveFeatureAngle")
+            unitDegrees,
+            dict.lookup<scalar>("resolveFeatureAngle", unitDegrees)
         )
     ),
     nBufferLayers_(dict.lookup<label>("nCellsBetweenLevels")),
-    keepPoints_(pointField(1, dict.lookup("locationInMesh"))),
+    selectionPoints_(dict),
     allowFreeStandingZoneFaces_(dict.lookup("allowFreeStandingZoneFaces")),
     useTopologicalSnapDetection_
     (
@@ -56,15 +57,60 @@ Foam::refinementParameters::refinementParameters(const dictionary& dict)
         dict.lookupOrDefault<Switch>("handleSnapProblems", true)
     )
 {
-    scalar featAngle(dict.lookup<scalar>("resolveFeatureAngle"));
+    scalar featAngle(dict.lookup<scalar>("resolveFeatureAngle", unitDegrees));
 
-    if (featAngle < 0 || featAngle > 180)
+    if (featAngle < 0 || featAngle > degToRad(180))
     {
         curvature_ = -great;
     }
     else
     {
-        curvature_ = Foam::cos(degToRad(featAngle));
+        curvature_ = Foam::cos(featAngle);
+    }
+}
+
+
+Foam::refinementParameters::cellSelectionPoints::cellSelectionPoints
+(
+    const dictionary& dict
+)
+:
+    inside_
+    (
+        dict.found("insidePoints")
+      ? dict.lookup<List<point>>("insidePoints", dimLength)
+      : dict.found("insidePoint")
+      ? List<point>(1, dict.lookup<point>("insidePoint", dimLength))
+      : dict.found("locationInMesh")
+      ? List<point>(1, dict.lookup<point>("locationInMesh", dimLength))
+      : List<point>::null()
+    ),
+    outside_
+    (
+        dict.found("outsidePoints")
+      ? dict.lookup<List<point>>("outsidePoints", dimLength)
+      : dict.found("outsidePoint")
+      ? List<point>(1, dict.lookup<point>("outsidePoint", dimLength))
+      : List<point>::null()
+    )
+{
+    if (inside_.size())
+    {
+        Info << "Cell selection insidePoints: " << inside_ << endl;
+    }
+
+    if (outside_.size())
+    {
+        Info << "Cell selection outsidePoints: " << outside_ << endl;
+    }
+
+    if (!inside_.size() && !outside_.size())
+    {
+        FatalErrorInFunction
+            << "Neither insidePoint/insidePoints nor "
+               "outsidePoint/outsidePoints specified: "
+            << "cannot select any cells."
+            << exit(FatalError);
     }
 }
 
@@ -81,13 +127,13 @@ const
     globalIndex globalCells(mesh.nCells());
 
     // Cell label per point
-    labelList cellLabels(keepPoints_.size());
+    labelList cellLabels(selectionPoints_.inside().size());
 
-    forAll(keepPoints_, i)
+    forAll(selectionPoints_.inside(), i)
     {
-        const point& keepPoint = keepPoints_[i];
+        const point& insidePoint = selectionPoints_.inside()[i];
 
-        label localCelli = mesh.findCell(keepPoint);
+        label localCelli = mesh.findCell(insidePoint);
 
         label globalCelli = -1;
 
@@ -101,7 +147,7 @@ const
         if (globalCelli == -1)
         {
             FatalErrorInFunction
-                << "Point " << keepPoint
+                << "Point " << insidePoint
                 << " is not inside the mesh or on a face or edge." << nl
                 << "Bounding box of the mesh:" << mesh.bounds()
                 << exit(FatalError);
@@ -111,7 +157,7 @@ const
         label proci = globalCells.whichProcID(globalCelli);
         label procCelli = globalCells.toLocal(proci, globalCelli);
 
-        Info<< "Found point " << keepPoint << " in cell " << procCelli
+        Info<< "Found point " << insidePoint << " in cell " << procCelli
             << " on processor " << proci << endl;
 
 

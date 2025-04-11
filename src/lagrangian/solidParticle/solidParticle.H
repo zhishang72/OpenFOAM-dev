@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -39,6 +39,7 @@ SourceFiles
 #define solidParticle_H
 
 #include "particle.H"
+#include "Cloud.H"
 #include "IOstream.H"
 #include "autoPtr.H"
 #include "interpolationCellPoint.H"
@@ -60,7 +61,7 @@ Ostream& operator<<(Ostream&, const solidParticle&);
 
 
 /*---------------------------------------------------------------------------*\
-                           Class solidParticle Declaration
+                        Class solidParticle Declaration
 \*---------------------------------------------------------------------------*/
 
 class solidParticle
@@ -81,7 +82,8 @@ class solidParticle
 
 public:
 
-    friend class Cloud<solidParticle>;
+    friend class lagrangian::Cloud<solidParticle>;
+
 
     //- Class used to pass tracking data to the trackToFace function
     class trackingData
@@ -124,27 +126,14 @@ public:
     };
 
 
+    //- Runtime type information
+    TypeName("solidParticle");
+
+
     // Constructors
 
-        //- Construct from components
-        inline solidParticle
-        (
-            const polyMesh& mesh,
-            const barycentric& coordinates,
-            const label celli,
-            const label tetFacei,
-            const label tetPti,
-            const scalar d,
-            const vector& U
-        );
-
         //- Construct from Istream
-        solidParticle
-        (
-            const polyMesh& mesh,
-            Istream& is,
-            bool readFields = true
-        );
+        solidParticle(Istream& is, bool readFields = true);
 
         //- Construct and return a clone
         virtual autoPtr<particle> clone() const
@@ -152,27 +141,11 @@ public:
             return autoPtr<particle>(new solidParticle(*this));
         }
 
-        //- Factory class to read-construct particles used for
-        //  parallel transfer
-        class iNew
+        //- Construct from Istream and return
+        static autoPtr<solidParticle> New(Istream& is)
         {
-            const polyMesh& mesh_;
-
-        public:
-
-            iNew(const polyMesh& mesh)
-            :
-                mesh_(mesh)
-            {}
-
-            autoPtr<solidParticle> operator()(Istream& is) const
-            {
-                return autoPtr<solidParticle>
-                (
-                    new solidParticle(mesh_, is, true)
-                );
-            }
-        };
+            return autoPtr<solidParticle>(new solidParticle(is));
+        }
 
 
     // Member Functions
@@ -189,36 +162,24 @@ public:
         // Tracking
 
             //- Move
-            bool move(solidParticleCloud&, trackingData&, const scalar);
+            bool move(solidParticleCloud&, trackingData&);
 
 
         // Patch interactions
-
-            //- Overridable function to handle the particle hitting a patch
-            //  Executed before other patch-hitting functions
-            bool hitPatch(solidParticleCloud& cloud, trackingData& td);
-
-            //- Overridable function to handle the particle hitting a
-            //  processorPatch
-            void hitProcessorPatch(solidParticleCloud& cloud, trackingData& td);
 
             //- Overridable function to handle the particle hitting a wallPatch
             void hitWallPatch(solidParticleCloud& cloud, trackingData& td);
 
             //- Transform the physical properties of the particle
-            //  according to the given transformation tensor
-            virtual void transformProperties(const tensor& T);
-
-            //- Transform the physical properties of the particle
-            //  according to the given separation vector
-            virtual void transformProperties(const vector& separation);
+            //  according to the given transformation
+            virtual void transformProperties(const transformer&);
 
 
     // I-O
 
-        static void readFields(Cloud<solidParticle>& c);
+        static void readFields(lagrangian::Cloud<solidParticle>& c);
 
-        static void writeFields(const Cloud<solidParticle>& c);
+        static void writeFields(const lagrangian::Cloud<solidParticle>& c);
 
 
     // Ostream Operator

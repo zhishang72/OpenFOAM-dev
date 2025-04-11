@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -57,11 +57,11 @@ namespace Foam
 
 // Forward declaration of classes
 class objectRegistry;
-class mapDistribute;
+class distributionMap;
 class treeBoundBox;
 
 /*---------------------------------------------------------------------------*\
-                           Class searchableSurface Declaration
+                      Class searchableSurface Declaration
 \*---------------------------------------------------------------------------*/
 
 class searchableSurface
@@ -79,6 +79,14 @@ public:
 
     //- Runtime type information
     TypeName("searchableSurface");
+
+
+    // Static data
+
+        //- Name of the directory for the geometry files
+        //  Defaults to "geometry"
+        static word geometryDir_;
+
 
     // Declare run-time constructor selection table
 
@@ -153,6 +161,13 @@ public:
 
 
     // Member Functions
+
+        //- Return the geometry directory name
+        static const word& geometryDir();
+
+        //- Check that the geometry directory exists and return
+        //  if not return "triSurface" for backward compatibility
+        static const word& geometryDir(const Time& time);
 
         //- Return const reference to boundBox
         const boundBox& bounds() const
@@ -346,8 +361,8 @@ public:
             (
                 const List<treeBoundBox>&,
                 const bool keepNonLocal,
-                autoPtr<mapDistribute>& faceMap,
-                autoPtr<mapDistribute>& pointMap
+                autoPtr<distributionMap>& faceMap,
+                autoPtr<distributionMap>& pointMap
             )
             {}
 

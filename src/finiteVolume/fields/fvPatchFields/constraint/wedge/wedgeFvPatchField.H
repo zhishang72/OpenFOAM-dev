@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -57,7 +57,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                       Class wedgeFvPatchField Declaration
+                      Class wedgeFvPatchField Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -95,23 +95,11 @@ public:
             const wedgeFvPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
-        wedgeFvPatchField
-        (
-            const wedgeFvPatchField<Type>&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchField<Type>> clone() const
-        {
-            return tmp<fvPatchField<Type>>
-            (
-                new wedgeFvPatchField<Type>(*this)
-            );
-        }
+        //- Disallow copy without setting internal field reference
+        wedgeFvPatchField(const wedgeFvPatchField<Type>&) = delete;
 
         //- Copy constructor setting internal field reference
         wedgeFvPatchField

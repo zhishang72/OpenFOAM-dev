@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -65,14 +65,18 @@ bool Foam::functionObjects::flowType::calc()
           + (skew(gradU) & skew(gradU))
         );
 
-        return store
+        store
         (
             resultName_,
             (magD - magOmega)/(magD + magOmega + smallMagD)
         );
+
+        return true;
     }
     else
     {
+        cannotFindObject<volVectorField>(fieldName_);
+
         return false;
     }
 }

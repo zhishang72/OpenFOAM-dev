@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -53,10 +53,10 @@ class solution
     // Private Data
 
         //- Dictionary of temporary fields to cache
-        dictionary cache_;
+        mutable dictionary cache_;
 
         //- Switch for the caching mechanism
-        bool caching_;
+        mutable bool caching_;
 
         //- Dictionary of relaxation factors for all the fields
         dictionary fieldRelaxDict_;
@@ -87,8 +87,8 @@ public:
     //  Returns the number of settings changed
     static label upgradeSolverDict(dictionary& dict, const bool verbose=true);
 
-    //- Debug switch
-    static int debug;
+    //- Type information
+    ClassName("solution");
 
 
     // Constructors
@@ -110,6 +110,9 @@ public:
 
             //- Return true if the given field should be cached
             bool cache(const word& name) const;
+
+            //- Enable caching of the given field
+            void enableCache(const word& name) const;
 
             //- Helper for printing cache message
             template<class FieldType>
@@ -134,7 +137,10 @@ public:
 
             //- Return the selected sub-dictionary of solvers if the "select"
             //  keyword is given, otherwise return the complete dictionary
-            const dictionary& solutionDict() const;
+            const dictionary& dict() const;
+
+            //- Return the solver controls dictionary
+            const dictionary& solversDict() const;
 
             //- Return the solver controls dictionary for the given field
             const dictionary& solverDict(const word& name) const;

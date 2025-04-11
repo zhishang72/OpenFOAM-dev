@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -26,7 +26,7 @@ License
 #include "localPointRegion.H"
 #include "syncTools.H"
 #include "polyMesh.H"
-#include "mapPolyMesh.H"
+#include "polyTopoChangeMap.H"
 #include "globalIndex.H"
 #include "indirectPrimitivePatch.H"
 #include "dummyTransform.H"
@@ -331,7 +331,7 @@ void Foam::localPointRegion::calcPointRegions
         }
     }
 
-    // Now minimize over all faces that are connected through internal
+    // Now minimise over all faces that are connected through internal
     // faces or through cells. This loop iterates over the max number of
     // cells connected to a point (=8 for hex mesh)
 
@@ -514,7 +514,6 @@ Foam::labelList Foam::localPointRegion::findDuplicateFaces
     );
 
     labelList duplicateFace(allPatch.size(), -1);
-    label nDuplicateFaces = 0;
 
     // Find all duplicate faces.
     forAll(allPatch, bFacei)
@@ -569,7 +568,6 @@ Foam::labelList Foam::localPointRegion::findDuplicateFaces
 
                     duplicateFace[bFacei] = otherFacei;
                     duplicateFace[otherFacei] = bFacei;
-                    nDuplicateFaces++;
                 }
             }
         }
@@ -589,7 +587,7 @@ Foam::List<Foam::labelPair> Foam::localPointRegion::findDuplicateFacePairs
     // Faces to test: all boundary faces
     labelList testFaces
     (
-        identity(mesh.nFaces()-mesh.nInternalFaces())
+        identityMap(mesh.nFaces()-mesh.nInternalFaces())
       + mesh.nInternalFaces()
     );
 
@@ -636,7 +634,7 @@ Foam::List<Foam::labelPair> Foam::localPointRegion::findDuplicateFacePairs
 }
 
 
-void Foam::localPointRegion::updateMesh(const mapPolyMesh& map)
+void Foam::localPointRegion::topoChange(const polyTopoChangeMap& map)
 {
     {
         Map<label> newMap(meshFaceMap_.size());

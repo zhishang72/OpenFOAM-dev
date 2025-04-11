@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -58,6 +58,17 @@ class volMesh
 {
 
 public:
+
+    // Public typedefs
+
+        //- Patch field type
+        template<class Type>
+        using PatchField = fvPatchField<Type>;
+
+        //- Field source type
+        template<class Type>
+        using FieldSource = fvFieldSource<Type>;
+
 
     // Constructors
 

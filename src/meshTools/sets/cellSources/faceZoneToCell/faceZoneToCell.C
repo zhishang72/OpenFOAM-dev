@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -33,7 +33,6 @@ namespace Foam
 {
     defineTypeNameAndDebug(faceZoneToCell, 0);
     addToRunTimeSelectionTable(topoSetSource, faceZoneToCell, word);
-    addToRunTimeSelectionTable(topoSetSource, faceZoneToCell, istream);
 
     template<>
     const char* Foam::NamedEnum
@@ -46,15 +45,6 @@ namespace Foam
         "slave"
     };
 }
-
-
-Foam::topoSetSource::addToUsageTable Foam::faceZoneToCell::usage_
-(
-    faceZoneToCell::typeName,
-    "\n    Usage: faceZoneToCell zone master|slave\n\n"
-    "    Select master or slave side of the faceZone."
-    " Note:accepts wildcards for zone.\n\n"
-);
 
 
 const Foam::NamedEnum<Foam::faceZoneToCell::faceAction, 2>
@@ -101,7 +91,7 @@ void Foam::faceZoneToCell::combine(topoSet& set, const bool add) const
     {
         WarningInFunction
             << "Cannot find any faceZone named " << zoneName_ << endl
-            << "Valid names are " << mesh_.faceZones().names() << endl;
+            << "Valid names are " << mesh_.faceZones().toc() << endl;
     }
 }
 
@@ -128,20 +118,8 @@ Foam::faceZoneToCell::faceZoneToCell
 )
 :
     topoSetSource(mesh),
-    zoneName_(dict.lookup("name")),
+    zoneName_(dict.lookupBackwardsCompatible({"zone", "name"})),
     option_(faceActionNames_.read(dict.lookup("option")))
-{}
-
-
-Foam::faceZoneToCell::faceZoneToCell
-(
-    const polyMesh& mesh,
-    Istream& is
-)
-:
-    topoSetSource(mesh),
-    zoneName_(checkIs(is)),
-    option_(faceActionNames_.read(checkIs(is)))
 {}
 
 

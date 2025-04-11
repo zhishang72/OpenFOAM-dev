@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -26,8 +26,14 @@ Application
 
 \*---------------------------------------------------------------------------*/
 
-#include "fvCFD.H"
-#include "transformGeometricField.H"
+#include "argList.H"
+#include "fvcFlux.H"
+#include "fvmDdt.H"
+#include "fvmDiv.H"
+#include "fvmLaplacian.H"
+#include "zeroGradientFvPatchFields.H"
+
+using namespace Foam;
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -44,7 +50,7 @@ int main(int argc, char *argv[])
         IOobject
         (
             "p",
-            runTime.timeName(),
+            runTime.name(),
             mesh,
             IOobject::MUST_READ,
             IOobject::AUTO_WRITE
@@ -62,7 +68,7 @@ int main(int argc, char *argv[])
         IOobject
         (
             "U",
-            runTime.timeName(),
+            runTime.name(),
             mesh,
             IOobject::MUST_READ,
             IOobject::AUTO_WRITE
@@ -72,12 +78,12 @@ int main(int argc, char *argv[])
 
     #include "createPhi.H"
 
-    GeometricField<symmTensor, fvPatchField, volMesh> st
+    VolField<symmTensor> st
     (
         IOobject
         (
             "st",
-            runTime.timeName(),
+            runTime.name(),
             mesh,
             IOobject::NO_READ,
             IOobject::NO_WRITE

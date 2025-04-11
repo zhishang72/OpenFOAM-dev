@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,28 +25,12 @@ License
 
 #include "totalPressureFvPatchScalarField.H"
 #include "addToRunTimeSelectionTable.H"
-#include "fvPatchFieldMapper.H"
 #include "volFields.H"
 #include "surfaceFields.H"
+#include "pressureInletOutletVelocityFvPatchVectorField.H"
 
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
-
-Foam::totalPressureFvPatchScalarField::totalPressureFvPatchScalarField
-(
-    const fvPatch& p,
-    const DimensionedField<scalar, volMesh>& iF
-)
-:
-    fixedValueFvPatchScalarField(p, iF),
-    UName_("U"),
-    phiName_("phi"),
-    rhoName_("rho"),
-    psiName_("none"),
-    gamma_(0.0),
-    p0_(p.size(), 0.0)
-{}
-
 
 Foam::totalPressureFvPatchScalarField::totalPressureFvPatchScalarField
 (
@@ -55,26 +39,10 @@ Foam::totalPressureFvPatchScalarField::totalPressureFvPatchScalarField
     const dictionary& dict
 )
 :
-    fixedValueFvPatchScalarField(p, iF, dict, false),
+    dynamicPressureFvPatchScalarField(p, iF, dict),
     UName_(dict.lookupOrDefault<word>("U", "U")),
-    phiName_(dict.lookupOrDefault<word>("phi", "phi")),
-    rhoName_(dict.lookupOrDefault<word>("rho", "rho")),
-    psiName_(dict.lookupOrDefault<word>("psi", "none")),
-    gamma_(psiName_ != "none" ? dict.lookup<scalar>("gamma") : 1),
-    p0_("p0", dict, p.size())
-{
-    if (dict.found("value"))
-    {
-        fvPatchField<scalar>::operator=
-        (
-            scalarField("value", dict, p.size())
-        );
-    }
-    else
-    {
-        fvPatchField<scalar>::operator=(p0_);
-    }
-}
+    phiName_(dict.lookupOrDefault<word>("phi", "phi"))
+{}
 
 
 Foam::totalPressureFvPatchScalarField::totalPressureFvPatchScalarField
@@ -82,31 +50,12 @@ Foam::totalPressureFvPatchScalarField::totalPressureFvPatchScalarField
     const totalPressureFvPatchScalarField& ptf,
     const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
-    fixedValueFvPatchScalarField(ptf, p, iF, mapper),
+    dynamicPressureFvPatchScalarField(ptf, p, iF, mapper),
     UName_(ptf.UName_),
-    phiName_(ptf.phiName_),
-    rhoName_(ptf.rhoName_),
-    psiName_(ptf.psiName_),
-    gamma_(ptf.gamma_),
-    p0_(mapper(ptf.p0_))
-{}
-
-
-Foam::totalPressureFvPatchScalarField::totalPressureFvPatchScalarField
-(
-    const totalPressureFvPatchScalarField& tppsf
-)
-:
-    fixedValueFvPatchScalarField(tppsf),
-    UName_(tppsf.UName_),
-    phiName_(tppsf.phiName_),
-    rhoName_(tppsf.rhoName_),
-    psiName_(tppsf.psiName_),
-    gamma_(tppsf.gamma_),
-    p0_(tppsf.p0_)
+    phiName_(ptf.phiName_)
 {}
 
 
@@ -116,140 +65,55 @@ Foam::totalPressureFvPatchScalarField::totalPressureFvPatchScalarField
     const DimensionedField<scalar, volMesh>& iF
 )
 :
-    fixedValueFvPatchScalarField(tppsf, iF),
+    dynamicPressureFvPatchScalarField(tppsf, iF),
     UName_(tppsf.UName_),
-    phiName_(tppsf.phiName_),
-    rhoName_(tppsf.rhoName_),
-    psiName_(tppsf.psiName_),
-    gamma_(tppsf.gamma_),
-    p0_(tppsf.p0_)
+    phiName_(tppsf.phiName_)
 {}
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-void Foam::totalPressureFvPatchScalarField::autoMap
-(
-    const fvPatchFieldMapper& m
-)
+void Foam::totalPressureFvPatchScalarField::updateCoeffs()
 {
-    fixedValueFvPatchScalarField::autoMap(m);
-    m(p0_, p0_);
-}
-
-
-void Foam::totalPressureFvPatchScalarField::rmap
-(
-    const fvPatchScalarField& ptf,
-    const labelList& addr
-)
-{
-    fixedValueFvPatchScalarField::rmap(ptf, addr);
-
-    const totalPressureFvPatchScalarField& tiptf =
-        refCast<const totalPressureFvPatchScalarField>(ptf);
-
-    p0_.rmap(tiptf.p0_, addr);
-}
-
-
-void Foam::totalPressureFvPatchScalarField::updateCoeffs
-(
-    const scalarField& p0p,
-    const vectorField& Up
-)
-{
-    if (updated())
-    {
-        return;
-    }
-
     const fvsPatchField<scalar>& phip =
         patch().lookupPatchField<surfaceScalarField, scalar>(phiName_);
 
-    if (internalField().dimensions() == dimPressure)
+    const fvPatchField<vector>& Up =
+        patch().lookupPatchField<volVectorField, vector>(UName_);
+
+    if (isA<pressureInletOutletVelocityFvPatchVectorField>(Up))
     {
-        if (psiName_ == "none")
+        const pressureInletOutletVelocityFvPatchVectorField& Upiov =
+            refCast<const pressureInletOutletVelocityFvPatchVectorField>(Up);
+
+        if (Upiov.tangentialVelocity().valid())
         {
-            // Variable density and low-speed compressible flow
+            const scalar t = this->db().time().value();
 
-            const fvPatchField<scalar>& rho =
-                patch().lookupPatchField<volScalarField, scalar>(rhoName_);
+            dynamicPressureFvPatchScalarField::updateCoeffs
+            (
+                p0_,
+                0.5*neg(phip)*magSqr(Upiov.tangentialVelocity()->value(t))
+              - 0.5*neg(phip)*magSqr(Up)
+            );
 
-            operator==(p0p - 0.5*rho*(1.0 - pos0(phip))*magSqr(Up));
+            return;
         }
-        else
-        {
-            // High-speed compressible flow
-
-            const fvPatchField<scalar>& psip =
-                patch().lookupPatchField<volScalarField, scalar>(psiName_);
-
-            if (gamma_ > 1)
-            {
-                scalar gM1ByG = (gamma_ - 1)/gamma_;
-
-                operator==
-                (
-                    p0p
-                   /pow
-                    (
-                        (1.0 + 0.5*psip*gM1ByG*(1.0 - pos0(phip))*magSqr(Up)),
-                        1.0/gM1ByG
-                    )
-                );
-            }
-            else
-            {
-                operator==(p0p/(1.0 + 0.5*psip*(1.0 - pos0(phip))*magSqr(Up)));
-            }
-        }
-
-    }
-    else if (internalField().dimensions() == dimPressure/dimDensity)
-    {
-        // Incompressible flow
-        operator==(p0p - 0.5*(1.0 - pos0(phip))*magSqr(Up));
-    }
-    else
-    {
-        FatalErrorInFunction
-            << " Incorrect pressure dimensions " << internalField().dimensions()
-            << nl
-            << "    Should be " << dimPressure
-            << " for compressible/variable density flow" << nl
-            << "    or " << dimPressure/dimDensity
-            << " for incompressible flow," << nl
-            << "    on patch " << this->patch().name()
-            << " of field " << this->internalField().name()
-            << " in file " << this->internalField().objectPath()
-            << exit(FatalError);
     }
 
-    fixedValueFvPatchScalarField::updateCoeffs();
-}
-
-
-void Foam::totalPressureFvPatchScalarField::updateCoeffs()
-{
-    updateCoeffs
+    dynamicPressureFvPatchScalarField::updateCoeffs
     (
-        p0(),
-        patch().lookupPatchField<volVectorField, vector>(UName())
+        p0_,
+        -0.5*neg(phip)*magSqr(Up)
     );
 }
 
 
 void Foam::totalPressureFvPatchScalarField::write(Ostream& os) const
 {
-    fvPatchScalarField::write(os);
+    dynamicPressureFvPatchScalarField::write(os);
     writeEntryIfDifferent<word>(os, "U", "U", UName_);
     writeEntryIfDifferent<word>(os, "phi", "phi", phiName_);
-    writeEntry(os, "rho", rhoName_);
-    writeEntry(os, "psi", psiName_);
-    writeEntry(os, "gamma", gamma_);
-    writeEntry(os, "p0", p0_);
-    writeEntry(os, "value", *this);
 }
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -45,44 +45,34 @@ Foam::directionMixedFvPatchField<Type>::directionMixedFvPatchField
 template<class Type>
 Foam::directionMixedFvPatchField<Type>::directionMixedFvPatchField
 (
-    const directionMixedFvPatchField<Type>& ptf,
-    const fvPatch& p,
-    const DimensionedField<Type, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
-)
-:
-    transformFvPatchField<Type>(ptf, p, iF, mapper),
-    refValue_(mapper(ptf.refValue_)),
-    refGrad_(mapper(ptf.refGrad_)),
-    valueFraction_(mapper(ptf.valueFraction_))
-{
-    if (notNull(iF) && mapper.hasUnmapped())
-    {
-        WarningInFunction
-            << "On field " << iF.name() << " patch " << p.name()
-            << " patchField " << this->type()
-            << " : mapper does not map all values." << nl
-            << "    To avoid this warning fully specify the mapping in derived"
-            << " patch fields." << endl;
-    }
-}
-
-
-template<class Type>
-Foam::directionMixedFvPatchField<Type>::directionMixedFvPatchField
-(
     const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
     const dictionary& dict
 )
 :
     transformFvPatchField<Type>(p, iF, dict),
-    refValue_("refValue", dict, p.size()),
-    refGrad_("refGradient", dict, p.size()),
-    valueFraction_("valueFraction", dict, p.size())
+    refValue_("refValue", iF.dimensions(), dict, p.size()),
+    refGrad_("refGradient", iF.dimensions()/dimLength, dict, p.size()),
+    valueFraction_("valueFraction", unitFraction, dict, p.size())
 {
     evaluate();
 }
+
+
+template<class Type>
+Foam::directionMixedFvPatchField<Type>::directionMixedFvPatchField
+(
+    const directionMixedFvPatchField<Type>& ptf,
+    const fvPatch& p,
+    const DimensionedField<Type, volMesh>& iF,
+    const fieldMapper& mapper
+)
+:
+    transformFvPatchField<Type>(ptf, p, iF, mapper),
+    refValue_(mapper(ptf.refValue_)),
+    refGrad_(mapper(ptf.refGrad_)),
+    valueFraction_(mapper(ptf.valueFraction_))
+{}
 
 
 template<class Type>
@@ -102,33 +92,37 @@ Foam::directionMixedFvPatchField<Type>::directionMixedFvPatchField
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class Type>
-void Foam::directionMixedFvPatchField<Type>::autoMap
-(
-    const fvPatchFieldMapper& m
-)
-{
-    transformFvPatchField<Type>::autoMap(m);
-    m(refValue_, refValue_);
-    m(refGrad_, refGrad_);
-    m(valueFraction_, valueFraction_);
-}
-
-
-template<class Type>
-void Foam::directionMixedFvPatchField<Type>::rmap
+void Foam::directionMixedFvPatchField<Type>::map
 (
     const fvPatchField<Type>& ptf,
-    const labelList& addr
+    const fieldMapper& mapper
 )
 {
-    transformFvPatchField<Type>::rmap(ptf, addr);
+    transformFvPatchField<Type>::map(ptf, mapper);
 
     const directionMixedFvPatchField<Type>& dmptf =
         refCast<const directionMixedFvPatchField<Type>>(ptf);
 
-    refValue_.rmap(dmptf.refValue_, addr);
-    refGrad_.rmap(dmptf.refGrad_, addr);
-    valueFraction_.rmap(dmptf.valueFraction_, addr);
+    mapper(refValue_, dmptf.refValue_);
+    mapper(refGrad_, dmptf.refGrad_);
+    mapper(valueFraction_, dmptf.valueFraction_);
+}
+
+
+template<class Type>
+void Foam::directionMixedFvPatchField<Type>::reset
+(
+    const fvPatchField<Type>& ptf
+)
+{
+    transformFvPatchField<Type>::reset(ptf);
+
+    const directionMixedFvPatchField<Type>& dmptf =
+        refCast<const directionMixedFvPatchField<Type>>(ptf);
+
+    refValue_.reset(dmptf.refValue_);
+    refGrad_.reset(dmptf.refGrad_);
+    valueFraction_.reset(dmptf.valueFraction_);
 }
 
 

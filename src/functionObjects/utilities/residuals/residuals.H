@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2015-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2015-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -32,8 +32,11 @@ Description
     residuals
     {
         type            residuals;
-        writeControl   timeStep;
-        writeInterval  1;
+
+        libs            ("libutilityFunctionObjects.so");
+
+        writeControl    timeStep;
+        writeInterval   1;
         fields
         (
             U
@@ -71,7 +74,7 @@ namespace functionObjects
 {
 
 /*---------------------------------------------------------------------------*\
-                       Class residuals Declaration
+                          Class residuals Declaration
 \*---------------------------------------------------------------------------*/
 
 class residuals
@@ -129,6 +132,12 @@ public:
 
         //- Read the controls
         virtual bool read(const dictionary&);
+
+        //- Return the list of fields required
+        virtual wordList fields() const
+        {
+            return wordList::null();
+        }
 
         //- Execute, currently does nothing
         virtual bool execute();

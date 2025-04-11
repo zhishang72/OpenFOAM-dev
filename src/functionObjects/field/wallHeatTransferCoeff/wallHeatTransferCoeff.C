@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2020-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,7 +24,10 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "wallHeatTransferCoeff.H"
-#include "turbulentTransportModel.H"
+#include "incompressibleMomentumTransportModel.H"
+#include "compressibleMomentumTransportModel.H"
+#include "fvsPatchField.H"
+#include "basicThermo.H"
 #include "wallPolyPatch.H"
 #include "addToRunTimeSelectionTable.H"
 
@@ -45,7 +48,7 @@ namespace functionObjects
 }
 
 
-// * * * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * //
+// * * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * * //
 
 void Foam::functionObjects::wallHeatTransferCoeff::writeFileHeader
 (
@@ -58,48 +61,8 @@ void Foam::functionObjects::wallHeatTransferCoeff::writeFileHeader
     writeTabbed(file(), "patch");
     writeTabbed(file(), "min");
     writeTabbed(file(), "max");
-    writeTabbed(file(), "integral");
+    writeTabbed(file(), "average");
     file() << endl;
-}
-
-
-Foam::tmp<Foam::volScalarField>
-Foam::functionObjects::wallHeatTransferCoeff::calcHeatTransferCoeff
-(
-    const volScalarField& nu,
-    const volScalarField& nut
-)
-{
-    tmp<volScalarField> twallHeatTransferCoeff
-    (
-        volScalarField::New
-        (
-            type(),
-            mesh_,
-            dimensionedScalar
-            (
-                dimMass/pow3(dimTime)/(dimTemperature/dimLength),
-                0
-            )
-        )
-    );
-
-    volScalarField::Boundary& wallHeatTransferCoeffBf =
-        twallHeatTransferCoeff.ref().boundaryFieldRef();
-
-    const volScalarField::Boundary& nuBf = nu.boundaryField();
-    const volScalarField::Boundary& nutBf = nut.boundaryField();
-
-    forAll(wallHeatTransferCoeffBf, patchi)
-    {
-        if (!wallHeatTransferCoeffBf[patchi].coupled())
-        {
-            wallHeatTransferCoeffBf[patchi] =
-                rho_*Cp_*(nuBf[patchi]/Prl_ + nutBf[patchi]/Prt_);
-        }
-    }
-
-    return twallHeatTransferCoeff;
 }
 
 
@@ -115,11 +78,13 @@ Foam::functionObjects::wallHeatTransferCoeff::wallHeatTransferCoeff
     fvMeshFunctionObject(name, runTime, dict),
     logFiles(obr_, name),
     writeLocalObjects(obr_, log),
+    coeffModel_(wallHeatTransferCoeffModel::New(dict.name(), mesh_, dict)),
+    rho_("rho", dimDensity, Zero),
+    Cp_("Cp", dimArea/sqr(dimTime)/dimTemperature, Zero),
+    runTime_(runTime),
     patchSet_()
 {
     read(dict);
-    resetName(typeName);
-    resetLocalObjectName(typeName);
 }
 
 
@@ -136,15 +101,17 @@ bool Foam::functionObjects::wallHeatTransferCoeff::read(const dictionary& dict)
     fvMeshFunctionObject::read(dict);
     writeLocalObjects::read(dict);
 
+    if (!foundObject<basicThermo>(physicalProperties::typeName))
+    {
+        rho_.read(dict);
+        Cp_.read(dict);
+    }
+
     const polyBoundaryMesh& pbm = mesh_.boundaryMesh();
 
-    patchSet_ =
-        mesh_.boundaryMesh().patchSet
-        (
-            wordReList(dict.lookupOrDefault("patches", wordReList()))
-        );
+    patchSet_ = patchSet(dict, true);
 
-    Info<< type() << " " << name() << ":" << nl;
+    Info<< type() << ":" << nl;
 
     if (patchSet_.empty())
     {
@@ -173,8 +140,8 @@ bool Foam::functionObjects::wallHeatTransferCoeff::read(const dictionary& dict)
             else
             {
                 WarningInFunction
-                    << "Requested wall heat-transferCoeff on non-wall boundary "
-                    << "type patch: " << pbm[patchi].name() << endl;
+                    << "Requested wall heat-transferCoeff on non-wall boundary"
+                    << " type patch: " << pbm[patchi].name() << nl << endl;
             }
         }
 
@@ -183,10 +150,10 @@ bool Foam::functionObjects::wallHeatTransferCoeff::read(const dictionary& dict)
         patchSet_ = filteredPatchSet;
     }
 
-    dict.lookup("rho") >> rho_;
-    dict.lookup("Cp") >> Cp_;
-    dict.lookup("Prl") >> Prl_;
-    dict.lookup("Prt") >> Prt_;
+    coeffModel_->read(dict);
+
+    resetName(typeName);
+    resetLocalObjectName(typeName);
 
     return true;
 }
@@ -194,49 +161,40 @@ bool Foam::functionObjects::wallHeatTransferCoeff::read(const dictionary& dict)
 
 bool Foam::functionObjects::wallHeatTransferCoeff::execute()
 {
-    word name(type());
+    const momentumTransportModel& transport =
+        mesh_.lookupType<momentumTransportModel>();
 
-    if
+    tmp<volScalarField> thtc
     (
-        foundObject<incompressible::turbulenceModel>
-        (
-            turbulenceModel::propertiesName
-        )
-    )
-    {
-        const incompressible::turbulenceModel& turbModel =
-            lookupObject<incompressible::turbulenceModel>
-            (
-                turbulenceModel::propertiesName
-            );
+        coeffModel_->htcByRhoCp(transport, patchSet_)
+    );
 
-        return store
-        (
-            name,
-            calcHeatTransferCoeff(turbModel.nu(), turbModel.nut())
-        );
+    if (!foundObject<basicThermo>(physicalProperties::typeName))
+    {
+        thtc.ref() *= rho_*Cp_;
     }
     else
     {
-        FatalErrorInFunction
-            << "Unable to find incompressible turbulence model in the "
-            << "database" << exit(FatalError);
+        const basicThermo& thermo =
+            lookupObject<basicThermo>(physicalProperties::typeName);
 
-        return false;
+        thtc.ref() *= thermo.rho()*thermo.Cp();
     }
+
+    store("wallHeatTransferCoeff", thtc);
+
+    return true;
 }
 
 
 bool Foam::functionObjects::wallHeatTransferCoeff::write()
 {
-    Log << type() << " " << name() << " write:" << nl;
+    Log << name() << " write:" << nl;
 
     writeLocalObjects::write();
-
     logFiles::write();
 
-    const volScalarField& wallHeatTransferCoeff =
-        obr_.lookupObject<volScalarField>(type());
+    const volScalarField& htc = obr_.lookupObject<volScalarField>(type());
 
     const fvPatchList& patches = mesh_.boundary();
 
@@ -248,25 +206,27 @@ bool Foam::functionObjects::wallHeatTransferCoeff::write()
         label patchi = iter.key();
         const fvPatch& pp = patches[patchi];
 
-        const scalarField& hfp = wallHeatTransferCoeff.boundaryField()[patchi];
+        if (!returnReduce(pp.size(), orOp<bool>())) continue;
+
+        const scalarField& hfp = htc.boundaryField()[patchi];
 
         const scalar minHtcp = gMin(hfp);
         const scalar maxHtcp = gMax(hfp);
-        const scalar integralHtcp = gSum(magSf[patchi]*hfp);
+        const scalar averageHtcp = gSum(magSf[patchi]*hfp)/gSum(magSf[patchi]);
 
         if (Pstream::master())
         {
             file()
-                << mesh_.time().value()
+                << time_.userTimeValue()
                 << tab << pp.name()
                 << tab << minHtcp
                 << tab << maxHtcp
-                << tab << integralHtcp
+                << tab << averageHtcp
                 << endl;
         }
 
-        Log << "    min/max/integ(" << pp.name() << ") = "
-            << minHtcp << ", " << maxHtcp << ", " << integralHtcp << endl;
+        Log << "    min/max/average(" << pp.name() << ") = "
+            << minHtcp << ", " << maxHtcp << ", " << averageHtcp << endl;
     }
 
     Log << endl;

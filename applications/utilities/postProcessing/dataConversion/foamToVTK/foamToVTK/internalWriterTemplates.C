@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,7 +24,7 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "internalWriter.H"
-#include "writeFuns.H"
+#include "vtkWriteFieldOps.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -36,20 +36,20 @@ void Foam::internalWriter::write
 {
     forAll(flds, i)
     {
-        writeFuns::write(os_, binary_, flds[i], vMesh_);
+        vtkWriteOps::write(os_, binary_, flds[i], vMesh_);
     }
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
+template<class Type, class GeoMesh>
 void Foam::internalWriter::write
 (
-    const UPtrList<const GeometricField<Type, PatchField, GeoMesh>>& flds
+    const UPtrList<const GeometricField<Type, GeoMesh>>& flds
 )
 {
     forAll(flds, i)
     {
-        writeFuns::write(os_, binary_, flds[i], vMesh_);
+        vtkWriteOps::write(os_, binary_, flds[i], vMesh_);
     }
 }
 
@@ -58,12 +58,12 @@ template<class Type>
 void Foam::internalWriter::write
 (
     const volPointInterpolation& pInterp,
-    const UPtrList<const GeometricField<Type, fvPatchField, volMesh>>& flds
+    const UPtrList<const VolField<Type>>& flds
 )
 {
     forAll(flds, i)
     {
-        writeFuns::write
+        vtkWriteOps::write
         (
             os_,
             binary_,

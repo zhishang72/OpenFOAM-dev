@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,7 +24,7 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "emptyFvPatchField.H"
-#include "fvPatchFieldMapper.H"
+#include "fieldMapper.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
@@ -37,29 +37,6 @@ Foam::emptyFvPatchField<Type>::emptyFvPatchField
 :
     fvPatchField<Type>(p, iF, Field<Type>(0))
 {}
-
-
-template<class Type>
-Foam::emptyFvPatchField<Type>::emptyFvPatchField
-(
-    const emptyFvPatchField<Type>&,
-    const fvPatch& p,
-    const DimensionedField<Type, volMesh>& iF,
-    const fvPatchFieldMapper&
-)
-:
-    fvPatchField<Type>(p, iF, Field<Type>(0))
-{
-    if (!isType<emptyFvPatch>(p))
-    {
-        FatalErrorInFunction
-            << "' not constraint type '" << typeName << "'"
-            << "\n    for patch " << p.name()
-            << " of field " << this->internalField().name()
-            << " in file " << this->internalField().objectPath()
-            << exit(FatalIOError);
-    }
-}
 
 
 template<class Type>
@@ -90,16 +67,24 @@ Foam::emptyFvPatchField<Type>::emptyFvPatchField
 template<class Type>
 Foam::emptyFvPatchField<Type>::emptyFvPatchField
 (
-    const emptyFvPatchField<Type>& ptf
+    const emptyFvPatchField<Type>&,
+    const fvPatch& p,
+    const DimensionedField<Type, volMesh>& iF,
+    const fieldMapper&
 )
 :
-    fvPatchField<Type>
-    (
-        ptf.patch(),
-        ptf.internalField(),
-        Field<Type>(0)
-    )
-{}
+    fvPatchField<Type>(p, iF, Field<Type>(0))
+{
+    if (!isType<emptyFvPatch>(p))
+    {
+        FatalErrorInFunction
+            << "' not constraint type '" << typeName << "'"
+            << "\n    for patch " << p.name()
+            << " of field " << this->internalField().name()
+            << " in file " << this->internalField().objectPath()
+            << exit(FatalError);
+    }
+}
 
 
 template<class Type>
@@ -111,16 +96,6 @@ Foam::emptyFvPatchField<Type>::emptyFvPatchField
 :
     fvPatchField<Type>(ptf.patch(), iF, Field<Type>(0))
 {}
-
-
-// * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
-
-template<class Type>
-void Foam::emptyFvPatchField<Type>::updateCoeffs()
-{
-    // Check moved to checkMesh.
-    // Test here fails if multiple empty patches.
-}
 
 
 // ************************************************************************* //

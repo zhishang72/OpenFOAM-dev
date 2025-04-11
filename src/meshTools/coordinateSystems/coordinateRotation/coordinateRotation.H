@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -65,7 +65,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                    Class coordinateRotation Declaration
+                     Class coordinateRotation Declaration
 \*---------------------------------------------------------------------------*/
 
 class coordinateRotation
@@ -74,8 +74,12 @@ protected:
 
     // Protected member functions
 
-        //- Transform principal
-        symmTensor transformPrincipal(const tensor&, const vector&) const;
+        //- Transform the vector as if it is a diagonal tensor
+        symmTensor transformVectorDiagTensor
+        (
+            const tensor&,
+            const vector&
+        ) const;
 
 
 public:
@@ -83,20 +87,6 @@ public:
 
     //- Runtime type information
     TypeName("coordinateRotation");
-
-
-    // Declare run-time constructor selection table
-    // for constructors with dictionary and objectRegistry
-    declareRunTimeSelectionTable
-    (
-        autoPtr,
-        coordinateRotation,
-        objectRegistry,
-        (
-            const dictionary& dict, const objectRegistry& obr
-        ),
-        (dict, obr)
-    );
 
 
     // Declare run-time constructor selection table
@@ -112,13 +102,32 @@ public:
         (dict)
     );
 
+    // Declare run-time constructor selection table
+    // for constructors with dictionary and list of points
+    declareRunTimeSelectionTable
+    (
+        autoPtr,
+        coordinateRotation,
+        points,
+        (
+            const dictionary& dict, const UList<vector>& points
+        ),
+        (dict, points)
+    );
+
+
+    // Constructors
+
+        //- Construct and return a clone
+        virtual autoPtr<coordinateRotation> clone() const = 0;
+
 
     // Selectors
 
-        //- Select constructed from dictionary and objectRegistry
+        //- Select constructed from dictionary and list of points
         static autoPtr<coordinateRotation> New
         (
-            const dictionary& dict, const objectRegistry& obr
+            const dictionary& dict, const UList<vector>& points
         );
 
         //- Select constructed from dictionary
@@ -135,21 +144,11 @@ public:
 
     // Member Functions
 
-        //- Reset rotation to an identity rotation
-        virtual void clear() = 0;
-
-        //- Update the rotation for a list of cells
-        virtual void updateCells
-        (
-            const polyMesh& mesh,
-            const labelList& cells
-        ) = 0;
+        //- Update the rotation for a list of points
+        virtual void updatePoints(const UList<vector>& points) = 0;
 
         //- Return local-to-global transformation tensor
         virtual const tensor& R() const = 0;
-
-        //- Return global-to-local transformation tensor
-        virtual const tensor& Rtr() const = 0;
 
         //- Return local Cartesian x-axis
         virtual const vector e1() const = 0;
@@ -160,60 +159,57 @@ public:
         //- Return local Cartesian z-axis
         virtual const vector e3() const = 0;
 
-        //- Return local-to-global transformation tensor
-        virtual const tensorField& Tr() const = 0;
-
         //- Return true if the rotation tensor is uniform
         virtual bool uniform() const
         {
             return true;
         }
 
-        //- Transform vectorField using transformation tensor field
-        virtual tmp<vectorField> transform(const vectorField& st) const = 0;
-
         //- Transform vector using transformation tensor
-        virtual vector transform(const vector& st) const = 0;
+        virtual vector transform(const vector& v) const = 0;
 
-        //- Inverse transform vectorField using transformation tensor field
-        virtual tmp<vectorField> invTransform(const vectorField& st) const = 0;
+        //- Transform vectorField using transformation tensor field
+        virtual tmp<vectorField> transform(const vectorField& vf) const = 0;
 
         //- Inverse transform vector using transformation tensor
-        virtual vector invTransform(const vector& st) const = 0;
+        virtual vector invTransform(const vector& v) const = 0;
 
-        //- Transform tensor field using transformation tensorField
-        virtual tmp<tensorField> transformTensor
-        (
-            const tensorField& st
-        ) const = 0;
-
-        //- Transform tensor sub-field using transformation tensorField
-        virtual tmp<tensorField> transformTensor
-        (
-            const tensorField& st,
-            const labelList& cellMap
-        ) const = 0;
+        //- Inverse transform vectorField using transformation tensor field
+        virtual tmp<vectorField> invTransform(const vectorField& vf) const = 0;
 
         //- Transform tensor using transformation tensorField
-        virtual tensor transformTensor(const tensor& st) const = 0;
-
-        //- Transform vectorField using transformation tensorField and return
-        // symmetrical tensorField
-        virtual tmp<symmTensorField> transformVector
+        virtual tensor transform
         (
-            const vectorField& st
+            const vector& p,
+            const tensor& t
         ) const = 0;
 
-        //- Transform vector using transformation tensor and return
-        // symmetrical tensor
-        virtual symmTensor transformVector(const vector& st) const = 0;
+        //- Transform tensor field using transformation tensorField
+        virtual tmp<tensorField> transform
+        (
+            const tensorField& tf
+        ) const = 0;
+
+        //- Transform diagTensor masquerading as a vector using transformation
+        //  tensor and return symmTensor
+        virtual symmTensor transformDiagTensor
+        (
+            const vector& p,
+            const vector& v
+        ) const = 0;
+
+        //- Transform diagTensorField masquerading as a vectorField
+        //  using transformation tensorField and return symmTensorField
+        virtual tmp<symmTensorField> transformDiagTensor
+        (
+            const vectorField& vf
+        ) const = 0;
 
 
     // Write
 
             //- Write
             virtual void write(Ostream&) const = 0;
-
 };
 
 

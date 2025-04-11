@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -29,6 +29,7 @@ Description
 #include "sammMesh.H"
 #include "Time.H"
 #include "polyMesh.H"
+#include "polyMeshUnMergeCyclics.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -46,7 +47,7 @@ void Foam::sammMesh::writeMesh()
                 runTime_.constant(),
                 runTime_
             ),
-            clone(points_),           // we could probably re-use the data
+            clone(points_),           // we could probably reuse the data
             cellShapes_,
             boundary_,
             patchNames_,
@@ -55,6 +56,8 @@ void Foam::sammMesh::writeMesh()
             defaultFacesType_,
             patchPhysicalTypes_
         );
+
+        polyMeshUnMergeCyclics(pShapeMesh);
 
         Info<< "Writing polyMesh" << endl;
         pShapeMesh.write();
@@ -75,12 +78,14 @@ void Foam::sammMesh::writeMesh()
                 runTime_.constant(),
                 runTime_
             ),
-            move(points_),           // we could probably re-use the data
+            move(points_),           // we could probably reuse the data
             move(meshFaces_),
             move(cellPolys_)
         );
 
         pMesh.addPatches(polyBoundaryPatches(pMesh));
+
+        polyMeshUnMergeCyclics(pMesh);
 
         Info<< "Writing polyMesh" << endl;
         pMesh.write();

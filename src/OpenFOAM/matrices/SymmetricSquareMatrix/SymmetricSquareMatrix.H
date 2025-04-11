@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -46,7 +46,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                   Class SymmetricSquareMatrix Declaration
+                    Class SymmetricSquareMatrix Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -65,21 +65,62 @@ public:
         //- Construct given number of rows/columns.
         inline SymmetricSquareMatrix(const label n);
 
-        //- Construct given number of rows/columns, initializing to zero
+        //- Construct given number of rows/columns, initialising to zero
         inline SymmetricSquareMatrix(const label n, const zero);
 
         //- Construct given number of rows/columns,
         inline SymmetricSquareMatrix(const label n, const Identity<Type>);
 
         //- Construct with given number of rows/columns
-        //  initializing all elements to the given value
+        //  initialising all elements to the given value
         inline SymmetricSquareMatrix(const label n, const Type&);
+
+        //- Construct with given number of rows/columns
+        //  and start and end iterators
+        template<class InputIterator>
+        inline SymmetricSquareMatrix
+        (
+            const label n,
+            InputIterator first,
+            InputIterator last
+        );
+
+        //- Construct with given number of rows/columns and initialiser list
+        inline SymmetricSquareMatrix
+        (
+            const label n,
+            std::initializer_list<Type>
+        );
+
+        //- Construct from an initialiser list
+        inline SymmetricSquareMatrix(std::initializer_list<Type>);
+
+        //- Construct from initialiser list list
+        inline SymmetricSquareMatrix
+        (
+            std::initializer_list<std::initializer_list<Type>>
+        );
 
         //- Construct from Istream.
         inline SymmetricSquareMatrix(Istream&);
 
         //- Clone
         inline autoPtr<SymmetricSquareMatrix<Type>> clone() const;
+
+
+    // Member Functions
+
+        //- Return the instantiated type name
+        static word typeName()
+        {
+            return
+                word("SymmetricSquareMatrix<") + pTraits<Type>::typeName + '>';
+        }
+
+
+    // Member Operators
+
+        using Matrix<SymmetricSquareMatrix<Type>, Type>::operator=;
 };
 
 

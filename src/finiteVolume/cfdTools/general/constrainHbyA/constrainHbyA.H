@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,6 +44,20 @@ namespace Foam
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
+void constrainHbyA
+(
+    volVectorField& HbyA,
+    const volVectorField& U,
+    const volScalarField& p
+);
+
+void constrainPhiHbyA
+(
+    surfaceScalarField& phiHbyA,
+    const volVectorField& U,
+    const volScalarField& p
+);
+
 tmp<volVectorField> constrainHbyA
 (
     const tmp<volVectorField>& tHbyA,
@@ -55,6 +69,12 @@ tmp<surfaceScalarField> constrainPhiHbyA
 (
     const tmp<surfaceScalarField>& tphiHbyA,
     const volVectorField& U,
+    const volScalarField& p
+);
+
+tmp<surfaceScalarField> constrainPhid
+(
+    const tmp<surfaceScalarField>& tphiHbyA,
     const volScalarField& p
 );
 

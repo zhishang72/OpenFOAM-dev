@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -45,7 +45,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                         Class QRMatrix Declaration
+                          Class QRMatrix Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class MatrixType>
@@ -71,7 +71,7 @@ private:
 
     // Private Member Functions
 
-        //- Solve the linear system with the Field argument x initialized to
+        //- Solve the linear system with the Field argument x initialised to
         //  the appropriate transformed source (e.g. Q.T()*source)
         //  and return the solution in x
         void solvex(Field<cmptType>& x) const;

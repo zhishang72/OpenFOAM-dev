@@ -7,7 +7,6 @@
 \*---------------------------------------------------------------------------*/
 FoamFile
 {
-    version     2.0;
     format      ascii;
     class       dictionary;
     object      snappyHexMeshDict;
@@ -51,9 +50,18 @@ geometry
         type triSurfaceMesh;
         file "sphere.stl"
 
-        // tolerance   1E-5;   // optional:non-default tolerance on intersections
-        // maxTreeDepth 10;    // optional:depth of octree. Decrease only in case
-                              // of memory limitations.
+        // Optional: non-default tolerance on intersections
+        // tolerance 1e-5;
+
+        // Optional: depth of octree. Decrease only in case of memory
+        // limitations.
+        // maxTreeDepth 10;
+
+        // Optional: scaling factor, e.g. unit conversion
+        // scale 1;
+
+        // Optional: discard triangles with low quality when getting normal
+        // minQuality -1;
 
         // Per region the patchname. If not provided will be <surface>_<region>.
         // Note: this name cannot be used to identity this region in any
@@ -119,7 +127,7 @@ castellatedMeshControls
 
     // Specifies a level for any cell intersected by explicitly provided
     // edges.
-    // This is a featureEdgeMesh, read from constant/triSurface for now.
+    // This is a featureEdgeMesh, read from constant/geometry for now.
     // Specify 'levels' in the same way as the 'distance' mode in the
     // refinementRegions (see below). The old specification
     //      level   2;
@@ -188,7 +196,7 @@ castellatedMeshControls
 
             // faceZone sphere;
             // cellZone sphere;
-            // cellZoneInside inside;  // outside/insidePoint
+            // mode        inside;  // outside/insidePoint
 
             //- Optional specification of what to do with faceZone faces:
             //      internal : keep them as internal faces (default)
@@ -255,10 +263,10 @@ castellatedMeshControls
 
     // After refinement patches get added for all refinementSurfaces and
     // all cells intersecting the surfaces get put into these patches. The
-    // section reachable from the locationInMesh is kept.
+    // section reachable from the insidePoint is kept.
     // NOTE: This point should never be on a face, always inside a cell, even
     // after refinement.
-    locationInMesh (5 0.28 0.43);
+    insidePoint (5 0.28 0.43);
 
     // Whether any faceZones (as specified in the refinementSurfaces)
     // are only on the boundary of corresponding cellZones or also allow
@@ -272,6 +280,9 @@ castellatedMeshControls
     // Optional: switch off topological test for cells to-be-squashed
     //           and use geometric test instead
     // useTopologicalSnapDetection false;
+
+    // Extend refinement regions to the span of the surface facet/triangles
+    extendedRefinementSpan true;
 }
 
 // Settings for the snapping.
@@ -401,7 +412,7 @@ addLayersControls
 
         // When not to extrude surface. 0 is flat surface, 90 is when two faces
         // are perpendicular
-        featureAngle 130;
+        featureAngle 100;
 
         // Stop layer growth on highly warped cells
         maxFaceThicknessRatio 0.5;

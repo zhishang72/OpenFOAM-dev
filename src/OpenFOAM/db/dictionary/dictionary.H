@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -53,13 +53,12 @@ SourceFiles
 #include "entry.H"
 #include "IDLList.H"
 #include "DLList.H"
-#include "fileName.H"
+#include "HashSet.H"
 #include "ITstream.H"
-#include "HashTable.H"
-#include "wordList.H"
+#include "Pair.H"
 #include "className.H"
-
-#include "VectorSpace.H"
+#include "fieldTypes.H"
+#include "Tuple3.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -67,15 +66,16 @@ namespace Foam
 {
 
 // Forward declaration of friend functions and operators
-class regExp;
 class dictionary;
+class regExp;
 class SHA1Digest;
+class unitConversion;
 
 Istream& operator>>(Istream&, dictionary&);
 Ostream& operator<<(Ostream&, const dictionary&);
 
 /*---------------------------------------------------------------------------*\
-                        Class dictionaryName Declaration
+                       Class dictionaryName Declaration
 \*---------------------------------------------------------------------------*/
 
 class dictionaryName
@@ -153,7 +153,7 @@ public:
 
 
 /*---------------------------------------------------------------------------*\
-                           Class dictionary Declaration
+                         Class dictionary Declaration
 \*---------------------------------------------------------------------------*/
 
 class dictionary
@@ -163,15 +163,14 @@ class dictionary
 {
     // Private Data
 
-        //- If true write optional keywords and values
-        //  if not present in dictionary
-        static bool writeOptionalEntries;
-
         //- HashTable of the entries held on the DL-list for quick lookup
         HashTable<entry*> hashedEntries_;
 
         //- Parent dictionary
         const dictionary& parent_;
+
+        //- Current stream/file pointer
+        mutable const Istream* filePtr_;
 
         //- Entries of matching patterns
         DLList<entry*> patternEntries_;
@@ -180,28 +179,11 @@ class dictionary
         DLList<autoPtr<regExp>> patternRegexps_;
 
 
-   // Private Member Functions
+    // Private Member Functions
 
         //- Find and return an entry data stream pointer if present
-        //  otherwise return nullptr.  Supports scoping using '.'
-        const entry* lookupDotScopedSubEntryPtr
-        (
-            const word&,
-            bool recursive,
-            bool patternMatch
-        ) const;
-
-        //- Find and return an entry data stream pointer if present
-        //  otherwise return nullptr.  Supports scoping using '/'
-        const entry* lookupSlashScopedSubEntryPtr
-        (
-            const word&,
-            bool recursive,
-            bool patternMatch
-        ) const;
-
-        //- Find and return an entry data stream pointer if present
-        //  otherwise return nullptr.  Supports scoping using '/' or '.'
+        //  otherwise return nullptr.
+        //  Allows scoping using '/' with special handling for '!' and '..'.
         const entry* lookupScopedSubEntryPtr
         (
             const word&,
@@ -227,6 +209,42 @@ class dictionary
             DLList<autoPtr<regExp>>::iterator& reLink
         );
 
+        //- Check that no unit conversions are being performed
+        void assertNoConvertUnits
+        (
+            const char* typeName,
+            const word& keyword,
+            const unitConversion& defaultUnits,
+            ITstream& is
+        ) const;
+
+        //- Read a value, check its dimensions and convert its units
+        template<class T>
+        T readTypeAndConvertUnits
+        (
+            const word& keyword,
+            const unitConversion& defaultUnits,
+            ITstream& is
+        ) const;
+
+        //- Read a value from the token stream
+        template<class T>
+        T readType
+        (
+            const word& keyword,
+            const unitConversion& defaultUnits,
+            ITstream& is
+        ) const;
+
+        //- Read a value from the token stream
+        template<class T>
+        T readType(const word& keyword, ITstream& is) const;
+
+
+    // Private Classes
+
+        class includedDictionary;
+
 
 public:
 
@@ -238,8 +256,14 @@ public:
     ClassName("dictionary");
 
 
-    //- Null dictionary
-    static const dictionary null;
+    // Public static data
+
+        //- Null dictionary
+        static const dictionary null;
+
+        //- If true write optional keywords and values
+        //  if not present in dictionary
+        static int writeOptionalEntries;
 
 
     // Constructors
@@ -249,6 +273,9 @@ public:
 
         //- Construct top-level empty dictionary with given name
         dictionary(const fileName& name);
+
+        //- Construct an empty sub-dictionary with given name and parent
+        dictionary(const fileName& name, const dictionary& parentDict);
 
         //- Construct given the entry name, parent dictionary and Istream,
         //  reading entries until lastEntry or EOF
@@ -263,6 +290,25 @@ public:
         //  reading entries until EOF, optionally keeping the header
         dictionary(Istream&, const bool keepHeader=false);
 
+        //- Construct top-level dictionary with given T entries
+        template<class T, class ... KeysAndTs>
+        dictionary
+        (
+            const keyType& k,
+            const T& t,
+            const KeysAndTs& ... keysAndTs
+        );
+
+        //- Construct top-level dictionary with given name and T entries
+        template<class T, class ... KeysAndTs>
+        dictionary
+        (
+            const fileName& name,
+            const keyType& k,
+            const T& t,
+            const KeysAndTs& ... keysAndTs
+        );
+
         //- Construct as copy given the parent dictionary
         dictionary(const dictionary& parentDict, const dictionary&);
 
@@ -272,13 +318,6 @@ public:
         //- Construct top-level dictionary as copy from pointer to dictionary.
         //  A null pointer is treated like an empty dictionary.
         dictionary(const dictionary*);
-
-        //- Move constructor transferring parameter contents
-        //  given parent dictionary
-        dictionary(const dictionary& parentDict, dictionary&&);
-
-        //- Move constructor
-        dictionary(dictionary&&);
 
         //- Construct and return clone
         autoPtr<dictionary> clone() const;
@@ -308,6 +347,10 @@ public:
         //- Return the top of the tree
         const dictionary& topDict() const;
 
+        //- Return the scoped keyword with which this dictionary can be
+        //  accessed from the top dictionary in the tree
+        word topDictKeyword() const;
+
         //- Return line number of first token in dictionary
         label startLineNumber() const;
 
@@ -330,7 +373,7 @@ public:
             (
                 const word&,
                 bool recursive=false,
-                bool patternMatch = true
+                bool patternMatch=true
             ) const;
 
             //- Find and return an entry data stream pointer if present
@@ -355,12 +398,34 @@ public:
                 bool patternMatch
             );
 
+            //- Find and return an entry data stream if present, trying a list
+            //  of keywords in sequence, otherwise return nullptr.
+            //  If recursive, search parent dictionaries.
+            //  If patternMatch, use regular expressions
+            const entry* lookupEntryPtrBackwardsCompatible
+            (
+                const wordList&,
+                bool recursive,
+                bool patternMatch
+            ) const;
+
             //- Find and return an entry data stream if present otherwise error.
             //  If recursive, search parent dictionaries.
             //  If patternMatch, use regular expressions.
             const entry& lookupEntry
             (
                 const word&,
+                bool recursive,
+                bool patternMatch
+            ) const;
+
+            //- Find and return an entry data stream if present, trying a list
+            //  of keywords in sequence, otherwise error.
+            //  If recursive, search parent dictionaries.
+            //  If patternMatch, use regular expressions
+            const entry& lookupEntryBackwardsCompatible
+            (
+                const wordList&,
                 bool recursive,
                 bool patternMatch
             ) const;
@@ -375,8 +440,19 @@ public:
                 bool patternMatch=true
             ) const;
 
-            //- Find and return a T,
-            //  if not found throw a fatal error.
+            //- Find and return an entry data stream, trying a list of keywords
+            //  in sequence
+            //  if not found throw a fatal error relating to the first keyword
+            //  If recursive, search parent dictionaries.
+            //  If patternMatch, use regular expressions.
+            ITstream& lookupBackwardsCompatible
+            (
+                const wordList&,
+                bool recursive=false,
+                bool patternMatch=true
+            ) const;
+
+            //- Find and return a T, if not found throw a fatal error.
             //  If recursive, search parent dictionaries.
             //  If patternMatch, use regular expressions.
             template<class T>
@@ -387,17 +463,94 @@ public:
                 bool patternMatch=true
             ) const;
 
-            //- Find and return a T,
-            //  if not found return the given default value.
+            //- Find and return a T, with dimension checking and unit
+            //  conversions, and if not found throw a fatal error.
+            //  If recursive, search parent dictionaries.
+            //  If patternMatch, use regular expressions.
+            template<class T>
+            T lookup
+            (
+                const word&,
+                const unitConversion&,
+                bool recursive=false,
+                bool patternMatch=true
+            ) const;
+
+            //- Find and return a T, trying a list of keywords in sequence,
+            //  and if not found throw a fatal error relating to the first
+            //  (preferred) keyword.
+            //  If recursive, search parent dictionaries.
+            //  If patternMatch, use regular expressions.
+            template<class T>
+            T lookupBackwardsCompatible
+            (
+                const wordList&,
+                bool recursive=false,
+                bool patternMatch=true
+            ) const;
+
+            //- Find and return a T, with dimension checking and unit
+            //  conversions, trying a list of keywords in sequence, and if not
+            //  found throw a fatal error relating to the first (preferred)
+            //  keyword.
+            //  If recursive, search parent dictionaries.
+            //  If patternMatch, use regular expressions.
+            template<class T>
+            T lookupBackwardsCompatible
+            (
+                const wordList&,
+                const unitConversion&,
+                bool recursive=false,
+                bool patternMatch=true
+            ) const;
+
+            //- Find and return a T, if not found return the given default
+            //  value.
+            template<class T>
+            T lookupOrDefault
+            (
+                const word&,
+                const T&,
+                const bool writeDefault = writeOptionalEntries > 0
+            ) const;
+
+            //- Find and return a T with dimension checking and unit
+            //  conversions, and if not found return the given default value.
             //  If recursive, search parent dictionaries.
             //  If patternMatch, use regular expressions.
             template<class T>
             T lookupOrDefault
             (
                 const word&,
+                const unitConversion&,
                 const T&,
-                bool recursive=false,
-                bool patternMatch=true
+                const bool writeDefault = writeOptionalEntries > 0
+            ) const;
+
+            //- Find and return a T, trying a list of keywords in sequence,
+            //  and if not found throw a fatal error relating to the first
+            //  (preferred) keyword
+            //  If recursive, search parent dictionaries.
+            //  If patternMatch, use regular expressions.
+            template<class T>
+            T lookupOrDefaultBackwardsCompatible
+            (
+                const wordList&,
+                const T&
+            ) const;
+
+            //- Find and return a T, with dimension checking and unit
+            //  conversions, trying a list of keywords in sequence, and if not
+            //  found throw a fatal error relating to the first (preferred)
+            //  keyword
+            //  If recursive, search parent dictionaries.
+            //  If patternMatch, use regular expressions.
+            template<class T>
+            T lookupOrDefaultBackwardsCompatible
+            (
+                const wordList&,
+                const unitConversion&,
+                const T&
             ) const;
 
             //- Find and return a T, if not found return the given
@@ -408,12 +561,10 @@ public:
             T lookupOrAddDefault
             (
                 const word&,
-                const T&,
-                bool recursive=false,
-                bool patternMatch=true
+                const T&
             );
 
-            //- Find an entry if present, and assign to T
+            //- Find an entry if present, and assign to T.
             //  Returns true if the entry was found.
             //  If recursive, search parent dictionaries.
             //  If patternMatch, use regular expressions.
@@ -426,12 +577,55 @@ public:
                 bool patternMatch=true
             ) const;
 
-            //- Find and return an entry data stream pointer if present
-            //  otherwise return nullptr. Allows scoping using '/' with
-            //  special handling for '!' and '..'.
+            //- Find an entry if present, and assign to T, with dimension
+            //  checking and unit conversions.
+            //  Returns true if the entry was found.
+            //  If recursive, search parent dictionaries.
+            //  If patternMatch, use regular expressions.
+            template<class T>
+            bool readIfPresent
+            (
+                const word&,
+                const unitConversion&,
+                T&,
+                bool recursive=false,
+                bool patternMatch=true
+            ) const;
+
+            //- Find and return an entry data stream pointer if present,
+            //  otherwise return nullptr.
+            //  If recursive, search parent dictionaries.
+            //  If patternMatch, use regular expressions.
+            //  Allows scoping using '/' with special handling for '!' and '..'.
             const entry* lookupScopedEntryPtr
             (
                 const word&,
+                bool recursive,
+                bool patternMatch
+            ) const;
+
+            //- Find and return a T,
+            //  if not found throw a fatal error.
+            //  If recursive, search parent dictionaries.
+            //  If patternMatch, use regular expressions.
+            //  Allows scoping using '/' with special handling for '!' and '..'.
+            template<class T>
+            T lookupScoped
+            (
+                const word&,
+                bool recursive=false,
+                bool patternMatch=true
+            ) const;
+
+            //- Find return the reference to the compound T,
+            //  if not found or not a compound throw a fatal error.
+            //  If recursive, search parent dictionaries.
+            //  If patternMatch, use regular expressions.
+            //  Allows scoping using '/' with special handling for '!' and '..'.
+            template<class T>
+            const T& lookupCompoundScoped
+            (
+                const word& keyword,
                 bool recursive,
                 bool patternMatch
             ) const;
@@ -453,9 +647,13 @@ public:
             //- Find and return a sub-dictionary for manipulation
             dictionary& subDict(const word&);
 
-            //- Find and return a sub-dictionary as a copy, or
-            //  return an empty dictionary if the sub-dictionary does not exist
-            dictionary subOrEmptyDict
+            //- Find and return a sub-dictionary, trying a list of keywords in
+            //  sequence, otherwise error.
+            const dictionary& subDictBackwardsCompatible(const wordList&) const;
+
+            //- Find and return a sub-dictionary
+            //  or empty dictionary if the sub-dictionary does not exist
+            const dictionary& subOrEmptyDict
             (
                 const word&,
                 const bool mustRead = false
@@ -464,6 +662,16 @@ public:
             //- Find and return a sub-dictionary if found
             //  otherwise return this dictionary
             const dictionary& optionalSubDict(const word&) const;
+
+            //- Find and return a sub-dictionary by scoped lookup
+            //  i.e. the keyword may contain scope characters.
+            //  If the keyword is null this dictionary is returned
+            const dictionary& scopedDict(const word&) const;
+
+            //- Find and return a sub-dictionary by scoped lookup
+            //  i.e. the keyword may contain scope characters.
+            //  If the keyword is null this dictionary is returned
+            dictionary& scopedDict(const word&);
 
             //- Return the table of contents
             wordList toc() const;
@@ -480,10 +688,6 @@ public:
             //- Substitute the given keyword prepended by '$' with the
             //  corresponding sub-dictionary entries
             bool substituteKeyword(const word& keyword);
-
-            //- Substitute the given scoped keyword prepended by '$' with the
-            //  corresponding sub-dictionary entries
-            bool substituteScopedKeyword(const word& keyword);
 
             //- Add a new entry
             //  With the merge option, dictionaries are interwoven and
@@ -538,8 +742,15 @@ public:
             template<class T>
             void set(const keyType&, const T&);
 
+            //- Assign multiple T entries, overwriting any existing entries
+            template<class T, class ... KeysAndTs>
+            void set(const keyType&, const T&, const KeysAndTs& ...);
+
             //- Remove an entry specified by keyword
             bool remove(const word&);
+
+            //- Remove entries specified by keywords
+            void remove(const wordList&);
 
             //- Change the keyword for an entry,
             //  optionally forcing overwrite of an existing entry
@@ -566,6 +777,11 @@ public:
             //- Read dictionary from Istream, optionally keeping the header
             bool read(Istream&, const bool keepHeader=false);
 
+            //- Return true if the dictionary global,
+            //  i.e. the same on all processors.
+            //  Defaults to false, must be overridden by global IO dictionaries
+            virtual bool global() const;
+
 
         // Write
 
@@ -579,8 +795,6 @@ public:
         ITstream& operator[](const word&) const;
 
         void operator=(const dictionary&);
-
-        void operator=(dictionary&&);
 
         //- Include entries from the given dictionary.
         //  Warn, but do not overwrite existing entries.
@@ -605,6 +819,83 @@ public:
 };
 
 
+// Private Classes
+
+class dictionary::includedDictionary
+:
+    public dictionary
+{
+    // Private Data
+
+        //- Global IO status inherited from the parent dictionary
+        bool global_;
+
+
+public:
+
+    // Constructors
+
+        //- Construct an included dictionary for the given parent
+        //  setting the "global" status dictionary without setting the parent
+        includedDictionary
+        (
+            const fileName& fName,
+            const dictionary& parentDict
+        );
+
+
+    //- Destructor
+    virtual ~includedDictionary()
+    {}
+
+
+    // Member Functions
+
+        //- Return true if the dictionary global,
+        //  i.e. the same on all processors.
+        //  Inherited from the parent dictionary into which this is included
+        virtual bool global() const
+        {
+            return global_;
+        }
+};
+
+
+// Template Specialisations
+
+//- Specialise readType for types for which unit conversions can be performed
+#define DECLARE_SPECIALISED_READ_TYPE(T, nullArg)                              \
+                                                                               \
+    template<>                                                                 \
+    T Foam::dictionary::readType                                               \
+    (                                                                          \
+        const word& keyword,                                                   \
+        const unitConversion& defaultUnits,                                    \
+        ITstream& is                                                           \
+    ) const;                                                                   \
+                                                                               \
+    template<>                                                                 \
+    T Foam::dictionary::readType                                               \
+    (                                                                          \
+        const word& keyword,                                                   \
+        ITstream& is                                                           \
+    ) const;
+
+#define DECLARE_SPECIALISED_READ_PAIR_TYPE(T, nullArg)                         \
+    DECLARE_SPECIALISED_READ_TYPE(Pair<T>, nullArg)
+
+#define DECLARE_SPECIALISED_READ_LIST_TYPE(T, nullArg)                         \
+    DECLARE_SPECIALISED_READ_TYPE(List<T>, nullArg)
+
+FOR_ALL_FIELD_TYPES(DECLARE_SPECIALISED_READ_TYPE);
+FOR_ALL_FIELD_TYPES(DECLARE_SPECIALISED_READ_PAIR_TYPE);
+FOR_ALL_FIELD_TYPES(DECLARE_SPECIALISED_READ_LIST_TYPE);
+
+#undef DECLARE_SPECIALISED_READ_TYPE
+#undef DECLARE_SPECIALISED_READ_PAIR_TYPE
+#undef DECLARE_SPECIALISED_READ_LIST_TYPE
+
+
 // Global Operators
 
 //- Combine dictionaries.
@@ -620,12 +911,137 @@ dictionary operator|(const dictionary& dict1, const dictionary& dict2);
 
 // Global Functions
 
+//- Parse dictionary substitution argument list
+void dictArgList
+(
+    const Tuple2<string, label>& argString,
+    word& configName,
+    List<Tuple2<wordRe, label>>& args,
+    List<Tuple3<word, string, label>>& namedArgs
+);
+
+//- Parse dictionary substitution argument list
+void dictArgList
+(
+    const Tuple2<string, label>& argString,
+    List<Tuple2<wordRe, label>>& args,
+    List<Tuple3<word, string, label>>& namedArgs
+);
+
+//- Extracts dict name and keyword
+Pair<word> dictAndKeyword(const word& scopedName);
+
+//- Return the list of configuration files in
+//  user/group/shipped directories.
+//  The search scheme allows for version-specific and
+//  version-independent files using the following hierarchy:
+//  - \b user settings:
+//    - ~/.OpenFOAM/\<VERSION\>/caseDicts/functions
+//    - ~/.OpenFOAM/caseDicts/functions
+//  - \b group (site) settings (when $WM_PROJECT_SITE is set):
+//    - $WM_PROJECT_SITE/\<VERSION\>/etc/caseDicts/functions
+//    - $WM_PROJECT_SITE/etc/caseDicts/functions
+//  - \b group (site) settings (when $WM_PROJECT_SITE is not set):
+//    - $WM_PROJECT_INST_DIR/site/\<VERSION\>/etc/
+//          caseDicts/functions
+//    - $WM_PROJECT_INST_DIR/site/etc/caseDicts/functions
+//  - \b other (shipped) settings:
+//    - $WM_PROJECT_DIR/etc/caseDicts/functions
+wordList listAllConfigFiles
+(
+    const fileName& configFilesPath
+);
+
+//- Search for configuration file for given region
+//  and if not present also search the case directory as well as the
+//  user/group/shipped directories.
+//  The search scheme allows for version-specific and
+//  version-independent files using the following hierarchy:
+//  - \b user settings:
+//    - ~/.OpenFOAM/\<VERSION\>/caseDicts/functions
+//    - ~/.OpenFOAM/caseDicts/functions
+//  - \b group (site) settings (when $WM_PROJECT_SITE is set):
+//    - $WM_PROJECT_SITE/\<VERSION\>/etc/caseDicts/functions
+//    - $WM_PROJECT_SITE/etc/caseDicts/functions
+//  - \b group (site) settings (when $WM_PROJECT_SITE is not set):
+//    - $WM_PROJECT_INST_DIR/site/\<VERSION\>/etc/
+//          caseDicts/functions
+//    - $WM_PROJECT_INST_DIR/site/etc/caseDicts/functions
+//  - \b other (shipped) settings:
+//    - $WM_PROJECT_DIR/etc/caseDicts/functions
+//
+//  \return The path of the configuration file if found
+//  otherwise null
+fileName findConfigFile
+(
+    const word& configName,
+    const fileName& configFilesPath,
+    const word& configFilesDir,
+    const word& region = word::null
+);
+
+//- Expand arg within the dict context and return
+string expandArg
+(
+    const string& arg,
+    dictionary& dict,
+    const label lineNumber
+);
+
+//- Add the keyword value pair to dict
+//  setting the given lineNumber for the entry
+void addArgEntry
+(
+    dictionary& dict,
+    const word& keyword,
+    const string& value,
+    const label lineNumber
+);
+
+//- Read the specified configuration file
+//  parsing the optional arguments included in the string
+//  'argString', inserting 'field' or 'fields' entries as required
+//  and merging the resulting configuration dictionary into
+//  'parentDict'.
+//
+//  Parses the optional arguments:
+//      'Q(U)' -> configFileName = Q; args = (U)
+//             -> field U;
+//
+//  Supports named arguments:
+//      'patchAverage(patch=inlet, p,U)'
+//  or
+//      'patchAverage(patch=inlet, field=(p U))'
+//       -> configFileName = patchAverage;
+//          args = (patch=inlet, p,U)
+//       -> patch inlet;
+//          fields (p U);
+bool readConfigFile
+(
+    const word& configType,
+    const Tuple2<string, label>& argString,
+    dictionary& parentDict,
+    const fileName& configFilesPath,
+    const word& configFilesDir,
+    const word& region = word::null
+);
+
 //- Write a dictionary entry
 void writeEntry(Ostream& os, const dictionary& dict);
 
 //- Helper function to write the keyword and entry
 template<class EntryType>
 void writeEntry(Ostream& os, const word& entryName, const EntryType& value);
+
+//- Helper function to write the keyword and entry
+template<class EntryType>
+void writeEntry
+(
+    Ostream& os,
+    const word& entryName,
+    const unitConversion& defaultUnits,
+    const EntryType& value
+);
 
 //- Helper function to write the keyword and entry only if the
 //  values are not equal. The value is then output as value2
@@ -634,6 +1050,18 @@ void writeEntryIfDifferent
 (
     Ostream& os,
     const word& entryName,
+    const EntryType& value1,
+    const EntryType& value2
+);
+
+//- Helper function to write the keyword and entry only if the
+//  values are not equal. The value is then output as value2
+template<class EntryType>
+void writeEntryIfDifferent
+(
+    Ostream& os,
+    const word& entryName,
+    const unitConversion& defaultUnits,
     const EntryType& value1,
     const EntryType& value2
 );

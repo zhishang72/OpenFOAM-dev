@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -121,27 +121,19 @@ void renamePatches
     const labelList& patchesToRename
 )
 {
-    polyBoundaryMesh& polyPatches =
+    polyBoundaryMesh& patches =
         const_cast<polyBoundaryMesh&>(mesh.boundaryMesh());
+
+    // Create a list of all the new names
+    wordList newNames = patches.names();
     forAll(patchesToRename, i)
     {
-        label patchi = patchesToRename[i];
-        polyPatch& pp = polyPatches[patchi];
-
-        if (isA<coupledPolyPatch>(pp))
-        {
-            WarningInFunction
-                << "Encountered coupled patch " << pp.name()
-                << ". Will only rename the patch itself,"
-                << " not any referred patches."
-                << " This might have to be done by hand."
-                << endl;
-        }
-
-        pp.name() = prefix + '_' + pp.name();
+        const label patchi = patchesToRename[i];
+        newNames[patchi] = prefix + '_' + newNames[patchi];
     }
-    // Recalculate any demand driven data (e.g. group to name lookup)
-    polyPatches.updateMesh();
+
+    // Apply to the patches
+    patches.renamePatches(newNames, true);
 }
 
 
@@ -155,7 +147,7 @@ void subsetVolFields
     const labelHashSet& addedPatches
 )
 {
-    const labelList patchMap(identity(mesh.boundaryMesh().size()));
+    const labelList patchMap(identityMap(mesh.boundaryMesh().size()));
 
     HashTable<const GeoField*> fields
     (
@@ -209,7 +201,7 @@ void subsetSurfaceFields
     const labelHashSet& addedPatches
 )
 {
-    const labelList patchMap(identity(mesh.boundaryMesh().size()));
+    const labelList patchMap(identityMap(mesh.boundaryMesh().size()));
 
     HashTable<const GeoField*> fields
     (
@@ -232,17 +224,6 @@ void subsetSurfaceFields
                 faceMap
             )
         );
-
-        // Hack: set value to 0 for introduced patches (since don't
-        //       get initialised.
-        forAll(tSubFld().boundaryField(), patchi)
-        {
-            if (addedPatches.found(patchi))
-            {
-                tSubFld.ref().boundaryFieldRef()[patchi] ==
-                    typename GeoField::value_type(Zero);
-            }
-        }
 
         // Store on subMesh
         GeoField* subFld = tSubFld.ptr();
@@ -312,6 +293,41 @@ void addToInterface
 }
 
 
+label whichZone
+(
+    const polyMesh& mesh,
+    const bool useFaceZones,
+    const label facei
+)
+{
+    if (useFaceZones)
+    {
+        const labelList zones(mesh.faceZones().whichZones(facei));
+
+        if (zones.size() == 0)
+        {
+            return -1;
+        }
+        else if (zones.size() == 1)
+        {
+            return zones[0];
+        }
+        else
+        {
+            FatalErrorInFunction
+                << "Face " << facei << " is in more than one zone " << zones
+                << exit(FatalError);
+
+            return -1;
+        }
+    }
+    else
+    {
+        return -1;
+    }
+}
+
+
 // Get region-region interface name and sizes.
 // Returns interfaces as straight list for looping in identical order.
 void getInterfaceSizes
@@ -345,7 +361,7 @@ void getInterfaceSizes
             addToInterface
             (
                 mesh,
-                (useFaceZones ? mesh.faceZones().whichZone(facei) : -1),
+                whichZone(mesh, useFaceZones, facei),
                 ownRegion,
                 neiRegion,
                 regionsToSize
@@ -377,7 +393,7 @@ void getInterfaceSizes
             addToInterface
             (
                 mesh,
-                (useFaceZones ? mesh.faceZones().whichZone(facei) : -1),
+                whichZone(mesh, useFaceZones, facei),
                 ownRegion,
                 neiRegion,
                 regionsToSize
@@ -536,11 +552,7 @@ void getInterfaceSizes
 
         if (ownRegion != neiRegion)
         {
-            label zoneID = -1;
-            if (useFaceZones)
-            {
-                zoneID = mesh.faceZones().whichZone(facei);
-            }
+            const label zoneID = whichZone(mesh, useFaceZones, facei);
 
             edge interface
             (
@@ -559,11 +571,7 @@ void getInterfaceSizes
 
         if (ownRegion != neiRegion)
         {
-            label zoneID = -1;
-            if (useFaceZones)
-            {
-                zoneID = mesh.faceZones().whichZone(facei);
-            }
+            const label zoneID = whichZone(mesh, useFaceZones, facei);
 
             edge interface
             (
@@ -578,7 +586,7 @@ void getInterfaceSizes
 
 
 // Create mesh for region.
-autoPtr<mapPolyMesh> createRegionMesh
+autoPtr<polyTopoChangeMap> createRegionMesh
 (
     const fvMesh& mesh,
     // Region info
@@ -592,58 +600,6 @@ autoPtr<mapPolyMesh> createRegionMesh
     autoPtr<fvMesh>& newMesh
 )
 {
-    // Create dummy system/fv*
-    {
-        IOobject io
-        (
-            "fvSchemes",
-            mesh.time().system(),
-            regionName,
-            mesh,
-            IOobject::NO_READ,
-            IOobject::NO_WRITE,
-            false
-        );
-
-        Info<< "Testing:" << io.objectPath() << endl;
-
-        if (!io.typeHeaderOk<IOdictionary>(true))
-        // if (!exists(io.objectPath()))
-        {
-            Info<< "Writing dummy " << regionName/io.name() << endl;
-            dictionary dummyDict;
-            dictionary divDict;
-            dummyDict.add("divSchemes", divDict);
-            dictionary gradDict;
-            dummyDict.add("gradSchemes", gradDict);
-            dictionary laplDict;
-            dummyDict.add("laplacianSchemes", laplDict);
-
-            IOdictionary(io, dummyDict).regIOobject::write();
-        }
-    }
-    {
-        IOobject io
-        (
-            "fvSolution",
-            mesh.time().system(),
-            regionName,
-            mesh,
-            IOobject::NO_READ,
-            IOobject::NO_WRITE,
-            false
-        );
-
-        if (!io.typeHeaderOk<IOdictionary>(true))
-        // if (!exists(io.objectPath()))
-        {
-            Info<< "Writing dummy " << regionName/io.name() << endl;
-            dictionary dummyDict;
-            IOdictionary(io, dummyDict).regIOobject::write();
-        }
-    }
-
-
     // Neighbour cellRegion.
     labelList coupledRegion(mesh.nFaces()-mesh.nInternalFaces());
 
@@ -732,13 +688,13 @@ autoPtr<mapPolyMesh> createRegionMesh
         meshMod
     );
 
-    autoPtr<mapPolyMesh> map = meshMod.makeMesh
+    autoPtr<polyTopoChangeMap> map = meshMod.makeMesh
     (
         newMesh,
         IOobject
         (
             regionName,
-            mesh.time().timeName(),
+            mesh.time().name(),
             mesh.time(),
             IOobject::NO_READ,
             IOobject::AUTO_WRITE
@@ -766,7 +722,7 @@ void createAndWriteRegion
         << ' ' << regionNames[regioni] << endl;
 
     autoPtr<fvMesh> newMesh;
-    autoPtr<mapPolyMesh> map = createRegionMesh
+    autoPtr<polyTopoChangeMap> map = createRegionMesh
     (
         mesh,
         cellRegion,
@@ -790,7 +746,7 @@ void createAndWriteRegion
     Info<< "Mapping fields" << endl;
 
     // Map existing fields
-    newMesh().updateMesh(map());
+    newMesh().topoChange(map());
 
     // Add subsetted fields
     subsetVolFields<volScalarField>
@@ -921,7 +877,7 @@ void createAndWriteRegion
 
     const label nNewPatches = newI;
 
-    // Move all deleteable patches to the end
+    // Move all delete-able patches to the end
     forAll(oldToNew, patchi)
     {
         if (oldToNew[patchi] == -1)
@@ -1025,36 +981,6 @@ void createAndWriteRegion
         << " from region" << regioni
         << " cells back to base mesh." << endl;
     cellProcAddressing.write();
-
-    labelIOList boundaryProcAddressing
-    (
-        IOobject
-        (
-            "boundaryRegionAddressing",
-            newMesh().facesInstance(),
-            newMesh().meshSubDir,
-            newMesh(),
-            IOobject::NO_READ,
-            IOobject::NO_WRITE,
-            false
-        ),
-        labelList(nNewPatches, -1)
-    );
-    forAll(oldToNew, i)
-    {
-        if (!addedPatches.found(i))
-        {
-            label newI = oldToNew[i];
-            if (newI >= 0 && newI < nNewPatches)
-            {
-                boundaryProcAddressing[oldToNew[i]] = i;
-            }
-        }
-    }
-    Info<< "Writing map " << boundaryProcAddressing.name()
-        << " from region" << regioni
-        << " boundary back to base mesh." << endl;
-    boundaryProcAddressing.write();
 }
 
 
@@ -1083,28 +1009,18 @@ labelList addRegionPatches
         //    << " between regions " << e
         //    << " trying to add patches " << names << endl;
 
-
         mappedWallPolyPatch patch1
         (
             names[0],
             0,                  // overridden
             0,                  // overridden
             0,                  // overridden
-            regionNames[e[1]],  // sampleRegion
-            mappedPatchBase::NEARESTPATCHFACE,
-            names[1],           // samplePatch
-            point::zero,        // offset
+            regionNames[e[1]],  // neighbourRegion
+            names[1],           // neighbourPatch
             mesh.boundaryMesh()
         );
 
-        interfacePatches[interI] = fvMeshTools::addPatch
-        (
-            mesh,
-            patch1,
-            dictionary(),   // optional per field value
-            calculatedFvPatchField<scalar>::typeName,
-            true            // validBoundary
-        );
+        interfacePatches[interI] = fvMeshTools::addPatch(mesh, patch1);
 
         mappedWallPolyPatch patch2
         (
@@ -1112,20 +1028,12 @@ labelList addRegionPatches
             0,
             0,
             0,
-            regionNames[e[0]],  // sampleRegion
-            mappedPatchBase::NEARESTPATCHFACE,
+            regionNames[e[0]],  // neighbourRegion
             names[0],
-            point::zero,        // offset
             mesh.boundaryMesh()
         );
-        fvMeshTools::addPatch
-        (
-            mesh,
-            patch2,
-            dictionary(),   // optional per field value
-            calculatedFvPatchField<scalar>::typeName,
-            true            // validBoundary
-        );
+
+        fvMeshTools::addPatch(mesh, patch2);
 
         Info<< "For interface between region " << regionNames[e[0]]
             << " and " << regionNames[e[1]] << " added patches" << endl
@@ -1136,6 +1044,9 @@ labelList addRegionPatches
             << "\t" << mesh.boundaryMesh()[interfacePatches[interI]+1].name()
             << endl;
     }
+
+    fvMeshTools::addedPatches(mesh);
+
     return interfacePatches;
 }
 
@@ -1200,7 +1111,7 @@ label findCorrespondingRegion
 void getZoneID
 (
     const polyMesh& mesh,
-    const cellZoneMesh& cellZones,
+    const cellZoneList& cellZones,
     labelList& zoneID,
     labelList& neiZoneID
 )
@@ -1259,7 +1170,7 @@ void matchRegions
     labelList& zoneToRegion
 )
 {
-    const cellZoneMesh& cellZones = mesh.cellZones();
+    const cellZoneList& cellZones = mesh.cellZones();
 
     regionToZone.setSize(nCellRegions, -1);
     regionNames.setSize(nCellRegions);
@@ -1274,7 +1185,7 @@ void matchRegions
     labelList zoneSizes(cellZones.size(), 0);
     {
         List<wordList> zoneNames(Pstream::nProcs());
-        zoneNames[Pstream::myProcNo()] = cellZones.names();
+        zoneNames[Pstream::myProcNo()] = cellZones.toc();
         Pstream::gatherList(zoneNames);
         Pstream::scatterList(zoneNames);
 
@@ -1412,7 +1323,7 @@ void writeCellToRegion(const fvMesh& mesh, const labelList& cellRegion)
         cellToRegion.write();
 
         Info<< "Writing region per cell file (for manual decomposition) to "
-            << cellToRegion.objectPath() << nl << endl;
+            << cellToRegion.relativeObjectPath() << nl << endl;
     }
     // Write for postprocessing
     {
@@ -1421,7 +1332,7 @@ void writeCellToRegion(const fvMesh& mesh, const labelList& cellRegion)
             IOobject
             (
                 "cellToRegion",
-                mesh.time().timeName(),
+                mesh.time().name(),
                 mesh,
                 IOobject::NO_READ,
                 IOobject::NO_WRITE,
@@ -1438,7 +1349,7 @@ void writeCellToRegion(const fvMesh& mesh, const labelList& cellRegion)
         cellToRegion.write();
 
         Info<< "Writing region per cell as volScalarField to "
-            << cellToRegion.objectPath() << nl << endl;
+            << cellToRegion.relativeObjectPath() << nl << endl;
     }
 }
 
@@ -1451,6 +1362,7 @@ int main(int argc, char *argv[])
     (
         "splits mesh into multiple regions (detected by walking across faces)"
     );
+    #include "addMeshOption.H"
     #include "addRegionOption.H"
     #include "addOverwriteOption.H"
     argList::addBoolOption
@@ -1524,11 +1436,8 @@ int main(int argc, char *argv[])
     );
 
     #include "setRootCase.H"
-    #include "createTime.H"
-
-    runTime.functionObjects().off();
-
-    #include "createNamedMesh.H"
+    #include "createTimeNoFunctionObjects.H"
+    #include "createSpecifiedMeshNoChangers.H"
 
     const word oldInstance = mesh.pointsInstance();
 
@@ -1594,7 +1503,7 @@ int main(int argc, char *argv[])
         args.optionLookupOrDefault("defaultRegionName", standardRegionName)
     );
 
-    const cellZoneMesh& cellZones = mesh.cellZones();
+    const cellZoneList& cellZones = mesh.cellZones();
 
     // Existing zoneID
     labelList zoneID(mesh.nCells(), -1);
@@ -1609,10 +1518,13 @@ int main(int argc, char *argv[])
 
     // cellRegion is the labelList with the region per cell.
     labelList cellRegion;
+
     // Region per zone
     labelList regionToZone;
+
     // Name of region
     wordList regionNames;
+
     // Zone to region
     labelList zoneToRegion;
 
@@ -1653,7 +1565,7 @@ int main(int argc, char *argv[])
             << "This requires all"
             << " cells to be in one and only one cellZone." << nl << endl;
 
-        cellZoneMesh newCellZones
+        cellZoneList newCellZones
         (
             IOobject
             (
@@ -1890,7 +1802,7 @@ int main(int argc, char *argv[])
     // Read objects in time directory
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    IOobjectList objects(mesh, runTime.timeName());
+    IOobjectList objects(mesh, runTime.name());
 
     if (fields) Info<< "Reading geometric fields" << nl << endl;
 
@@ -1933,7 +1845,7 @@ int main(int argc, char *argv[])
 
                 word zoneName = "region" + Foam::name(regioni);
 
-                zoneI = cellZones.findZoneID(zoneName);
+                zoneI = cellZones.findIndex(zoneName);
 
                 if (zoneI == -1)
                 {
@@ -1946,14 +1858,12 @@ int main(int argc, char *argv[])
                         (
                             zoneName,           // name
                             regionCells,        // addressing
-                            zoneI,              // index
-                            cellZones           // cellZoneMesh
+                            cellZones           // cellZones
                         )
                     );
                 }
                 else
                 {
-                    mesh.cellZones()[zoneI].clearAddressing();
                     mesh.cellZones()[zoneI] = regionCells;
                 }
                 Info<< "    Region " << regioni << " : created new cellZone "
@@ -1965,14 +1875,14 @@ int main(int argc, char *argv[])
         if (!overwrite)
         {
             runTime++;
-            mesh.setInstance(runTime.timeName());
+            mesh.setInstance(runTime.name());
         }
         else
         {
             mesh.setInstance(oldInstance);
         }
 
-        Info<< "Writing cellZones as new mesh to time " << runTime.timeName()
+        Info<< "Writing cellZones as new mesh to time " << runTime.name()
             << nl << endl;
 
         mesh.write();
@@ -2061,7 +1971,7 @@ int main(int argc, char *argv[])
                 faceToInterface,
                 interfacePatches,
                 regioni,
-                (overwrite ? oldInstance : runTime.timeName())
+                (overwrite ? oldInstance : runTime.name())
             );
         }
         else if (largestOnly)
@@ -2082,7 +1992,7 @@ int main(int argc, char *argv[])
                 faceToInterface,
                 interfacePatches,
                 regioni,
-                (overwrite ? oldInstance : runTime.timeName())
+                (overwrite ? oldInstance : runTime.name())
             );
         }
         else
@@ -2103,7 +2013,7 @@ int main(int argc, char *argv[])
                     faceToInterface,
                     interfacePatches,
                     regioni,
-                    (overwrite ? oldInstance : runTime.timeName())
+                    (overwrite ? oldInstance : runTime.name())
                 );
             }
         }

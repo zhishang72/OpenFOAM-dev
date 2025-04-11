@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -34,20 +34,6 @@ Foam::outletMappedUniformInletFvPatchField<Type>::
 outletMappedUniformInletFvPatchField
 (
     const fvPatch& p,
-    const DimensionedField<Type, volMesh>& iF
-)
-:
-    fixedValueFvPatchField<Type>(p, iF),
-    outletPatchName_(),
-    phiName_("phi")
-{}
-
-
-template<class Type>
-Foam::outletMappedUniformInletFvPatchField<Type>::
-outletMappedUniformInletFvPatchField
-(
-    const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
     const dictionary& dict
 )
@@ -65,27 +51,13 @@ outletMappedUniformInletFvPatchField
     const outletMappedUniformInletFvPatchField<Type>& ptf,
     const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     fixedValueFvPatchField<Type>(ptf, p, iF, mapper),
     outletPatchName_(ptf.outletPatchName_),
     phiName_(ptf.phiName_)
 {}
-
-
-template<class Type>
-Foam::outletMappedUniformInletFvPatchField<Type>::
-outletMappedUniformInletFvPatchField
-(
-    const outletMappedUniformInletFvPatchField<Type>& ptf
-)
-:
-    fixedValueFvPatchField<Type>(ptf),
-    outletPatchName_(ptf.outletPatchName_),
-    phiName_(ptf.phiName_)
-{}
-
 
 
 template<class Type>
@@ -112,9 +84,9 @@ void Foam::outletMappedUniformInletFvPatchField<Type>::updateCoeffs()
         return;
     }
 
-    const GeometricField<Type, fvPatchField, volMesh>& f
+    const VolField<Type>& f
     (
-        dynamic_cast<const GeometricField<Type, fvPatchField, volMesh>&>
+        dynamic_cast<const VolField<Type>&>
         (
             this->internalField()
         )
@@ -122,7 +94,7 @@ void Foam::outletMappedUniformInletFvPatchField<Type>::updateCoeffs()
 
     const fvPatch& p = this->patch();
     label outletPatchID =
-        p.patch().boundaryMesh().findPatchID(outletPatchName_);
+        p.patch().boundaryMesh().findIndex(outletPatchName_);
 
     if (outletPatchID < 0)
     {

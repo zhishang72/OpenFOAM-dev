@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,6 +25,7 @@ License
 
 #include "objectRegistry.H"
 #include "Time.H"
+#include "IOmanip.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -115,7 +116,7 @@ Foam::objectRegistry::objectRegistry
     HashTable<regIOobject*>(nIoObjects),
     time_(t),
     parent_(t),
-    dbDir_(name()),
+    dbDir_(fileName::null),
     event_(1),
     cacheTemporaryObjectsSet_(false)
 {}
@@ -124,6 +125,7 @@ Foam::objectRegistry::objectRegistry
 Foam::objectRegistry::objectRegistry
 (
     const IOobject& io,
+    const fileName& dbDir,
     const label nIoObjects
 )
 :
@@ -131,12 +133,22 @@ Foam::objectRegistry::objectRegistry
     HashTable<regIOobject*>(nIoObjects),
     time_(io.time()),
     parent_(io.db()),
-    dbDir_(parent_.dbDir()/local()/name()),
+    dbDir_(dbDir),
     event_(1),
     cacheTemporaryObjectsSet_(false)
 {
     writeOpt() = IOobject::AUTO_WRITE;
 }
+
+
+Foam::objectRegistry::objectRegistry
+(
+    const IOobject& io,
+    const label nIoObjects
+)
+:
+    objectRegistry(io, io.db().dbDir()/io.local()/io.name(), nIoObjects)
+{}
 
 
 // * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
@@ -150,19 +162,18 @@ Foam::objectRegistry::~objectRegistry()
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-Foam::wordList Foam::objectRegistry::names() const
+Foam::fileName Foam::objectRegistry::path
+(
+    const word& instance,
+    const fileName& local
+) const
 {
-    return HashTable<regIOobject*>::toc();
+    // Note: can only be called with relative instance since is word type
+    return rootPath()/caseName()/instance/dbDir()/local;
 }
 
 
-Foam::wordList Foam::objectRegistry::sortedNames() const
-{
-    return HashTable<regIOobject*>::sortedToc();
-}
-
-
-Foam::wordList Foam::objectRegistry::names(const word& ClassName) const
+Foam::wordList Foam::objectRegistry::toc(const word& ClassName) const
 {
     wordList objectNames(size());
 
@@ -181,9 +192,9 @@ Foam::wordList Foam::objectRegistry::names(const word& ClassName) const
 }
 
 
-Foam::wordList Foam::objectRegistry::sortedNames(const word& ClassName) const
+Foam::wordList Foam::objectRegistry::sortedToc(const word& ClassName) const
 {
-    wordList sortedLst = names(ClassName);
+    wordList sortedLst = toc(ClassName);
     sort(sortedLst);
 
     return sortedLst;
@@ -370,24 +381,14 @@ void Foam::objectRegistry::clear()
 }
 
 
-void Foam::objectRegistry::addTemporaryObject
-(
-    const word& name
-) const
-{
-    if (!cacheTemporaryObjects_.found(name))
-    {
-        cacheTemporaryObjects_.insert(name, {false, false});
-    }
-}
-
-
 bool Foam::objectRegistry::cacheTemporaryObject
 (
     const word& name
 ) const
 {
-    return cacheTemporaryObjects_.found(name);
+    const objectRegistry& root = time_;
+
+    return root.cacheTemporaryObjects_.found(name);
 }
 
 
@@ -410,13 +411,17 @@ void Foam::objectRegistry::resetCacheTemporaryObject
             iter().first() = false;
         }
     }
+
+    // Reset the object in the time registry also
+    if (this != &time_)
+    {
+        time_.resetCacheTemporaryObject(ob);
+    }
 }
 
 
 bool Foam::objectRegistry::checkCacheTemporaryObjects() const
 {
-    bool enabled = cacheTemporaryObjects_.size();
-
     forAllConstIter(HashTable<regIOobject*>, *this, iter)
     {
         const objectRegistry* orPtr_ =
@@ -425,16 +430,23 @@ bool Foam::objectRegistry::checkCacheTemporaryObjects() const
         // Protect against re-searching the top-level registry
         if (orPtr_ && orPtr_ != this)
         {
-            enabled = orPtr_->checkCacheTemporaryObjects() || enabled;
+            orPtr_->checkCacheTemporaryObjects();
         }
     }
 
-    if (enabled)
+    const objectRegistry& root = time_;
+
+    if (root.cacheTemporaryObjects_.empty())
+    {
+        return false;
+    }
+
+    if (this != &root)
     {
         forAllIter
         (
             typename HashTable<Pair<bool>>,
-            cacheTemporaryObjects_,
+            root.cacheTemporaryObjects_,
             iter
         )
         {
@@ -447,16 +459,26 @@ bool Foam::objectRegistry::checkCacheTemporaryObjects() const
                     << temporaryObjects_
                     << endl;
             }
-            else
-            {
-                iter().second() = false;
-            }
         }
 
-        temporaryObjects_.clear();
+        cacheTemporaryObjects_.clear();
+    }
+    else
+    {
+        forAllIter
+        (
+            typename HashTable<Pair<bool>>,
+            root.cacheTemporaryObjects_,
+            iter
+        )
+        {
+            iter().second() = false;
+        }
     }
 
-    return enabled;
+    temporaryObjects_.clear();
+
+    return true;
 }
 
 
@@ -492,8 +514,28 @@ bool Foam::objectRegistry::modified() const
 }
 
 
-void Foam::objectRegistry::readModifiedObjects()
+bool Foam::objectRegistry::dependenciesModified() const
 {
+    dependents_.setSize(size());
+
+    label count=0;
+    forAllConstIter(HashTable<regIOobject*>, *this, iter)
+    {
+        if (iter()->dependenciesModified())
+        {
+            dependents_[count++] = iter();
+        }
+    }
+    dependents_.setSize(count);
+
+    return count != 0;
+}
+
+
+bool Foam::objectRegistry::readIfModified()
+{
+    bool modified = false;
+
     for (iterator iter = begin(); iter != end(); ++iter)
     {
         if (objectRegistry::debug)
@@ -503,15 +545,54 @@ void Foam::objectRegistry::readModifiedObjects()
                 << iter.key() << endl;
         }
 
-        iter()->readIfModified();
+        modified = modified || iter()->readIfModified();
+    }
+
+    return modified;
+}
+
+
+bool Foam::objectRegistry::read()
+{
+    bool readOk = true;
+
+    forAll(dependents_, i)
+    {
+        dependents_[i]->read();
+    }
+
+    return readOk;
+}
+
+
+void Foam::objectRegistry::readModifiedObjects()
+{
+    dependenciesModified();
+
+    const bool modified = readIfModified();
+
+    // If any objects have been modified and re-read, read the dependants
+    if (modified)
+    {
+        objectRegistry::read();
     }
 }
 
 
-bool Foam::objectRegistry::readIfModified()
+void Foam::objectRegistry::printToc(Ostream& os) const
 {
-    readModifiedObjects();
-    return true;
+    const List<HashTable<regIOobject*>::const_iterator> sortedObjects
+    (
+        sorted()
+    );
+
+    forAll(sortedObjects, i)
+    {
+        os  << "    " << setf(ios_base::left)
+            << setw(39) << sortedObjects[i].key()
+            << ' ' << sortedObjects[i]()->type()
+            << endl;
+    }
 }
 
 

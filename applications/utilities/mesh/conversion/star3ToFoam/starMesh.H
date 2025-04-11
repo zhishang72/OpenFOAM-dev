@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -62,7 +62,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class starMesh Declaration
+                          Class starMesh Declaration
 \*---------------------------------------------------------------------------*/
 
 class starMesh
@@ -103,10 +103,10 @@ class starMesh
         labelList starPointLabelLookup_;
 
         //- STAR point number for a given vertex
-        labelList starPointID_;
+        labelList starPointIndex_;
 
         //- STAR Cell number for a given cell
-        labelList starCellID_;
+        labelList starCellIndex_;
 
         //- Cell labels (STAR cell numbering is not necessarily contiguous)
         labelList starCellLabelLookup_;
@@ -119,11 +119,11 @@ class starMesh
 
         //- Cell ID for every boundary face. Used in two-tier boundary
         //  reconstruction
-        labelListList boundaryCellIDs_;
+        labelListList boundaryCellIndices_;
 
         //- Cell face ID for every boundary face. Used in two-tier boundary
         //  reconstruction
-        labelListList boundaryCellFaceIDs_;
+        labelListList boundaryCellFaceIndices_;
 
         //- Global face list for polyMesh
         faceList meshFaces_;
@@ -237,7 +237,7 @@ class starMesh
         void collectBoundaryFaces();
 
         //- Specialist version of face comparison to deal with
-        // PROSTAR boundary format idiosyncracies
+        // PROSTAR boundary format idiosyncrasies
         bool starEqualFace
         (
             const face& boundaryFace,

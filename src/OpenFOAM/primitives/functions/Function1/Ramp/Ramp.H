@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -29,10 +29,10 @@ Description
     increasing monotonically to 1 from \c start over the \c duration and
     remaining at 1 thereafter.
 
-    Usage:
+Usage
     \verbatim
-        <entryName> <rampFunction>;
-        <entryName>Coeffs
+        <name> <rampFunction>;
+        <name>Coeffs
         {
             start     10;
             duration  20;
@@ -40,13 +40,31 @@ Description
     \endverbatim
     or
     \verbatim
-        <entryName>
+        <name>
         {
             type      <rampFunction>;
             start     10;
             duration  20;
         }
     \endverbatim
+    or including a constant scaling factor:
+    \verbatim
+        <name>
+        {
+            type      scale;
+
+            scale
+            {
+                type        <rampFunction>;
+
+                start       0;
+                duration    10;
+            }
+
+            value       100;
+        }
+    \endverbatim
+    for more details of scaling the ramp see Foam::Function1s::Scale.
 
     Where:
     \table
@@ -57,6 +75,7 @@ Description
 
 See also
     Foam::Function1
+    Foam::Function1s::Scale
 
 SourceFiles
     Ramp.C
@@ -76,10 +95,10 @@ namespace Function1s
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class Ramp Declaration
+                            Class Ramp Declaration
 \*---------------------------------------------------------------------------*/
 
-template <class Function1Type>
+template<class Function1Type>
 class Ramp
 :
     public FieldFunction1<scalar, Function1Type>
@@ -89,10 +108,10 @@ protected:
     // Protected data
 
         //- Start-time of the ramp function
-        scalar start_;
+        const scalar start_;
 
         //- Duration of the ramp function
-        scalar duration_;
+        const scalar duration_;
 
         //- Return the end-time of the ramp function
         inline scalar end() const
@@ -115,22 +134,15 @@ protected:
         }
 
 
-private:
-
-    // Private Member Functions
-
-        //- Read the coefficients from the given dictionary
-        void read(const dictionary& coeffs);
-
-
 public:
 
     // Constructors
 
-        //- Construct from entry name and dictionary
+        //- Construct from name and dictionary
         Ramp
         (
-            const word& entryName,
+            const word& name,
+            const unitConversions& units,
             const dictionary& dict
         );
 
@@ -144,8 +156,8 @@ public:
         //- Return value for time t
         virtual scalar value(const scalar t) const = 0;
 
-        //- Write in dictionary format
-        virtual void writeData(Ostream& os) const;
+        //- Write data to dictionary stream
+        virtual void write(Ostream& os, const unitConversions& units) const;
 
 
     // Member Operators

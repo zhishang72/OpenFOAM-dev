@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ Class
     Foam::linear
 
 Description
-    Central-differencing interpolation scheme class
+    Centred interpolation interpolation scheme class
 
 SourceFiles
     linear.C
@@ -90,7 +90,7 @@ public:
         //- Return the interpolation weighting factors
         tmp<surfaceScalarField> weights
         (
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         ) const
         {
             return this->mesh().surfaceInterpolation::weights();
@@ -105,8 +105,8 @@ public:
 
 
 template<class Type>
-tmp<GeometricField<Type, fvsPatchField, surfaceMesh>>
-linearInterpolate(const GeometricField<Type, fvPatchField, volMesh>& vf)
+tmp<SurfaceField<Type>>
+linearInterpolate(const VolField<Type>& vf)
 {
     return surfaceInterpolationScheme<Type>::interpolate
     (
@@ -117,10 +117,10 @@ linearInterpolate(const GeometricField<Type, fvPatchField, volMesh>& vf)
 
 
 template<class Type>
-tmp<GeometricField<Type, fvsPatchField, surfaceMesh>>
-linearInterpolate(const tmp<GeometricField<Type, fvPatchField, volMesh>>& tvf)
+tmp<SurfaceField<Type>>
+linearInterpolate(const tmp<VolField<Type>>& tvf)
 {
-    tmp<GeometricField<Type, fvsPatchField, surfaceMesh>> tinterp =
+    tmp<SurfaceField<Type>> tinterp =
         linearInterpolate(tvf());
     tvf.clear();
     return tinterp;

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -35,42 +35,39 @@ License
 namespace Foam
 {
 
-template<class Type, class CombineOp>
+template<class Type>
 void MapVolFields
 (
     const IOobjectList& objects,
     const meshToMesh0& meshToMesh0Interp,
-    const meshToMesh0::order& mapOrder,
-    const CombineOp& cop
+    const meshToMesh0::order& mapOrder
 )
 {
-    typedef GeometricField<Type, fvPatchField, volMesh> fieldType;
-
     const fvMesh& meshSource = meshToMesh0Interp.fromMesh();
     const fvMesh& meshTarget = meshToMesh0Interp.toMesh();
 
-    IOobjectList fields = objects.lookupClass(fieldType::typeName);
+    IOobjectList fields = objects.lookupClass(VolField<Type>::typeName);
 
     forAllIter(IOobjectList, fields, fieldIter)
     {
-        IOobject fieldTargetIOobject
+        typeIOobject<VolField<Type>> fieldTargetIOobject
         (
             fieldIter()->name(),
-            meshTarget.time().timeName(),
+            meshTarget.time().name(),
             meshTarget,
             IOobject::MUST_READ,
             IOobject::AUTO_WRITE
         );
 
-        if (fieldTargetIOobject.typeHeaderOk<fieldType>(true))
+        if (fieldTargetIOobject.headerOk())
         {
             Info<< "    interpolating " << fieldIter()->name() << endl;
 
             // Read field fieldSource
-            fieldType fieldSource(*fieldIter(), meshSource);
+            VolField<Type> fieldSource(*fieldIter(), meshSource);
 
             // Read fieldTarget
-            fieldType fieldTarget
+            VolField<Type> fieldTarget
             (
                 fieldTargetIOobject,
                 meshTarget
@@ -81,8 +78,7 @@ void MapVolFields
             (
                 fieldTarget,
                 fieldSource,
-                mapOrder,
-                cop
+                mapOrder
             );
 
             // Write field

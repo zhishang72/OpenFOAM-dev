@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -26,6 +26,11 @@ License
 #include "writeObjectsBase.H"
 #include "Time.H"
 #include "dictionary.H"
+
+// * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
+
+const Foam::Switch Foam::functionObjects::writeObjectsBase::logFalse(false);
+
 
 // * * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * * //
 
@@ -54,22 +59,41 @@ Foam::wordList Foam::functionObjects::writeObjectsBase::objectNames()
     DynamicList<word> allNames(writeObr_.toc().size());
     forAll(writeObjectNames_, i)
     {
-        wordList names(writeObr_.names<regIOobject>(writeObjectNames_[i]));
-
-        if (names.size())
+        if (regExp_)
         {
-            allNames.append(names);
+            wordList names(writeObr_.toc<regIOobject>(writeObjectNames_[i]));
+
+            if (names.size())
+            {
+                allNames.append(names);
+            }
+            else
+            {
+                Warning
+                    << "writeObjects: object " << writeObjectNames_[i]
+                    << " not found in database. Available objects:" << endl;
+                writeObr_.printToc(Info);
+            }
         }
         else
         {
-            WarningInFunction
-                << "Object " << writeObjectNames_[i] << " not found in "
-                << "database. Available objects:" << nl << writeObr_.sortedToc()
-                << endl;
+            const word name(writeObjectNames_[i]);
+
+            if (writeObr_.foundObject<regIOobject>(name))
+            {
+                allNames.append(name);
+            }
+            else
+            {
+                Warning
+                    << "writeObjects: object " << name
+                    << " not found in database. Available objects:" << endl;
+                writeObr_.printToc(Info);
+            }
         }
     }
 
-    return move(allNames);
+    return allNames;
 }
 
 
@@ -114,7 +138,21 @@ Foam::functionObjects::writeObjectsBase::writeObjectNames() const
 
 bool Foam::functionObjects::writeObjectsBase::read(const dictionary& dict)
 {
-    dict.lookup("objects") >> writeObjectNames_;
+    regExp_ = dict.lookupOrDefault<Switch>("regExp", true);
+
+    if (regExp_)
+    {
+        dict.lookup("objects") >> writeObjectNames_;
+    }
+    else
+    {
+        const wordList objectNames(dict.lookup("objects"));
+        writeObjectNames_.setSize(objectNames.size());
+        forAll(objectNames, i)
+        {
+            writeObjectNames_[i] = objectNames[i];
+        }
+    }
 
     return true;
 }
@@ -124,7 +162,7 @@ bool Foam::functionObjects::writeObjectsBase::write()
 {
     wordList names(objectNames());
 
-    if(!names.empty())
+    if (!names.empty())
     {
         if (!writeObr_.time().writeTime())
         {
@@ -133,10 +171,7 @@ bool Foam::functionObjects::writeObjectsBase::write()
 
         forAll(names, i)
         {
-            const regIOobject& obj =
-                writeObr_.lookupObject<regIOobject>(names[i]);
-
-            writeObject(obj);
+            writeObject(writeObr_.lookupObject<regIOobject>(names[i]));
         }
     }
 

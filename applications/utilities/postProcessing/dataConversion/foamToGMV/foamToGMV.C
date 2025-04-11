@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -32,13 +32,16 @@ Description
 
 \*---------------------------------------------------------------------------*/
 
-#include "fvCFD.H"
+#include "argList.H"
+#include "volFields.H"
 #include "OFstream.H"
 #include "instantList.H"
 #include "IOobjectList.H"
 #include "itoa.H"
 #include "Cloud.H"
 #include "passiveParticle.H"
+
+using namespace Foam;
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -51,13 +54,13 @@ int main(int argc, char *argv[])
         "volScalarField",
         "volVectorField",
         "surfaceScalarField",
-        cloud::prefix
+        lagrangian::cloud::prefix
     };
 
     #include "setRootCase.H"
 
     #include "createTime.H"
-    #include "createMesh.H"
+    #include "createMeshNoChangers.H"
 
     #include "readConversionProperties.H"
 
@@ -74,9 +77,9 @@ int main(int argc, char *argv[])
 
             // Set Time
             runTime.setTime(TimeList[n], n);
-            word CurTime = runTime.timeName();
+            word CurTime = runTime.name();
 
-            IOobjectList objects(mesh, runTime.timeName());
+            IOobjectList objects(mesh, runTime.name());
 
             #include "moveMesh.H"
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -37,6 +37,7 @@ SourceFiles
 #define DynamicField_H
 
 #include "Field.H"
+#include "DynamicFieldFwd.H"
 #include <type_traits>
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -45,9 +46,6 @@ namespace Foam
 {
 
 // Forward declaration of friend functions and operators
-
-template<class T, unsigned SizeInc, unsigned SizeMult, unsigned SizeDiv>
-class DynamicField;
 
 template<class T, unsigned SizeInc, unsigned SizeMult, unsigned SizeDiv>
 Ostream& operator<<
@@ -65,10 +63,10 @@ Istream& operator>>
 
 
 /*---------------------------------------------------------------------------*\
-                           Class DynamicField Declaration
+                        Class DynamicField Declaration
 \*---------------------------------------------------------------------------*/
 
-template<class T, unsigned SizeInc=0, unsigned SizeMult=2, unsigned SizeDiv=1>
+template<class T, unsigned SizeInc, unsigned SizeMult, unsigned SizeDiv>
 class DynamicField
 :
     public Field<T>
@@ -107,6 +105,12 @@ public:
         //- Construct given size.
         explicit inline DynamicField(const label);
 
+        //- Construct given size and initial value
+        inline DynamicField(const label, const T&);
+
+        //- Construct given size and initialised to zero
+        inline DynamicField(const label, const zero);
+
         //- Construct from UList. Size set to UList size.
         //  Also constructs from DynamicField with different sizing parameters.
         explicit inline DynamicField(const UList<T>&);
@@ -132,11 +136,30 @@ public:
         //- Copy constructor
         inline DynamicField(const DynamicField<T, SizeInc, SizeMult, SizeDiv>&);
 
+        //- Copy constructor or reuse as specified
+        inline DynamicField
+        (
+            DynamicField<T, SizeInc, SizeMult, SizeDiv>&,
+            const bool
+        );
+
         //- Move constructor
         inline DynamicField(DynamicField<T, SizeInc, SizeMult, SizeDiv>&&);
 
         //- Construct from Istream. Size set to size of list read.
         explicit DynamicField(Istream&);
+
+        //- Construct from a dictionary entry
+        DynamicField(const word& keyword, const dictionary&, const label size);
+
+        //- Construct from a dictionary entry with unit conversion
+        DynamicField
+        (
+            const word& keyword,
+            const unitConversion&,
+            const dictionary&,
+            const label size
+        );
 
         //- Clone
         tmp<DynamicField<T, SizeInc, SizeMult, SizeDiv>> clone() const;
@@ -148,6 +171,7 @@ public:
 
             //- Size of the underlying storage.
             inline label capacity() const;
+
 
         // Edit
 
@@ -187,6 +211,14 @@ public:
 
             //- Clear the list and delete storage.
             inline void clearStorage();
+
+            //- Reset the field values to the given field
+            //  Equivalent to operator=
+            void reset(const DynamicField<T, SizeInc, SizeMult, SizeDiv>&);
+
+            //- Reset the field values to the given field
+            //  Equivalent to operator=
+            void reset(const UList<T>&);
 
             //- Shrink the allocated space to the number of elements used.
             //  Returns a reference to the DynamicField.
@@ -234,6 +266,23 @@ public:
 
             //- Move assignment to List
             inline void operator=(List<T>&&);
+
+
+        // IOstream Operators
+
+            // Write DynamicField to Ostream.
+            friend Ostream& operator<< <T, SizeInc, SizeMult, SizeDiv>
+            (
+                Ostream&,
+                const DynamicField<T, SizeInc, SizeMult, SizeDiv>&
+            );
+
+            //- Read from Istream, discarding contents of existing DynamicField.
+            friend Istream& operator>> <T, SizeInc, SizeMult, SizeDiv>
+            (
+                Istream&,
+                DynamicField<T, SizeInc, SizeMult, SizeDiv>&
+            );
 };
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -49,7 +49,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class LUST Declaration
+                            Class LUST Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -96,7 +96,7 @@ public:
         //- Return the interpolation weighting factors
         virtual tmp<surfaceScalarField> weights
         (
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         ) const
         {
             return
@@ -111,10 +111,10 @@ public:
         }
 
         //- Return the explicit correction to the face-interpolate
-        virtual tmp<GeometricField<Type, fvsPatchField, surfaceMesh>>
+        virtual tmp<SurfaceField<Type>>
         correction
         (
-            const GeometricField<Type, fvPatchField, volMesh>& vf
+            const VolField<Type>& vf
         ) const
         {
             return 0.25*linearUpwind<Type>::correction(vf);

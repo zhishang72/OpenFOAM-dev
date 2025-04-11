@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,10 +24,9 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "wallHeatFlux.H"
-#include "turbulentFluidThermoModel.H"
-#include "solidThermo.H"
+#include "thermophysicalTransportModel.H"
 #include "surfaceInterpolate.H"
-#include "fvcSnGrad.H"
+#include "fvcGrad.H"
 #include "wallPolyPatch.H"
 #include "addToRunTimeSelectionTable.H"
 
@@ -51,9 +50,10 @@ void Foam::functionObjects::wallHeatFlux::writeFileHeader(const label i)
     writeHeader(file(), "Wall heat-flux");
     writeCommented(file(), "Time");
     writeTabbed(file(), "patch");
-    writeTabbed(file(), "min");
-    writeTabbed(file(), "max");
-    writeTabbed(file(), "integral");
+    writeTabbed(file(), "min [W/m^2]");
+    writeTabbed(file(), "max [W/m^2]");
+    writeTabbed(file(), "Q [W]");
+    writeTabbed(file(), "q [W/m^2]");
     file() << endl;
 }
 
@@ -61,8 +61,7 @@ void Foam::functionObjects::wallHeatFlux::writeFileHeader(const label i)
 Foam::tmp<Foam::volScalarField>
 Foam::functionObjects::wallHeatFlux::calcWallHeatFlux
 (
-    const volScalarField& alpha,
-    const volScalarField& he
+    const surfaceScalarField& q
 )
 {
     tmp<volScalarField> twallHeatFlux
@@ -78,33 +77,26 @@ Foam::functionObjects::wallHeatFlux::calcWallHeatFlux
     volScalarField::Boundary& wallHeatFluxBf =
         twallHeatFlux.ref().boundaryFieldRef();
 
-    const volScalarField::Boundary& heBf =
-        he.boundaryField();
+    const surfaceScalarField::Boundary& qBf = q.boundaryField();
 
-    const volScalarField::Boundary& alphaBf =
-        alpha.boundaryField();
-
-    forAll(wallHeatFluxBf, patchi)
+    forAllConstIter(labelHashSet, patchSet_, iter)
     {
-        if (!wallHeatFluxBf[patchi].coupled())
-        {
-            wallHeatFluxBf[patchi] = alphaBf[patchi]*heBf[patchi].snGrad();
-        }
+        const label patchi = iter.key();
+
+        wallHeatFluxBf[patchi] = -qBf[patchi];
     }
 
     if (foundObject<volScalarField>("qr"))
     {
         const volScalarField& qr = lookupObject<volScalarField>("qr");
 
-        const volScalarField::Boundary& radHeatFluxBf =
-            qr.boundaryField();
+        const volScalarField::Boundary& radHeatFluxBf = qr.boundaryField();
 
-        forAll(wallHeatFluxBf, patchi)
+        forAllConstIter(labelHashSet, patchSet_, iter)
         {
-            if (!wallHeatFluxBf[patchi].coupled())
-            {
-                wallHeatFluxBf[patchi] -= radHeatFluxBf[patchi];
-            }
+            const label patchi = iter.key();
+
+            wallHeatFluxBf[patchi] -= radHeatFluxBf[patchi];
         }
     }
 
@@ -124,11 +116,11 @@ Foam::functionObjects::wallHeatFlux::wallHeatFlux
     fvMeshFunctionObject(name, runTime, dict),
     logFiles(obr_, name),
     writeLocalObjects(obr_, log),
+    phaseName_(word::null),
     patchSet_()
 {
     read(dict);
-    resetName(typeName);
-    resetLocalObjectName(typeName);
+    resetLocalObjectName(IOobject::groupName(type(), phaseName_));
 }
 
 
@@ -145,13 +137,11 @@ bool Foam::functionObjects::wallHeatFlux::read(const dictionary& dict)
     fvMeshFunctionObject::read(dict);
     writeLocalObjects::read(dict);
 
+    phaseName_ = dict.lookupOrDefault<word>("phase", word::null);
+
     const polyBoundaryMesh& pbm = mesh_.boundaryMesh();
 
-    patchSet_ =
-        mesh_.boundaryMesh().patchSet
-        (
-            wordReList(dict.lookupOrDefault("patches", wordReList()))
-        );
+    patchSet_ = patchSet(dict, true);
 
     Info<< type() << " " << name() << ":" << nl;
 
@@ -192,46 +182,47 @@ bool Foam::functionObjects::wallHeatFlux::read(const dictionary& dict)
         patchSet_ = filteredPatchSet;
     }
 
+    resetName(typeName);
+    resetLocalObjectName(typeName);
+
     return true;
 }
 
 
 bool Foam::functionObjects::wallHeatFlux::execute()
 {
-    word name(type());
+    const word fieldName(IOobject::groupName(type(), phaseName_));
+
+    const word thermophysicalTransportModelName
+    (
+        IOobject::groupName(thermophysicalTransportModel::typeName, phaseName_)
+    );
 
     if
     (
-        foundObject<compressible::turbulenceModel>
+        foundObject<thermophysicalTransportModel>
         (
-            turbulenceModel::propertiesName
+            thermophysicalTransportModelName
         )
     )
     {
-        const compressible::turbulenceModel& turbModel =
-            lookupObject<compressible::turbulenceModel>
+        const thermophysicalTransportModel& ttm =
+            lookupObject<thermophysicalTransportModel>
             (
-                turbulenceModel::propertiesName
+                thermophysicalTransportModelName
             );
 
-        return store
-        (
-            name,
-            calcWallHeatFlux(turbModel.alphaEff(), turbModel.transport().he())
-        );
-    }
-    else if (foundObject<solidThermo>(solidThermo::dictName))
-    {
-        const solidThermo& thermo =
-            lookupObject<solidThermo>(solidThermo::dictName);
+        store(fieldName, calcWallHeatFlux(ttm.q()));
 
-        return store(name, calcWallHeatFlux(thermo.alpha(), thermo.he()));
+        return true;
     }
     else
     {
         FatalErrorInFunction
-            << "Unable to find compressible turbulence model in the "
-            << "database" << exit(FatalError);
+            << "Unable to find thermophysicalTransportModel "
+            << thermophysicalTransportModelName
+            << " in the database"
+            << exit(FatalError);
     }
 
     return true;
@@ -246,38 +237,43 @@ bool Foam::functionObjects::wallHeatFlux::write()
 
     logFiles::write();
 
-    const volScalarField& wallHeatFlux =
-        obr_.lookupObject<volScalarField>(type());
+    const volScalarField& wallHeatFlux = obr_.lookupObject<volScalarField>
+    (
+        IOobject::groupName(type(), phaseName_)
+    );
 
     const fvPatchList& patches = mesh_.boundary();
 
-    const surfaceScalarField::Boundary& magSf =
-        mesh_.magSf().boundaryField();
+    const surfaceScalarField::Boundary& magSf = mesh_.magSf().boundaryField();
 
     forAllConstIter(labelHashSet, patchSet_, iter)
     {
         label patchi = iter.key();
         const fvPatch& pp = patches[patchi];
 
-        const scalarField& hfp = wallHeatFlux.boundaryField()[patchi];
+        if (!returnReduce(pp.size(), orOp<bool>())) continue;
 
-        const scalar minHfp = gMin(hfp);
-        const scalar maxHfp = gMax(hfp);
-        const scalar integralHfp = gSum(magSf[patchi]*hfp);
+        const scalarField& qp = wallHeatFlux.boundaryField()[patchi];
+
+        const scalar minqp = gMin(qp);
+        const scalar maxqp = gMax(qp);
+        const scalar Q = gSum(magSf[patchi]*qp);
+        const scalar q = Q/gSum(magSf[patchi]);
 
         if (Pstream::master())
         {
             file()
-                << mesh_.time().value()
+                << time_.userTimeValue()
                 << tab << pp.name()
-                << tab << minHfp
-                << tab << maxHfp
-                << tab << integralHfp
+                << tab << minqp
+                << tab << maxqp
+                << tab << Q
+                << tab << q
                 << endl;
         }
 
-        Log << "    min/max/integ(" << pp.name() << ") = "
-            << minHfp << ", " << maxHfp << ", " << integralHfp << endl;
+        Log << "    min, max, Q [W], q [W/m^2] for patch " << pp.name() << " = "
+            << minqp << ", " << maxqp << ", " << Q << ", " << q << endl;
     }
 
     Log << endl;

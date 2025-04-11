@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2018-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2018-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -58,7 +58,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-         Class PrghPressureFvPatchScalarField Declaration
+               Class PrghPressureFvPatchScalarField Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class PressureFvPatchScalarField>
@@ -66,6 +66,11 @@ class PrghPressureFvPatchScalarField
 :
     public PressureFvPatchScalarField
 {
+    // Private Data
+
+        //- Name of the density field, defaults to "rho"
+        const word rhoName_;
+
 
 public:
 
@@ -74,13 +79,6 @@ public:
 
 
     // Constructors
-
-        //- Construct from patch and internal field
-        PrghPressureFvPatchScalarField
-        (
-            const fvPatch&,
-            const DimensionedField<scalar, volMesh>&
-        );
 
         //- Construct from patch, internal field and dictionary
         PrghPressureFvPatchScalarField
@@ -97,23 +95,14 @@ public:
             const PrghPressureFvPatchScalarField&,
             const fvPatch&,
             const DimensionedField<scalar, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         PrghPressureFvPatchScalarField
         (
             const PrghPressureFvPatchScalarField&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchScalarField> clone() const
-        {
-            return tmp<fvPatchScalarField >
-            (
-                new PrghPressureFvPatchScalarField(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         PrghPressureFvPatchScalarField
@@ -141,6 +130,10 @@ public:
 
             //- Update the coefficients associated with the patch field
             virtual void updateCoeffs();
+
+
+        //- Write
+        virtual void write(Ostream&) const;
 };
 
 

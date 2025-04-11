@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -35,6 +35,12 @@ Description
         216-234.
     \endverbatim
 
+Usage
+    The parameters of this model are identical to those used by the Airy model
+
+See also:
+    Foam::waveModels::Airy
+
 SourceFiles
     Stokes5.C
 
@@ -60,6 +66,14 @@ class Stokes5
 :
     public Stokes2
 {
+protected:
+
+    // Protected Member Functions
+
+        //- The wave celerity [m/s]
+        static scalar celerity(const AiryCoeffs&);
+
+
 public:
 
    //- Runtime type information
@@ -68,8 +82,14 @@ public:
 
     // Constructors
 
-        //- Construct from a database and a dictionary
-        Stokes5(const objectRegistry& db, const dictionary& dict);
+        //- Construct from a dictionary and gravity
+        Stokes5
+        (
+            const dictionary& dict,
+            const scalar g,
+            const word& modelName = Stokes5::typeName,
+            scalar (*celerityPtr)(const AiryCoeffs&) = &Stokes5::celerity
+        );
 
         //- Construct a clone
         virtual autoPtr<waveModel> clone() const
@@ -83,6 +103,9 @@ public:
 
 
     // Member Functions
+
+        //- The wave celerity [m/s]
+        virtual scalar celerity() const;
 
         //- Get the wave elevation at a given time and local coordinates. Local
         //  x is aligned with the direction of propagation.

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ Class
     Foam::syncTools
 
 Description
-    Various tools to aid synchronizing lists across coupled patches. WIP.
+    Various tools to aid synchronising lists across coupled patches. WIP.
 
     Require
     - combineOperator (e.g. sumEqOp - not sumOp!) that is defined for the
@@ -47,7 +47,7 @@ SourceFiles
 #include "PackedBoolList.H"
 #include "polyMesh.H"
 #include "coupledPolyPatch.H"
-#include "mapDistribute.H"
+#include "distributionMap.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -57,7 +57,7 @@ namespace Foam
 class polyBoundaryMesh;
 
 /*---------------------------------------------------------------------------*\
-                           Class syncTools Declaration
+                          Class syncTools Declaration
 \*---------------------------------------------------------------------------*/
 
 class syncTools
@@ -91,7 +91,7 @@ public:
         // Basic routines with user-supplied transformation. Preferably
         // use specialisations below.
 
-            //- Synchronize values on selected points.
+            //- Synchronise values on selected points.
             template<class T, class CombineOp, class TransformOp>
             static void syncPointMap
             (
@@ -101,7 +101,7 @@ public:
                 const TransformOp& top
             );
 
-            //- Synchronize values on selected edges.
+            //- Synchronise values on selected edges.
             template<class T, class CombineOp, class TransformOp>
             static void syncEdgeMap
             (
@@ -111,7 +111,7 @@ public:
                 const TransformOp& top
             );
 
-            //- Synchronize values on all mesh points.
+            //- Synchronise values on all mesh points.
             template<class T, class CombineOp, class TransformOp>
             static void syncPointList
             (
@@ -122,7 +122,7 @@ public:
                 const TransformOp& top
             );
 
-            //- Synchronize values on selected mesh points.
+            //- Synchronise values on selected mesh points.
             template<class T, class CombineOp, class TransformOp>
             static void syncPointList
             (
@@ -134,7 +134,7 @@ public:
                 const TransformOp& top
             );
 
-            //- Synchronize values on all mesh edges.
+            //- Synchronise values on all mesh edges.
             template<class T, class CombineOp, class TransformOp>
             static void syncEdgeList
             (
@@ -145,7 +145,7 @@ public:
                 const TransformOp& top
             );
 
-            //- Synchronize values on selected mesh edges.
+            //- Synchronise values on selected mesh edges.
             template<class T, class CombineOp, class TransformOp>
             static void syncEdgeList
             (
@@ -157,7 +157,7 @@ public:
                 const TransformOp& top
             );
 
-            //- Synchronize values on boundary faces only.
+            //- Synchronise values on boundary faces only.
             template<class T, class CombineOp, class TransformOp>
             static void syncBoundaryFaceList
             (
@@ -171,7 +171,7 @@ public:
 
         // Synchronise point-wise data
 
-            //- Synchronize values on all mesh points.
+            //- Synchronise values on all mesh points.
             template<class T, class CombineOp>
             static void syncPointList
             (
@@ -187,11 +187,11 @@ public:
                     l,
                     cop,
                     nullValue,
-                    mapDistribute::transform()
+                    distributionMap::transform()
                 );
             }
 
-            //- Synchronize locations on all mesh points.
+            //- Synchronise locations on all mesh points.
             template<class CombineOp>
             static void syncPointPositions
             (
@@ -207,11 +207,11 @@ public:
                     l,
                     cop,
                     nullValue,
-                    mapDistribute::transformPosition()
+                    distributionMap::transformPosition()
                 );
             }
 
-            //- Synchronize values on selected mesh points.
+            //- Synchronise values on selected mesh points.
             template<class T, class CombineOp>
             static void syncPointList
             (
@@ -229,11 +229,11 @@ public:
                     l,
                     cop,
                     nullValue,
-                    mapDistribute::transform()
+                    distributionMap::transform()
                 );
             }
 
-            //- Synchronize locations on selected mesh points.
+            //- Synchronise locations on selected mesh points.
             template<class CombineOp>
             static void syncPointPositions
             (
@@ -251,14 +251,14 @@ public:
                     l,
                     cop,
                     nullValue,
-                    mapDistribute::transformPosition()
+                    distributionMap::transformPosition()
                 );
             }
 
 
         // Synchronise edge-wise data
 
-            //- Synchronize values on all mesh edges.
+            //- Synchronise values on all mesh edges.
             template<class T, class CombineOp>
             static void syncEdgeList
             (
@@ -274,11 +274,11 @@ public:
                     l,
                     cop,
                     nullValue,
-                    mapDistribute::transform()
+                    distributionMap::transform()
                 );
             }
 
-            //- Synchronize locations on all mesh edges.
+            //- Synchronise locations on all mesh edges.
             template<class CombineOp>
             static void syncEdgePositions
             (
@@ -294,11 +294,11 @@ public:
                     l,
                     cop,
                     nullValue,
-                    mapDistribute::transformPosition()
+                    distributionMap::transformPosition()
                 );
             }
 
-            //- Synchronize values on selected mesh edges.
+            //- Synchronise values on selected mesh edges.
             template<class T, class CombineOp>
             static void syncEdgeList
             (
@@ -316,11 +316,11 @@ public:
                     l,
                     cop,
                     nullValue,
-                    mapDistribute::transform()
+                    distributionMap::transform()
                 );
             }
 
-            //- Synchronize locations on selected mesh edges.
+            //- Synchronise locations on selected mesh edges.
             template<class CombineOp>
             static void syncEdgePositions
             (
@@ -338,7 +338,7 @@ public:
                     l,
                     cop,
                     nullValue,
-                    mapDistribute::transformPosition()
+                    distributionMap::transformPosition()
                 );
             }
 
@@ -346,7 +346,7 @@ public:
 
         // Synchronise face-wise data
 
-            //- Synchronize values on boundary faces only.
+            //- Synchronise values on boundary faces only.
             template<class T, class CombineOp>
             static void syncBoundaryFaceList
             (
@@ -355,10 +355,16 @@ public:
                 const CombineOp& cop
             )
             {
-                syncBoundaryFaceList(mesh, l, cop, mapDistribute::transform());
+                syncBoundaryFaceList
+                (
+                    mesh,
+                    l,
+                    cop,
+                    distributionMap::transform()
+                );
             }
 
-            //- Synchronize locations on boundary faces only.
+            //- Synchronise locations on boundary faces only.
             template<class CombineOp>
             static void syncBoundaryFacePositions
             (
@@ -372,11 +378,11 @@ public:
                     mesh,
                     l,
                     cop,
-                    mapDistribute::transformPosition()
+                    distributionMap::transformPosition()
                 );
             }
 
-            //- Synchronize values on all mesh faces.
+            //- Synchronise values on all mesh faces.
             template<class T, class CombineOp>
             static void syncFaceList
             (
@@ -397,11 +403,11 @@ public:
                     mesh,
                     bndValues,
                     cop,
-                    mapDistribute::transform()
+                    distributionMap::transform()
                 );
             }
 
-            //- Synchronize locations on all mesh faces.
+            //- Synchronise locations on all mesh faces.
             template<class CombineOp>
             static void syncFacePositions
             (
@@ -421,7 +427,7 @@ public:
                     mesh,
                     bndValues,
                     cop,
-                    mapDistribute::transformPosition()
+                    distributionMap::transformPosition()
                 );
             }
 
@@ -438,7 +444,7 @@ public:
                     mesh,
                     l,
                     eqOp<T>(),
-                    mapDistribute::transform()
+                    distributionMap::transform()
                 );
             }
 
@@ -454,7 +460,7 @@ public:
                     mesh,
                     l,
                     eqOp<point>(),
-                    mapDistribute::transformPosition()
+                    distributionMap::transformPosition()
                 );
             }
 
@@ -477,7 +483,7 @@ public:
                     mesh,
                     bndValues,
                     eqOp<T>(),
-                    mapDistribute::transform()
+                    distributionMap::transform()
                 );
             }
 
@@ -500,7 +506,7 @@ public:
 
         // Sparse versions
 
-            //- Synchronize values on selected points.
+            //- Synchronise values on selected points.
             template<class T, class CombineOp>
             static void syncPointMap
             (
@@ -509,10 +515,10 @@ public:
                 const CombineOp& cop
             )
             {
-                syncPointMap(mesh, l, cop, mapDistribute::transform());
+                syncPointMap(mesh, l, cop, distributionMap::transform());
             }
 
-            //- Synchronize locations on selected points.
+            //- Synchronise locations on selected points.
             template<class CombineOp>
             static void syncPointPositions
             (
@@ -521,10 +527,16 @@ public:
                 const CombineOp& cop
             )
             {
-                syncPointMap(mesh, l, cop, mapDistribute::transformPosition());
+                syncPointMap
+                (
+                    mesh,
+                    l,
+                    cop,
+                    distributionMap::transformPosition()
+                );
             }
 
-            //- Synchronize values on selected edges. Edges are represented
+            //- Synchronise values on selected edges. Edges are represented
             //  by the two vertices that make it up so global edges never get
             //  constructed.
             template<class T, class CombineOp>
@@ -535,10 +547,10 @@ public:
                 const CombineOp& cop
             )
             {
-                syncEdgeMap(mesh, l, cop, mapDistribute::transform());
+                syncEdgeMap(mesh, l, cop, distributionMap::transform());
             }
 
-            //- Synchronize locations on selected edges.
+            //- Synchronise locations on selected edges.
             template<class CombineOp>
             static void syncEdgePositions
             (
@@ -547,7 +559,7 @@ public:
                 const CombineOp& cop
             )
             {
-                syncEdgeMap(mesh, l, cop, mapDistribute::transformPosition());
+                syncEdgeMap(mesh, l, cop, distributionMap::transformPosition());
             }
 
         // PackedList versions

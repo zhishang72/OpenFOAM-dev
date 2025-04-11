@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -29,43 +29,37 @@ License
 
 Foam::autoPtr<Foam::laminarFlameSpeed> Foam::laminarFlameSpeed::New
 (
-    const psiuReactionThermo& ct
+    const dictionary& dict,
+    const psiuMulticomponentThermo& ct
 )
 {
-    // do not register the dictionary
-    IOdictionary propDict
-    (
-        IOobject
-        (
-            "combustionProperties",
-            ct.T().time().constant(),
-            ct.T().db(),
-            IOobject::MUST_READ_IF_MODIFIED,
-            IOobject::NO_WRITE,
-            false
-        )
-    );
+    const word model(dict.lookup("model"));
 
-    const word corrType(propDict.lookup("laminarFlameSpeedCorrelation"));
-
-    Info<< "Selecting laminar flame speed correlation " << corrType << endl;
+    Info<< "Selecting laminar flame speed model " << model << endl;
 
     dictionaryConstructorTable::iterator cstrIter =
-        dictionaryConstructorTablePtr_->find(corrType);
+        dictionaryConstructorTablePtr_->find(model);
 
     if (cstrIter == dictionaryConstructorTablePtr_->end())
     {
         FatalIOErrorInFunction
         (
-            propDict
-        )   << "Unknown laminarFlameSpeed type "
-            << corrType << nl << nl
+            dict
+        )   << "Unknown laminarFlameSpeed model "
+            << model << nl << nl
             << "Valid laminarFlameSpeed types are :" << endl
             << dictionaryConstructorTablePtr_->sortedToc()
             << exit(FatalIOError);
     }
 
-    return autoPtr<laminarFlameSpeed>(cstrIter()(propDict, ct));
+    const dictionary& coeffDict
+    (
+        dict
+       .optionalSubDict(model + "Coeffs")
+       .optionalSubDict(dict.lookupOrDefault<word>("fuel", "unknown"))
+    );
+
+    return autoPtr<laminarFlameSpeed>(cstrIter()(dict, coeffDict, ct));
 }
 
 

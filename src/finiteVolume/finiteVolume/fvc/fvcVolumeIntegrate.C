@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -43,7 +43,7 @@ template<class Type>
 tmp<Field<Type>>
 volumeIntegrate
 (
-    const GeometricField<Type, fvPatchField, volMesh>& vf
+    const VolField<Type>& vf
 )
 {
     return vf.mesh().V()*vf.primitiveField();
@@ -54,7 +54,7 @@ template<class Type>
 tmp<Field<Type>>
 volumeIntegrate
 (
-    const tmp<GeometricField<Type, fvPatchField, volMesh>>& tvf
+    const tmp<VolField<Type>>& tvf
 )
 {
     tmp<Field<Type>> tvivf = tvf().mesh().V()*tvf().primitiveField();
@@ -66,7 +66,7 @@ volumeIntegrate
 template<class Type>
 tmp<Field<Type>> volumeIntegrate(const DimensionedField<Type, volMesh>& df)
 {
-    return df.mesh().V()*df.field();
+    return df.mesh().V()*df.primitiveField();
 }
 
 
@@ -74,7 +74,7 @@ template<class Type>
 tmp<Field<Type>>
 volumeIntegrate(const tmp<DimensionedField<Type, volMesh>>& tdf)
 {
-    tmp<Field<Type>> tdidf = tdf().mesh().V()*tdf().field();
+    tmp<Field<Type>> tdidf = tdf().mesh().V()*tdf().primitiveField();
     tdf.clear();
     return tdidf;
 }
@@ -84,13 +84,13 @@ template<class Type>
 dimensioned<Type>
 domainIntegrate
 (
-    const GeometricField<Type, fvPatchField, volMesh>& vf
+    const VolField<Type>& vf
 )
 {
     return dimensioned<Type>
     (
         "domainIntegrate(" + vf.name() + ')',
-        dimVol*vf.dimensions(),
+        dimVolume*vf.dimensions(),
         gSum(fvc::volumeIntegrate(vf))
     );
 }
@@ -99,7 +99,7 @@ domainIntegrate
 template<class Type>
 dimensioned<Type> domainIntegrate
 (
-    const tmp<GeometricField<Type, fvPatchField, volMesh>>& tvf
+    const tmp<VolField<Type>>& tvf
 )
 {
     dimensioned<Type> integral = domainIntegrate(tvf());
@@ -117,7 +117,7 @@ dimensioned<Type> domainIntegrate
     return dimensioned<Type>
     (
         "domainIntegrate(" + df.name() + ')',
-        dimVol*df.dimensions(),
+        dimVolume*df.dimensions(),
         gSum(fvc::volumeIntegrate(df))
     );
 }

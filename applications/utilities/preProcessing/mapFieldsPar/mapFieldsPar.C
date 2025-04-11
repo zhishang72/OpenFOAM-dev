@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -30,119 +30,65 @@ Description
 
 \*---------------------------------------------------------------------------*/
 
-#include "fvCFD.H"
-#include "meshToMesh.H"
-#include "processorPolyPatch.H"
-#include "MapMeshes.H"
+#include "argList.H"
+#include "fvMeshToFvMesh.H"
+#include "mapGeometricFields.H"
+#include "mapClouds.H"
+#include "intersectionCellsToCells.H"
+
+using namespace Foam;
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 void mapConsistentMesh
 (
-    const fvMesh& meshSource,
-    const fvMesh& meshTarget,
-    const meshToMesh::interpolationMethod& mapMethod,
-    const bool subtract,
+    const fvMesh& srcMesh,
+    const fvMesh& tgtMesh,
+    const word& mapMethod,
     const HashSet<word>& selectedFields,
     const bool noLagrangian
 )
 {
     Info<< nl << "Consistently creating and mapping fields for time "
-        << meshSource.time().timeName() << nl << endl;
+        << srcMesh.time().name() << nl << endl;
 
-    meshToMesh interp(meshSource, meshTarget, mapMethod);
+    fvMeshToFvMesh interp(srcMesh, tgtMesh, mapMethod);
 
-    if (subtract)
+    Info<< nl << "Mapping geometric fields" << endl;
+
+    mapGeometricFields(interp, wordReList(), selectedFields, noLagrangian);
+
+    if (!noLagrangian)
     {
-        MapMesh<minusEqOp>
-        (
-            interp,
-            selectedFields,
-            noLagrangian
-        );
-    }
-    else
-    {
-        MapMesh<plusEqOp>
-        (
-            interp,
-            selectedFields,
-            noLagrangian
-        );
+        mapClouds(interp);
     }
 }
 
 
-void mapSubMesh
+void mapMesh
 (
-    const fvMesh& meshSource,
-    const fvMesh& meshTarget,
+    const fvMesh& srcMesh,
+    const fvMesh& tgtMesh,
     const HashTable<word>& patchMap,
-    const wordList& cuttingPatches,
-    const meshToMesh::interpolationMethod& mapMethod,
-    const bool subtract,
+    const wordReList& cuttingPatches,
+    const word& mapMethod,
     const HashSet<word>& selectedFields,
     const bool noLagrangian
 )
 {
     Info<< nl << "Creating and mapping fields for time "
-        << meshSource.time().timeName() << nl << endl;
+        << srcMesh.time().name() << nl << endl;
 
-    meshToMesh interp
-    (
-        meshSource,
-        meshTarget,
-        mapMethod,
-        patchMap,
-        cuttingPatches
-    );
+    fvMeshToFvMesh interp(srcMesh, tgtMesh, mapMethod, patchMap);
 
-    if (subtract)
+    Info<< nl << "Mapping geometric fields" << endl;
+
+    mapGeometricFields(interp, cuttingPatches, selectedFields, noLagrangian);
+
+    if (!noLagrangian)
     {
-        MapMesh<minusEqOp>
-        (
-            interp,
-            selectedFields,
-            noLagrangian
-        );
+        mapClouds(interp);
     }
-    else
-    {
-        MapMesh<plusEqOp>
-        (
-            interp,
-            selectedFields,
-            noLagrangian
-        );
-    }
-}
-
-
-wordList addProcessorPatches
-(
-    const fvMesh& meshTarget,
-    const wordList& cuttingPatches
-)
-{
-    // Add the processor patches to the cutting list
-    HashSet<word> cuttingPatchTable;
-    forAll(cuttingPatches, i)
-    {
-        cuttingPatchTable.insert(cuttingPatches[i]);
-    }
-
-    const polyBoundaryMesh& pbm = meshTarget.boundaryMesh();
-
-    forAll(pbm, patchi)
-    {
-        if (isA<processorPolyPatch>(pbm[patchi]))
-        {
-            const word& patchName = pbm[patchi].name();
-            cuttingPatchTable.insert(patchName);
-        }
-    }
-
-    return cuttingPatchTable.toc();
 }
 
 
@@ -186,11 +132,6 @@ int main(int argc, char *argv[])
         "word",
         "specify the mapping method"
     );
-    argList::addBoolOption
-    (
-        "subtract",
-        "subtract mapped source from target"
-    );
     argList::addOption
     (
         "fields",
@@ -204,7 +145,7 @@ int main(int argc, char *argv[])
         "skip mapping lagrangian positions and fields"
     );
 
-    argList args(argc, argv);
+    #include "setRootCase.H"
 
     fileName rootDirTarget(args.rootPath());
     fileName caseDirTarget(args.globalCaseName());
@@ -231,22 +172,15 @@ int main(int argc, char *argv[])
 
     const bool consistent = args.optionFound("consistent");
 
-    meshToMesh::interpolationMethod mapMethod =
-        meshToMesh::imCellVolumeWeight;
-
-    if (args.optionFound("mapMethod"))
-    {
-        mapMethod = meshToMesh::interpolationMethodNames_[args["mapMethod"]];
-
-        Info<< "Mapping method: "
-            << meshToMesh::interpolationMethodNames_[mapMethod] << endl;
-    }
-
-    const bool subtract = args.optionFound("subtract");
-    if (subtract)
-    {
-        Info<< "Subtracting mapped source field from target" << endl;
-    }
+    const word mapMethod
+    (
+        args.optionLookupOrDefault<word>
+        (
+            "mapMethod",
+            cellsToCellss::intersection::typeName
+        )
+    );
+    Info<< "Mapping method: " << mapMethod << endl;
 
     HashSet<word> selectedFields;
     if (args.optionFound("fields"))
@@ -259,7 +193,7 @@ int main(int argc, char *argv[])
     #include "createTimes.H"
 
     HashTable<word> patchMap;
-    wordList cuttingPatches;
+    wordReList cuttingPatches;
 
     if (!consistent)
     {
@@ -284,51 +218,58 @@ int main(int argc, char *argv[])
 
     Info<< "\nCreate meshes\n" << endl;
 
-    fvMesh meshSource
+    fvMesh srcMesh
     (
         IOobject
         (
             sourceRegion,
-            runTimeSource.timeName(),
+            runTimeSource.name(),
             runTimeSource
-        )
+        ),
+        false
     );
 
-    fvMesh meshTarget
+    srcMesh.postConstruct(false, fvMesh::stitchType::nonGeometric);
+
+    fvMesh tgtMesh
     (
         IOobject
         (
             targetRegion,
-            runTimeTarget.timeName(),
+            runTimeTarget.name(),
             runTimeTarget
-        )
+        ),
+        false
     );
 
-    Info<< "Source mesh size: " << meshSource.nCells() << tab
-        << "Target mesh size: " << meshTarget.nCells() << nl << endl;
+    tgtMesh.postConstruct(false, fvMesh::stitchType::nonGeometric);
+
+    Info<< "Source mesh size: "
+        << returnReduce(srcMesh.nCells(), sumOp<label>())
+        << ", Target mesh size: "
+        << returnReduce(tgtMesh.nCells(), sumOp<label>())
+        << endl;
 
     if (consistent)
     {
         mapConsistentMesh
         (
-            meshSource,
-            meshTarget,
+            srcMesh,
+            tgtMesh,
             mapMethod,
-            subtract,
             selectedFields,
             noLagrangian
         );
     }
     else
     {
-        mapSubMesh
+        mapMesh
         (
-            meshSource,
-            meshTarget,
+            srcMesh,
+            tgtMesh,
             patchMap,
             cuttingPatches,
             mapMethod,
-            subtract,
             selectedFields,
             noLagrangian
         );

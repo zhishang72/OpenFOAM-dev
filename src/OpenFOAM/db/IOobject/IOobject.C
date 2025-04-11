@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -26,7 +26,7 @@ License
 #include "IOobject.H"
 #include "Time.H"
 #include "IFstream.H"
-#include "registerNamedEnum.H"
+#include "OSspecific.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -50,23 +50,13 @@ const Foam::NamedEnum<Foam::IOobject::fileCheckTypes, 4>
 // Default fileCheck type
 Foam::IOobject::fileCheckTypes Foam::IOobject::fileModificationChecking
 (
-    fileCheckTypesNames.read
+    Foam::debug::namedEnumOptimisationSwitch
     (
-        debug::optimisationSwitches().lookup
-        (
-            "fileModificationChecking"
-        )
+        "fileModificationChecking",
+        fileCheckTypesNames,
+        fileModificationChecking
     )
 );
-
-// Register re-reader
-registerOptNamedEnum
-(
-    "fileModificationChecking",
-    Foam::IOobject::fileCheckTypesNames,
-    Foam::IOobject::fileModificationChecking
-);
-
 
 // * * * * * * * * * * * * Static Member Functions * * * * * * * * * * * * * //
 
@@ -331,12 +321,6 @@ const Foam::Time& Foam::IOobject::time() const
 }
 
 
-const Foam::fileName& Foam::IOobject::caseName() const
-{
-    return time().caseName();
-}
-
-
 Foam::word Foam::IOobject::group() const
 {
     return group(name_);
@@ -355,7 +339,58 @@ const Foam::fileName& Foam::IOobject::rootPath() const
 }
 
 
-Foam::fileName Foam::IOobject::path() const
+const Foam::fileName& Foam::IOobject::caseName(const bool global) const
+{
+    if (global)
+    {
+        return time().globalCaseName();
+    }
+    else
+    {
+        return time().caseName();
+    }
+}
+
+
+Foam::fileName& Foam::IOobject::instance() const
+{
+    return instance_;
+}
+
+
+void Foam::IOobject::updateInstance() const
+{
+    if
+    (
+        !instance_.isAbsolute()
+     && instance_ != time().system()
+     && instance_ != time().constant()
+     && instance_ != time().name()
+    )
+    {
+        scalar timeValue;
+        if (readScalar(instance_.c_str(), timeValue))
+        {
+            instance_ = time().name();
+        }
+    }
+}
+
+
+Foam::fileName Foam::IOobject::path(const bool global) const
+{
+    if (instance_.isAbsolute())
+    {
+        return instance_;
+    }
+    else
+    {
+        return rootPath()/caseName(global)/instance()/db_.dbDir()/local();
+    }
+}
+
+
+Foam::fileName Foam::IOobject::relativePath() const
 {
     if (instance().isAbsolute())
     {
@@ -363,52 +398,14 @@ Foam::fileName Foam::IOobject::path() const
     }
     else
     {
-        return rootPath()/caseName()/instance()/db_.dbDir()/local();
+        return instance()/db_.dbDir()/local();
     }
 }
 
 
-Foam::fileName Foam::IOobject::path
-(
-    const word& instance,
-    const fileName& local
-) const
+Foam::fileName Foam::IOobject::filePath(const bool global) const
 {
-    // Note: can only be called with relative instance since is word type
-    return rootPath()/caseName()/instance/db_.dbDir()/local;
-}
-
-
-Foam::fileName Foam::IOobject::localFilePath(const word& typeName) const
-{
-    // Do not check for undecomposed files
-    return fileHandler().filePath(false, *this, typeName);
-}
-
-
-Foam::fileName Foam::IOobject::globalFilePath(const word& typeName) const
-{
-    // Check for undecomposed files
-    return fileHandler().filePath(true, *this, typeName);
-}
-
-
-void Foam::IOobject::setBad(const string& s)
-{
-    if (objState_ != GOOD)
-    {
-        FatalErrorInFunction
-            << "Recurrent failure for object " << s
-            << exit(FatalError);
-    }
-
-    if (error::level)
-    {
-        InfoInFunction
-            << "Broken object " << s << info() << endl;
-    }
-
-    objState_ = BAD;
+    return fileHandler().filePath(global, *this);
 }
 
 

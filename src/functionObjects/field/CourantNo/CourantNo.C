@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -84,20 +84,23 @@ bool Foam::functionObjects::CourantNo::calc()
             )
         );
 
-        tCo->ref() =
+        tCo->internalFieldRef() =
             byRho
             (
-                (0.5*mesh_.time().deltaT())
-               *fvc::surfaceSum(mag(phi))()()
-               /mesh_.V()
+                (0.5*time_.deltaT())
+               *fvc::surfaceSum(mag(phi))/mesh_.V()
             );
 
         tCo->correctBoundaryConditions();
 
-        return store(resultName_, tCo);
+        store(resultName_, tCo);
+
+        return true;
     }
     else
     {
+        cannotFindObject<surfaceScalarField>(fieldName_);
+
         return false;
     }
 }

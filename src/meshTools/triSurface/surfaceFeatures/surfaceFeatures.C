@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -173,7 +173,7 @@ void Foam::surfaceFeatures::setFromStatus
         }
     }
 
-    const scalar minCos = Foam::cos(degToRad(180.0 - includedAngle));
+    const scalar minCos = Foam::cos(degToRad(180) - includedAngle);
 
     calcFeatPoints(edgeStat, minCos);
 }
@@ -676,7 +676,7 @@ void Foam::surfaceFeatures::findFeatures
     const bool geometricTestOnly
 )
 {
-    scalar minCos = Foam::cos(degToRad(180.0 - includedAngle));
+    scalar minCos = Foam::cos(degToRad(180) - includedAngle);
 
     // Per edge whether is feature edge.
     List<edgeStatus> edgeStat(surf_.nEdges(), NONE);
@@ -779,7 +779,7 @@ Foam::labelList Foam::surfaceFeatures::trimFeatures
          || (leftPath.n_ + rightPath.n_ + 1 < minElems)
         )
         {
-            // Rewalk same route (recognizable by featLines == featI)
+            // Rewalk same route (recognisable by featLines == featI)
             // to reset featLines.
 
             featLines[startEdgeI] = -2;
@@ -831,7 +831,6 @@ Foam::labelList Foam::surfaceFeatures::trimFeatures
 
 void Foam::surfaceFeatures::writeDict(Ostream& writeFile) const
 {
-
     dictionary featInfoDict;
     featInfoDict.add("externalStart", externalStart_);
     featInfoDict.add("internalStart", internalStart_);
@@ -1031,7 +1030,7 @@ Foam::Map<Foam::label> Foam::surfaceFeatures::nearestSamples
                 << ' ' << surfPoints[e[1]] << endl;
         }
 
-        // Normalized edge vector
+        // Normalised edge vector
         vector eVec = e.vec(surfPoints);
         scalar eMag = mag(eVec);
         eVec /= eMag;
@@ -1177,7 +1176,7 @@ Foam::Map<Foam::pointIndexHit> Foam::surfaceFeatures::nearestEdges
                 << ' ' << surfPoints[e[1]] << endl;
         }
 
-        // Normalized edge vector
+        // Normalised edge vector
         vector eVec = e.vec(surfPoints);
         scalar eMag = mag(eVec);
         eVec /= eMag;
@@ -1432,7 +1431,7 @@ void Foam::surfaceFeatures::nearestFeatEdge
             false,
             edges,
             points,
-            identity(edges.size())
+            identityMap(edges.size())
         ),          // all information needed to do geometric checks
         searchDomain,  // overall search domain
         8,      // maxLevel
@@ -1540,10 +1539,7 @@ void Foam::selectCutEdges
 
         // If edge does not intersect the plane, delete.
         const scalar intersect = cutPlane.lineIntersect(line);
-
-        const point featPoint = intersect*(p1 - p0) + p0;
-
-        if (!line.insideBoundBox(featPoint))
+        if (intersect < 0 || intersect > 1)
         {
             edgeStat[edgei] = surfaceFeatures::NONE;
         }
@@ -1627,7 +1623,7 @@ Foam::surfaceFeatures::edgeStatus Foam::checkNonManifoldEdge
 
         if (includedAngle >= 0)
         {
-            scalar minCos = Foam::cos(degToRad(180.0 - includedAngle));
+            scalar minCos = Foam::cos(degToRad(180) - includedAngle);
 
             forAll(eFaces, i)
             {

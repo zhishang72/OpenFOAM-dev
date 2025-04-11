@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -33,7 +33,7 @@ Description
 #ifndef interpolationPointMVC_H
 #define interpolationPointMVC_H
 
-#include "interpolation.H"
+#include "interpolationVolPointInterpolation.H"
 #include "pointMVCWeight.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -42,22 +42,15 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                   Class interpolationPointMVC Declaration
+                    Class interpolationPointMVC Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
 class interpolationPointMVC
 :
-    public interpolation<Type>
+    public fieldInterpolation<Type, interpolationPointMVC<Type>>,
+    public interpolationVolPointInterpolation<Type>
 {
-protected:
-
-    // Protected data
-
-        //- Interpolated volfield
-        const GeometricField<Type, pointPatchField, pointMesh> psip_;
-
-
 public:
 
     //- Runtime type information
@@ -69,8 +62,23 @@ public:
         //- Construct from components
         interpolationPointMVC
         (
-            const GeometricField<Type, fvPatchField, volMesh>& psi
+            const VolField<Type>& psi
         );
+
+        //- Copy construct
+        interpolationPointMVC
+        (
+            const interpolationPointMVC<Type>& i
+        );
+
+        //- Clone
+        virtual autoPtr<interpolation<Type>> clone() const
+        {
+            return autoPtr<interpolation<Type>>
+            (
+                new interpolationPointMVC<Type>(*this)
+            );
+        }
 
 
     // Member Functions

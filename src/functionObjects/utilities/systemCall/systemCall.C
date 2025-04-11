@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -26,6 +26,7 @@ License
 #include "systemCall.H"
 #include "Time.H"
 #include "dynamicCode.H"
+#include "OSspecific.H"
 #include "addToRunTimeSelectionTable.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
@@ -51,11 +52,12 @@ namespace functionObjects
 Foam::functionObjects::systemCall::systemCall
 (
     const word& name,
-    const Time&,
+    const Time& time,
     const dictionary& dict
 )
 :
-    functionObject(name),
+    functionObject(name, time),
+    parallel_(false),
     executeCalls_(),
     endCalls_(),
     writeCalls_()
@@ -74,6 +76,8 @@ Foam::functionObjects::systemCall::~systemCall()
 
 bool Foam::functionObjects::systemCall::read(const dictionary& dict)
 {
+    parallel_ = dict.lookupOrDefault("parallel", false);
+
     dict.readIfPresent("executeCalls", executeCalls_);
     dict.readIfPresent("endCalls", endCalls_);
     dict.readIfPresent("writeCalls", writeCalls_);
@@ -107,9 +111,12 @@ bool Foam::functionObjects::systemCall::read(const dictionary& dict)
 
 bool Foam::functionObjects::systemCall::execute()
 {
-    forAll(executeCalls_, callI)
+    if (Pstream::master() || parallel_)
     {
-        Foam::system(executeCalls_[callI]);
+        forAll(executeCalls_, callI)
+        {
+            Foam::system(executeCalls_[callI]);
+        }
     }
 
     return true;
@@ -118,9 +125,12 @@ bool Foam::functionObjects::systemCall::execute()
 
 bool Foam::functionObjects::systemCall::end()
 {
-    forAll(endCalls_, callI)
+    if (Pstream::master() || parallel_)
     {
-        Foam::system(endCalls_[callI]);
+        forAll(endCalls_, callI)
+        {
+            Foam::system(endCalls_[callI]);
+        }
     }
 
     return true;
@@ -129,9 +139,12 @@ bool Foam::functionObjects::systemCall::end()
 
 bool Foam::functionObjects::systemCall::write()
 {
-    forAll(writeCalls_, callI)
+    if (Pstream::master() || parallel_)
     {
-        Foam::system(writeCalls_[callI]);
+        forAll(writeCalls_, callI)
+        {
+            Foam::system(writeCalls_[callI]);
+        }
     }
 
     return true;

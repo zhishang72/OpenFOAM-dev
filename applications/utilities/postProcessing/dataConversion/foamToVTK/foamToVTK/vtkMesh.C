@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -33,14 +33,16 @@ License
 Foam::vtkMesh::vtkMesh
 (
     fvMesh& baseMesh,
+    const vtkTopo::vtkPolyhedra polyhedra,
     const word& setName
 )
 :
     baseMesh_(baseMesh),
     subsetter_(baseMesh),
+    polyhedra_(polyhedra),
     setName_(setName)
 {
-    if (setName.size())
+    if (setName != word::null)
     {
         // Read cellSet using whole mesh
         cellSet currentSet(baseMesh_, setName_);
@@ -53,13 +55,13 @@ Foam::vtkMesh::vtkMesh
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-Foam::polyMesh::readUpdateState Foam::vtkMesh::readUpdate()
+Foam::fvMesh::readUpdateState Foam::vtkMesh::readUpdate()
 {
-    polyMesh::readUpdateState meshState = baseMesh_.readUpdate();
+    fvMesh::readUpdateState meshState = baseMesh_.readUpdate();
 
-    if (meshState != polyMesh::UNCHANGED)
+    if (meshState != fvMesh::UNCHANGED)
     {
-        // Note: since fvMeshSubset has no movePoints() functionality,
+        // Note: since fvMeshSubset has no setPoints() functionality,
         // reconstruct the subset even if only movement.
 
         topoPtr_.clear();

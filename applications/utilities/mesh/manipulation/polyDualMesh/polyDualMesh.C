@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -52,26 +52,21 @@ Usage
         points on them as features. The -doNotPreserveFaceZones disables this
         behaviour.
 
-Note
-    It is just a driver for meshDualiser. Substitute your own simpleMarkFeatures
-    to have different behaviour.
+    Note:
+        It is just a driver for meshDualiser. Substitute your own
+        simpleMarkFeatures to have different behaviour.
 
 \*---------------------------------------------------------------------------*/
 
 #include "argList.H"
 #include "Time.H"
 #include "fvMesh.H"
-#include "unitConversion.H"
 #include "polyTopoChange.H"
-#include "mapPolyMesh.H"
+#include "polyTopoChangeMap.H"
 #include "PackedBoolList.H"
 #include "meshTools.H"
 #include "OFstream.H"
 #include "meshDualiser.H"
-#include "ReadFields.H"
-#include "volFields.H"
-#include "surfaceFields.H"
-#include "pointFields.H"
 
 using namespace Foam;
 
@@ -94,7 +89,7 @@ void simpleMarkFeatures
     labelList& multiCellFeaturePoints
 )
 {
-    scalar minCos = Foam::cos(degToRad(featureAngle));
+    const scalar minCos = Foam::cos(featureAngle);
 
     const polyBoundaryMesh& patches = mesh.boundaryMesh();
 
@@ -242,7 +237,7 @@ void simpleMarkFeatures
     }
 
     // B. face zones.
-    const faceZoneMesh& faceZones = mesh.faceZones();
+    const faceZoneList& faceZones = mesh.faceZones();
 
     if (doNotPreserveFaceZones)
     {
@@ -376,15 +371,13 @@ int main(int argc, char *argv[])
         "disable the default behaviour of preserving faceZones by having"
         " multiple faces in between cells"
     );
-    argList::addBoolOption
-    (
-        "noFields",
-        "do not update fields"
-    );
+
+    #include "addRegionOption.H"
+    #include "addMeshOption.H"
 
     #include "setRootCase.H"
     #include "createTime.H"
-    #include "createMesh.H"
+    #include "createSpecifiedMeshNoChangers.H"
 
     const word oldInstance = mesh.pointsInstance();
 
@@ -402,10 +395,10 @@ int main(int argc, char *argv[])
         }
     }
 
-    const scalar featureAngle = args.argRead<scalar>(1);
-    const scalar minCos = Foam::cos(degToRad(featureAngle));
+    const scalar featureAngle = degToRad(args.argRead<scalar>(1));
+    const scalar minCos = Foam::cos(featureAngle);
 
-    Info<< "Feature:" << featureAngle << endl
+    Info<< "Feature:" << radToDeg(featureAngle) << endl
         << "minCos :" << minCos << endl
         << endl;
 
@@ -429,8 +422,15 @@ int main(int argc, char *argv[])
         Info<< "Generating multiple cells for points on concave feature edges."
             << nl << endl;
     }
-    const bool fields = !args.optionFound("noFields");
 
+
+    mesh.cellZones().clear();
+    mesh.pointZones().clear();
+
+    if (doNotPreserveFaceZones)
+    {
+        mesh.faceZones().clear();
+    }
 
     // Face(centre)s that need inclusion in the dual mesh
     labelList featureFaces;
@@ -456,14 +456,16 @@ int main(int argc, char *argv[])
         multiCellFeaturePoints
     );
 
+    mesh.faceZones().clear();
+
     // If we want to split all polyMesh faces into one dualface per cell
     // we are passing through we also need a point
     // at the polyMesh facecentre and edgemid of the faces we want to
     // split.
     if (splitAllFaces)
     {
-        featureEdges = identity(mesh.nEdges());
-        featureFaces = identity(mesh.nFaces());
+        featureEdges = identityMap(mesh.nEdges());
+        featureFaces = identityMap(mesh.nFaces());
     }
 
     // Write obj files for debugging
@@ -475,19 +477,6 @@ int main(int argc, char *argv[])
         singleCellFeaturePoints,
         multiCellFeaturePoints
     );
-
-
-
-    // Read objects in time directory
-    IOobjectList objects(mesh, runTime.timeName());
-
-    if (fields) Info<< "Reading geometric fields" << nl << endl;
-
-    #include "readVolFields.H"
-    #include "readSurfaceFields.H"
-    #include "readPointFields.H"
-
-    Info<< endl;
 
 
     // Topo change container
@@ -509,16 +498,10 @@ int main(int argc, char *argv[])
     );
 
     // Create mesh, return map from old to new mesh.
-    autoPtr<mapPolyMesh> map = meshMod.changeMesh(mesh, false);
+    autoPtr<polyTopoChangeMap> map = meshMod.changeMesh(mesh);
 
-    // Update fields
-    mesh.updateMesh(map);
-
-    // Optionally inflate mesh
-    if (map().hasMotionPoints())
-    {
-        mesh.movePoints(map().preMotionPoints());
-    }
+    // Update mesh objects
+    mesh.topoChange(map);
 
     if (!overwrite)
     {
@@ -529,7 +512,7 @@ int main(int argc, char *argv[])
         mesh.setInstance(oldInstance);
     }
 
-    Info<< "Writing dual mesh to " << runTime.timeName() << endl;
+    Info<< "Writing dual mesh to " << runTime.name() << endl;
 
     mesh.write();
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,8 +25,31 @@ Class
     Foam::eConstThermo
 
 Description
-    Constant properties thermodynamics package templated on an equation of
-    state
+    Internal energy based thermodynamics package using a constant heat capacity
+    at constant volume.
+
+    The sensible internal energy is evaluated as:
+    \verbatim
+        es = Cv*(T - Tref) + esRef
+    \endverbatim
+
+Usage
+    \table
+        Property     | Description
+        Cv           | Constant Heat capacity at constant volume [J/kg/K]
+        Tref         | Reference temperature [K] (defaults to Tstd)
+        esRef        | Reference sensible internal energy [J/kg] (defaults to 0)
+        hf           | Heat of formation [J/kg]
+    \endtable
+
+    Example specification of eConstThermo for air:
+    \verbatim
+    thermodynamics
+    {
+        Cv          724;
+        hf          0;
+    }
+    \endverbatim
 
 SourceFiles
     eConstThermoI.H
@@ -36,8 +59,6 @@ SourceFiles
 
 #ifndef eConstThermo_H
 #define eConstThermo_H
-
-#include "thermo.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -92,35 +113,37 @@ class eConstThermo
         scalar Cv_;
 
         //- Heat of formation [J/kg]
-        scalar Hf_;
+        scalar hf_;
 
+        //- Reference temperature around which to linearise [K]
+        scalar Tref_;
 
-    // Private Member Functions
-
-        //- Construct from components
-        inline eConstThermo
-        (
-            const EquationOfState& st,
-            const scalar cv,
-            const scalar hf
-        );
+        //- Reference sensible enthalpy around which to linearise [J/kg]
+        scalar esRef_;
 
 
 public:
 
     // Constructors
 
-        //- Construct from dictionary
-        eConstThermo(const dictionary& dict);
+        //- Construct from components
+        inline eConstThermo
+        (
+            const EquationOfState& st,
+            const scalar Cv,
+            const scalar hf,
+            const scalar Tref,
+            const scalar esRef
+        );
+
+        //- Construct from name and dictionary
+        eConstThermo(const word& name, const dictionary& dict);
 
         //- Construct as named copy
         inline eConstThermo(const word&, const eConstThermo&);
 
         //- Construct and return a clone
         inline autoPtr<eConstThermo> clone() const;
-
-        // Selector from dictionary
-        inline static autoPtr<eConstThermo> New(const dictionary& dict);
 
 
     // Member Functions
@@ -141,27 +164,24 @@ public:
             inline scalar Cv(const scalar p, const scalar T) const;
 
             //- Sensible internal energy [J/kg]
-            inline scalar Es(const scalar p, const scalar T) const;
+            inline scalar es(const scalar p, const scalar T) const;
 
             //- Absolute internal energy [J/kg]
-            inline scalar Ea(const scalar p, const scalar T) const;
+            inline scalar ea(const scalar p, const scalar T) const;
 
-            //- Chemical enthalpy [J/kg]
-            inline scalar Hc() const;
+            //- Enthalpy of formation [J/kg]
+            inline scalar hf() const;
 
             //- Entropy [J/kg/K]
-            inline scalar S(const scalar p, const scalar T) const;
+            inline scalar s(const scalar p, const scalar T) const;
 
             //- Gibbs free energy of the mixture in the standard state [J/kg]
-            inline scalar Gstd(const scalar T) const;
+            inline scalar gStd(const scalar T) const;
 
             #include "EtoHthermo.H"
 
 
         // Derivative term used for Jacobian
-
-            //- Derivative of Gibbs free energy w.r.t. temperature
-            inline scalar dGdT(const scalar p, const scalar T) const;
 
             //- Temperature derivative of heat capacity at constant pressure
             inline scalar dCpdT(const scalar p, const scalar T) const;

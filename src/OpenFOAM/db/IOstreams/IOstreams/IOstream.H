@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -66,7 +66,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class IOstream Declaration
+                          Class IOstream Declaration
 \*---------------------------------------------------------------------------*/
 
 class IOstream
@@ -149,37 +149,37 @@ public:
             // Member Operators
 
                 //- Are these versionNumbers the same?
-                bool operator==(const versionNumber& vn)
+                bool operator==(const versionNumber& vn) const
                 {
                     return index_ == vn.index_;
                 }
 
                 //- Are these versionNumbers different?
-                bool operator!=(const versionNumber& vn)
+                bool operator!=(const versionNumber& vn) const
                 {
                     return index_ != vn.index_;
                 }
 
                 //- Is this version older than the one given
-                bool operator<(const versionNumber& vn)
+                bool operator<(const versionNumber& vn) const
                 {
                     return index_ < vn.index_;
                 }
 
                 //- Is this version the same as or older than the one given
-                bool operator<=(const versionNumber& vn)
+                bool operator<=(const versionNumber& vn) const
                 {
                     return index_ <= vn.index_;
                 }
 
                 //- Is this version newer than the one given
-                bool operator>(const versionNumber& vn)
+                bool operator>(const versionNumber& vn) const
                 {
                     return index_ > vn.index_;
                 }
 
                 //- This version the same as or newer than the one given
-                bool operator>=(const versionNumber& vn)
+                bool operator>=(const versionNumber& vn) const
                 {
                     return index_ >= vn.index_;
                 }
@@ -200,9 +200,6 @@ public:
 
     // Public static data
 
-        //- Original version number
-        static const versionNumber originalVersion;
-
         //- Current version number
         static const versionNumber currentVersion;
 
@@ -220,6 +217,7 @@ private:
         streamFormat format_;
         versionNumber version_;
         compressionType compression_;
+        bool global_;
 
         streamAccess openClosed_;
         ios_base::iostate ioState_;
@@ -268,14 +266,16 @@ public:
         //- Construct setting format and version
         IOstream
         (
-            streamFormat format,
-            versionNumber version,
-            compressionType compression=UNCOMPRESSED
+            const streamFormat format,
+            const versionNumber version,
+            const compressionType compression = UNCOMPRESSED,
+            const bool global = false
         )
         :
             format_(format),
             version_(version),
             compression_(compression),
+            global_(global),
             openClosed_(CLOSED),
             ioState_(ios_base::iostate(0)),
             lineNumber_(0)
@@ -433,6 +433,18 @@ public:
                 compressionType cmp0 = compression_;
                 compression_ = compressionEnum(cmp);
                 return cmp0;
+            }
+
+            //- Return global state
+            bool global() const
+            {
+                return global_;
+            }
+
+            //- Return global state
+            bool& global()
+            {
+                return global_;
             }
 
             //- Return current stream line number

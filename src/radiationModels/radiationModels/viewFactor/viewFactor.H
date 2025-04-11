@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -50,7 +50,7 @@ SourceFiles
 #include "scalarMatrices.H"
 #include "globalIndex.H"
 #include "scalarListIOList.H"
-#include "mapDistribute.H"
+#include "distributionMap.H"
 #include "volFields.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -61,7 +61,7 @@ namespace radiationModels
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class viewFactor Declaration
+                         Class viewFactor Declaration
 \*---------------------------------------------------------------------------*/
 
 class viewFactor
@@ -74,7 +74,7 @@ class viewFactor
         labelListIOList finalAgglom_;
 
         //- Map distributed
-        autoPtr<mapDistribute> map_;
+        autoPtr<distributionMap> map_;
 
         //- Coarse mesh
         singleCellFvMesh coarseMesh_;

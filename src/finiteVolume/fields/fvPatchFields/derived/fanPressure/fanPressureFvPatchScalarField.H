@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -31,7 +31,7 @@ Description
 Usage
     \table
         Property     | Description             | Required    | Default value
-        fanCurve     | fan curve file name     | yes         |
+        fanCurve     | fan curve function      | yes         |
         p0           | environmental total pressure | yes    |
     \endtable
 
@@ -40,19 +40,17 @@ Usage
     inlet
     {
         type            fanPressure;
-        fanCurve        tableFile;
-        tableFileCoeffs
-        {
-            file            "$FOAM_CASE/constant/pressureVsQ";
-            format          csv;
-            nHeaderLine     1;
-            refColumn       0;
-            componentColumns 1(1);
-            separator       ",";
-            mergeSeparators no;
-            outOfBounds     clamp;
-            interpolationScheme linear;
-        }
+
+        fanCurve        table;
+        file            "$FOAM_CASE/constant/pressureVsQ";
+        format          csv;
+        nHeaderLine     1;
+        columns         (0 1);
+        separator       ",";
+        mergeSeparators no;
+        outOfBounds     clamp;
+        interpolationScheme linear;
+
         direction       in;
         p0              uniform 0;
         value           uniform 0;
@@ -61,19 +59,17 @@ Usage
     outlet
     {
         type            fanPressure;
-        fanCurve        tableFile;
-        tableFileCoeffs
-        {
-            file            "$FOAM_CASE/constant/pressureVsQ";
-            format          csv;
-            nHeaderLine     1;
-            refColumn       0;
-            componentColumns 1(1);
-            separator       ",";
-            mergeSeparators no;
-            outOfBounds     clamp;
-            interpolationScheme linear;
-        }
+
+        fanCurve        table;
+        file            "$FOAM_CASE/constant/pressureVsQ";
+        format          csv;
+        nHeaderLine     1;
+        columns         (0 1);
+        separator       ",";
+        mergeSeparators no;
+        outOfBounds     clamp;
+        interpolationScheme linear;
+
         direction       out;
         p0              uniform 0;
         value           uniform 0;
@@ -96,7 +92,7 @@ SourceFiles
 #define fanPressureFvPatchScalarField_H
 
 #include "totalPressureFvPatchScalarField.H"
-#include "TableFile.H"
+#include "Function1.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -104,7 +100,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-              Class fanPressureFvPatchScalarField Declaration
+                Class fanPressureFvPatchScalarField Declaration
 \*---------------------------------------------------------------------------*/
 
 class fanPressureFvPatchScalarField
@@ -131,10 +127,10 @@ private:
     // Private Data
 
         //- Fan curve
-        autoPtr<Function1<scalar>> fanCurve_;
+        const autoPtr<Function1<scalar>> fanCurve_;
 
         //- Direction of flow through the fan relative to patch
-        fanFlowDirection direction_;
+        const fanFlowDirection direction_;
 
 
 public:
@@ -144,13 +140,6 @@ public:
 
 
     // Constructors
-
-        //- Construct from patch and internal field
-        fanPressureFvPatchScalarField
-        (
-            const fvPatch&,
-            const DimensionedField<scalar, volMesh>&
-        );
 
         //- Construct from patch, internal field and dictionary
         fanPressureFvPatchScalarField
@@ -167,23 +156,14 @@ public:
             const fanPressureFvPatchScalarField&,
             const fvPatch&,
             const DimensionedField<scalar, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         fanPressureFvPatchScalarField
         (
             const fanPressureFvPatchScalarField&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchScalarField> clone() const
-        {
-            return tmp<fvPatchScalarField>
-            (
-                new fanPressureFvPatchScalarField(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         fanPressureFvPatchScalarField

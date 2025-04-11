@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2018-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ License
 
 #include "PrghPressureFvPatchScalarField.H"
 #include "addToRunTimeSelectionTable.H"
-#include "fvPatchFieldMapper.H"
+#include "fieldMapper.H"
 #include "volFields.H"
 #include "uniformDimensionedFields.H"
 
@@ -36,23 +36,12 @@ Foam::PrghPressureFvPatchScalarField<PressureFvPatchScalarField>::
 PrghPressureFvPatchScalarField
 (
     const fvPatch& p,
-    const DimensionedField<scalar, volMesh>& iF
-)
-:
-    PressureFvPatchScalarField(p, iF)
-{}
-
-
-template<class PressureFvPatchScalarField>
-Foam::PrghPressureFvPatchScalarField<PressureFvPatchScalarField>::
-PrghPressureFvPatchScalarField
-(
-    const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF,
     const dictionary& dict
 )
 :
-    PressureFvPatchScalarField(p, iF, dict)
+    PressureFvPatchScalarField(p, iF, dict),
+    rhoName_(dict.lookupOrDefault<word>("rho", "rho"))
 {}
 
 
@@ -63,21 +52,11 @@ PrghPressureFvPatchScalarField
     const PrghPressureFvPatchScalarField& ptf,
     const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
-    PressureFvPatchScalarField(ptf, p, iF, mapper)
-{}
-
-
-template<class PressureFvPatchScalarField>
-Foam::PrghPressureFvPatchScalarField<PressureFvPatchScalarField>::
-PrghPressureFvPatchScalarField
-(
-    const PrghPressureFvPatchScalarField& ptf
-)
-:
-    PressureFvPatchScalarField(ptf)
+    PressureFvPatchScalarField(ptf, p, iF, mapper),
+    rhoName_(ptf.rhoName_)
 {}
 
 
@@ -89,7 +68,8 @@ PrghPressureFvPatchScalarField
     const DimensionedField<scalar, volMesh>& iF
 )
 :
-    PressureFvPatchScalarField(ptf, iF)
+    PressureFvPatchScalarField(ptf, iF),
+    rhoName_(ptf.rhoName_)
 {}
 
 
@@ -109,7 +89,7 @@ updateCoeffs()
     const scalarField& rhop = this->patch().template
         lookupPatchField<volScalarField, scalar>
         (
-            "rho"
+            rhoName_
         );
 
     const uniformDimensionedVectorField& g =
@@ -124,6 +104,15 @@ updateCoeffs()
     (
         *this - rhop*((g.value() & this->patch().Cf()) - ghRef.value())
     );
+}
+
+
+template<class PressureFvPatchScalarField>
+void Foam::PrghPressureFvPatchScalarField<PressureFvPatchScalarField>::
+write(Ostream& os) const
+{
+    PressureFvPatchScalarField::write(os);
+    writeEntry(os, "rho", rhoName_);
 }
 
 

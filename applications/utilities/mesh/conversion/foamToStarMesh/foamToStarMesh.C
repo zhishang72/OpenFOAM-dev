@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -38,11 +38,11 @@ Usage
         Specify an alternative geometry scaling factor.
         The default is \b 1000 (scale \em [m] to \em [mm]).
 
-Note
-    The cellTable information available in the files
-    \c constant/cellTable and \c constant/polyMesh/cellTableId
-    will be used if available. Otherwise the cellZones are used when
-    creating the cellTable information.
+    Note:
+        The cellTable information available in the files
+        \c constant/cellTable and \c constant/polyMesh/cellTableId
+        will be used if available. Otherwise the cellZones are used when
+        creating the cellTable information.
 
 See also
     Foam::cellTable, Foam::meshWriter and Foam::meshWriters::STARCD
@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
     #include "setRootCase.H"
     #include "createTime.H"
 
-    instantList timeDirs = timeSelector::select0(runTime, args);
+    const instantList timeDirs = timeSelector::select0(runTime, args);
 
     fileName exportName = meshWriter::defaultMeshName;
     if (args.optionFound("case"))
@@ -124,7 +124,7 @@ int main(int argc, char *argv[])
             fileName meshName(exportName);
             if (state != polyMesh::UNCHANGED)
             {
-                meshName += '_' + runTime.timeName();
+                meshName += '_' + runTime.name();
             }
 
             writer.write(meshName);

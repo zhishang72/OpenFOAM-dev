@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -37,10 +37,6 @@ Description
 \*---------------------------------------------------------------------------*/
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-#ifndef CREATE_TIME
-    #define CREATE_TIME createTime.H
-#endif
 
 #ifndef CREATE_MESH
     #define CREATE_MESH createMesh.H
@@ -80,12 +76,19 @@ if (argList::postProcess(argc, argv))
 
     if (args.optionFound("list"))
     {
-        functionObjectList::list();
+        Info<< nl
+            << "Available configured functionObjects:"
+            << listAllConfigFiles
+               (
+                   functionEntries::includeFuncEntry::functionObjectDictPath
+               )
+            << endl;
         return 0;
     }
 
-    #include INCLUDE_FILE(CREATE_TIME)
-    Foam::instantList timeDirs = Foam::timeSelector::select0(runTime, args);
+    #include "createTime.H"
+    const Foam::instantList timeDirs =
+        Foam::timeSelector::select0(runTime, args);
     #include INCLUDE_FILE(CREATE_MESH)
 
     #ifndef NO_CONTROL
@@ -96,7 +99,9 @@ if (argList::postProcess(argc, argv))
     {
         runTime.setTime(timeDirs[timei], timei);
 
-        Info<< "Time = " << runTime.timeName() << endl;
+        Info<< "Time = " << runTime.userTimeName() << endl;
+
+        mesh.readUpdate();
 
         FatalIOError.throwExceptions();
 
@@ -112,22 +117,10 @@ if (argList::postProcess(argc, argv))
             #include INCLUDE_FILE(CREATE_FIELDS_3)
             #endif
 
-            // Externally stored dictionary for functionObjectList
-            // if not constructed from runTime
-            dictionary functionsControlDict("controlDict");
-
-            HashSet<word> selectedFields;
-
             // Construct functionObjectList
             autoPtr<functionObjectList> functionsPtr
             (
-                functionObjectList::New
-                (
-                    args,
-                    runTime,
-                    functionsControlDict,
-                    selectedFields
-                )
+                functionObjectList::New(args, runTime)
             );
 
             functionsPtr->execute();

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,19 +24,41 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "EDC.H"
+#include "addToRunTimeSelectionTable.H"
+
+// * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
+
+template<>
+const char* Foam::NamedEnum<Foam::combustionModels::EDCversions, 4>::names[] =
+    {"v1981", "v1996", "v2005", "v2016"};
+
+const Foam::NamedEnum<Foam::combustionModels::EDCversions, 4>
+    Foam::combustionModels::EDCversionNames;
+
+const Foam::combustionModels::EDCversions
+    Foam::combustionModels::EDCdefaultVersion =
+    Foam::combustionModels::EDCversions::v2005;
+
+namespace Foam
+{
+namespace combustionModels
+{
+    defineTypeNameAndDebug(EDC, 0);
+    addToRunTimeSelectionTable(combustionModel, EDC, dictionary);
+}
+}
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
-template<class ReactionThermo>
-Foam::combustionModels::EDC<ReactionThermo>::EDC
+Foam::combustionModels::EDC::EDC
 (
     const word& modelType,
-    const ReactionThermo& thermo,
-    const compressibleTurbulenceModel& turb,
+    const fluidMulticomponentThermo& thermo,
+    const compressibleMomentumTransportModel& turb,
     const word& combustionProperties
 )
 :
-    laminar<ReactionThermo>(modelType, thermo, turb, combustionProperties),
+    combustionModel(modelType, thermo, turb, combustionProperties),
     version_
     (
         EDCversionNames
@@ -58,66 +80,70 @@ Foam::combustionModels::EDC<ReactionThermo>::EDC
     (
         IOobject
         (
-            this->thermo().phasePropertyName(typeName + ":kappa"),
-            this->mesh().time().timeName(),
+            this->thermo().phasePropertyName(typedName("kappa")),
+            this->mesh().time().name(),
             this->mesh(),
             IOobject::NO_READ,
             IOobject::AUTO_WRITE
         ),
         this->mesh(),
         dimensionedScalar(dimless, 0)
-    )
+    ),
+    outerCorrect_
+    (
+        this->coeffs().lookupOrDefault("outerCorrect", true)
+    ),
+    timeIndex_(-1),
+    chemistryPtr_(basicChemistryModel::New(thermo))
 {}
 
 
 // * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
 
-template<class ReactionThermo>
-Foam::combustionModels::EDC<ReactionThermo>::~EDC()
+Foam::combustionModels::EDC::~EDC()
 {}
 
 
 // * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * * //
 
-template<class ReactionThermo>
-void Foam::combustionModels::EDC<ReactionThermo>::correct()
+void Foam::combustionModels::EDC::correct()
 {
+    if (!outerCorrect_ && timeIndex_ == this->mesh().time().timeIndex())
+    {
+        return;
+    }
+
     tmp<volScalarField> tepsilon(this->turbulence().epsilon());
     const volScalarField& epsilon = tepsilon();
 
-    tmp<volScalarField> tmu(this->turbulence().mu());
-    const volScalarField& mu = tmu();
+    tmp<volScalarField> tnu(this->turbulence().nu());
+    const volScalarField& nu = tnu();
 
     tmp<volScalarField> tk(this->turbulence().k());
     const volScalarField& k = tk();
-
-    tmp<volScalarField> trho(this->rho());
-    const volScalarField& rho = trho();
 
     scalarField tauStar(epsilon.size(), 0);
 
     if (version_ == EDCversions::v2016)
     {
-        tmp<volScalarField> ttc(this->chemistryPtr_->tc());
+        tmp<volScalarField> ttc(chemistryPtr_->tc());
         const volScalarField& tc = ttc();
 
         forAll(tauStar, i)
         {
-            const scalar nu = mu[i]/(rho[i] + small);
-
             const scalar Da =
-                max(min(sqrt(nu/(epsilon[i] + small))/tc[i], 10), 1e-10);
+                max(min(sqrt(nu[i]/(epsilon[i] + small))/tc[i], 10), 1e-10);
 
-            const scalar ReT = sqr(k[i])/(nu*epsilon[i] + small);
-            const scalar CtauI = min(C1_/(Da*sqrt(ReT + 1)), 2.1377);
+            const scalar ReT = sqr(k[i])/(nu[i]*epsilon[i] + small);
+            const scalar CtauI = min(C1_/(Da*sqrt(ReT + 1)), Ctau_);
 
             const scalar CgammaI =
-                max(min(C2_*sqrt(Da*(ReT + 1)), 5), 0.4082);
+                max(min(C2_*sqrt(Da*(ReT + 1)), 5), Cgamma_);
 
             const scalar gammaL =
-                CgammaI*pow025(nu*epsilon[i]/(sqr(k[i]) + small));
+                CgammaI*pow025(nu[i]*epsilon[i]/(sqr(k[i]) + small));
 
-            tauStar[i] = CtauI*sqrt(nu/(epsilon[i] + small));
+            tauStar[i] = CtauI*sqrt(nu[i]/(epsilon[i] + small));
 
             if (gammaL >= 1)
             {
@@ -142,11 +168,10 @@ void Foam::combustionModels::EDC<ReactionThermo>::correct()
     {
         forAll(tauStar, i)
         {
-            const scalar nu = mu[i]/(rho[i] + small);
             const scalar gammaL =
-                Cgamma_*pow025(nu*epsilon[i]/(sqr(k[i]) + small));
+                Cgamma_*pow025(nu[i]*epsilon[i]/(sqr(k[i]) + small));
 
-            tauStar[i] = Ctau_*sqrt(nu/(epsilon[i] + small));
+            tauStar[i] = Ctau_*sqrt(nu[i]/(epsilon[i] + small));
             if (gammaL >= 1)
             {
                 kappa_[i] = 1;
@@ -167,34 +192,46 @@ void Foam::combustionModels::EDC<ReactionThermo>::correct()
         }
     }
 
-    this->chemistryPtr_->solve(tauStar);
+    chemistryPtr_->solve(tauStar);
+
+    timeIndex_ = this->mesh().time().timeIndex();
 }
 
 
-template<class ReactionThermo>
-Foam::tmp<Foam::fvScalarMatrix>
-Foam::combustionModels::EDC<ReactionThermo>::R(volScalarField& Y) const
+Foam::tmp<Foam::volScalarField::Internal>
+Foam::combustionModels::EDC::R(const label speciei) const
 {
-    return kappa_*laminar<ReactionThermo>::R(Y);
+    return kappa_*chemistryPtr_->RR()[speciei];
 }
 
 
-template<class ReactionThermo>
+Foam::tmp<Foam::fvScalarMatrix>
+Foam::combustionModels::EDC::R(volScalarField& Y) const
+{
+    tmp<fvScalarMatrix> tSu(new fvScalarMatrix(Y, dimMass/dimTime));
+    fvScalarMatrix& Su = tSu.ref();
+
+    const label speciei = this->thermo().species()[Y.member()];
+    Su += chemistryPtr_->RR()[speciei];
+
+    return kappa_*tSu;
+}
+
+
 Foam::tmp<Foam::volScalarField>
-Foam::combustionModels::EDC<ReactionThermo>::Qdot() const
+Foam::combustionModels::EDC::Qdot() const
 {
     return volScalarField::New
     (
-        this->thermo().phasePropertyName(typeName + ":Qdot"),
-        kappa_*this->chemistryPtr_->Qdot()
+        this->thermo().phasePropertyName(typedName("Qdot")),
+        kappa_*chemistryPtr_->Qdot()
     );
 }
 
 
-template<class ReactionThermo>
-bool Foam::combustionModels::EDC<ReactionThermo>::read()
+bool Foam::combustionModels::EDC::read()
 {
-    if (laminar<ReactionThermo>::read())
+    if (combustionModel::read())
     {
         version_ =
         (
@@ -213,6 +250,7 @@ bool Foam::combustionModels::EDC<ReactionThermo>::read()
         Ctau_ = this->coeffs().lookupOrDefault("Ctau", 0.4083);
         exp1_ = this->coeffs().lookupOrDefault("exp1", EDCexp1[int(version_)]);
         exp2_ = this->coeffs().lookupOrDefault("exp2", EDCexp2[int(version_)]);
+        outerCorrect_ = this->coeffs().lookupOrDefault("outerCorrect", true);
 
         return true;
     }

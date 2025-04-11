@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -58,7 +58,7 @@ SourceFiles
 namespace Foam
 {
 
-class mapDistribute;
+class distributionMap;
 class decompositionMethod;
 
 // Typedefs
@@ -68,7 +68,7 @@ inline bool contiguous<segment>() {return contiguous<point>();}
 
 
 /*---------------------------------------------------------------------------*\
-                   Class distributedTriSurfaceMesh Declaration
+                  Class distributedTriSurfaceMesh Declaration
 \*---------------------------------------------------------------------------*/
 
 class distributedTriSurfaceMesh
@@ -97,7 +97,7 @@ private:
         scalar mergeDist_;
 
         //- Decomposition used when independently decomposing surface.
-        autoPtr<decompositionMethod> decomposer_;
+        autoPtr<decompositionMethod> distributor_;
 
         //- Bounding box settings
         IOdictionary dict_;
@@ -158,7 +158,7 @@ private:
 
             //- Divide edges into local and remote segments. Construct map to
             //  distribute and collect data.
-            autoPtr<mapDistribute> distributeSegments
+            autoPtr<distributionMap> distributeSegments
             (
                 const pointField& start,
                 const pointField& end,
@@ -182,7 +182,7 @@ private:
             //- Obtains global indices from pointIndexHit and swaps them back
             //  to their original processor. Used to calculate local region
             //  and normal.
-            autoPtr<mapDistribute> calcLocalQueries
+            autoPtr<distributionMap> calcLocalQueries
             (
                 const List<pointIndexHit>&,
                 labelList& triangleIndex
@@ -198,7 +198,7 @@ private:
                 boolList& overlaps
             ) const;
 
-            autoPtr<mapDistribute> calcLocalQueries
+            autoPtr<distributionMap> calcLocalQueries
             (
                 const pointField& centres,
                 const scalarField& radiusSqr,
@@ -287,7 +287,7 @@ private:
 
             //- Distribute stored fields
             template<class Type>
-            void distributeFields(const mapDistribute& map);
+            void distributeFields(const distributionMap& map);
 
 
 public:
@@ -415,8 +415,8 @@ public:
             (
                 const List<treeBoundBox>&,
                 const bool keepNonLocal,
-                autoPtr<mapDistribute>& faceMap,
-                autoPtr<mapDistribute>& pointMap
+                autoPtr<distributionMap>& faceMap,
+                autoPtr<distributionMap>& pointMap
             );
 
 
@@ -461,13 +461,6 @@ public:
                 return false;
             }
 
-            //- Return complete path + object name if the file exists
-            //  either in the case/processor or case otherwise null
-            virtual fileName filePath() const
-            {
-                return searchableSurface::localFilePath(type());
-            }
-
 
     // Member Operators
 
@@ -476,12 +469,12 @@ public:
 };
 
 
-//- Template function for obtaining global status
+//- Trait for obtaining global status
 template<>
-inline bool typeGlobal<distributedTriSurfaceMesh>()
+struct typeGlobal<distributedTriSurfaceMesh>
 {
-    return false;
-}
+    static const bool global = false;
+};
 
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

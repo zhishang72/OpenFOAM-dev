@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,7 +44,7 @@ Usage
     <patchName>
     {
         type            uniformTotalPressure;
-        p0              uniform 1e5;
+        p0              1e5;
     }
     \endverbatim
 
@@ -110,13 +110,6 @@ public:
 
     // Constructors
 
-        //- Construct from patch and internal field
-        uniformTotalPressureFvPatchScalarField
-        (
-            const fvPatch&,
-            const DimensionedField<scalar, volMesh>&
-        );
-
         //- Construct from patch, internal field and dictionary
         uniformTotalPressureFvPatchScalarField
         (
@@ -131,23 +124,14 @@ public:
             const uniformTotalPressureFvPatchScalarField&,
             const fvPatch&,
             const DimensionedField<scalar, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         uniformTotalPressureFvPatchScalarField
         (
             const uniformTotalPressureFvPatchScalarField&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchScalarField> clone() const
-        {
-            return tmp<fvPatchScalarField>
-            (
-                new uniformTotalPressureFvPatchScalarField(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         uniformTotalPressureFvPatchScalarField

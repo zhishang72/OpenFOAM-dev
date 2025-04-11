@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -29,6 +29,7 @@ License
 #include "surfMesh.H"
 #include "OFstream.H"
 #include "ListOps.H"
+#include "OSspecific.H"
 
 // * * * * * * * * * * * * * Static Member Functions * * * * * * * * * * * * //
 
@@ -118,7 +119,7 @@ void Foam::MeshedSurfaceProxy<Face>::write
             IOobject
             (
                 "points",
-                t.timeName(),
+                t.name(),
                 surfMesh::meshSubDir,
                 t,
                 IOobject::NO_READ,
@@ -150,7 +151,7 @@ void Foam::MeshedSurfaceProxy<Face>::write
             IOobject
             (
                 "faces",
-                t.timeName(),
+                t.name(),
                 surfMesh::meshSubDir,
                 t,
                 IOobject::NO_READ,
@@ -189,7 +190,7 @@ void Foam::MeshedSurfaceProxy<Face>::write
             IOobject
             (
                 "surfZones",
-                t.timeName(),
+                t.name(),
                 surfMesh::meshSubDir,
                 t,
                 IOobject::NO_READ,

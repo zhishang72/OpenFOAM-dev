@@ -7,14 +7,13 @@
 \*---------------------------------------------------------------------------*/
 FoamFile
 {
-    version     2.0;
     format      ascii;
     class       dictionary;
     object      controlDict;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-application     rhoSimpleFoam;
+solver          fluid;
 
 startFrom       latestTime;
 
@@ -44,8 +43,5 @@ timePrecision   6;
 
 runTimeModifiable true;
 
-functions
-{
-}
 
 // ************************************************************************* //

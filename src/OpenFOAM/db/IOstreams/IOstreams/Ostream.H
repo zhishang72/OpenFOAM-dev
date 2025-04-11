@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -75,12 +75,13 @@ public:
         //- Set stream status
         Ostream
         (
-            streamFormat format=ASCII,
-            versionNumber version=currentVersion,
-            compressionType compression=UNCOMPRESSED
+            const streamFormat format = ASCII,
+            const versionNumber version = currentVersion,
+            const compressionType compression = UNCOMPRESSED,
+            const bool global = false
         )
         :
-            IOstream(format, version, compression),
+            IOstream(format, version, compression, global),
             indentLevel_(0)
         {}
 
@@ -122,6 +123,12 @@ public:
 
             //- Write int64_t
             virtual Ostream& write(const int64_t) = 0;
+
+            //- Write uint32_t
+            virtual Ostream& write(const uint32_t) = 0;
+
+            //- Write uint64_t
+            virtual Ostream& write(const uint64_t) = 0;
 
             //- Write floatScalar
             virtual Ostream& write(const floatScalar) = 0;

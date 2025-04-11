@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -52,9 +52,9 @@ SourceFiles
 #include "labelIOList.H"
 #include "polyBoundaryMesh.H"
 #include "boundBox.H"
-#include "pointZoneMesh.H"
-#include "faceZoneMesh.H"
-#include "cellZoneMesh.H"
+#include "pointZoneList.H"
+#include "faceZoneList.H"
+#include "cellZoneList.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -63,7 +63,9 @@ namespace Foam
 
 // Forward declaration of classes
 class globalMeshData;
-class mapPolyMesh;
+class polyTopoChangeMap;
+class polyMeshMap;
+class polyDistributionMap;
 class polyMeshTetDecomposition;
 class treeDataCell;
 template<class Type> class indexedOctree;
@@ -84,8 +86,7 @@ public:
 
         //- Enumeration defining the state of the mesh after a read update.
         //  Used for post-processing applications, where the mesh
-        //  needs to update based on the files written in time
-        //  directories
+        //  needs to update based on the files written in time directories.
         enum readUpdateState
         {
             UNCHANGED,
@@ -130,7 +131,6 @@ private:
             //- Have the primitives been cleared
             bool clearedPrimitives_;
 
-
             //- Boundary mesh
             mutable polyBoundaryMesh boundary_;
 
@@ -159,26 +159,20 @@ private:
         // Zoning information
 
             //- Point zones
-            pointZoneMesh pointZones_;
+            pointZoneList pointZones_;
 
             //- Face zones
-            faceZoneMesh faceZones_;
+            faceZoneList faceZones_;
 
             //- Cell zones
-            cellZoneMesh cellZones_;
+            cellZoneList cellZones_;
 
 
         //- Parallel info
         mutable autoPtr<globalMeshData> globalMeshDataPtr_;
 
 
-        // Mesh motion related data
-
-            //- Is the mesh moving
-            bool moving_;
-
-            //- Is the mesh topology changing
-            bool topoChanging_;
+        // Mesh motion related dat
 
             //- Current time index for mesh motion
             mutable label curMotionTimeIndex_;
@@ -195,6 +189,9 @@ private:
 
     // Private Member Functions
 
+        //- Return the region directory
+        static fileName regionDir(const IOobject& io);
+
         //- Initialise the polyMesh from the primitive data
         void initMesh();
 
@@ -210,6 +207,12 @@ private:
 
         //- Read and return the tetBasePtIs
         autoPtr<labelIOList> readTetBasePtIs() const;
+
+        //- Set the write option of the points
+        void setPointsWrite(const IOobject::writeOption wo);
+
+        //- Set the write option of the topology
+        void setTopologyWrite(const IOobject::writeOption wo);
 
 
         // Helper functions for constructor from cell shapes
@@ -237,63 +240,18 @@ private:
             );
 
 
-        // Geometry checks
+protected:
 
-            //- Check non-orthogonality
-            bool checkFaceOrthogonality
-            (
-                const vectorField& fAreas,
-                const vectorField& cellCtrs,
-                const bool report,
-                const bool detailedReport,
-                labelHashSet* setPtr
-            ) const;
+    // Protected Member Data
 
-            //- Check face skewness
-            bool checkFaceSkewness
-            (
-                const pointField& points,
-                const vectorField& fCtrs,
-                const vectorField& fAreas,
-                const vectorField& cellCtrs,
-                const bool report,
-                const bool detailedReport,
-                labelHashSet* setPtr
-            ) const;
+        //- Member data pending transfer to fvMesh
 
-            bool checkEdgeAlignment
-            (
-                const pointField& p,
-                const bool report,
-                const Vector<label>& directions,
-                labelHashSet* setPtr
-            ) const;
+            //- Is the mesh moving
+            bool moving_;
 
-            bool checkCellDeterminant
-            (
-                const vectorField& faceAreas,
-                const bool report,
-                labelHashSet* setPtr,
-                const Vector<label>& meshD
-            ) const;
+            //- Has the mesh topology changed
+            bool topoChanged_;
 
-            bool checkFaceWeight
-            (
-                const vectorField& fCtrs,
-                const vectorField& fAreas,
-                const vectorField& cellCtrs,
-                const bool report,
-                const scalar minWeight,
-                labelHashSet* setPtr
-            ) const;
-
-            bool checkVolRatio
-            (
-                const scalarField& cellVols,
-                const bool report,
-                const scalar minRatio,
-                labelHashSet* setPtr
-            ) const;
 
 public:
 
@@ -306,14 +264,20 @@ public:
     //- Runtime type information
     TypeName("polyMesh");
 
-    //- Return the default region name
-    static word defaultRegion;
 
-    //- Return the mesh sub-directory name (usually "polyMesh")
-    static word meshSubDir;
+    // Static data
+
+        //- Return the default region name
+        static word defaultRegion;
+
+        //- Return the mesh sub-directory name (usually "polyMesh")
+        static word meshSubDir;
 
 
     // Constructors
+
+        //- Return whether the given IOobject relates to a mesh on disk
+        static bool found(const IOobject& io);
 
         //- Construct from IOobject
         explicit polyMesh(const IOobject& io);
@@ -372,8 +336,11 @@ public:
             const bool syncPar = true
         );
 
+        //- Move constructor
+        polyMesh(polyMesh&&);
+
         //- Disallow default bitwise copy construction
-        polyMesh(const polyMesh&);
+        polyMesh(const polyMesh&) = delete;
 
 
     //- Destructor
@@ -384,19 +351,25 @@ public:
 
         // Database
 
-            //- Override the objectRegistry dbDir for a single-region case
-            virtual const fileName& dbDir() const;
-
             //- Return the local mesh directory (dbDir()/meshSubDir)
             fileName meshDir() const;
 
             //- Return the current instance directory for points
-            //  Used in the consruction of gemometric mesh data dependent
+            //  Used in the construction of geometric mesh data dependent
             //  on points
             const fileName& pointsInstance() const;
 
             //- Return the current instance directory for faces
             const fileName& facesInstance() const;
+
+            //- Return the points write option
+            IOobject::writeOption pointsWriteOpt() const;
+
+            //- Return the points write option
+            IOobject::writeOption facesWriteOpt() const;
+
+            //- Set the instance for the points files
+            void setPointsInstance(const fileName&);
 
             //- Set the instance for mesh files
             void setInstance(const fileName&);
@@ -404,32 +377,26 @@ public:
 
         // Access
 
-            //- Return raw points
-            virtual const pointField& points() const;
+            // Primitive mesh data
 
-            //- Return true if io is up-to-date with points
-            virtual bool upToDatePoints(const regIOobject& io) const;
+                //- Return raw points
+                virtual const pointField& points() const;
 
-            //- Set io to be up-to-date with points
-            virtual void setUpToDatePoints(regIOobject& io) const;
+                //- Return raw faces
+                virtual const faceList& faces() const;
 
-            //- Return raw faces
-            virtual const faceList& faces() const;
+                //- Return face owner
+                virtual const labelList& faceOwner() const;
 
-            //- Return face owner
-            virtual const labelList& faceOwner() const;
+                //- Return face neighbour
+                virtual const labelList& faceNeighbour() const;
 
-            //- Return face neighbour
-            virtual const labelList& faceNeighbour() const;
+                //- Return old points for mesh motion
+                virtual const pointField& oldPoints() const;
 
-            //- Return old points for mesh motion
-            virtual const pointField& oldPoints() const;
+                //- Return old cell centres for mesh motion
+                virtual const pointField& oldCellCentres() const;
 
-            //- Return old points for mesh motion
-            virtual const pointField& oldCellCentres() const;
-
-            //- Return IO object for points0
-            static IOobject points0IO(const polyMesh& mesh);
 
             //- Return boundary mesh
             const polyBoundaryMesh& boundaryMesh() const
@@ -467,20 +434,20 @@ public:
             //- Return the cell search tree
             const indexedOctree<treeDataCell>& cellTree() const;
 
-            //- Return point zone mesh
-            const pointZoneMesh& pointZones() const
+            //- Return point zones
+            const pointZoneList& pointZones() const
             {
                 return pointZones_;
             }
 
-            //- Return face zone mesh
-            const faceZoneMesh& faceZones() const
+            //- Return face zones
+            const faceZoneList& faceZones() const
             {
                 return faceZones_;
             }
 
-            //- Return cell zone mesh
-            const cellZoneMesh& cellZones() const
+            //- Return cell zones
+            const cellZoneList& cellZones() const
             {
                 return cellZones_;
             }
@@ -503,45 +470,28 @@ public:
 
         // Mesh motion
 
-            //- Is mesh dynamic
-            virtual bool dynamic() const
-            {
-                return false;
-            }
-
             //- Is mesh moving
             bool moving() const
             {
                 return moving_;
             }
 
-            //- Set the mesh to be moving
-            bool moving(const bool m)
+            //- Has the mesh topology changed this time-step
+            bool topoChanged() const
             {
-                bool m0 = moving_;
-                moving_ = m;
-                return m0;
+                return topoChanged_;
             }
 
-            //- Is mesh topology changing
-            bool topoChanging() const
-            {
-                return topoChanging_;
-            }
-
-            //- Set the mesh topology to be changing
-            bool topoChanging(const bool c)
-            {
-                bool c0 = topoChanging_;
-                topoChanging_ = c;
-                return c0;
-            }
-
-            //- Is mesh changing (topology changing and/or moving)
+            //- Is mesh changing
+            //  Moving or mesh topology changed this time-step)
             bool changing() const
             {
-                return moving()||topoChanging();
+                return moving() || topoChanged();
             }
+
+            //- Reset the points
+            //  without storing old points or returning swept volumes
+            virtual void setPoints(const pointField&);
 
             //- Move points, returns volumes swept by faces in motion
             virtual tmp<scalarField> movePoints(const pointField&);
@@ -553,19 +503,19 @@ public:
         // Topological change
 
             //- Return non-const access to the pointZones
-            pointZoneMesh& pointZones()
+            pointZoneList& pointZones()
             {
                 return pointZones_;
             }
 
             //- Return non-const access to the faceZones
-            faceZoneMesh& faceZones()
+            faceZoneList& faceZones()
             {
                 return faceZones_;
             }
 
             //- Return non-const access to the cellZones
-            cellZoneMesh& cellZones()
+            cellZoneList& cellZones()
             {
                 return cellZones_;
             }
@@ -585,16 +535,15 @@ public:
                 const List<cellZone*>& cz
             );
 
-            //- Add/insert single patch. If validBoundary the new situation
-            //  is consistent across processors.
+            //- Add/insert single patch
             virtual void addPatch
             (
                 const label insertPatchi,
-                const polyPatch& patch,
-                const dictionary& patchFieldDict,
-                const word& defaultPatchFieldType,
-                const bool validBoundary
+                const polyPatch& patch
             );
+
+            //- Complete addition of single patches
+            void addedPatches();
 
             //- Reorder and trim existing patches. If validBoundary the new
             //  situation is consistent across processors
@@ -606,10 +555,19 @@ public:
 
             //- Update the mesh based on the mesh files saved in
             //  time directories
-            virtual readUpdateState readUpdate();
+            readUpdateState readUpdate();
 
-            //- Update the mesh corresponding to given map
-            virtual void updateMesh(const mapPolyMesh& mpm);
+            //- Update zones using the given map
+            void topoChangeZones(const polyTopoChangeMap&);
+
+            //- Update topology using the given map
+            virtual void topoChange(const polyTopoChangeMap&);
+
+            //- Update from another mesh using the given map
+            virtual void mapMesh(const polyMeshMap&);
+
+            //- Redistribute or update using the given distribution map
+            virtual void distribute(const polyDistributionMap& map);
 
             //- Remove boundary patches
             void removeBoundary();
@@ -628,8 +586,12 @@ public:
                 const bool validBoundary = true
             );
 
+            //- Swap mesh
+            //  For run-time mesh replacement and mesh to mesh mapping
+            void swap(polyMesh&);
 
-        //  Storage management
+
+        // Storage management
 
             //- Clear geometry
             void clearGeom();
@@ -654,61 +616,6 @@ public:
 
             //- Remove all files from mesh instance()
             void removeFiles() const;
-
-
-        // Geometric checks. Selectively override primitiveMesh functionality.
-
-            //- Check non-orthogonality
-            virtual bool checkFaceOrthogonality
-            (
-                const bool report = false,
-                labelHashSet* setPtr = nullptr
-            ) const;
-
-            //- Check face skewness
-            virtual bool checkFaceSkewness
-            (
-                const bool report = false,
-                labelHashSet* setPtr = nullptr
-            ) const;
-
-            //- Check edge alignment for 1D/2D cases
-            virtual bool checkEdgeAlignment
-            (
-                const bool report,
-                const Vector<label>& directions,
-                labelHashSet* setPtr
-            ) const;
-
-            virtual bool checkCellDeterminant
-            (
-                const bool report,
-                labelHashSet* setPtr
-            ) const;
-
-            //- Check mesh motion for correctness given motion points
-            virtual bool checkMeshMotion
-            (
-                const pointField& newPoints,
-                const bool report = false,
-                const bool detailedReport = false
-            ) const;
-
-            //- Check for face weights
-            virtual bool checkFaceWeight
-            (
-                const bool report,
-                const scalar minWeight = 0.05,
-                labelHashSet* setPtr = nullptr
-            ) const;
-
-            //- Check for neighbouring cell volumes
-            virtual bool checkVolRatio
-            (
-                const bool report,
-                const scalar minRatio = 0.01,
-                labelHashSet* setPtr = nullptr
-            ) const;
 
 
         // Position search functions
@@ -746,6 +653,18 @@ public:
             (
                 const point& p,
                 const cellDecomposition = CELL_TETS
+            ) const;
+
+
+        // Write
+
+            //- Write the underlying polyMesh
+            virtual bool writeObject
+            (
+                IOstream::streamFormat fmt,
+                IOstream::versionNumber ver,
+                IOstream::compressionType cmp,
+                const bool write = true
             ) const;
 
 

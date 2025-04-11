@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2014-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2014-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -35,7 +35,8 @@ Description
     ground
     {
         type            atmBoundaryLayerInletK;
-        z               (0 0 1);
+        flowDir         (1 0 0);
+        zDir            (0 0 1);
         Uref            10.0;
         Zref            20.0;
         z0              uniform 0.1;
@@ -66,7 +67,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-        Class atmBoundaryLayerInletKFvPatchScalarField Declaration
+          Class atmBoundaryLayerInletKFvPatchScalarField Declaration
 \*---------------------------------------------------------------------------*/
 
 class atmBoundaryLayerInletKFvPatchScalarField
@@ -83,13 +84,6 @@ public:
 
     // Constructors
 
-        //- Construct from patch and internal field
-        atmBoundaryLayerInletKFvPatchScalarField
-        (
-            const fvPatch&,
-            const DimensionedField<scalar, volMesh>&
-        );
-
         //- Construct from patch, internal field and dictionary
         atmBoundaryLayerInletKFvPatchScalarField
         (
@@ -105,17 +99,8 @@ public:
             const atmBoundaryLayerInletKFvPatchScalarField&,
             const fvPatch&,
             const DimensionedField<scalar, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchScalarField> clone() const
-        {
-            return tmp<fvPatchScalarField>
-            (
-                new atmBoundaryLayerInletKFvPatchScalarField(*this)
-            );
-        }
 
         //- Construct as copy setting internal field reference
         atmBoundaryLayerInletKFvPatchScalarField
@@ -141,13 +126,12 @@ public:
 
         // Mapping functions
 
-            //- Map (and resize as needed) from self given a mapping object
-            //  Used to update fields following mesh topology change
-            virtual void autoMap(const fvPatchFieldMapper&);
+            //- Map the given fvPatchField onto this fvPatchField
+            virtual void map(const fvPatchScalarField&, const fieldMapper&);
 
-            //- Reverse map the given fvPatchField onto this fvPatchField
-            //  Used to reconstruct fields
-            virtual void rmap(const fvPatchScalarField&, const labelList&);
+            //- Reset the fvPatchField to the given fvPatchField
+            //  Used for mesh to mesh mapping
+            virtual void reset(const fvPatchScalarField&);
 
 
         //- Write

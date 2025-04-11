@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2019-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ Class
     Foam::setSizeFieldMapper
 
 Description
-    Field sizing mapper which sets the field size and does not map values.
+    Mapper which sets the field size. It does not actually map values.
 
 \*---------------------------------------------------------------------------*/
 
@@ -40,26 +40,28 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class setSizeFieldMapper Declaration
+                     Class setSizeFieldMapper Declaration
 \*---------------------------------------------------------------------------*/
 
 class setSizeFieldMapper
 :
-    virtual public fieldMapper
+    public fieldMapper
 {
-    // Private member data
+    // Private Data
 
         //- The size the mapper will set the fields to have
-        label size_;
+        const label size_;
 
 
     // Private Member Functions
 
+        //- Map a field in-place
         template<class Type>
-        void setSize(Field<Type>& f) const;
+        void map(Field<Type>& f, const Field<Type>&) const;
 
+        //- Map a field and return the result
         template<class Type>
-        tmp<Field<Type>> setSize() const;
+        tmp<Field<Type>> map(const Field<Type>&) const;
 
 
 public:
@@ -67,7 +69,10 @@ public:
     // Constructors
 
         //- Construct given size
-        setSizeFieldMapper(const label size);
+        setSizeFieldMapper(const label size)
+        :
+            size_(size)
+        {}
 
 
     //- Destructor
@@ -75,84 +80,19 @@ public:
     {}
 
 
-    // Member Functions
-
-        //- All values are unmapped
-        virtual bool hasUnmapped() const
-        {
-            return true;
-        }
-
-
     // Member Operators
 
-        virtual void operator()
-        (
-            Field<scalar>& f,
-            const Field<scalar>& mapF
-        ) const;
+        //- Map a field
+        FOR_ALL_FIELD_TYPES(DEFINE_FIELD_MAPPER_MAP_OPERATOR, );
 
-        virtual void operator()
-        (
-            Field<vector>& f,
-            const Field<vector>& mapF
-        ) const;
-
-        virtual void operator()
-        (
-            Field<sphericalTensor>& f,
-            const Field<sphericalTensor>& mapF
-        ) const;
-
-        virtual void operator()
-        (
-            Field<symmTensor>& f,
-            const Field<symmTensor>& mapF
-        ) const;
-
-        virtual void operator()
-        (
-            Field<tensor>& f,
-            const Field<tensor>& mapF
-        ) const;
-
-
-        virtual tmp<Field<scalar>> operator()
-        (
-            const Field<scalar>& mapF
-        ) const;
-
-        virtual tmp<Field<vector>> operator()
-        (
-            const Field<vector>& mapF
-        ) const;
-
-        virtual tmp<Field<sphericalTensor>> operator()
-        (
-            const Field<sphericalTensor>& mapF
-        ) const;
-
-        virtual tmp<Field<symmTensor>> operator()
-        (
-            const Field<symmTensor>& mapF
-        ) const;
-
-        virtual tmp<Field<tensor>> operator()
-        (
-            const Field<tensor>& mapF
-        ) const;
+        //- Map a label field
+        DEFINE_FIELD_MAPPER_MAP_OPERATOR(label, );
 };
 
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 } // End namespace Foam
-
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-#ifdef NoRepository
-    #include "setSizeFieldMapperTemplates.C"
-#endif
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2019-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -27,9 +27,8 @@ License
 #include "specieTransferVelocityFvPatchVectorField.H"
 #include "volFields.H"
 #include "surfaceFields.H"
-#include "turbulentFluidThermoModel.H"
-#include "psiReactionThermo.H"
-#include "rhoReactionThermo.H"
+#include "fluidThermophysicalTransportModel.H"
+#include "fluidMulticomponentThermo.H"
 
 // * * * * * * * * * * * * * Static Member Data  * * * * * * * * * * * * * * //
 
@@ -58,30 +57,17 @@ const Foam::NamedEnum
 
 // * * * * * * * * * * * * * Static Member Functions * * * * * * * * * * * * //
 
-const Foam::basicSpecieMixture&
-Foam::specieTransferMassFractionFvPatchScalarField::composition
+const Foam::fluidMulticomponentThermo&
+Foam::specieTransferMassFractionFvPatchScalarField::thermo
 (
     const objectRegistry& db
 )
 {
-    const word& name = basicThermo::dictName;
-
-    if (db.foundObject<psiReactionThermo>(name))
-    {
-        return db.lookupObject<psiReactionThermo>(name).composition();
-    }
-    else if (db.foundObject<rhoReactionThermo>(name))
-    {
-        return db.lookupObject<rhoReactionThermo>(name).composition();
-    }
-    else
-    {
-        FatalErrorInFunction
-            << "Could not find a multi-component thermodynamic model."
-            << exit(FatalError);
-
-        return NullObjectRef<basicSpecieMixture>();
-    }
+    return
+        db.lookupObject<fluidMulticomponentThermo>
+        (
+            physicalProperties::typeName
+        );
 }
 
 
@@ -91,37 +77,16 @@ Foam::specieTransferMassFractionFvPatchScalarField::
 specieTransferMassFractionFvPatchScalarField
 (
     const fvPatch& p,
-    const DimensionedField<scalar, volMesh>& iF
-)
-:
-    mixedFvPatchScalarField(p, iF),
-    phiName_("phi"),
-    UName_("U"),
-    phiYp_(p.size(), 0),
-    timeIndex_(-1),
-    c_(0),
-    property_(massFraction)
-{
-    refValue() = Zero;
-    refGrad() = Zero;
-    valueFraction() = Zero;
-}
-
-
-Foam::specieTransferMassFractionFvPatchScalarField::
-specieTransferMassFractionFvPatchScalarField
-(
-    const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF,
     const dictionary& dict
 )
 :
-    mixedFvPatchScalarField(p, iF),
+    mixedFvPatchScalarField(p, iF, dict, false),
     phiName_(dict.lookupOrDefault<word>("phi", "phi")),
     UName_(dict.lookupOrDefault<word>("U", "U")),
     phiYp_(p.size(), 0),
     timeIndex_(-1),
-    c_(dict.lookupOrDefault<scalar>("c", scalar(0))),
+    c_(dict.lookupOrDefault<scalar>("c", unitAny, scalar(0))),
     property_
     (
         c_ == scalar(0)
@@ -129,7 +94,10 @@ specieTransferMassFractionFvPatchScalarField
       : propertyNames_.read(dict.lookup("property"))
     )
 {
-    fvPatchScalarField::operator=(scalarField("value", dict, p.size()));
+    fvPatchScalarField::operator=
+    (
+        scalarField("value", iF.dimensions(), dict, p.size())
+    );
 
     refValue() = Zero;
     refGrad() = Zero;
@@ -143,29 +111,13 @@ specieTransferMassFractionFvPatchScalarField
     const specieTransferMassFractionFvPatchScalarField& ptf,
     const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     mixedFvPatchScalarField(ptf, p, iF, mapper),
     phiName_(ptf.phiName_),
     UName_(ptf.UName_),
     phiYp_(p.size(), 0),
-    timeIndex_(-1),
-    c_(ptf.c_),
-    property_(ptf.property_)
-{}
-
-
-Foam::specieTransferMassFractionFvPatchScalarField::
-specieTransferMassFractionFvPatchScalarField
-(
-    const specieTransferMassFractionFvPatchScalarField& ptf
-)
-:
-    mixedFvPatchScalarField(ptf),
-    phiName_(ptf.phiName_),
-    UName_(ptf.UName_),
-    phiYp_(ptf.size(), 0),
     timeIndex_(-1),
     c_(ptf.c_),
     property_(ptf.property_)
@@ -191,29 +143,32 @@ specieTransferMassFractionFvPatchScalarField
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-void Foam::specieTransferMassFractionFvPatchScalarField::autoMap
-(
-    const fvPatchFieldMapper& m
-)
-{
-    mixedFvPatchScalarField::autoMap(m);
-
-    m(phiYp_, phiYp_);
-}
-
-
-void Foam::specieTransferMassFractionFvPatchScalarField::rmap
+void Foam::specieTransferMassFractionFvPatchScalarField::map
 (
     const fvPatchScalarField& ptf,
-    const labelList& addr
+    const fieldMapper& mapper
 )
 {
-    mixedFvPatchScalarField::rmap(ptf, addr);
+    mixedFvPatchScalarField::map(ptf, mapper);
 
     const specieTransferMassFractionFvPatchScalarField& tiptf =
         refCast<const specieTransferMassFractionFvPatchScalarField>(ptf);
 
-    phiYp_.rmap(tiptf.phiYp_, addr);
+    mapper(phiYp_, tiptf.phiYp_);
+}
+
+
+void Foam::specieTransferMassFractionFvPatchScalarField::reset
+(
+    const fvPatchScalarField& ptf
+)
+{
+    mixedFvPatchScalarField::reset(ptf);
+
+    const specieTransferMassFractionFvPatchScalarField& tiptf =
+        refCast<const specieTransferMassFractionFvPatchScalarField>(ptf);
+
+    phiYp_.reset(tiptf.phiYp_);
 }
 
 
@@ -246,25 +201,30 @@ void Foam::specieTransferMassFractionFvPatchScalarField::updateCoeffs()
     tmp<scalarField> uPhip =
         refCast<const specieTransferVelocityFvPatchVectorField>(Up).phip();
 
+    const fluidThermophysicalTransportModel& ttm =
+        db().lookupType<fluidThermophysicalTransportModel>();
+
+    const volScalarField& Yi = refCast<const volScalarField>(internalField());
+
     // Get the diffusivity
-    // !!! <-- This is a potential lagging issue as alphaEff(patchi) calculates
-    // alpha on demand, so the value may be different from alphaEff() which
-    // uses the alpha field cached by the thermodynamics.
-    const scalarField AAlphaEffp
+    const scalarField ADEffp
     (
-        patch().magSf()
-       *db().lookupObject<compressible::turbulenceModel>
-        (
-            turbulenceModel::propertiesName
-        )
-       .alphaEff(patch().index())
+        patch().magSf()*ttm.DEff(Yi, patch().index())
+    );
+
+    // Compute the flux that we need to recover
+    const scalarField phiYp
+    (
+        this->phiYp()
+      - ADEffp*snGrad()
+      - patch().magSf()*ttm.j(Yi, patch().index())
     );
 
     // Set the gradient and value so that the transport and diffusion combined
     // result in the desired specie flux
-    valueFraction() = phip/(phip - patch().deltaCoeffs()*AAlphaEffp);
+    valueFraction() = phip/(phip - patch().deltaCoeffs()*ADEffp);
     refValue() = *this;
-    refGrad() = phip*(*this - phiYp()/uPhip)/AAlphaEffp;
+    refGrad() = phip*(*this - phiYp/uPhip)/ADEffp;
 
     mixedFvPatchScalarField::updateCoeffs();
 }

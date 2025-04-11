@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ License
 
 #include "perfectFluid.H"
 
-// * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
+// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class Specie>
 inline Foam::perfectFluid<Specie>::perfectFluid
@@ -40,8 +40,6 @@ inline Foam::perfectFluid<Specie>::perfectFluid
     rho0_(rho0)
 {}
 
-
-// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class Specie>
 inline Foam::perfectFluid<Specie>::perfectFluid
@@ -64,17 +62,6 @@ Foam::perfectFluid<Specie>::clone() const
 }
 
 
-template<class Specie>
-inline Foam::autoPtr<Foam::perfectFluid<Specie>>
-Foam::perfectFluid<Specie>::New
-(
-    const dictionary& dict
-)
-{
-    return autoPtr<perfectFluid<Specie>>(new perfectFluid<Specie>(dict));
-}
-
-
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class Specie>
@@ -92,7 +79,7 @@ inline Foam::scalar Foam::perfectFluid<Specie>::rho(scalar p, scalar T) const
 
 
 template<class Specie>
-inline Foam::scalar Foam::perfectFluid<Specie>::H(scalar p, scalar T) const
+inline Foam::scalar Foam::perfectFluid<Specie>::h(scalar p, scalar T) const
 {
     return p/rho(p, T) - Pstd/rho(Pstd, T);
 }
@@ -108,7 +95,7 @@ inline Foam::scalar Foam::perfectFluid<Specie>::Cp(scalar p, scalar T) const
 
 
 template<class Specie>
-inline Foam::scalar Foam::perfectFluid<Specie>::E(scalar p, scalar T) const
+inline Foam::scalar Foam::perfectFluid<Specie>::e(scalar p, scalar T) const
 {
     return 0;
 }
@@ -122,9 +109,17 @@ inline Foam::scalar Foam::perfectFluid<Specie>::Cv(scalar p, scalar T) const
 
 
 template<class Specie>
-inline Foam::scalar Foam::perfectFluid<Specie>::S(scalar p, scalar T) const
+inline Foam::scalar Foam::perfectFluid<Specie>::sp(scalar p, scalar T) const
 {
     return -this->R()*log(p/Pstd);
+}
+
+
+template<class Specie>
+inline Foam::scalar Foam::perfectFluid<Specie>::sv(scalar p, scalar T) const
+{
+    NotImplemented;
+    return 0;
 }
 
 
@@ -138,7 +133,7 @@ inline Foam::scalar Foam::perfectFluid<Specie>::psi(scalar p, scalar T) const
 template<class Specie>
 inline Foam::scalar Foam::perfectFluid<Specie>::Z(scalar p, scalar T) const
 {
-    return 1;
+    return p/(rho(p, T)*this->R()*T);
 }
 
 
@@ -152,6 +147,13 @@ inline Foam::scalar Foam::perfectFluid<Specie>::CpMCv(scalar p, scalar T) const
 }
 
 
+template<class Specie>
+inline Foam::scalar Foam::perfectFluid<Specie>::alphav(scalar p, scalar T) const
+{
+    return (1 - rho0_/this->rho(p, T))/T;
+}
+
+
 // * * * * * * * * * * * * * * * Member Operators  * * * * * * * * * * * * * //
 
 template<class Specie>
@@ -160,7 +162,7 @@ inline void Foam::perfectFluid<Specie>::operator+=
     const perfectFluid<Specie>& pf
 )
 {
-    NotImplemented;
+    noCoefficientMixing(perfectFluid);
 }
 
 
@@ -180,7 +182,7 @@ inline Foam::perfectFluid<Specie> Foam::operator+
     const perfectFluid<Specie>& pf2
 )
 {
-    NotImplemented;
+    noCoefficientMixing(perfectFluid);
     return pf1;
 }
 
@@ -208,7 +210,7 @@ inline Foam::perfectFluid<Specie> Foam::operator==
     const perfectFluid<Specie>& pf2
 )
 {
-    NotImplemented;
+    noCoefficientMixing(perfectFluid);
     return pf1;
 }
 

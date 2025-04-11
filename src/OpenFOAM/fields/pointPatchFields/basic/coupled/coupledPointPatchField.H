@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,7 +44,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                  Class coupledPointPatchField Declaration
+                   Class coupledPointPatchField Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -82,11 +82,8 @@ public:
             const coupledPointPatchField<Type>&,
             const pointPatch&,
             const DimensionedField<Type, pointMesh>&,
-            const pointPatchFieldMapper&
+            const fieldMapper&
         );
-
-        //- Construct and return a clone
-        virtual autoPtr<pointPatchField<Type>> clone() const = 0;
 
         //- Construct as copy setting internal field reference
         coupledPointPatchField
@@ -112,28 +109,6 @@ public:
             {
                 return true;
             }
-
-            //- Evaluate the patch field
-            virtual void evaluate
-            (
-                const Pstream::commsTypes commsType =
-                    Pstream::commsTypes::blocking
-            ) = 0;
-
-            //- Initialise swap of patch point values
-            virtual void initSwapAddSeparated
-            (
-                const Pstream::commsTypes,
-                Field<Type>&
-            ) const
-            {}
-
-            //- Complete swap of patch point values and add to local values
-            virtual void swapAddSeparated
-            (
-                const Pstream::commsTypes,
-                Field<Type>&
-            ) const = 0;
 };
 
 

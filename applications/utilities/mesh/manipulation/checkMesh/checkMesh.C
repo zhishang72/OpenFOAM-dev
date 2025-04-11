@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -31,24 +31,44 @@ Usage
     \b checkMesh [OPTION]
 
     Options:
-      - \par -allGeometry
-        Checks all (including non finite-volume specific) geometry
+      - \par noTopology
+        Skip checking the mesh topology
 
       - \par -allTopology
-        Checks all (including non finite-volume specific) addressing
+        Check all (including non finite-volume specific) addressing
+
+      - \par -allGeometry
+        Check all (including non finite-volume specific) geometry
 
       - \par -meshQuality
-        Checks against user defined (in \a system/meshQualityDict) quality
+        Check against user defined (in \a system/meshQualityDict) quality
         settings
 
       - \par -region \<name\>
         Specify an alternative mesh region.
 
-      - \par -writeSets \<surfaceFormat\>
-        Reconstruct all cellSets and faceSets geometry and write to
-        postProcessing directory according to surfaceFormat
-        (e.g. vtk or ensight). Additionally reconstructs all pointSets and
-        writes as vtk format.
+      - \par -writeSurfaces
+        Reconstruct cellSets and faceSets of problem faces and write to
+        postProcessing directory.
+
+      - \par -surfaceFormat <format>
+        Format used to write the cellSets and faceSets surfaces
+        e.g. vtk or ensight.
+
+      - \par -writeSets
+        Reconstruct pointSets of problem points nd write to
+        postProcessing directory.
+
+      - \par -setFormat <format>
+        Format used to write the pointSets
+        e.g. vtk or ensight.
+
+      - \par -nonOrthThreshold <threshold value in degrees>
+        Threshold in degrees for reporting non-orthogonality errors,
+        default: 70"
+
+      - \par -skewThreshold <threshold value>
+        Threshold for reporting skewness errors, default: 4.
 
 \*---------------------------------------------------------------------------*/
 
@@ -57,13 +77,11 @@ Usage
 #include "Time.H"
 #include "polyMesh.H"
 #include "globalMeshData.H"
-#include "surfaceWriter.H"
+#include "vtkSurfaceWriter.H"
 #include "vtkSetWriter.H"
 #include "IOdictionary.H"
 
-#include "checkTools.H"
-#include "checkTopology.H"
-#include "checkGeometry.H"
+#include "meshCheck.H"
 #include "checkMeshQuality.H"
 
 using namespace Foam;
@@ -73,6 +91,7 @@ using namespace Foam;
 int main(int argc, char *argv[])
 {
     timeSelector::addOptions();
+    #include "addMeshOption.H"
     #include "addRegionOption.H"
     argList::addBoolOption
     (
@@ -94,25 +113,66 @@ int main(int argc, char *argv[])
         "meshQuality",
         "read user-defined mesh quality criterions from system/meshQualityDict"
     );
+    argList::addBoolOption
+    (
+        "writeSurfaces",
+        "reconstruct and write faceSets and cellSets of the problem faces"
+    );
     argList::addOption
     (
-        "writeSets",
         "surfaceFormat",
-        "reconstruct and write all faceSets and cellSets in selected format"
+        "surfaceFormat",
+        "Format for faceSets and cellSets of the problem faces, defaults to vtk"
+    );
+    argList::addBoolOption
+    (
+        "writeSets",
+        "reconstruct and write pointSets of the problem points"
+    );
+    argList::addOption
+    (
+        "setFormat",
+        "setFormat",
+        "Format for pointSets of the problem points, defaults to vtk"
+    );
+    argList::addOption
+    (
+        "nonOrthThreshold",
+        "nonOrthThreshold",
+        "Threshold in degrees "
+        "for reporting non-orthogonality errors, default: 70"
+    );
+    argList::addOption
+    (
+        "skewThreshold",
+        "skewThreshold",
+        "Threshold for reporting non-orthogonality errors, default: 4"
     );
 
     #include "setRootCase.H"
     #include "createTime.H"
-    instantList timeDirs = timeSelector::select0(runTime, args);
-    #include "createNamedPolyMesh.H"
+    const instantList timeDirs = timeSelector::select0(runTime, args);
+    #include "createSpecifiedPolyMesh.H"
 
     const bool noTopology  = args.optionFound("noTopology");
     const bool allGeometry = args.optionFound("allGeometry");
     const bool allTopology = args.optionFound("allTopology");
     const bool meshQuality = args.optionFound("meshQuality");
+    const bool writeSurfaces = args.optionFound("writeSurfaces");
+    const bool writeSets = args.optionFound("writeSets");
 
-    word surfaceFormat;
-    const bool writeSets = args.optionReadIfPresent("writeSets", surfaceFormat);
+    word surfaceFormat(vtkSurfaceWriter::typeName);
+    args.optionReadIfPresent("surfaceFormat", surfaceFormat);
+
+    word setFormat(vtkSetWriter::typeName);
+    args.optionReadIfPresent("surfaceFormat", setFormat);
+
+    scalar nonOrthThreshold = 70;
+    args.optionReadIfPresent("nonOrthThreshold", nonOrthThreshold);
+    nonOrthThreshold = degToRad(nonOrthThreshold);
+
+    scalar skewThreshold = 4;
+    args.optionReadIfPresent("skewThreshold", skewThreshold);
 
     if (noTopology)
     {
@@ -131,11 +191,17 @@ int main(int argc, char *argv[])
     {
         Info<< "Enabling user-defined geometry checks." << nl << endl;
     }
+    if (writeSurfaces)
+    {
+        Info<< "Reconstructing and writing surface representation of the "
+            << "faceSets and cellSets of problem faces in "
+            << surfaceFormat << " format" << nl << endl;
+    }
     if (writeSets)
     {
-        Info<< "Reconstructing and writing " << surfaceFormat
-            << " representation"
-            << " of all faceSets and cellSets." << nl << endl;
+        Info<< "Reconstructing and writing the problem points in "
+            << setFormat << " format"
+            << nl << endl;
     }
 
 
@@ -158,13 +224,26 @@ int main(int argc, char *argv[])
         );
     }
 
+    autoPtr<Foam::surfaceWriter> surfaceWriter;
+    if (writeSurfaces)
+    {
+        surfaceWriter = surfaceWriter::New
+        (
+            surfaceFormat,
+            mesh.time().writeFormat(),
+            mesh.time().writeCompression()
+        );
+    }
 
-    autoPtr<surfaceWriter> surfWriter;
-    autoPtr<writer<scalar>> setWriter;
+    autoPtr<Foam::setWriter> setWriter;
     if (writeSets)
     {
-        surfWriter = surfaceWriter::New(surfaceFormat);
-        setWriter = writer<scalar>::New(vtkSetWriter<scalar>::typeName);
+        setWriter = Foam::setWriter::New
+        (
+            setFormat,
+            mesh.time().writeFormat(),
+            mesh.time().writeCompression()
+        );
     }
 
 
@@ -181,38 +260,40 @@ int main(int argc, char *argv[])
          || state == polyMesh::TOPO_PATCH_CHANGE
         )
         {
-            Info<< "Time = " << runTime.timeName() << nl << endl;
+            Info<< "Time = " << runTime.userTimeName() << nl << endl;
 
             // Reconstruct globalMeshData
             mesh.globalData();
 
-            printMeshStats(mesh, allTopology);
+            meshCheck::printMeshStats(mesh, allTopology);
 
             label nFailedChecks = 0;
 
             if (!noTopology)
             {
-                nFailedChecks += checkTopology
+                nFailedChecks += meshCheck::checkTopology
                 (
                     mesh,
                     allTopology,
-                    allGeometry,
-                    surfWriter,
+                    surfaceWriter,
                     setWriter
                 );
             }
 
-            nFailedChecks += checkGeometry
+            nFailedChecks += meshCheck::checkGeometry
             (
                 mesh,
                 allGeometry,
-                surfWriter,
+                nonOrthThreshold,
+                skewThreshold,
+                surfaceWriter,
                 setWriter
             );
 
             if (meshQuality)
             {
-                nFailedChecks += checkMeshQuality(mesh, qualDict(), surfWriter);
+                nFailedChecks +=
+                    checkMeshQuality(mesh, qualDict(), surfaceWriter);
             }
 
 
@@ -231,19 +312,22 @@ int main(int argc, char *argv[])
         }
         else if (state == polyMesh::POINTS_MOVED)
         {
-            Info<< "Time = " << runTime.timeName() << nl << endl;
+            Info<< "Time = " << runTime.userTimeName() << nl << endl;
 
-            label nFailedChecks = checkGeometry
+            label nFailedChecks = meshCheck::checkGeometry
             (
                 mesh,
                 allGeometry,
-                surfWriter,
+                nonOrthThreshold,
+                skewThreshold,
+                surfaceWriter,
                 setWriter
             );
 
             if (meshQuality)
             {
-                nFailedChecks += checkMeshQuality(mesh, qualDict(), surfWriter);
+                nFailedChecks +=
+                    checkMeshQuality(mesh, qualDict(), surfaceWriter);
             }
 
 

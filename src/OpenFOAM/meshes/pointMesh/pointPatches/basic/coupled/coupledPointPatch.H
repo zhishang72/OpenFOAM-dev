@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -51,21 +51,12 @@ class pointBoundaryMesh;
 
 class coupledPointPatch
 {
-    // Private Member Functions
-
-        //- Disallow default bitwise copy construction
-        coupledPointPatch(const coupledPointPatch&);
-
-        //- Disallow default bitwise assignment
-        void operator=(const coupledPointPatch&);
-
-
 protected:
 
     // Protected Member Functions
 
         //- Initialise the calculation of the patch geometry
-        virtual void initGeometry(PstreamBuffers&) = 0;
+        virtual void initCalcGeometry(PstreamBuffers&) = 0;
 
         //- Calculate the patch geometry
         virtual void calcGeometry(PstreamBuffers&) = 0;
@@ -77,10 +68,10 @@ protected:
         virtual void movePoints(PstreamBuffers&, const pointField&) = 0;
 
         //- Initialise the update of the patch topology
-        virtual void initUpdateMesh(PstreamBuffers&) = 0;
+        virtual void initTopoChange(PstreamBuffers&) = 0;
 
         //- Update of the patch topology
-        virtual void updateMesh(PstreamBuffers&) = 0;
+        virtual void topoChange(PstreamBuffers&) = 0;
 
 
 public:
@@ -94,10 +85,18 @@ public:
         //- Construct from components
         coupledPointPatch(const pointBoundaryMesh& bm);
 
+        //- Disallow default bitwise copy construction
+        coupledPointPatch(const coupledPointPatch&) = delete;
+
 
     //- Destructor
     virtual ~coupledPointPatch();
 
+
+    // Member Operators
+
+        //- Disallow default bitwise assignment
+        void operator=(const coupledPointPatch&) = delete;
 };
 
 

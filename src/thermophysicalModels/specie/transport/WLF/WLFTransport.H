@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2018-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2018-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,15 +25,12 @@ Class
     Foam::WLFTransport
 
 Description
-    Transport package using the Williams-Landel-Ferry model.
+    Transport package using the Williams-Landel-Ferry model for viscosity of
+    polymer melts:
 
-    Templated into a given thermodynamics package (needed for thermal
-    conductivity).
-
-    Dynamic viscosity [kg/m.s]
-    \f[
-        \mu = \mu_0 \exp \left(\frac{-C_1 ( T - T_r )}{C_2 + T - T_r}\right)
-    \f]
+    \verbatim
+        mu = mu0*exp(-C1*(T - Tr)/(C2 + T - Tr))
+    \endverbatim
 
     References:
     \verbatim
@@ -41,6 +38,30 @@ Description
         The temperature dependence of relaxation mechanisms
         in amorphous polymers and other glass-forming liquids.
         Journal of the American Chemical society, 77(14), 3701-3707.
+    \endverbatim
+
+    The thermal conductivity is obtained using a constant Prandtl number.
+
+Usage
+    \table
+        Property     | Description
+        mu0          | Reference dynamic viscosity [Pa.s]
+        Tref         | Reference temperature [K]
+        C1           | WLF constant []
+        C2           | WLF constant [K]
+        Pr           | Constant Prandtl number []
+    \endtable
+
+    Example specification of WLFTransport for a polymer:
+    \verbatim
+    transport
+    {
+        mu0         50000;
+        Tr          416;
+        C1          20.4;
+        C2          101.6;
+        Pr          10000;
+    }
     \endverbatim
 
 SourceFiles
@@ -84,7 +105,7 @@ Ostream& operator<<
 
 
 /*---------------------------------------------------------------------------*\
-                    Class WLFTransport Declaration
+                        Class WLFTransport Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Thermo>
@@ -120,17 +141,25 @@ public:
 
     // Constructors
 
+        //- Construct from components
+        inline WLFTransport
+        (
+            const Thermo& t,
+            const scalar mu0,
+            const scalar Tr,
+            const scalar C1,
+            const scalar C2,
+            const scalar Pr
+        );
+
         //- Construct as named copy
         inline WLFTransport(const word&, const WLFTransport&);
 
-        //- Construct from dictionary
-        WLFTransport(const dictionary& dict);
+        //- Construct from name and dictionary
+        WLFTransport(const word& name, const dictionary& dict);
 
         //- Construct and return a clone
         inline autoPtr<WLFTransport> clone() const;
-
-        // Selector from dictionary
-        inline static autoPtr<WLFTransport> New(const dictionary& dict);
 
 
     // Member Functions
@@ -146,12 +175,6 @@ public:
 
         //- Thermal conductivity [W/m/K]
         inline scalar kappa(const scalar p, const scalar T) const;
-
-        //- Thermal diffusivity of enthalpy [kg/m/s]
-        inline scalar alphah(const scalar p, const scalar T) const;
-
-        // Species diffusivity
-        // inline scalar D(const scalar p, const scalar T) const;
 
         //- Write to Ostream
         void write(Ostream& os) const;

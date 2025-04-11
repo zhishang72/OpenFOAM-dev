@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -26,7 +26,7 @@ License
 #include "polyMesh.H"
 #include "primitiveMesh.H"
 #include "globalMeshData.H"
-#include "MeshObject.H"
+#include "meshObjects.H"
 #include "indexedOctree.H"
 #include "treeDataCell.H"
 #include "pointMesh.H"
@@ -58,8 +58,8 @@ void Foam::polyMesh::clearGeom()
     }
 
     // Clear all geometric mesh objects
-    meshObject::clear<pointMesh, GeometricMeshObject>(*this);
-    meshObject::clear<polyMesh, GeometricMeshObject>(*this);
+    meshObjects::clear<pointMesh, DeletableMeshObject>(*this);
+    meshObjects::clear<polyMesh, DeletableMeshObject>(*this);
 
     primitiveMesh::clearGeom();
 
@@ -84,22 +84,22 @@ void Foam::polyMesh::clearAddressing(const bool isMeshUpdate)
 
     if (isMeshUpdate)
     {
-        // Part of a mesh update. Keep meshObjects that have an updateMesh
+        // Part of a mesh update. Keep meshObjects that have an topoChange
         // callback
-        meshObject::clearUpto
+        meshObjects::clearUpto
         <
             pointMesh,
-            TopologicalMeshObject,
-            UpdateableMeshObject
+            DeletableMeshObject,
+            TopoChangeableMeshObject
         >
         (
             *this
         );
-        meshObject::clearUpto
+        meshObjects::clearUpto
         <
             polyMesh,
-            TopologicalMeshObject,
-            UpdateableMeshObject
+            DeletableMeshObject,
+            TopoChangeableMeshObject
         >
         (
             *this
@@ -107,8 +107,8 @@ void Foam::polyMesh::clearAddressing(const bool isMeshUpdate)
     }
     else
     {
-        meshObject::clear<pointMesh, TopologicalMeshObject>(*this);
-        meshObject::clear<polyMesh, TopologicalMeshObject>(*this);
+        meshObjects::clear<pointMesh, DeletableMeshObject>(*this);
+        meshObjects::clear<polyMesh, DeletableMeshObject>(*this);
     }
 
     primitiveMesh::clearAddressing();

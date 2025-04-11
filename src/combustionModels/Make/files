@@ -1,29 +1,33 @@
 combustionModel/combustionModel.C
-CombustionModel/CombustionModel/CombustionModels.C
+combustionModel/combustionModelNew.C
 
-diffusion/diffusions.C
-infinitelyFastChemistry/infinitelyFastChemistrys.C
+singleStepCombustion/singleStepCombustion.C
 
-PaSR/PaSRs.C
-EDC/EDCs.C
+diffusion/diffusion.C
 
-laminar/laminars.C
+infinitelyFastChemistry/infinitelyFastChemistry.C
+
+PaSR/PaSR.C
+
+EDC/EDC.C
+
+laminar/laminar.C
 
 FSD/reactionRateFlameAreaModels/consumptionSpeed/consumptionSpeed.C
 FSD/reactionRateFlameAreaModels/reactionRateFlameArea/reactionRateFlameArea.C
 FSD/reactionRateFlameAreaModels/reactionRateFlameArea/reactionRateFlameAreaNew.C
 FSD/reactionRateFlameAreaModels/relaxation/relaxation.C
+FSD/FSD.C
 
-FSD/FSDs.C
+zoneCombustion/zoneCombustion.C
 
-zoneCombustion/zoneCombustions.C
+noCombustion/noCombustion.C
 
-noCombustion/noCombustions.C
-
+functionObjects/adjustTimeStepToCombustion/adjustTimeStepToCombustion.C
 functionObjects/Qdot/Qdot.C
 
 radiationModels/absorptionEmissionModels/greyMeanCombustion/greyMeanCombustion.C
 radiationModels/absorptionEmissionModels/wideBandCombustion/wideBandCombustion.C
-radiationModels/sootModels/mixtureFraction/mixtureFractions.C
+radiationModels/sootModels/mixtureFraction/mixtureFraction.C
 
 LIB = $(FOAM_LIBBIN)/libcombustionModels

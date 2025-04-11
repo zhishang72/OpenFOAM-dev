@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -38,6 +38,7 @@ SourceFiles
 
 #include "Istream.H"
 #include "fileName.H"
+#include "DynamicList.H"
 #include <iostream>
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -46,17 +47,33 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class ISstream Declaration
+                          Class ISstream Declaration
 \*---------------------------------------------------------------------------*/
 
 class ISstream
 :
     public Istream
 {
+    // Private Static Data
+
+        //- Initial capacity of the character buffer
+        static const int bufInitialCapacity = 1024;
+
+        //- Amount of the buffer used in error messages. Less than the buffer
+        //  length to facilitate readability.
+        static const int bufErrorLength = 80;
+
+
     // Private Data
 
+        //- The name of this stream
         fileName name_;
+
+        //- Reference to the standard stream
         istream& is_;
+
+        //- Character buffer
+        DynamicList<char> buf_;
 
 
     // Private Member Functions
@@ -66,8 +83,11 @@ class ISstream
         //- Read a verbatim string (excluding block delimiters).
         Istream& readVerbatim(verbatimString&);
 
-        //- Read a variable name
+        //- Read a variable name into a string
         Istream& readVariable(string&);
+
+        //- Read a delimited set of characters into a string
+        Istream& readDelimited(string&, const char begin, const char end);
 
         //- Read a work token
         void readWordToken(token&);
@@ -82,9 +102,9 @@ public:
         (
             istream& is,
             const string& name,
-            streamFormat format=ASCII,
-            versionNumber version=currentVersion,
-            compressionType compression=UNCOMPRESSED
+            const streamFormat format = ASCII,
+            const versionNumber version = currentVersion,
+            const compressionType compression = UNCOMPRESSED
         );
 
 
@@ -117,24 +137,27 @@ public:
 
         // Read functions
 
-            //- Raw, low-level get character function.
+            //- Low-level get character function.
             inline ISstream& get(char&);
 
-            //- Raw, low-level peek function.
+            //- Low-level peek function.
             //  Does not remove the character from the stream.
             //  Returns the next character in the stream or EOF if the
             //  end of file is read.
             inline int peek();
 
-            //- Raw, low-level getline into a string function.
-            inline ISstream& getLine(string&);
-
-            //- Get multiple lines using the '\' continuation character
-            //   into a string
-            inline ISstream& getMultiLines(string&);
-
-            //- Raw, low-level putback character function.
+            //- Low-level putback character function.
             inline ISstream& putback(const char&);
+
+            //- Read line into a string
+            //  with optional support for continuation lines
+            ISstream& getLine(string&, const bool continuation = true);
+
+            //- Read a '(...)' delimited set of characters into a string
+            Istream& readList(string&);
+
+            //- Read a '{...}' delimited set of characters into a string
+            Istream& readBlock(string&);
 
             //- Return next token from stream
             virtual Istream& read(token&);
@@ -150,8 +173,17 @@ public:
             //  and an embedded newline character.
             virtual Istream& read(string&);
 
-            //- Read a label
-            virtual Istream& read(label&);
+            //- Read an int32_t
+            virtual Istream& read(int32_t&);
+
+            //- Read an int64_t
+            virtual Istream& read(int64_t&);
+
+            //- Read a uint32_t
+            virtual Istream& read(uint32_t&);
+
+            //- Read a uint64_t
+            virtual Istream& read(uint64_t&);
 
             //- Read a floatScalar
             virtual Istream& read(floatScalar&);

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ Class
     Foam::CoBlended
 
 Description
-    Two-scheme Courant number based blending differencing scheme.
+    Two-scheme Courant number based blending interpolation scheme.
 
     Similar to localBlended but uses a blending factor computed from the
     face-based Courant number and the lower and upper Courant number limits
@@ -72,7 +72,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                        Class CoBlended Declaration
+                          Class CoBlended Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -181,13 +181,13 @@ public:
         //- Return the face-based blending factor
         virtual tmp<surfaceScalarField> blendingFactor
         (
-             const GeometricField<Type, fvPatchField, volMesh>& vf
+             const VolField<Type>& vf
         ) const
         {
             const fvMesh& mesh = this->mesh();
             tmp<surfaceScalarField> tUflux = faceFlux_;
 
-            if (faceFlux_.dimensions() == dimDensity*dimVelocity*dimArea)
+            if (faceFlux_.dimensions() == dimMassFlux)
             {
                 // Currently assume that the density field
                 // corresponding to the mass-flux is named "rho"
@@ -197,7 +197,7 @@ public:
 
                 tUflux = faceFlux_/fvc::interpolate(rho);
             }
-            else if (faceFlux_.dimensions() != dimVelocity*dimArea)
+            else if (faceFlux_.dimensions() != dimVolumetricFlux)
             {
                 FatalErrorInFunction
                     << "dimensions of faceFlux are not correct"
@@ -229,7 +229,7 @@ public:
         tmp<surfaceScalarField>
         weights
         (
-            const GeometricField<Type, fvPatchField, volMesh>& vf
+            const VolField<Type>& vf
         ) const
         {
             surfaceScalarField bf(blendingFactor(vf));
@@ -242,10 +242,10 @@ public:
 
         //- Return the face-interpolate of the given cell field
         //  with explicit correction
-        tmp<GeometricField<Type, fvsPatchField, surfaceMesh>>
+        tmp<SurfaceField<Type>>
         interpolate
         (
-            const GeometricField<Type, fvPatchField, volMesh>& vf
+            const VolField<Type>& vf
         ) const
         {
             surfaceScalarField bf(blendingFactor(vf));
@@ -265,10 +265,10 @@ public:
 
         //- Return the explicit correction to the face-interpolate
         //  for the given field
-        virtual tmp<GeometricField<Type, fvsPatchField, surfaceMesh>>
+        virtual tmp<SurfaceField<Type>>
         correction
         (
-            const GeometricField<Type, fvPatchField, volMesh>& vf
+            const VolField<Type>& vf
         ) const
         {
             surfaceScalarField bf(blendingFactor(vf));
@@ -304,7 +304,7 @@ public:
             }
             else
             {
-                return tmp<GeometricField<Type, fvsPatchField, surfaceMesh>>
+                return tmp<SurfaceField<Type>>
                 (
                     nullptr
                 );

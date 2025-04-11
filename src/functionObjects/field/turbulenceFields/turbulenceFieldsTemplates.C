@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -31,16 +31,17 @@ template<class Type>
 void Foam::functionObjects::turbulenceFields::processField
 (
     const word& fieldName,
-    const tmp<GeometricField<Type, fvPatchField, volMesh>>& tvalue
+    const tmp<VolField<Type>>& tvalue
 )
 {
-    typedef GeometricField<Type, fvPatchField, volMesh> FieldType;
+    const word scopedName
+    (
+        IOobject::groupName(prefix_ + fieldName, phaseName_)
+    );
 
-    const word scopedName = prefix_ + fieldName;
-
-    if (obr_.foundObject<FieldType>(scopedName))
+    if (obr_.foundObject<VolField<Type>>(scopedName))
     {
-        obr_.lookupObjectRef<FieldType>(scopedName) == tvalue();
+        obr_.lookupObjectRef<VolField<Type>>(scopedName) == tvalue();
     }
     else if (obr_.found(scopedName))
     {
@@ -53,12 +54,12 @@ void Foam::functionObjects::turbulenceFields::processField
     {
         obr_.store
         (
-            new FieldType
+            new VolField<Type>
             (
                 IOobject
                 (
                     scopedName,
-                    obr_.time().timeName(),
+                    time_.name(),
                     obr_,
                     IOobject::READ_IF_PRESENT,
                     IOobject::NO_WRITE
@@ -67,39 +68,6 @@ void Foam::functionObjects::turbulenceFields::processField
             )
         );
     }
-}
-
-
-template<class Model>
-Foam::tmp<Foam::volScalarField>
-Foam::functionObjects::turbulenceFields::omega
-(
-    const Model& model
-) const
-{
-    const scalar Cmu = 0.09;
-
-    // Assume k and epsilon are available
-    const volScalarField k(model.k());
-    const volScalarField epsilon(model.epsilon());
-
-    return tmp<volScalarField>
-    (
-        new volScalarField
-        (
-            IOobject
-            (
-                "omega",
-                k.mesh().time().timeName(),
-                k.mesh(),
-                IOobject::NO_READ,
-                IOobject::NO_WRITE,
-                false
-            ),
-            epsilon/(Cmu*k),
-            epsilon.boundaryField().types()
-        )
-    );
 }
 
 

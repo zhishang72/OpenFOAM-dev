@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -49,18 +49,19 @@ namespace Foam
 Foam::velocityComponentLaplacianFvMotionSolver::
 velocityComponentLaplacianFvMotionSolver
 (
+    const word& name,
     const polyMesh& mesh,
     const dictionary& dict
 )
 :
-    componentVelocityMotionSolver(mesh, dict, typeName),
+    componentVelocityMotionSolver(name, mesh, dict, typeName),
     fvMotionSolver(mesh),
     cellMotionU_
     (
         IOobject
         (
             "cellMotionU" + cmptName_,
-            mesh.time().timeName(),
+            mesh.time().name(),
             mesh,
             IOobject::READ_IF_PRESENT,
             IOobject::AUTO_WRITE
@@ -69,9 +70,10 @@ velocityComponentLaplacianFvMotionSolver
         dimensionedScalar(pointMotionU_.dimensions(), 0),
         cellMotionBoundaryTypes<scalar>(pointMotionU_.boundaryField())
     ),
+    diffusivityType_(dict.lookup("diffusivity")),
     diffusivityPtr_
     (
-        motionDiffusivity::New(fvMesh_, coeffDict().lookup("diffusivity"))
+        motionDiffusivity::New(fvMesh_, diffusivityType_)
     )
 {}
 
@@ -130,20 +132,40 @@ void Foam::velocityComponentLaplacianFvMotionSolver::solve()
 }
 
 
-void Foam::velocityComponentLaplacianFvMotionSolver::updateMesh
+void Foam::velocityComponentLaplacianFvMotionSolver::topoChange
 (
-    const mapPolyMesh& mpm
+    const polyTopoChangeMap& map
 )
 {
-    componentVelocityMotionSolver::updateMesh(mpm);
+    componentVelocityMotionSolver::topoChange(map);
 
     // Update diffusivity. Note two stage to make sure old one is de-registered
     // before creating/registering new one.
     diffusivityPtr_.reset(nullptr);
+    diffusivityType_.rewind();
     diffusivityPtr_ = motionDiffusivity::New
     (
         fvMesh_,
-        coeffDict().lookup("diffusivity")
+        diffusivityType_
+    );
+}
+
+
+void Foam::velocityComponentLaplacianFvMotionSolver::mapMesh
+(
+    const polyMeshMap& map
+)
+{
+    componentVelocityMotionSolver::mapMesh(map);
+
+    // Update diffusivity. Note two stage to make sure old one is de-registered
+    // before creating/registering new one.
+    diffusivityPtr_.reset(nullptr);
+    diffusivityType_.rewind();
+    diffusivityPtr_ = motionDiffusivity::New
+    (
+        fvMesh_,
+        diffusivityType_
     );
 }
 

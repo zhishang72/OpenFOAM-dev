@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -29,7 +29,7 @@ Description
 
     The constructors for the derived classes should generally start in a
     'expired' condition (ie, needsUpdate() == true) and rely on a
-    subsequent call to the update() method to complete the initialization.
+    subsequent call to the update() method to complete the initialisation.
     Delaying the final construction as late as possible allows the
     construction of surfaces that may depend on intermediate calculation
     results (eg, iso-surfaces) and also avoids the unnecessary
@@ -76,7 +76,7 @@ Ostream& operator<<(Ostream&, const sampledSurface&);
 
 
 /*---------------------------------------------------------------------------*\
-                      Class sampledSurface Declaration
+                       Class sampledSurface Declaration
 \*---------------------------------------------------------------------------*/
 
 class sampledSurface
@@ -266,6 +266,12 @@ public:
         //- Does the surface need an update?
         virtual bool needsUpdate() const = 0;
 
+        //- Return the list of fields required
+        virtual wordList fields() const
+        {
+            return wordList::null();
+        }
+
         //- Mark the surface as needing an update.
         //  May also free up unneeded data.
         //  Return false if surface was already marked as expired.
@@ -323,13 +329,6 @@ public:
 
         //- Project field onto surface
         tmp<Field<vector>> project(const Field<tensor>&) const;
-
-        //- Interpolate from points to cell centre
-        template<class Type>
-        tmp<GeometricField<Type, fvPatchField, volMesh>> pointAverage
-        (
-            const GeometricField<Type, pointPatchField, pointMesh>& pfld
-        ) const;
 
         //- Sample field on surface
         virtual tmp<scalarField> sample

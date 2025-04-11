@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -35,11 +35,14 @@ Description
 
 \*---------------------------------------------------------------------------*/
 
-#include "fvCFD.H"
+#include "argList.H"
 #include "volFields.H"
 #include "pointFields.H"
 #include "IOobjectList.H"
+#include "timeSelector.H"
 #include "patchSummaryTemplates.H"
+
+using namespace Foam;
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -47,6 +50,7 @@ int main(int argc, char *argv[])
 {
     timeSelector::addOptions();
 
+    #include "addMeshOption.H"
     #include "addRegionOption.H"
     argList::addBoolOption
     (
@@ -56,30 +60,28 @@ int main(int argc, char *argv[])
     #include "setRootCase.H"
     #include "createTime.H"
 
-    instantList timeDirs = timeSelector::select0(runTime, args);
+    const instantList timeDirs = timeSelector::select0(runTime, args);
 
     const bool expand = args.optionFound("expand");
 
-
-    #include "createNamedMesh.H"
+    #include "createSpecifiedMeshNoChangers.H"
     const polyBoundaryMesh& bm = mesh.boundaryMesh();
-
 
     forAll(timeDirs, timeI)
     {
         runTime.setTime(timeDirs[timeI], timeI);
 
-        Info<< "Time = " << runTime.timeName() << nl << endl;
+        Info<< "Time = " << runTime.userTimeName() << nl << endl;
 
         // Update the mesh if changed
-        if (mesh.readUpdate() == polyMesh::TOPO_PATCH_CHANGE)
+        if (mesh.readUpdate() == fvMesh::TOPO_PATCH_CHANGE)
         {
             Info<< "Detected changed patches. Recreating patch group table."
                 << endl;
         }
 
 
-        const IOobjectList fieldObjs(mesh, runTime.timeName());
+        const IOobjectList fieldObjs(mesh, runTime.name());
         const wordList objNames = fieldObjs.names();
 
         PtrList<volScalarField> vsf(objNames.size());
@@ -101,12 +103,12 @@ int main(int argc, char *argv[])
             IOobject obj
             (
                 objNames[objI],
-                runTime.timeName(),
+                runTime.name(),
                 mesh,
                 IOobject::MUST_READ
             );
 
-            if (obj.typeHeaderOk<volScalarField>(false))
+            if (obj.headerOk())
             {
                 addToFieldList(vsf, obj, objI, mesh);
                 addToFieldList(vvf, obj, objI, mesh);

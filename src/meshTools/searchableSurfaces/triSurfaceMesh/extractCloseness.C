@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2018-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -27,7 +27,6 @@ License
 #include "triSurfaceFields.H"
 #include "meshTools.H"
 #include "Time.H"
-#include "unitConversion.H"
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
@@ -40,42 +39,46 @@ void Foam::triSurfaceMesh::drawHitProblem
     const pointIndexHitList& hitInfo
 ) const
 {
-    const List<labelledTri>& tris = *this;
-    const pointField& points = this->points();
-
-    Info<< nl << "# findLineAll did not hit its own face."
-        << nl << "# fi " << fi
-        << nl << "# start " << start
-        << nl << "# point " << p
-        << nl << "# end " << end
-        << nl << "# hitInfo " << hitInfo
-        << endl;
-
-    meshTools::writeOBJ(Info, start);
-    meshTools::writeOBJ(Info, p);
-    meshTools::writeOBJ(Info, end);
-
-    Info<< "l 1 2 3" << endl;
-
-    meshTools::writeOBJ(Info, points[tris[fi][0]]);
-    meshTools::writeOBJ(Info, points[tris[fi][1]]);
-    meshTools::writeOBJ(Info, points[tris[fi][2]]);
-
-    Info<< "f 4 5 6" << endl;
-
-    forAll(hitInfo, hi)
+    if (debug)
     {
-        label hfi = hitInfo[hi].index();
+        const List<labelledTri>& tris = *this;
+        tmp<pointField> tpoints = points();
+        const pointField& points = tpoints();
 
-        meshTools::writeOBJ(Info, points[tris[hfi][0]]);
-        meshTools::writeOBJ(Info, points[tris[hfi][1]]);
-        meshTools::writeOBJ(Info, points[tris[hfi][2]]);
-
-        Info<< "f "
-            << 3*hi + 7 << " "
-            << 3*hi + 8 << " "
-            << 3*hi + 9
+        Info<< nl << "# findLineAll did not hit its own face."
+            << nl << "# fi " << fi
+            << nl << "# start " << start
+            << nl << "# point " << p
+            << nl << "# end " << end
+            << nl << "# hitInfo " << hitInfo
             << endl;
+
+        meshTools::writeOBJ(Info, start);
+        meshTools::writeOBJ(Info, p);
+        meshTools::writeOBJ(Info, end);
+
+        Info<< "l 1 2 3" << endl;
+
+        meshTools::writeOBJ(Info, points[tris[fi][0]]);
+        meshTools::writeOBJ(Info, points[tris[fi][1]]);
+        meshTools::writeOBJ(Info, points[tris[fi][2]]);
+
+        Info<< "f 4 5 6" << endl;
+
+        forAll(hitInfo, hi)
+        {
+            label hfi = hitInfo[hi].index();
+
+            meshTools::writeOBJ(Info, points[tris[hfi][0]]);
+            meshTools::writeOBJ(Info, points[tris[hfi][1]]);
+            meshTools::writeOBJ(Info, points[tris[hfi][2]]);
+
+            Info<< "f "
+                << 3*hi + 7 << " "
+                << 3*hi + 8 << " "
+                << 3*hi + 9
+                << endl;
+        }
     }
 }
 
@@ -205,12 +208,12 @@ Foam::triSurfaceMesh::extractCloseness
 {
     const scalar internalToleranceCosAngle
     (
-        cos(degToRad(180 - internalAngleTolerance))
+        cos(degToRad(180) - internalAngleTolerance)
     );
 
     const scalar externalToleranceCosAngle
     (
-        cos(degToRad(180 - externalAngleTolerance))
+        cos(degToRad(180) - externalAngleTolerance)
     );
 
     const Time& runTime = objectRegistry::time();
@@ -263,7 +266,7 @@ Foam::triSurfaceMesh::extractCloseness
                 (
                     objectRegistry::name() + ".internalCloseness",
                     runTime.constant(),
-                    "triSurface",
+                    searchableSurface::geometryDir(runTime),
                     runTime
                 ),
                 *this,
@@ -280,7 +283,7 @@ Foam::triSurfaceMesh::extractCloseness
                 (
                     objectRegistry::name() + ".externalCloseness",
                     runTime.constant(),
-                    "triSurface",
+                    searchableSurface::geometryDir(runTime),
                     runTime
                 ),
                 *this,
@@ -301,19 +304,20 @@ Foam::triSurfaceMesh::extractPointCloseness
 {
     const scalar internalToleranceCosAngle
     (
-        cos(degToRad(180 - internalAngleTolerance))
+        cos(degToRad(180) - internalAngleTolerance)
     );
 
     const scalar externalToleranceCosAngle
     (
-        cos(degToRad(180 - externalAngleTolerance))
+        cos(degToRad(180) - externalAngleTolerance)
     );
 
     const Time& runTime = objectRegistry::time();
 
     // Prepare start and end points for intersection tests
 
-    const pointField& points = this->points();
+    tmp<pointField> tpoints = points();
+    const pointField& points = tpoints();
     const labelList& meshPoints = this->meshPoints();
     const pointField& faceCentres = this->faceCentres();
     const vectorField& normals = this->faceNormals();
@@ -393,7 +397,7 @@ Foam::triSurfaceMesh::extractPointCloseness
                 (
                     objectRegistry::name() + ".internalPointCloseness",
                     runTime.constant(),
-                    "triSurface",
+                    searchableSurface::geometryDir(runTime),
                     runTime
                 ),
                 *this,
@@ -410,7 +414,7 @@ Foam::triSurfaceMesh::extractPointCloseness
                 (
                     objectRegistry::name() + ".externalPointCloseness",
                     runTime.constant(),
-                    "triSurface",
+                    searchableSurface::geometryDir(runTime),
                     runTime
                 ),
                 *this,

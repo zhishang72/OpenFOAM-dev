@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,7 +24,7 @@ License
 Description
     boundary faces
     - use pointCells when searching for connectivity
-    - initialize the cell connectivity with '-1'
+    - initialise the cell connectivity with '-1'
     - find both cell faces corresponding to the baffles and mark them
       to prevent a connection
     - standard connectivity checks
@@ -376,7 +376,7 @@ Foam::meshReader::polyBoundaryPatches(const polyMesh& mesh)
     label nPatches = patchStarts_.size();
 
     // avoid empty patches - move to the end of the lists and truncate
-    labelList oldToNew = identity(nPatches);
+    labelList oldToNew = identityMap(nPatches);
     forAll(patchSizes_, patchi)
     {
         if (patchSizes_[patchi] > 0)

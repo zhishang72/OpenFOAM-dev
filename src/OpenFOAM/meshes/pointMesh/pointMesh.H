@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -33,9 +33,10 @@ Description
 #define pointMesh_H
 
 #include "GeoMesh.H"
-#include "MeshObject.H"
+#include "DemandDrivenMeshObject.H"
 #include "polyMesh.H"
 #include "pointBoundaryMesh.H"
+#include "pointFieldsFwd.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -43,40 +44,71 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class pointMesh Declaration
+                          Class pointMesh Declaration
 \*---------------------------------------------------------------------------*/
 
 class pointMesh
 :
-    public MeshObject<polyMesh, PatchMeshObject, pointMesh>,
+    public DemandDrivenMeshObject<polyMesh, RepatchableMeshObject, pointMesh>,
     public GeoMesh<polyMesh>
 {
-    // Permanent data
+    // Private Data
 
         //- Boundary mesh
         pointBoundaryMesh boundary_;
 
 
-    // Private Member Functions
+protected:
 
-        //- Map all fields
-        void mapFields(const mapPolyMesh&);
+    //- Declare friendship with the base mesh object so that it can use
+    //  this class' protected constructors
+    friend class DemandDrivenMeshObject
+    <
+        polyMesh,
+        RepatchableMeshObject,
+        pointMesh
+    >;
+
+
+    // Protected Constructors
+
+        //- Construct from polyMesh
+        explicit pointMesh(const polyMesh& pMesh);
 
 
 public:
+
+    // Public Typedefs
+
+        //- Mesh type
+        typedef pointMesh Mesh;
+
+        //- Boundary mesh type
+        typedef pointBoundaryMesh BoundaryMesh;
+
+        //- Patch field type
+        template<class Type>
+        using PatchField = pointPatchField<Type>;
+
+        //- Field source type
+        template<class Type>
+        using FieldSource = NoFieldSource<Type>;
+
 
     // Declare name of the class and its debug switch
     ClassName("pointMesh");
 
 
-    typedef pointMesh Mesh;
-    typedef pointBoundaryMesh BoundaryMesh;
+    // Static data
+
+        //- Set of names of registered geometric fields
+        const static HashSet<word> geometryFields;
+
+        //- Set of names of registered current-time geometric fields
+        const static HashSet<word> curGeometryFields;
 
 
     // Constructors
-
-        //- Construct from polyMesh
-        explicit pointMesh(const polyMesh& pMesh);
 
         //- Disallow default bitwise copy construction
         pointMesh(const pointMesh&) = delete;
@@ -118,8 +150,9 @@ public:
             return GeoMesh<polyMesh>::mesh_.thisDb();
         }
 
-        //- Reset for changed polyMesh
-        void reset(const bool validBoundary);
+        //- Reset pointMesh with respect to the updated polyMesh
+        //  For run-time mesh replacement and mesh to mesh mapping
+        void reset();
 
 
         // Mesh callbacks
@@ -128,7 +161,13 @@ public:
             virtual bool movePoints();
 
             //- Update the mesh corresponding to given map
-            virtual void updateMesh(const mapPolyMesh& mpm);
+            virtual void topoChange(const polyTopoChangeMap&);
+
+            //- Update from another mesh using the given map
+            virtual void mapMesh(const polyMeshMap&);
+
+            //- Redistribute or update using the given distribution map
+            virtual void distribute(const polyDistributionMap&);
 
             //- Reordered/removed trailing patches. If validBoundary call is
             //  parallel synced and all add the same patch with same settings
@@ -147,14 +186,16 @@ public:
         //- Disallow default bitwise assignment
         void operator=(const pointMesh&) = delete;
 
-        bool operator!=(const pointMesh& pm) const
-        {
-            return &pm != this;
-        }
-
+        //- Equality comparison
         bool operator==(const pointMesh& pm) const
         {
             return &pm == this;
+        }
+
+        //- Inequality comparison
+        bool operator!=(const pointMesh& pm) const
+        {
+            return &pm != this;
         }
 };
 

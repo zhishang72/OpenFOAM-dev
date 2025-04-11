@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2018-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2018-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -23,24 +23,33 @@ License
 
 \*---------------------------------------------------------------------------*/
 
+#include "MichaelisMentenReactionRate.H"
+
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 inline Foam::MichaelisMentenReactionRate::MichaelisMentenReactionRate
 (
     const speciesTable& st,
+    const dimensionSet& dims,
     const dictionary& dict
 )
 :
     species_(st),
-    Vmax_(dict.lookup<scalar>("Vmax")),
-    Km_(dict.lookup<scalar>("Km")),
+    Vmax_(dict.lookup<scalar>("Vmax", dims*dimMoles/dimVolume)),
+    Km_(dict.lookup<scalar>("Km", dimMoles/dimVolume)),
     s_(st[dict.lookup("S")])
-{
-    beta_.append(Tuple2<label, scalar>(s_, 1.0));
-}
+{}
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+
+inline void Foam::MichaelisMentenReactionRate::preEvaluate() const
+{}
+
+
+inline void Foam::MichaelisMentenReactionRate::postEvaluate() const
+{}
+
 
 inline Foam::scalar Foam::MichaelisMentenReactionRate::operator()
 (
@@ -66,35 +75,23 @@ inline Foam::scalar Foam::MichaelisMentenReactionRate::ddT
 }
 
 
-inline const Foam::List<Foam::Tuple2<Foam::label, Foam::scalar>>&
-Foam::MichaelisMentenReactionRate::beta() const
+inline bool Foam::MichaelisMentenReactionRate::hasDdc() const
 {
-    return beta_;
+    return true;
 }
 
 
-inline void Foam::MichaelisMentenReactionRate::dcidc
+inline void Foam::MichaelisMentenReactionRate::ddc
 (
     const scalar p,
     const scalar T,
     const scalarField& c,
     const label li,
-    scalarField& dcidc
+    scalarField& ddc
 ) const
 {
-    dcidc[0] = -1.0/(Km_ + c[s_]);
-}
-
-
-inline Foam::scalar Foam::MichaelisMentenReactionRate::dcidT
-(
-    const scalar p,
-    const scalar T,
-    const scalarField& c,
-    const label li
-) const
-{
-    return 0;
+    ddc = 0;
+    ddc[s_] = - Vmax_/sqr(Km_ + c[s_]);
 }
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -32,16 +32,16 @@ Description
     directories allowing for version-specific and version-independent files
     using the following hierarchy:
     - \b user settings:
-      - ~/.OpenFOAM/\<VERSION\>/caseDicts/postProcessing
-      - ~/.OpenFOAM/caseDicts/postProcessing
+      - ~/.OpenFOAM/\<VERSION\>/caseDicts/functions
+      - ~/.OpenFOAM/caseDicts/functions
     - \b group (site) settings (when $WM_PROJECT_SITE is set):
-      - $WM_PROJECT_SITE/\<VERSION\>/etc/caseDicts/postProcessing
-      - $WM_PROJECT_SITE/etc/caseDicts/postProcessing
+      - $WM_PROJECT_SITE/\<VERSION\>/etc/caseDicts/functions
+      - $WM_PROJECT_SITE/etc/caseDicts/functions
     - \b group (site) settings (when $WM_PROJECT_SITE is not set):
-      - $WM_PROJECT_INST_DIR/site/\<VERSION\>/etc/caseDicts/postProcessing
-      - $WM_PROJECT_INST_DIR/site/etc/caseDicts/postProcessing
+      - $WM_PROJECT_INST_DIR/site/\<VERSION\>/etc/caseDicts/functions
+      - $WM_PROJECT_INST_DIR/site/etc/caseDicts/functions
     - \b other (shipped) settings:
-      - $WM_PROJECT_DIR/etc/caseDicts/postProcessing
+      - $WM_PROJECT_DIR/etc/caseDicts/functions
 
     The optional field arguments included in the name are inserted in 'field' or
     'fields' entries in the functionObject dictionary and included in the name
@@ -55,18 +55,7 @@ Description
         #includeFunc mag(p)
     \endverbatim
 
-    Other dictionary entries may also be specified using named arguments, for
-    example the \c name of the \c faceZone in the \c flowRateFaceZone \c
-    functionObject configuration set and the \c orientedFields entry which
-    defaults to \c phi may also be overridden as required, e.g.
-
-    \verbatim
-        #includeFunc flowRateFaceZone(name=fZone1)
-        #includeFunc flowRateFaceZone(orientedFields=(phiAlpha),name=fZone1)
-    \endverbatim
-
-See also
-    Foam::functionObjectList
+    Other dictionary entries may also be specified using named arguments.
 
 SourceFiles
     includeFuncEntry.C
@@ -86,7 +75,7 @@ namespace functionEntries
 {
 
 /*---------------------------------------------------------------------------*\
-                        Class includeFuncEntry Declaration
+                      Class includeFuncEntry Declaration
 \*---------------------------------------------------------------------------*/
 
 class includeFuncEntry
@@ -98,6 +87,17 @@ public:
 
     //- Runtime type information
     ClassName("includeFunc");
+
+
+    // Static Data Members
+
+        //- Default relative path to the directory structure
+        //  containing the functionObject dictionary files
+        static fileName functionObjectDictPath;
+
+        //- Default relative path to the directory structure
+        //  containing the functionObject template files
+        static fileName functionObjectTemplatePath;
 
 
     // Member Functions

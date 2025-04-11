@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -51,7 +51,7 @@ class thermophysicalProperties;
 Ostream& operator<<(Ostream& os, const thermophysicalProperties& l);
 
 /*---------------------------------------------------------------------------*\
-                    Class thermophysicalProperties Declaration
+                  Class thermophysicalProperties Declaration
 \*---------------------------------------------------------------------------*/
 
 class thermophysicalProperties
@@ -114,6 +114,10 @@ public:
 
     // Member Functions
 
+        //- Return the name of the substance
+        virtual const word& name() const = 0;
+
+
         // Physical constants which define the specie
 
             //- Molecular weight [kg/kmol]
@@ -125,16 +129,13 @@ public:
 
         // Fundamental equation of state properties
 
-            //- Liquid density [kg/m^3]
+            //- Density [kg/m^3]
             virtual scalar rho(scalar p, scalar T) const = 0;
 
-            //- Liquid compressibility [s^2/m^2]
-            //  Note: currently it is assumed the liquid is incompressible
+            //- Compressibility [s^2/m^2]
             virtual scalar psi(scalar p, scalar T) const = 0;
 
             //- Return (Cp - Cv) [J/(kg K]
-            //  Note: currently it is assumed the liquid is incompressible
-            //  so CpMCv 0
             virtual scalar CpMCv(scalar p, scalar T) const = 0;
 
 
@@ -144,28 +145,25 @@ public:
             virtual scalar Cp(const scalar p, const scalar T) const = 0;
 
             //- Sensible enthalpy [J/kg]
-            virtual scalar Hs(const scalar p, const scalar T) const = 0;
+            virtual scalar hs(const scalar p, const scalar T) const = 0;
 
-            //- Chemical enthalpy [J/kg]
-            virtual scalar Hc() const = 0;
+            //- Enthalpy of formation [J/kg]
+            virtual scalar hf() const = 0;
 
             //- Absolute enthalpy [J/kg]
-            virtual scalar Ha(const scalar p, const scalar T) const = 0;
+            virtual scalar ha(const scalar p, const scalar T) const = 0;
 
             // Entropy [J/kg/K]
-            virtual scalar S(const scalar p, const scalar T) const = 0;
+            virtual scalar s(const scalar p, const scalar T) const = 0;
 
 
         // Physical properties
 
-            //- Liquid viscosity [Pa s]
+            //- Viscosity [Pa s]
             virtual scalar mu(scalar p, scalar T) const = 0;
 
-            //- Liquid thermal conductivity  [W/m/K]
+            //- Thermal conductivity  [W/m/K]
             virtual scalar kappa(scalar p, scalar T) const = 0;
-
-            //- Liquid thermal diffusivity of enthalpy [kg/m/s]
-            virtual scalar alphah(const scalar p, const scalar T) const = 0;
 
 
     // I-O

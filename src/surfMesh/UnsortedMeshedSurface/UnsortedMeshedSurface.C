@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -403,7 +403,7 @@ void Foam::UnsortedMeshedSurface<Face>::remapFaces
         }
         else if (zoneToc_.size() == 1)
         {
-            // optimized for single-zone case
+            // optimised for single-zone case
             zoneIds_ = 0;
         }
         else
@@ -477,7 +477,7 @@ Foam::surfZoneList Foam::UnsortedMeshedSurface<Face>::sortedZones
     }
 
     // step 2: assign start/size (and name) to the newZones
-    // re-use the lookup to map (zoneId => zoneI)
+    // reuse the lookup to map (zoneId => zoneI)
     surfZoneList zoneLst(lookup.size());
     label start = 0;
     label zoneI = 0;
@@ -499,7 +499,7 @@ Foam::surfZoneList Foam::UnsortedMeshedSurface<Face>::sortedZones
         zoneLst[zoneI] = surfZone
         (
             name,
-            0,           // initialize with zero size
+            0,           // initialise with zero size
             start,
             zoneI
         );

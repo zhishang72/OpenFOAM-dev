@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -165,6 +165,14 @@ public:
                 const bool followLink = true
             ) const;
 
+            //- Return true if file name is a name without a path
+            // i.e. does not contain a '/'
+            bool isName() const;
+
+            //- Return true if file name has a path
+            // i.e. contains a '/'
+            bool hasPath() const;
+
             //- Return true if file name is absolute
             bool isAbsolute() const;
 
@@ -189,6 +197,9 @@ public:
 
             //- Return file name (part beyond last /), substitute for FOAM_CASE
             string caseName() const;
+
+            //- Return file name part relative to FOAM_CASE
+            string relativePath() const;
 
             //- Return file name, optionally without extension
             word name(const bool noExt) const;
@@ -239,6 +250,9 @@ public:
             void operator=(const std::string&);
             void operator=(const char*);
 
+            //- Add a string to the fileName with a '/' separator
+            void operator/=(const string&);
+
 
     // IOstream Operators
 
@@ -247,7 +261,7 @@ public:
 };
 
 
-//- Assemble words and fileNames as pathnames by adding a '/' separator
+//- Return a fileName created by concatenating two strings with '/' separator
 fileName operator/(const string&, const string&);
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ License
 
 #include "atmBoundaryLayerInletVelocityFvPatchVectorField.H"
 #include "addToRunTimeSelectionTable.H"
-#include "fvPatchFieldMapper.H"
+#include "fieldMapper.H"
 #include "volFields.H"
 #include "surfaceFields.H"
 
@@ -35,18 +35,6 @@ namespace Foam
 {
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
-
-atmBoundaryLayerInletVelocityFvPatchVectorField::
-atmBoundaryLayerInletVelocityFvPatchVectorField
-(
-    const fvPatch& p,
-    const DimensionedField<vector, volMesh>& iF
-)
-:
-    inletOutletFvPatchVectorField(p, iF),
-    atmBoundaryLayer()
-{}
-
 
 atmBoundaryLayerInletVelocityFvPatchVectorField::
 atmBoundaryLayerInletVelocityFvPatchVectorField
@@ -67,7 +55,10 @@ atmBoundaryLayerInletVelocityFvPatchVectorField
 
     if (dict.found("value"))
     {
-        vectorField::operator=(vectorField("value", dict, p.size()));
+        vectorField::operator=
+        (
+            vectorField("value", iF.dimensions(), dict, p.size())
+        );
     }
     else
     {
@@ -82,7 +73,7 @@ atmBoundaryLayerInletVelocityFvPatchVectorField
     const atmBoundaryLayerInletVelocityFvPatchVectorField& pvf,
     const fvPatch& p,
     const DimensionedField<vector, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     inletOutletFvPatchVectorField(pvf, p, iF, mapper),
@@ -104,28 +95,32 @@ atmBoundaryLayerInletVelocityFvPatchVectorField
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-void atmBoundaryLayerInletVelocityFvPatchVectorField::autoMap
-(
-    const fvPatchFieldMapper& m
-)
-{
-    inletOutletFvPatchVectorField::autoMap(m);
-    atmBoundaryLayer::autoMap(m);
-}
-
-
-void atmBoundaryLayerInletVelocityFvPatchVectorField::rmap
+void atmBoundaryLayerInletVelocityFvPatchVectorField::map
 (
     const fvPatchVectorField& pvf,
-    const labelList& addr
+    const fieldMapper& mapper
 )
 {
-    inletOutletFvPatchVectorField::rmap(pvf, addr);
+    inletOutletFvPatchVectorField::map(pvf, mapper);
 
     const atmBoundaryLayerInletVelocityFvPatchVectorField& blpvf =
         refCast<const atmBoundaryLayerInletVelocityFvPatchVectorField>(pvf);
 
-    atmBoundaryLayer::rmap(blpvf, addr);
+    atmBoundaryLayer::map(blpvf, mapper);
+}
+
+
+void atmBoundaryLayerInletVelocityFvPatchVectorField::reset
+(
+    const fvPatchVectorField& pvf
+)
+{
+    inletOutletFvPatchVectorField::reset(pvf);
+
+    const atmBoundaryLayerInletVelocityFvPatchVectorField& blpvf =
+        refCast<const atmBoundaryLayerInletVelocityFvPatchVectorField>(pvf);
+
+    atmBoundaryLayer::reset(blpvf);
 }
 
 

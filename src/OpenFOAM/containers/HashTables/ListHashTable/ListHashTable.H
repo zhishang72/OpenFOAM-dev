@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -27,9 +27,9 @@ Class
 Description
     STL conforming hash table using contiguous lists rather than linked lists.
 
-Note
-    Is slower to insert than the standard HashTable, but should be more
-    memory efficient and faster to access.
+    Note:
+        Is slower to insert than the standard HashTable, but should be more
+        memory efficient and faster to access.
 
 SourceFiles
     ListHashTableI.H
@@ -70,7 +70,7 @@ template<class T, class Key, class Hash> Ostream& operator<<
 
 
 /*---------------------------------------------------------------------------*\
-                     Class ListHashTableCore Declaration
+                      Class ListHashTableCore Declaration
 \*---------------------------------------------------------------------------*/
 
 //- Template-invariant bits for ListHashTable
@@ -98,7 +98,7 @@ struct ListHashTableCore
 
 
 /*---------------------------------------------------------------------------*\
-                       Class ListHashTable Declaration
+                        Class ListHashTable Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class T, class Key=word, class Hash=string::hash>

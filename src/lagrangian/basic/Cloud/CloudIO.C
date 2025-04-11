@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -26,23 +26,26 @@ License
 #include "Cloud.H"
 #include "Time.H"
 #include "IOPosition.H"
-#include "IOdictionary.H"
+#include "timeIOdictionary.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
 template<class ParticleType>
-Foam::word Foam::Cloud<ParticleType>::cloudPropertiesName("cloudProperties");
+Foam::word Foam::lagrangian::Cloud<ParticleType>::cloudPropertiesName
+(
+    "cloudProperties"
+);
 
 
 // * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * * //
 
 template<class ParticleType>
-void Foam::Cloud<ParticleType>::readCloudUniformProperties()
+void Foam::lagrangian::Cloud<ParticleType>::readCloudUniformProperties()
 {
-    IOobject dictObj
+    typeIOobject<timeIOdictionary> dictObj
     (
         cloudPropertiesName,
-        time().timeName(),
+        time().name(),
         "uniform"/cloud::prefix/name(),
         db(),
         IOobject::MUST_READ_IF_MODIFIED,
@@ -50,9 +53,9 @@ void Foam::Cloud<ParticleType>::readCloudUniformProperties()
         false
     );
 
-    if (dictObj.typeHeaderOk<IOdictionary>(true))
+    if (dictObj.headerOk())
     {
-        const IOdictionary uniformPropsDict(dictObj);
+        const timeIOdictionary uniformPropsDict(dictObj);
 
         const word procName("processor" + Foam::name(Pstream::myProcNo()));
         if (uniformPropsDict.found(procName))
@@ -69,14 +72,14 @@ void Foam::Cloud<ParticleType>::readCloudUniformProperties()
 
 
 template<class ParticleType>
-void Foam::Cloud<ParticleType>::writeCloudUniformProperties() const
+void Foam::lagrangian::Cloud<ParticleType>::writeCloudUniformProperties() const
 {
-    IOdictionary uniformPropsDict
+    timeIOdictionary uniformPropsDict
     (
         IOobject
         (
             cloudPropertiesName,
-            time().timeName(),
+            time().name(),
             "uniform"/cloud::prefix/name(),
             db(),
             IOobject::NO_READ,
@@ -109,7 +112,7 @@ void Foam::Cloud<ParticleType>::writeCloudUniformProperties() const
 
 
 template<class ParticleType>
-void Foam::Cloud<ParticleType>::initCloud(const bool checkClass)
+void Foam::lagrangian::Cloud<ParticleType>::initCloud(const bool checkClass)
 {
     readCloudUniformProperties();
 
@@ -133,14 +136,14 @@ void Foam::Cloud<ParticleType>::initCloud(const bool checkClass)
     // Ask for the tetBasePtIs to trigger all processors to build
     // them, otherwise, if some processors have no particles then
     // there is a comms mismatch.
-    polyMesh_.tetBasePtIs();
+    pMesh_.tetBasePtIs();
 }
 
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class ParticleType>
-Foam::Cloud<ParticleType>::Cloud
+Foam::lagrangian::Cloud<ParticleType>::Cloud
 (
     const polyMesh& pMesh,
     const word& cloudName,
@@ -148,13 +151,14 @@ Foam::Cloud<ParticleType>::Cloud
 )
 :
     cloud(pMesh, cloudName),
-    polyMesh_(pMesh),
+    pMesh_(pMesh),
+    patchNbrProc_(patchNbrProc(pMesh)),
+    patchNbrProcPatch_(patchNbrProcPatch(pMesh)),
+    patchNonConformalCyclicPatches_(patchNonConformalCyclicPatches(pMesh)),
     globalPositionsPtr_()
 {
-    checkPatches();
-
-    polyMesh_.tetBasePtIs();
-    polyMesh_.oldCellCentres();
+    pMesh_.tetBasePtIs();
+    pMesh_.oldCellCentres();
 
     initCloud(checkClass);
 }
@@ -163,7 +167,7 @@ Foam::Cloud<ParticleType>::Cloud
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class ParticleType>
-Foam::IOobject Foam::Cloud<ParticleType>::fieldIOobject
+Foam::IOobject Foam::lagrangian::Cloud<ParticleType>::fieldIOobject
 (
     const word& fieldName,
     const IOobject::readOption r
@@ -172,7 +176,7 @@ Foam::IOobject Foam::Cloud<ParticleType>::fieldIOobject
     return IOobject
     (
         fieldName,
-        time().timeName(),
+        time().name(),
         *this,
         r,
         IOobject::NO_WRITE,
@@ -183,7 +187,7 @@ Foam::IOobject Foam::Cloud<ParticleType>::fieldIOobject
 
 template<class ParticleType>
 template<class DataType>
-void Foam::Cloud<ParticleType>::checkFieldIOobject
+void Foam::lagrangian::Cloud<ParticleType>::checkFieldIOobject
 (
     const Cloud<ParticleType>& c,
     const IOField<DataType>& data
@@ -202,10 +206,10 @@ void Foam::Cloud<ParticleType>::checkFieldIOobject
 
 template<class ParticleType>
 template<class DataType>
-void Foam::Cloud<ParticleType>::checkFieldFieldIOobject
+void Foam::lagrangian::Cloud<ParticleType>::checkFieldFieldIOobject
 (
     const Cloud<ParticleType>& c,
-    const CompactIOField<Field<DataType>, DataType>& data
+    const CompactIOField<Field<DataType>>& data
 ) const
 {
     if (data.size() != c.size())
@@ -220,14 +224,14 @@ void Foam::Cloud<ParticleType>::checkFieldFieldIOobject
 
 
 template<class ParticleType>
-void Foam::Cloud<ParticleType>::writeFields() const
+void Foam::lagrangian::Cloud<ParticleType>::writeFields() const
 {
     ParticleType::writeFields(*this);
 }
 
 
 template<class ParticleType>
-bool Foam::Cloud<ParticleType>::writeObject
+bool Foam::lagrangian::Cloud<ParticleType>::writeObject
 (
     IOstream::streamFormat fmt,
     IOstream::versionNumber ver,
@@ -245,7 +249,11 @@ bool Foam::Cloud<ParticleType>::writeObject
 // * * * * * * * * * * * * * * * Ostream Operators * * * * * * * * * * * * * //
 
 template<class ParticleType>
-Foam::Ostream& Foam::operator<<(Ostream& os, const Cloud<ParticleType>& pc)
+Foam::Ostream& Foam::operator<<
+(
+    Ostream& os,
+    const lagrangian::Cloud<ParticleType>& pc
+)
 {
     pc.writeData(os);
 

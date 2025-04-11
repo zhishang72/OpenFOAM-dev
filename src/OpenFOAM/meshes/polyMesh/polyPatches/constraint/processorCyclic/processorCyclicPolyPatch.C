@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -41,6 +41,7 @@ namespace Foam
 
 Foam::processorCyclicPolyPatch::processorCyclicPolyPatch
 (
+    const word& name,
     const label size,
     const label start,
     const label index,
@@ -48,7 +49,35 @@ Foam::processorCyclicPolyPatch::processorCyclicPolyPatch
     const int myProcNo,
     const int neighbProcNo,
     const word& referPatchName,
-    const transformType transform,
+    const word& patchType
+)
+:
+    processorPolyPatch
+    (
+        name,
+        size,
+        start,
+        index,
+        bm,
+        myProcNo,
+        neighbProcNo,
+        patchType
+    ),
+    referPatchName_(referPatchName),
+    tag_(-1),
+    referPatchIndex_(-1)
+{}
+
+
+Foam::processorCyclicPolyPatch::processorCyclicPolyPatch
+(
+    const label size,
+    const label start,
+    const label index,
+    const polyBoundaryMesh& bm,
+    const int myProcNo,
+    const int neighbProcNo,
+    const word& referPatchName,
     const word& patchType
 )
 :
@@ -61,12 +90,11 @@ Foam::processorCyclicPolyPatch::processorCyclicPolyPatch
         bm,
         myProcNo,
         neighbProcNo,
-        transform,
         patchType
     ),
     referPatchName_(referPatchName),
     tag_(-1),
-    referPatchID_(-1)
+    referPatchIndex_(-1)
 {}
 
 
@@ -82,7 +110,7 @@ Foam::processorCyclicPolyPatch::processorCyclicPolyPatch
     processorPolyPatch(name, dict, index, bm, patchType),
     referPatchName_(dict.lookup("referPatch")),
     tag_(dict.lookupOrDefault<int>("tag", -1)),
-    referPatchID_(-1)
+    referPatchIndex_(-1)
 {}
 
 
@@ -95,7 +123,7 @@ Foam::processorCyclicPolyPatch::processorCyclicPolyPatch
     processorPolyPatch(pp, bm),
     referPatchName_(pp.referPatchName()),
     tag_(pp.tag()),
-    referPatchID_(-1)
+    referPatchIndex_(-1)
 {}
 
 
@@ -111,40 +139,7 @@ Foam::processorCyclicPolyPatch::processorCyclicPolyPatch
     processorPolyPatch(pp, bm, index, newSize, newStart),
     referPatchName_(pp.referPatchName_),
     tag_(pp.tag()),
-    referPatchID_(-1)
-{}
-
-
-Foam::processorCyclicPolyPatch::processorCyclicPolyPatch
-(
-    const processorCyclicPolyPatch& pp,
-    const polyBoundaryMesh& bm,
-    const label index,
-    const label newSize,
-    const label newStart,
-    const word& referPatchName
-)
-:
-    processorPolyPatch(pp, bm, index, newSize, newStart),
-    referPatchName_(referPatchName),
-    tag_(-1),
-    referPatchID_(-1)
-{}
-
-
-Foam::processorCyclicPolyPatch::processorCyclicPolyPatch
-(
-    const processorCyclicPolyPatch& pp,
-    const polyBoundaryMesh& bm,
-    const label index,
-    const labelUList& mapAddressing,
-    const label newStart
-)
-:
-    processorPolyPatch(pp, bm, index, mapAddressing, newStart),
-    referPatchName_(pp.referPatchName()),
-    tag_(-1),
-    referPatchID_(-1)
+    referPatchIndex_(-1)
 {}
 
 
@@ -178,7 +173,7 @@ Foam::labelList Foam::processorCyclicPolyPatch::patchIDs
 {
     return bm.findIndices
     (
-        keyType(string("procBoundary.*to.*through" + cyclicPolyPatchName))
+        wordRe(string("procBoundary.*to.*through" + cyclicPolyPatchName))
     );
 }
 
@@ -188,19 +183,17 @@ int Foam::processorCyclicPolyPatch::tag() const
     if (tag_ == -1)
     {
         // Get unique tag to use for all comms. Make sure that both sides
-        // use the same tag
-        const cyclicPolyPatch& cycPatch = refCast<const cyclicPolyPatch>
-        (
-            referPatch()
-        );
+        // use the same tag.
+        const cyclicPolyPatch& cycPatch =
+            refCast<const cyclicPolyPatch>(referPatch());
 
-        if (owner())
+        if (processorPolyPatch::owner())
         {
             tag_ = Hash<word>()(cycPatch.name()) % 32768u;
         }
         else
         {
-            tag_ = Hash<word>()(cycPatch.neighbPatch().name()) % 32768u;
+            tag_ = Hash<word>()(cycPatch.nbrPatch().name()) % 32768u;
         }
 
         if (tag_ == Pstream::msgType() || tag_ == -1)
@@ -213,6 +206,7 @@ int Foam::processorCyclicPolyPatch::tag() const
                 << " using the 'tag' entry"
                 << exit(FatalError);
         }
+
         if (debug)
         {
             Pout<< "processorCyclicPolyPatch " << name() << " uses tag " << tag_
@@ -223,10 +217,10 @@ int Foam::processorCyclicPolyPatch::tag() const
 }
 
 
-void Foam::processorCyclicPolyPatch::initGeometry(PstreamBuffers& pBufs)
+void Foam::processorCyclicPolyPatch::initCalcGeometry(PstreamBuffers& pBufs)
 {
     // Send over processorPolyPatch data
-    processorPolyPatch::initGeometry(pBufs);
+    processorPolyPatch::initCalcGeometry(pBufs);
 }
 
 
@@ -234,45 +228,6 @@ void Foam::processorCyclicPolyPatch::calcGeometry(PstreamBuffers& pBufs)
 {
     // Receive and initialise processorPolyPatch data
     processorPolyPatch::calcGeometry(pBufs);
-
-    if (Pstream::parRun())
-    {
-
-        // Where do we store the calculated transformation?
-        // - on the processor patch?
-        // - on the underlying cyclic patch?
-        // - or do we not auto-calculate the transformation but
-        //   have option of reading it.
-
-        // Update underlying cyclic halves. Need to do both since only one
-        // half might be present as a processorCyclic.
-        coupledPolyPatch& pp = const_cast<coupledPolyPatch&>(referPatch());
-        pp.calcGeometry
-        (
-            *this,
-            faceCentres(),
-            faceAreas(),
-            faceCellCentres(),
-            neighbFaceCentres(),
-            neighbFaceAreas(),
-            neighbFaceCellCentres()
-        );
-
-        if (isA<cyclicPolyPatch>(pp))
-        {
-            const cyclicPolyPatch& cpp = refCast<const cyclicPolyPatch>(pp);
-            const_cast<cyclicPolyPatch&>(cpp.neighbPatch()).calcGeometry
-            (
-                *this,
-                neighbFaceCentres(),
-                neighbFaceAreas(),
-                neighbFaceCellCentres(),
-                faceCentres(),
-                faceAreas(),
-                faceCellCentres()
-            );
-        }
-    }
 }
 
 
@@ -283,7 +238,7 @@ void Foam::processorCyclicPolyPatch::initMovePoints
 )
 {
     // Recalculate geometry
-    initGeometry(pBufs);
+    initCalcGeometry(pBufs);
 }
 
 
@@ -297,16 +252,16 @@ void Foam::processorCyclicPolyPatch::movePoints
 }
 
 
-void Foam::processorCyclicPolyPatch::initUpdateMesh(PstreamBuffers& pBufs)
+void Foam::processorCyclicPolyPatch::initTopoChange(PstreamBuffers& pBufs)
 {
-    processorPolyPatch::initUpdateMesh(pBufs);
+    processorPolyPatch::initTopoChange(pBufs);
 }
 
 
-void Foam::processorCyclicPolyPatch::updateMesh(PstreamBuffers& pBufs)
+void Foam::processorCyclicPolyPatch::topoChange(PstreamBuffers& pBufs)
 {
-     referPatchID_ = -1;
-     processorPolyPatch::updateMesh(pBufs);
+     referPatchIndex_ = -1;
+     processorPolyPatch::topoChange(pBufs);
 }
 
 
@@ -316,7 +271,6 @@ void Foam::processorCyclicPolyPatch::initOrder
     const primitivePatch& pp
 ) const
 {
-    // For now use the same algorithm as processorPolyPatch
     processorPolyPatch::initOrder(pBufs, pp);
 }
 
@@ -329,7 +283,6 @@ bool Foam::processorCyclicPolyPatch::order
     labelList& rotation
 ) const
 {
-    // For now use the same algorithm as processorPolyPatch
     return processorPolyPatch::order(pBufs, pp, faceMap, rotation);
 }
 

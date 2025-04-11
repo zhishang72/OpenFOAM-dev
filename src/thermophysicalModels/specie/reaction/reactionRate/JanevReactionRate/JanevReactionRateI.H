@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -23,6 +23,9 @@ License
 
 \*---------------------------------------------------------------------------*/
 
+#include "JanevReactionRate.H"
+#include "physicoChemicalConstants.H"
+
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 inline Foam::JanevReactionRate::JanevReactionRate
@@ -33,8 +36,8 @@ inline Foam::JanevReactionRate::JanevReactionRate
     const FixedList<scalar, nb_> b
 )
 :
-    A_(A),
     beta_(beta),
+    A_(A),
     Ta_(Ta),
     b_(b)
 {}
@@ -43,17 +46,32 @@ inline Foam::JanevReactionRate::JanevReactionRate
 inline Foam::JanevReactionRate::JanevReactionRate
 (
     const speciesTable&,
+    const dimensionSet& dims,
     const dictionary& dict
 )
 :
-    A_(dict.lookup<scalar>("A")),
-    beta_(dict.lookup<scalar>("beta")),
-    Ta_(dict.lookup<scalar>("Ta")),
+    beta_(dict.lookup<scalar>("beta", dimless)),
+    A_(dict.lookup<scalar>("A", dims/pow(dimTemperature, beta_))),
+    Ta_
+    (
+        dict.found("Ta") || !dict.found("Ea")
+      ? dict.lookup<scalar>("Ta", dimTemperature)
+      : dict.lookup<scalar>("Ea", dimEnergy/dimMoles)
+       /constant::physicoChemical::RR.value()
+    ),
     b_(dict.lookup("b"))
 {}
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+
+inline void Foam::JanevReactionRate::preEvaluate() const
+{}
+
+
+inline void Foam::JanevReactionRate::postEvaluate() const
+{}
+
 
 inline Foam::scalar Foam::JanevReactionRate::operator()
 (
@@ -132,33 +150,22 @@ inline Foam::scalar Foam::JanevReactionRate::ddT
 }
 
 
-inline const Foam::List<Foam::Tuple2<Foam::label, Foam::scalar>>&
-Foam::JanevReactionRate::beta() const
+inline bool Foam::JanevReactionRate::hasDdc() const
 {
-    return NullObjectRef<List<Tuple2<label, scalar>>>();
+    return false;
 }
 
 
-inline void Foam::JanevReactionRate::dcidc
+inline void Foam::JanevReactionRate::ddc
 (
     const scalar p,
     const scalar T,
     const scalarField& c,
     const label li,
-    scalarField& dcidc
-) const
-{}
-
-
-inline Foam::scalar Foam::JanevReactionRate::dcidT
-(
-    const scalar p,
-    const scalar T,
-    const scalarField& c,
-    const label li
+    scalarField& ddc
 ) const
 {
-    return 0;
+    ddc = 0;
 }
 
 

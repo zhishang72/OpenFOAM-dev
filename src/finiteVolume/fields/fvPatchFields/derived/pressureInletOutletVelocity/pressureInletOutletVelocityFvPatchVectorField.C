@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -35,22 +35,6 @@ Foam::pressureInletOutletVelocityFvPatchVectorField::
 pressureInletOutletVelocityFvPatchVectorField
 (
     const fvPatch& p,
-    const DimensionedField<vector, volMesh>& iF
-)
-:
-    directionMixedFvPatchVectorField(p, iF),
-    phiName_("phi")
-{
-    refValue() = Zero;
-    refGrad() = Zero;
-    valueFraction() = Zero;
-}
-
-
-Foam::pressureInletOutletVelocityFvPatchVectorField::
-pressureInletOutletVelocityFvPatchVectorField
-(
-    const fvPatch& p,
     const DimensionedField<vector, volMesh>& iF,
     const dictionary& dict
 )
@@ -58,12 +42,21 @@ pressureInletOutletVelocityFvPatchVectorField
     directionMixedFvPatchVectorField(p, iF),
     phiName_(dict.lookupOrDefault<word>("phi", "phi"))
 {
-    fvPatchVectorField::operator=(vectorField("value", dict, p.size()));
+    fvPatchVectorField::operator=
+    (
+        vectorField("value", iF.dimensions(), dict, p.size())
+    );
 
     if (dict.found("tangentialVelocity"))
     {
         tangentialVelocity_ =
-            Function1<vector>::New("tangentialVelocity", dict);
+            Function1<vector>::New
+            (
+                "tangentialVelocity",
+                db().time().userUnits(),
+                dimVelocity,
+                dict
+            );
     }
 
     refValue() = Zero;
@@ -78,24 +71,12 @@ pressureInletOutletVelocityFvPatchVectorField
     const pressureInletOutletVelocityFvPatchVectorField& ptf,
     const fvPatch& p,
     const DimensionedField<vector, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     directionMixedFvPatchVectorField(ptf, p, iF, mapper),
     phiName_(ptf.phiName_),
     tangentialVelocity_(ptf.tangentialVelocity_, false)
-{}
-
-
-Foam::pressureInletOutletVelocityFvPatchVectorField::
-pressureInletOutletVelocityFvPatchVectorField
-(
-    const pressureInletOutletVelocityFvPatchVectorField& pivpvf
-)
-:
-    directionMixedFvPatchVectorField(pivpvf),
-    phiName_(pivpvf.phiName_),
-    tangentialVelocity_(pivpvf.tangentialVelocity_, false)
 {}
 
 
@@ -123,8 +104,8 @@ void Foam::pressureInletOutletVelocityFvPatchVectorField::updateCoeffs()
 
     if (tangentialVelocity_.valid())
     {
-        const scalar t = this->db().time().timeOutputValue();
-        const vector tangentialVelocity = tangentialVelocity_->value(t);
+        const vector tangentialVelocity =
+            tangentialVelocity_->value(db().time().value());
         const vectorField n(patch().nf());
         refValue() = tangentialVelocity - n*(n & tangentialVelocity);
     }
@@ -149,7 +130,13 @@ const
     writeEntryIfDifferent<word>(os, "phi", "phi", phiName_);
     if (tangentialVelocity_.valid())
     {
-        writeEntry(os, tangentialVelocity_());
+        writeEntry
+        (
+            os,
+            db().time().userUnits(),
+            dimVelocity,
+            tangentialVelocity_()
+        );
     }
     writeEntry(os, "value", *this);
 }

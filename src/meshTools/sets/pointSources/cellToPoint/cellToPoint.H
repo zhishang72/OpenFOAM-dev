@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,27 +44,28 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                        Class cellToPoint Declaration
+                         Class cellToPoint Declaration
 \*---------------------------------------------------------------------------*/
 
 class cellToPoint
 :
     public topoSetSource
 {
-
 public:
+
+    // Public Enumerations
+
         //- Enumeration defining the valid options
         enum cellAction
         {
             ALL
         };
 
-private:
-
-        //- Add usage string
-        static addToUsageTable usage_;
-
+        //- Names of the valid options
         static const NamedEnum<cellAction, 1> cellActionNames_;
+
+
+private:
 
         //- Name of set to use
         word setName_;
@@ -84,6 +85,7 @@ public:
     //- Runtime type information
     TypeName("cellToPoint");
 
+
     // Constructors
 
         //- Construct from components
@@ -99,13 +101,6 @@ public:
         (
             const polyMesh& mesh,
             const dictionary& dict
-        );
-
-        //- Construct from Istream
-        cellToPoint
-        (
-            const polyMesh& mesh,
-            Istream&
         );
 
 
@@ -125,7 +120,6 @@ public:
             const topoSetSource::setAction action,
             topoSet&
         ) const;
-
 };
 
 

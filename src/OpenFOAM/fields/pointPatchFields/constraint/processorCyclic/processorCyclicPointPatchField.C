@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,7 +24,6 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "processorCyclicPointPatchField.H"
-#include "transformField.H"
 #include "processorPolyPatch.H"
 
 
@@ -38,8 +37,7 @@ Foam::processorCyclicPointPatchField<Type>::processorCyclicPointPatchField
 )
 :
     coupledPointPatchField<Type>(p, iF),
-    procPatch_(refCast<const processorCyclicPointPatch>(p)),
-    receiveBuf_(0)
+    procPatch_(refCast<const processorCyclicPointPatch>(p))
 {}
 
 
@@ -52,8 +50,7 @@ Foam::processorCyclicPointPatchField<Type>::processorCyclicPointPatchField
 )
 :
     coupledPointPatchField<Type>(p, iF, dict),
-    procPatch_(refCast<const processorCyclicPointPatch>(p)),
-    receiveBuf_(0)
+    procPatch_(refCast<const processorCyclicPointPatch>(p))
 {}
 
 
@@ -63,12 +60,11 @@ Foam::processorCyclicPointPatchField<Type>::processorCyclicPointPatchField
     const processorCyclicPointPatchField<Type>& ptf,
     const pointPatch& p,
     const DimensionedField<Type, pointMesh>& iF,
-    const pointPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     coupledPointPatchField<Type>(ptf, p, iF, mapper),
-    procPatch_(refCast<const processorCyclicPointPatch>(ptf.patch())),
-    receiveBuf_(0)
+    procPatch_(refCast<const processorCyclicPointPatch>(ptf.patch()))
 {}
 
 
@@ -80,8 +76,7 @@ Foam::processorCyclicPointPatchField<Type>::processorCyclicPointPatchField
 )
 :
     coupledPointPatchField<Type>(ptf, iF),
-    procPatch_(refCast<const processorCyclicPointPatch>(ptf.patch())),
-    receiveBuf_(0)
+    procPatch_(refCast<const processorCyclicPointPatch>(ptf.patch()))
 {}
 
 
@@ -90,92 +85,6 @@ Foam::processorCyclicPointPatchField<Type>::processorCyclicPointPatchField
 template<class Type>
 Foam::processorCyclicPointPatchField<Type>::~processorCyclicPointPatchField()
 {}
-
-
-// * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
-
-template<class Type>
-void Foam::processorCyclicPointPatchField<Type>::initSwapAddSeparated
-(
-    const Pstream::commsTypes commsType,
-    Field<Type>& pField
-) const
-{
-    if (Pstream::parRun())
-    {
-        // Get internal field into correct order for opposite side
-        Field<Type> pf
-        (
-            this->patchInternalField
-            (
-                pField,
-                procPatch_.reverseMeshPoints()
-            )
-        );
-
-        if (commsType == Pstream::commsTypes::nonBlocking)
-        {
-            receiveBuf_.setSize(pf.size());
-            IPstream::read
-            (
-                commsType,
-                procPatch_.neighbProcNo(),
-                reinterpret_cast<char*>(receiveBuf_.begin()),
-                receiveBuf_.byteSize(),
-                procPatch_.tag(),
-                procPatch_.comm()
-            );
-        }
-        OPstream::write
-        (
-            commsType,
-            procPatch_.neighbProcNo(),
-            reinterpret_cast<const char*>(pf.begin()),
-            pf.byteSize(),
-            procPatch_.tag(),
-            procPatch_.comm()
-        );
-    }
-}
-
-
-template<class Type>
-void Foam::processorCyclicPointPatchField<Type>::swapAddSeparated
-(
-    const Pstream::commsTypes commsType,
-    Field<Type>& pField
-) const
-{
-    if (Pstream::parRun())
-    {
-        // If nonblocking data has already been received into receiveBuf_
-        if (commsType != Pstream::commsTypes::nonBlocking)
-        {
-            receiveBuf_.setSize(this->size());
-            IPstream::read
-            (
-                commsType,
-                procPatch_.neighbProcNo(),
-                reinterpret_cast<char*>(receiveBuf_.begin()),
-                receiveBuf_.byteSize(),
-                procPatch_.tag(),
-                procPatch_.comm()
-            );
-        }
-
-        if (doTransform())
-        {
-            const processorCyclicPolyPatch& ppp =
-                procPatch_.procCyclicPolyPatch();
-            const tensor& forwardT = ppp.forwardT()[0];
-
-            transform(receiveBuf_, forwardT, receiveBuf_);
-        }
-
-        // All points are separated
-        this->addToInternalField(pField, receiveBuf_);
-    }
-}
 
 
 // ************************************************************************* //

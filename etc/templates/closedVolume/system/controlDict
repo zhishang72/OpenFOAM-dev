@@ -7,14 +7,13 @@
 \*---------------------------------------------------------------------------*/
 FoamFile
 {
-    version     2.0;
     format      ascii;
     class       dictionary;
     object      controlDict;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-application     buoyantSimpleFoam;
+solver          fluid;
 
 startFrom       latestTime;
 
@@ -48,8 +47,5 @@ runTimeModifiable true;
 
 // maxCo           1;
 
-functions
-{
-}
 
 // ************************************************************************* //

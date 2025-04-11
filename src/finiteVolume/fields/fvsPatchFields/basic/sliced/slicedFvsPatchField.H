@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,13 +25,11 @@ Class
     Foam::slicedFvsPatchField
 
 Description
-    Specialization of fvsPatchField which creates the underlying
+    Specialisation of fvsPatchField which creates the underlying
     fvsPatchField as a slice of the given complete field.
 
     The destructor is wrapped to avoid deallocation of the storage of the
     complete fields when this is destroyed.
-
-    Should only used as a template argument for SlicedGeometricField.
 
 SourceFiles
     slicedFvsPatchField.C
@@ -49,7 +47,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class slicedFvsPatch Declaration
+                       Class slicedFvsPatch Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -78,32 +76,12 @@ public:
         slicedFvsPatchField
         (
             const fvPatch&,
-            const DimensionedField<Type, surfaceMesh>&
-        );
-
-        //- Construct from patch, internal field and dictionary
-        slicedFvsPatchField
-        (
-            const fvPatch&,
             const DimensionedField<Type, surfaceMesh>&,
-            const dictionary&
+            const fvsPatchField<Type>& pf
         );
 
-        //- Construct by mapping the given slicedFvsPatchField<Type>
-        //  onto a new patch
-        slicedFvsPatchField
-        (
-            const slicedFvsPatchField<Type>&,
-            const fvPatch&,
-            const DimensionedField<Type, surfaceMesh>&,
-            const fvPatchFieldMapper&
-        );
-
-        //- Copy constructor
-        slicedFvsPatchField(const slicedFvsPatchField<Type>&);
-
-        //- Construct and return a clone
-        virtual tmp<fvsPatchField<Type>> clone() const;
+        //- Disallow copy without setting internal field reference
+        slicedFvsPatchField(const slicedFvsPatchField<Type>&) = delete;
 
         //- Copy constructor setting internal field reference
         slicedFvsPatchField
@@ -120,7 +98,7 @@ public:
 
 
     //- Destructor
-    virtual ~slicedFvsPatchField<Type>();
+    virtual ~slicedFvsPatchField();
 
 
     // Member Functions
@@ -134,6 +112,10 @@ public:
             {
                 return true;
             }
+
+
+        //- Write
+        virtual void write(Ostream&) const;
 
 
     // Member Operators

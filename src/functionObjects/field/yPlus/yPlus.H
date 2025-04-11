@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -26,7 +26,7 @@ Class
 
 Description
     Evaluates and outputs turbulence y+ for models. Values written to
-    time directories as field 'yPlus' or 'yPlus.phase'.
+    time directories as field 'yPlus' or 'yPlus.\<phase\>'.
 
     Example of function object specification:
     \verbatim
@@ -42,12 +42,12 @@ Usage
     \table
         Property | Description                | Required   | Default value
         type     | type name: yPlus           | yes        |
-        phase    | phase name                 | no         | none
+        phase    | phase name                 | no         |
     \endtable
 
-Note
-    Writing field 'yPlus' is done by default, but it can be overridden by
-    defining an empty \c objects list. For details see writeLocalObjects.
+    Note:
+        Writing field 'yPlus' is done by default, but it can be overridden by
+        defining an empty \c objects list. For details see writeLocalObjects.
 
 See also
     Foam::functionObject
@@ -75,13 +75,13 @@ namespace Foam
 {
 
 // Forward declaration of classes
-class turbulenceModel;
+class momentumTransportModel;
 
 namespace functionObjects
 {
 
 /*---------------------------------------------------------------------------*\
-                          Class yPlus Declaration
+                            Class yPlus Declaration
 \*---------------------------------------------------------------------------*/
 
 class yPlus
@@ -90,15 +90,11 @@ class yPlus
     public logFiles,
     public writeLocalObjects
 {
-protected:
+    // Private data
 
-    // Protected data
-
-        //- Optional phase name [K]
+        //- Optional phase name
         word phaseName_;
 
-
-private:
 
     // Private Member Functions
 
@@ -108,7 +104,7 @@ private:
         //- Calculate y+
         tmp<volScalarField> calcYPlus
         (
-            const turbulenceModel& turbModel
+            const momentumTransportModel& turbModel
         );
 
 
@@ -140,6 +136,12 @@ public:
 
         //- Read the yPlus data
         virtual bool read(const dictionary&);
+
+        //- Return the list of fields required
+        virtual wordList fields() const
+        {
+            return wordList::null();
+        }
 
         //- Calculate the yPlus field
         virtual bool execute();

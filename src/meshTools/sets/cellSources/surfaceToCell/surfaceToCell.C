@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -39,26 +39,7 @@ namespace Foam
 {
     defineTypeNameAndDebug(surfaceToCell, 0);
     addToRunTimeSelectionTable(topoSetSource, surfaceToCell, word);
-    addToRunTimeSelectionTable(topoSetSource, surfaceToCell, istream);
 }
-
-
-Foam::topoSetSource::addToUsageTable Foam::surfaceToCell::usage_
-(
-    surfaceToCell::typeName,
-    "\n    Usage: surfaceToCell"
-    "<surface> <outsidePoints> <cut> <inside> <outside> <near> <curvature>\n\n"
-    "    <surface> name of triSurface\n"
-    "    <outsidePoints> list of points that define outside\n"
-    "    <cut> boolean whether to include cells cut by surface\n"
-    "    <inside>   ,,                 ,,       inside surface\n"
-    "    <outside>  ,,                 ,,       outside surface\n"
-    "    <near> scalar; include cells with centre <= near to surface\n"
-    "    <curvature> scalar; include cells close to strong curvature"
-    " on surface\n"
-    "    (curvature defined as difference in surface normal at nearest"
-    " point on surface for each vertex of cell)\n\n"
-);
 
 
 // * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
@@ -425,7 +406,7 @@ Foam::surfaceToCell::surfaceToCell
 :
     topoSetSource(mesh),
     surfName_(fileName(dict.lookup("file")).expand()),
-    outsidePoints_(dict.lookup("outsidePoints")),
+    outsidePoints_(dict.lookup<List<point>>("outsidePoints", dimLength)),
     includeCut_(readBool(dict.lookup("includeCut"))),
     includeInside_(readBool(dict.lookup("includeInside"))),
     includeOutside_(readBool(dict.lookup("includeOutside"))),
@@ -433,31 +414,8 @@ Foam::surfaceToCell::surfaceToCell
     (
         dict.lookupOrDefault<bool>("useSurfaceOrientation", false)
     ),
-    nearDist_(dict.lookup<scalar>("nearDistance")),
-    curvature_(dict.lookup<scalar>("curvature")),
-    surfPtr_(new triSurface(surfName_)),
-    querySurfPtr_(new triSurfaceSearch(*surfPtr_)),
-    IOwnPtrs_(true)
-{
-    checkSettings();
-}
-
-
-Foam::surfaceToCell::surfaceToCell
-(
-    const polyMesh& mesh,
-    Istream& is
-)
-:
-    topoSetSource(mesh),
-    surfName_(checkIs(is)),
-    outsidePoints_(checkIs(is)),
-    includeCut_(readBool(checkIs(is))),
-    includeInside_(readBool(checkIs(is))),
-    includeOutside_(readBool(checkIs(is))),
-    useSurfaceOrientation_(false),
-    nearDist_(readScalar(checkIs(is))),
-    curvature_(readScalar(checkIs(is))),
+    nearDist_(dict.lookup<scalar>("nearDistance", dimLength)),
+    curvature_(dict.lookup<scalar>("curvature", unitNone)),
     surfPtr_(new triSurface(surfName_)),
     querySurfPtr_(new triSurfaceSearch(*surfPtr_)),
     IOwnPtrs_(true)

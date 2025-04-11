@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,24 +44,20 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                       Class cylinderAnnulusToFace Declaration
+                    Class cylinderAnnulusToFace Declaration
 \*---------------------------------------------------------------------------*/
 
 class cylinderAnnulusToFace
 :
     public topoSetSource
 {
-
     // Private Data
 
-        //- Add usage string
-        static addToUsageTable usage_;
-
         //- First point on cylinder axis
-        vector p1_;
+        vector point1_;
 
         //- Second point on cylinder axis
-        vector p2_;
+        vector point2_;
 
         //- Outer Radius
         scalar outerRadius_;
@@ -87,8 +83,8 @@ public:
         cylinderAnnulusToFace
         (
             const polyMesh& mesh,
-            const vector& p1,
-            const vector& p2,
+            const vector& point1,
+            const vector& point2,
             const scalar outerRadius,
             const scalar innerRadius
         );
@@ -100,22 +96,16 @@ public:
             const dictionary& dict
         );
 
-        //- Construct from Istream
-        cylinderAnnulusToFace
-        (
-            const polyMesh& mesh,
-            Istream&
-        );
-
 
     // Destructor
     virtual ~cylinderAnnulusToFace();
+
 
     // Member Functions
 
         virtual sourceType setType() const
         {
-            return CELLSETSOURCE;
+            return FACESETSOURCE;
         }
 
         virtual void applyToSet

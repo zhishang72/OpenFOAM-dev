@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -22,9 +22,7 @@ License
     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
 
 Typedef
-    Foam::faceListFwd
-
-Description
+    Foam::faceList
 
 \*---------------------------------------------------------------------------*/
 
@@ -43,8 +41,6 @@ namespace Foam
     typedef List<face> faceList;
     typedef SubList<face> faceSubList;
     typedef List<faceList> faceListList;
-    // same as faceUList:
-    typedef UList<face> unallocFaceList;
 }
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -45,6 +45,13 @@ template<class T>
 Foam::UPtrList<T>::UPtrList(UPtrList<T>& a, bool reuse)
 :
     ptrs_(a.ptrs_, reuse)
+{}
+
+
+template<class T>
+Foam::UPtrList<T>::UPtrList(std::initializer_list<T*> lst)
+:
+    ptrs_(lst.begin(), lst.end())
 {}
 
 
@@ -154,6 +161,32 @@ void Foam::UPtrList<T>::shuffle(const labelUList& newToOld)
     }
 
     this->ptrs_.transfer(newPtrs_);
+}
+
+
+template<class T>
+template<class T2>
+Foam::UPtrList<T2> Foam::UPtrList<T>::convert()
+{
+    UPtrList<T2> result(size());
+    forAll(ptrs_, i)
+    {
+        result.set(i, ptrs_[i]);
+    }
+    return result;
+}
+
+
+template<class T>
+template<class T2>
+Foam::UPtrList<const T2> Foam::UPtrList<T>::convert() const
+{
+    UPtrList<const T2> result(size());
+    forAll(ptrs_, i)
+    {
+        result.set(i, ptrs_[i]);
+    }
+    return result;
 }
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -27,7 +27,7 @@ Description
 \*---------------------------------------------------------------------------*/
 
 #include "polyMesh.H"
-#include "mapPolyMesh.H"
+#include "polyTopoChangeMap.H"
 #include "Time.H"
 #include "globalMeshData.H"
 #include "pointMesh.H"
@@ -36,7 +36,15 @@ Description
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-void Foam::polyMesh::updateMesh(const mapPolyMesh& mpm)
+void Foam::polyMesh::topoChangeZones(const polyTopoChangeMap& map)
+{
+    pointZones_.topoChange(map);
+    faceZones_.topoChange(map);
+    cellZones_.topoChange(map);
+}
+
+
+void Foam::polyMesh::topoChange(const polyTopoChangeMap& map)
 {
     if (debug)
     {
@@ -46,25 +54,24 @@ void Foam::polyMesh::updateMesh(const mapPolyMesh& mpm)
     }
 
     // Update boundaryMesh (note that patches themselves already ok)
-    boundary_.updateMesh();
+    boundary_.topoChange();
 
     // Update zones
-    pointZones_.clearAddressing();
-    faceZones_.clearAddressing();
-    cellZones_.clearAddressing();
+    topoChangeZones(map);
 
     // Remove the stored tet base points
     tetBasePtIsPtr_.clear();
+
     // Remove the cell tree
     cellTreePtr_.clear();
 
     // Update parallel data
     if (globalMeshDataPtr_.valid())
     {
-        globalMeshDataPtr_->updateMesh();
+        globalMeshDataPtr_->topoChange();
     }
 
-    setInstance(time().timeName());
+    setInstance(time().name());
 
     // Map the old motion points if present
     if (oldPointsPtr_.valid())
@@ -78,13 +85,13 @@ void Foam::polyMesh::updateMesh(const mapPolyMesh& mpm)
         newMotionPoints.setSize(points_.size());
 
         // Map the list
-        newMotionPoints.map(oldMotionPoints, mpm.pointMap());
+        newMotionPoints.map(oldMotionPoints, map.pointMap());
 
         // Any points created out-of-nothing get set to the current coordinate
         // for lack of anything better.
-        forAll(mpm.pointMap(), newPointi)
+        forAll(map.pointMap(), newPointi)
         {
-            if (mpm.pointMap()[newPointi] == -1)
+            if (map.pointMap()[newPointi] == -1)
             {
                 newMotionPoints[newPointi] = points_[newPointi];
             }
@@ -102,27 +109,49 @@ void Foam::polyMesh::updateMesh(const mapPolyMesh& mpm)
         newMotionCellCentres.setSize(cellCentres().size());
 
         // Map the list
-        newMotionCellCentres.map(oldMotionCellCentres, mpm.cellMap());
+        newMotionCellCentres.map(oldMotionCellCentres, map.cellMap());
 
         // Any points created out-of-nothing get set to the current coordinate
         // for lack of anything better.
-        forAll(mpm.cellMap(), newCelli)
+        forAll(map.cellMap(), newCelli)
         {
-            if (mpm.cellMap()[newCelli] == -1)
+            if (map.cellMap()[newCelli] == -1)
             {
                 newMotionCellCentres[newCelli] = cellCentres()[newCelli];
             }
         }
     }
 
-    meshObject::updateMesh<polyMesh>(*this, mpm);
-    meshObject::updateMesh<pointMesh>(*this, mpm);
+    meshObjects::topoChange<polyMesh>(*this, map);
+    meshObjects::topoChange<pointMesh>(*this, map);
 
     // Reset valid directions (could change by faces put into empty patches)
     geometricD_ = Zero;
     solutionD_ = Zero;
+}
 
-    const_cast<Time&>(time()).functionObjects().updateMesh(mpm);
+
+void Foam::polyMesh::mapMesh(const polyMeshMap& map)
+{
+    // Update zones
+    pointZones_.mapMesh(map);
+    faceZones_.mapMesh(map);
+    cellZones_.mapMesh(map);
+
+    meshObjects::mapMesh<polyMesh>(*this, map);
+    meshObjects::mapMesh<pointMesh>(*this, map);
+}
+
+
+void Foam::polyMesh::distribute(const polyDistributionMap& map)
+{
+    // Update zones
+    pointZones_.distribute(map);
+    faceZones_.distribute(map);
+    cellZones_.distribute(map);
+
+    meshObjects::distribute<polyMesh>(*this, map);
+    meshObjects::distribute<pointMesh>(*this, map);
 }
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -58,7 +58,9 @@ Foam::functionObjects::fieldExpression::fieldExpression
         ? word(functionName + '(' + fieldName_ + ')')
         : functionName
     )
-{}
+{
+    read(dict);
+}
 
 
 // * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
@@ -69,9 +71,9 @@ Foam::functionObjects::fieldExpression::~fieldExpression()
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-bool Foam::functionObjects::fieldExpression::read(const dictionary& dict)
+Foam::wordList Foam::functionObjects::fieldExpression::fields() const
 {
-    return true;
+    return wordList(fieldName_);
 }
 
 

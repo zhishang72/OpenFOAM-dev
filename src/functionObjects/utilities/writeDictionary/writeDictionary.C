@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -56,7 +56,7 @@ bool Foam::functionObjects::writeDictionary::tryDirectory
     bool& firstDict
 )
 {
-    IOobject dictIO
+    typeIOobject<IOdictionary> dictIO
     (
         dictNames_[dictI],
         location,
@@ -66,7 +66,7 @@ bool Foam::functionObjects::writeDictionary::tryDirectory
         false
     );
 
-    if (dictIO.typeHeaderOk<IOdictionary>(true))
+    if (dictIO.headerOk())
     {
         IOdictionary dict(dictIO);
 
@@ -104,7 +104,7 @@ Foam::functionObjects::writeDictionary::writeDictionary
     const dictionary& dict
 )
 :
-    functionObject(name),
+    functionObject(name, runTime),
     obr_
     (
         runTime.lookupObject<objectRegistry>
@@ -190,16 +190,16 @@ bool Foam::functionObjects::writeDictionary::write()
         }
         else
         {
-            bool processed = tryDirectory(i, obr_.time().timeName(), firstDict);
+            bool processed = tryDirectory(i, time_.name(), firstDict);
 
             if (!processed)
             {
-                processed = tryDirectory(i, obr_.time().constant(), firstDict);
+                processed = tryDirectory(i, time_.constant(), firstDict);
             }
 
             if (!processed)
             {
-                processed = tryDirectory(i, obr_.time().system(), firstDict);
+                processed = tryDirectory(i, time_.system(), firstDict);
             }
 
             if (!processed)

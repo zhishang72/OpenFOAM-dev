@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2015-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2015-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -43,7 +43,7 @@ Foam::patchDistMethod::patchDistMethod
 )
 :
     mesh_(mesh),
-    patchIDs_(patchIDs)
+    patchIndices_(patchIDs)
 {}
 
 
@@ -66,7 +66,7 @@ Foam::autoPtr<Foam::patchDistMethod> Foam::patchDistMethod::New
     if (cstrIter == dictionaryConstructorTablePtr_->end())
     {
         FatalErrorInFunction
-            << "Unknown patchDistMethodType type "
+            << "Unknown patchDistMethod type "
             << patchDistMethodType << endl << endl
             << "Valid patchDistMethod types are : " << endl
             << dictionaryConstructorTablePtr_->sortedToc()

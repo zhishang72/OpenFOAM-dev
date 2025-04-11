@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -36,18 +36,22 @@ SourceFiles
 #define liquidProperties_H
 
 #include "thermophysicalProperties.H"
+#include "dimensionSets.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
 {
 
+template<class> class Function1;
+template<class> class Function2;
+
 // Forward declaration of friend functions and operators
 class liquidProperties;
 Ostream& operator<<(Ostream& os, const liquidProperties& l);
 
 /*---------------------------------------------------------------------------*\
-                    Class liquidProperties Declaration
+                      Class liquidProperties Declaration
 \*---------------------------------------------------------------------------*/
 
 class liquidProperties
@@ -55,6 +59,9 @@ class liquidProperties
     public thermophysicalProperties
 {
     // Private Data
+
+        //- Name of the liquid
+        const word name_;
 
         //- Critical temperature [K]
         scalar Tc_;
@@ -118,6 +125,7 @@ public:
         //- Construct from components
         liquidProperties
         (
+            const word& name,
             scalar W,
             scalar Tc,
             scalar Pc,
@@ -162,6 +170,10 @@ public:
 
 
     // Member Functions
+
+        //- Return the name of the liquid
+        virtual const word& name() const;
+
 
         // Physical constants which define the specie
 
@@ -218,17 +230,27 @@ public:
 
         // Fundamental thermodynamic properties
 
-            //- Sensible enthalpy [J/kg]
-            inline scalar Hs(const scalar p, const scalar T) const;
+            //- Liquid heat of formation [J/kg]
+            virtual scalar hf() const = 0;
 
-            //- Chemical enthalpy [J/kg]
-            inline scalar Hc() const;
+            //- Liquid sensible enthalpy [J/kg]
+            //  currently pressure effects are neglected
+            virtual scalar hs(scalar p, scalar T) const = 0;
 
-            //- Absolute enthalpy [J/kg]
-            inline scalar Ha(const scalar p, const scalar T) const;
+            //- Liquid absolute enthalpy [J/kg]
+            //  currently pressure effects are neglected
+            virtual scalar ha(scalar p, scalar T) const = 0;
 
-            // Entropy [J/kg/K]
-            scalar S(const scalar p, const scalar T) const;
+            //- Sensible internal energy [J/kg]
+            //  currently pressure effects are neglected
+            inline scalar es(scalar p, const scalar T) const;
+
+            //- Absolute internal energy [J/kg]
+            //  currently pressure effects are neglected
+            inline scalar ea(scalar p, scalar T) const;
+
+            //- Liquid entropy [J/kg/K]
+            scalar s(const scalar p, const scalar T) const;
 
 
         // Physical properties
@@ -238,9 +260,6 @@ public:
 
             //- Heat of vapourisation [J/kg]
             virtual scalar hl(scalar p, scalar T) const = 0;
-
-            //- Liquid enthalpy [J/kg] - reference to 298.15 K
-            virtual scalar h(scalar p, scalar T) const = 0;
 
             //- Vapour heat capacity [J/kg/K]
             virtual scalar Cpg(scalar p, scalar T) const = 0;
@@ -253,9 +272,6 @@ public:
 
             //- Liquid thermal conductivity  [W/m/K]
             virtual scalar kappa(scalar p, scalar T) const = 0;
-
-            //- Liquid thermal diffusivity of enthalpy [kg/m/s]
-            inline scalar alphah(const scalar p, const scalar T) const;
 
             //- Vapour thermal conductivity  [W/m/K]
             virtual scalar kappag(scalar p, scalar T) const = 0;
@@ -285,7 +301,32 @@ public:
         inline void readIfPresent
         (
             Func& f,
+            const Function1<scalar>&,
             const word& name,
+            const dimensionSet& dims,
+            const dictionary& dict
+        );
+
+        //- Read and set the function coefficients
+        //  if present it the given dictionary
+        template<class Func>
+        inline void readIfPresent
+        (
+            Func& f,
+            const Function2<scalar>&,
+            const word& name,
+            const dimensionSet& dims,
+            const dictionary& dict
+        );
+
+        //- Read and set the function coefficients
+        //  if present it the given dictionary
+        template<class Func>
+        inline void readIfPresent
+        (
+            Func& f,
+            const word& name,
+            const dimensionSet& dims,
             const dictionary& dict
         );
 
@@ -296,6 +337,44 @@ public:
 
         //- Write the function coefficients
         virtual void write(Ostream& os) const = 0;
+
+        //- ...
+        template<class Func>
+        inline void write
+        (
+            const Func& f,
+            const Function1<scalar>&,
+            const dimensionSet& dims,
+            Ostream& os
+        ) const;
+
+        //- ...
+        template<class Func>
+        inline void write
+        (
+            const Func& f,
+            const Function2<scalar>&,
+            const dimensionSet& dims,
+            Ostream& os
+        ) const;
+
+        //- ...
+        template<class Func>
+        inline void write
+        (
+            const Func& f,
+            const dimensionSet& dims,
+            Ostream& os
+        ) const;
+
+        //- ...
+        template<class Func>
+        inline void write
+        (
+            const autoPtr<Func>& f,
+            const dimensionSet& dims,
+            Ostream& os
+        ) const;
 
         //- Write the data for each of the property functions
         template<class Liquid>

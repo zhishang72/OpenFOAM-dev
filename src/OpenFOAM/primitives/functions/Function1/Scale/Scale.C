@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,41 +25,48 @@ License
 
 #include "Scale.H"
 
-// * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
-
-template<class Type>
-void Foam::Function1s::Scale<Type>::read(const dictionary& coeffs)
-{
-    scale_ = Function1<scalar>::New("scale", coeffs);
-    xScale_ =
-        coeffs.found("xScale")
-      ? Function1<scalar>::New("xScale", coeffs)
-      : autoPtr<Function1<scalar>>(new Constant<scalar>("xScale", 1));
-    value_ = Function1<Type>::New("value", coeffs);
-
-    integrableScale_ =
-        isA<Constant<scalar>>(xScale_())
-     && isA<Constant<scalar>>(scale_());
-
-    integrableValue_ =
-        isA<Constant<scalar>>(xScale_())
-     && isA<Constant<Type>>(value_());
-}
-
-
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class Type>
 Foam::Function1s::Scale<Type>::Scale
 (
-    const word& entryName,
+    const word& name,
+    const Function1<scalar>& scale,
+    const Function1<scalar>& xScale,
+    const Function1<Type>& value
+)
+:
+    FieldFunction1<Type, Scale<Type>>(name),
+    scale_(scale.clone().ptr()),
+    constantScale_(scale_->constant()),
+    xScale_(xScale.clone().ptr()),
+    constantXScale_(xScale_->constant()),
+    value_(value.clone().ptr()),
+    constantValue_(value_->constant())
+{}
+
+
+template<class Type>
+Foam::Function1s::Scale<Type>::Scale
+(
+    const word& name,
+    const unitConversions& units,
     const dictionary& dict
 )
 :
-    FieldFunction1<Type, Scale<Type>>(entryName)
-{
-    read(dict);
-}
+    FieldFunction1<Type, Scale<Type>>(name),
+    scale_(Function1<scalar>::New("scale", units.x, unitAny, dict)),
+    constantScale_(scale_->constant()),
+    xScale_
+    (
+        dict.found("xScale")
+      ? Function1<scalar>::New("xScale", units.x, unitless, dict)
+      : autoPtr<Function1<scalar>>(new Constant<scalar>("xScale", 1))
+    ),
+    constantXScale_(xScale_->constant()),
+    value_(Function1<Type>::New("value", units.x, unitAny, dict)),
+    constantValue_(value_->constant())
+{}
 
 
 template<class Type>
@@ -67,10 +74,11 @@ Foam::Function1s::Scale<Type>::Scale(const Scale<Type>& se)
 :
     FieldFunction1<Type, Scale<Type>>(se),
     scale_(se.scale_, false),
+    constantScale_(se.constantScale_),
     xScale_(se.xScale_, false),
+    constantXScale_(se.constantXScale_),
     value_(se.value_, false),
-    integrableScale_(se.integrableScale_),
-    integrableValue_(se.integrableValue_)
+    constantValue_(se.constantValue_)
 {}
 
 
@@ -84,16 +92,15 @@ Foam::Function1s::Scale<Type>::~Scale()
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class Type>
-void Foam::Function1s::Scale<Type>::writeData(Ostream& os) const
+void Foam::Function1s::Scale<Type>::write
+(
+    Ostream& os,
+    const unitConversions& units
+) const
 {
-    Function1<Type>::writeData(os);
-    os  << token::END_STATEMENT << nl;
-    os  << indent << word(this->name() + "Coeffs") << nl;
-    os  << indent << token::BEGIN_BLOCK << incrIndent << nl;
-    scale_->writeData(os);
-    xScale_->writeData(os);
-    value_->writeData(os);
-    os  << decrIndent << indent << token::END_BLOCK << endl;
+    writeEntry(os, units.x, unitless, scale_());
+    writeEntry(os, units.x, units.x, xScale_());
+    writeEntry(os, units, value_());
 }
 
 

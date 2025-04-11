@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,14 +24,16 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "surfaceFieldValue.H"
-#include "fvMesh.H"
-#include "cyclicPolyPatch.H"
-#include "emptyPolyPatch.H"
-#include "coupledPolyPatch.H"
+#include "processorFvPatch.H"
+#include "processorCyclicFvPatch.H"
 #include "sampledSurface.H"
 #include "mergePoints.H"
 #include "indirectPrimitivePatch.H"
 #include "PatchTools.H"
+#include "fvMeshStitcher.H"
+#include "polyTopoChangeMap.H"
+#include "polyMeshMap.H"
+#include "polyDistributionMap.H"
 #include "addToRunTimeSelectionTable.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
@@ -52,12 +54,13 @@ namespace fieldValues
 template<>
 const char* Foam::NamedEnum
 <
-    Foam::functionObjects::fieldValues::surfaceFieldValue::regionTypes,
-    3
+    Foam::functionObjects::fieldValues::surfaceFieldValue::selectionTypes,
+    4
 >::names[] =
 {
     "faceZone",
     "patch",
+    "patches",
     "sampledSurface"
 };
 
@@ -65,23 +68,20 @@ template<>
 const char* Foam::NamedEnum
 <
     Foam::functionObjects::fieldValues::surfaceFieldValue::operationType,
-    17
+    14
 >::names[] =
 {
     "none",
     "sum",
-    "weightedSum",
     "sumMag",
-    "sumDirection",
-    "sumDirectionBalance",
+    "orientedSum",
     "average",
-    "weightedAverage",
     "areaAverage",
-    "weightedAreaAverage",
     "areaIntegrate",
-    "weightedAreaIntegrate",
     "min",
     "max",
+    "minMag",
+    "maxMag",
     "CoV",
     "areaNormalAverage",
     "areaNormalIntegrate"
@@ -89,153 +89,196 @@ const char* Foam::NamedEnum
 
 const Foam::NamedEnum
 <
-    Foam::functionObjects::fieldValues::surfaceFieldValue::regionTypes,
-    3
-> Foam::functionObjects::fieldValues::surfaceFieldValue::regionTypeNames_;
+    Foam::functionObjects::fieldValues::surfaceFieldValue::selectionTypes,
+    4
+> Foam::functionObjects::fieldValues::surfaceFieldValue::selectionTypeNames;
 
 const Foam::NamedEnum
 <
     Foam::functionObjects::fieldValues::surfaceFieldValue::operationType,
-    17
+    14
 > Foam::functionObjects::fieldValues::surfaceFieldValue::operationTypeNames_;
 
 
 // * * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * * //
 
-void Foam::functionObjects::fieldValues::surfaceFieldValue::setFaceZoneFaces()
+void Foam::functionObjects::fieldValues::surfaceFieldValue::setFaceZoneFaces
+(
+    const word& zoneName
+)
 {
-    label zoneId = mesh_.faceZones().findZoneID(regionName_);
+    const label zoneId = mesh_.faceZones().findIndex(zoneName);
 
     if (zoneId < 0)
     {
         FatalErrorInFunction
             << type() << " " << name() << ": "
-            << regionTypeNames_[regionType_] << "(" << regionName_ << "):" << nl
-            << "    Unknown face zone name: " << regionName_
-            << ". Valid face zones are: " << mesh_.faceZones().names()
+            << selectionTypeNames[selectionType_]
+            << "(" << zoneName << "):" << nl
+            << "    Unknown face zone name: " << zoneName
+            << ". Valid face zones are: " << mesh_.faceZones().toc()
             << nl << exit(FatalError);
     }
 
-    const faceZone& fZone = mesh_.faceZones()[zoneId];
+    selectionName_ = zoneName;
 
-    DynamicList<label> faceIds(fZone.size());
-    DynamicList<label> facePatchIds(fZone.size());
-    DynamicList<label> faceSigns(fZone.size());
+    // Ensure addressing is built on all processes
+    mesh_.polyBFacePatches();
+    mesh_.polyBFacePatchFaces();
 
-    forAll(fZone, i)
+    const faceZone& zone = mesh_.faceZones()[zoneId];
+
+    DynamicList<label> faceIds(zone.size());
+    DynamicList<label> facePatchIds(zone.size());
+    DynamicList<label> faceSigns(zone.size());
+
+    forAll(zone, zoneFacei)
     {
-        label facei = fZone[i];
+        const label facei = zone[zoneFacei];
+        const label faceSign = zone.flipMap()[zoneFacei] ? -1 : 1;
 
-        label faceId = -1;
-        label facePatchId = -1;
         if (mesh_.isInternalFace(facei))
         {
-            faceId = facei;
-            facePatchId = -1;
+            faceIds.append(facei);
+            facePatchIds.append(-1);
+            faceSigns.append(faceSign);
         }
         else
         {
-            facePatchId = mesh_.boundaryMesh().whichPatch(facei);
-            const polyPatch& pp = mesh_.boundaryMesh()[facePatchId];
-            if (isA<coupledPolyPatch>(pp))
-            {
-                if (refCast<const coupledPolyPatch>(pp).owner())
-                {
-                    faceId = pp.whichFace(facei);
-                }
-                else
-                {
-                    faceId = -1;
-                }
-            }
-            else if (!isA<emptyPolyPatch>(pp))
-            {
-                faceId = facei - pp.start();
-            }
-            else
-            {
-                faceId = -1;
-                facePatchId = -1;
-            }
-        }
+            const label bFacei = facei - mesh_.nInternalFaces();
 
-        if (faceId >= 0)
-        {
-            if (fZone.flipMap()[i])
+            const labelUList patches = mesh_.polyBFacePatches()[bFacei];
+            const labelUList patchFaces = mesh_.polyBFacePatchFaces()[bFacei];
+
+            forAll(patches, i)
             {
-                faceSigns.append(-1);
+                // Don't include processor patch faces twice
+                const fvPatch& fvp = mesh_.boundary()[patches[i]];
+                if
+                (
+                    isType<processorFvPatch>(fvp)
+                 && refCast<const processorFvPatch>(fvp).neighbour()
+                )
+                {
+                    continue;
+                }
+
+                faceIds.append(patchFaces[i]);
+                facePatchIds.append(patches[i]);
+                faceSigns.append(faceSign);
             }
-            else
-            {
-                faceSigns.append(1);
-            }
-            faceIds.append(faceId);
-            facePatchIds.append(facePatchId);
         }
     }
 
     faceId_.transfer(faceIds);
     facePatchId_.transfer(facePatchIds);
     faceSign_.transfer(faceSigns);
-    nFaces_ = returnReduce(faceId_.size(), sumOp<label>());
 
-    if (debug)
-    {
-        Pout<< "Original face zone size = " << fZone.size()
-            << ", new size = " << faceId_.size() << endl;
-    }
+    nFaces_ = returnReduce(faceId_.size(), sumOp<label>());
 }
 
 
-void Foam::functionObjects::fieldValues::surfaceFieldValue::setPatchFaces()
+void Foam::functionObjects::fieldValues::surfaceFieldValue::setPatchesFaces
+(
+    const labelList& patchis
+)
 {
-    const label patchid = mesh_.boundaryMesh().findPatchID(regionName_);
+    selectionName_.clear();
 
-    if (patchid < 0)
+    faceId_.clear();
+    facePatchId_.clear();
+    faceSign_.clear();
+
+    forAll(patchis, i)
     {
-        FatalErrorInFunction
-            << type() << " " << name() << ": "
-            << regionTypeNames_[regionType_] << "(" << regionName_ << "):" << nl
-            << "    Unknown patch name: " << regionName_
-            << ". Valid patch names are: "
-            << mesh_.boundaryMesh().names() << nl
-            << exit(FatalError);
+        const label patchi = patchis[i];
+        const fvPatch& fvp = mesh_.boundary()[patchi];
+
+        selectionName_.append((i ? " " : "") + fvp.name());
+
+        faceId_.append(identityMap(fvp.size()));
+        facePatchId_.append(labelList(fvp.size(), patchi));
+        faceSign_.append(labelList(fvp.size(), 1));
+
+        // If we have selected a cyclic, also include any associated processor
+        // cyclic faces
+        forAll(mesh_.boundary(), pcPatchj)
+        {
+            const fvPatch& pcFvp = mesh_.boundary()[pcPatchj];
+
+            if
+            (
+                isA<processorCyclicFvPatch>(pcFvp)
+             && refCast<const processorCyclicFvPatch>(pcFvp).referPatchIndex()
+             == patchi
+            )
+            {
+                faceId_.append(identityMap(pcFvp.size()));
+                facePatchId_.append(labelList(pcFvp.size(), pcPatchj));
+                faceSign_.append(labelList(pcFvp.size(), 1));
+            }
+        }
     }
 
-    const polyPatch& pp = mesh_.boundaryMesh()[patchid];
-
-    label nFaces = pp.size();
-    if (isA<emptyPolyPatch>(pp))
-    {
-        nFaces = 0;
-    }
-
-    faceId_.setSize(nFaces);
-    facePatchId_.setSize(nFaces);
-    faceSign_.setSize(nFaces);
     nFaces_ = returnReduce(faceId_.size(), sumOp<label>());
-
-    forAll(faceId_, facei)
-    {
-        faceId_[facei] = facei;
-        facePatchId_[facei] = patchid;
-        faceSign_[facei] = 1;
-    }
 }
 
 
-void Foam::functionObjects::fieldValues::surfaceFieldValue::sampledSurfaceFaces
+void Foam::functionObjects::fieldValues::surfaceFieldValue::setPatchesFaces
+(
+    const wordReList& patchNames
+)
+{
+    labelList patchis;
+
+    forAll(patchNames, i)
+    {
+        const labelList patchiis =
+            mesh_.boundaryMesh().findIndices(patchNames[i]);
+
+        if (patchiis.empty())
+        {
+            FatalErrorInFunction
+                << type() << " " << this->name() << ": "
+                << selectionTypeNames[selectionType_]
+                << "(" << patchNames[i] << "):" << nl
+                << "    Unknown patch name: " << patchNames[i]
+                << ". Valid patch names are: "
+                << mesh_.boundaryMesh().names() << nl
+                << exit(FatalError);
+        }
+
+        patchis.append(patchiis);
+    }
+
+    setPatchesFaces(patchis);
+}
+
+
+void Foam::functionObjects::fieldValues::surfaceFieldValue::setPatchFaces
+(
+    const wordRe& patchName
+)
+{
+    setPatchesFaces(wordReList(1, patchName));
+
+    selectionName_ =
+        patchName.isPattern() ? '"' + patchName + '"' : string(patchName);
+}
+
+
+void
+Foam::functionObjects::fieldValues::surfaceFieldValue::setSampledSurfaceFaces
 (
     const dictionary& dict
 )
 {
-    surfacePtr_ = sampledSurface::New
-    (
-        name(),
-        mesh_,
-        dict.subDict("sampledSurfaceDict")
-    );
+    surfacePtr_ = sampledSurface::New(name(), mesh_, dict);
+
     surfacePtr_().update();
+
+    selectionName_ = surfacePtr_().name();
+
     nFaces_ = returnReduce(surfacePtr_().faces().size(), sumOp<label>());
 }
 
@@ -368,7 +411,7 @@ combineSurfaceGeometry
     pointField& points
 ) const
 {
-    if (surfacePtr_.valid())
+    if (selectionType_ == selectionTypes::sampledSurface)
     {
         const sampledSurface& s = surfacePtr_();
 
@@ -404,18 +447,14 @@ combineSurfaceGeometry
 Foam::scalar
 Foam::functionObjects::fieldValues::surfaceFieldValue::totalArea() const
 {
-    scalar totalArea;
-
-    if (surfacePtr_.valid())
+    if (selectionType_ == selectionTypes::sampledSurface)
     {
-        totalArea = gSum(surfacePtr_().magSf());
+        return gSum(surfacePtr_().magSf());
     }
     else
     {
-        totalArea = gSum(filterField(mesh_.magSf(), false));
+        return gSum(filterField(mesh_.magSf()));
     }
-
-    return totalArea;
 }
 
 
@@ -426,44 +465,54 @@ void Foam::functionObjects::fieldValues::surfaceFieldValue::initialise
     const dictionary& dict
 )
 {
-    dict.lookup("name") >> regionName_;
-
-    switch (regionType_)
+    switch (selectionType_)
     {
-        case regionTypes::faceZone:
+        case selectionTypes::faceZone:
         {
-            setFaceZoneFaces();
+            setFaceZoneFaces
+            (
+                dict.lookupBackwardsCompatible<word>({"faceZone", "name"})
+            );
             break;
         }
-        case regionTypes::patch:
+        case selectionTypes::patch:
         {
-            setPatchFaces();
+            setPatchFaces
+            (
+                dict.lookupBackwardsCompatible<wordRe>({"patch", "name"})
+            );
             break;
         }
-        case regionTypes::sampledSurface:
+        case selectionTypes::patches:
         {
-            sampledSurfaceFaces(dict);
+            setPatchesFaces(dict.lookup<wordReList>("patches"));
+            break;
+        }
+        case selectionTypes::sampledSurface:
+        {
+            setSampledSurfaceFaces(dict.subDict("sampledSurfaceDict"));
             break;
         }
         default:
         {
             FatalErrorInFunction
                 << type() << " " << name() << ": "
-                << regionTypeNames_[regionType_] << "(" << regionName_ << "):"
-                << nl << "    Unknown region type. Valid region types are:"
-                << regionTypeNames_.sortedToc() << nl << exit(FatalError);
+                << selectionTypeNames[selectionType_]
+                << "    Unknown selection type. Valid selection types are:"
+                << selectionTypeNames.sortedToc() << nl << exit(FatalError);
         }
     }
 
-    if (nFaces_ == 0)
+    if (nFaces_ == 0 && (!mesh_.stitcher().stitches() || !mesh_.conformal()))
     {
         FatalErrorInFunction
             << type() << " " << name() << ": "
-            << regionTypeNames_[regionType_] << "(" << regionName_ << "):" << nl
-            << "    Region has no faces" << exit(FatalError);
+            << selectionTypeNames[selectionType_]
+            << "(" << selectionName_.c_str() << "):" << nl
+            << " selection has no faces" << exit(FatalError);
     }
 
-    if (surfacePtr_.valid())
+    if (selectionType_ == selectionTypes::sampledSurface)
     {
         surfacePtr_().update();
     }
@@ -476,45 +525,18 @@ void Foam::functionObjects::fieldValues::surfaceFieldValue::initialise
         << "    total area   = " << totalArea_
         << nl;
 
-    if (dict.readIfPresent("weightField", weightFieldName_))
+    if (dict.readIfPresent("weightFields", weightFieldNames_))
     {
-        Info<< "    weight field = " << weightFieldName_ << nl;
-
-        if (regionType_ == regionTypes::sampledSurface)
-        {
-            FatalIOErrorInFunction(dict)
-                << "Cannot use weightField for a sampledSurface"
-                << exit(FatalIOError);
-        }
+        Info<< name() << " " << operationTypeNames_[operation_]
+            << " weight fields " << weightFieldNames_;
     }
-
-    if (dict.found("orientedWeightField"))
+    else if (dict.found("weightField"))
     {
-        if (weightFieldName_ == "none")
-        {
-            dict.lookup("orientedWeightField") >>  weightFieldName_;
-            Info<< "    weight field = " << weightFieldName_ << nl;
-            orientWeightField_ = true;
-        }
-        else
-        {
-            FatalIOErrorInFunction(dict)
-                << "Either weightField or orientedWeightField can be supplied, "
-                << "but not both"
-                << exit(FatalIOError);
-        }
-    }
+        weightFieldNames_.setSize(1);
+        dict.lookup("weightField") >> weightFieldNames_[0];
 
-    List<word> orientedFields;
-    if (dict.readIfPresent("orientedFields", orientedFields))
-    {
-        orientedFieldsStart_ = fields_.size();
-        fields_.append(orientedFields);
-    }
-
-    if (dict.readIfPresent("scaleFactor", scaleFactor_))
-    {
-        Info<< "    scale factor = " << scaleFactor_ << nl;
+        Info<< name() << " " << operationTypeNames_[operation_]
+            << " weight field " << weightFieldNames_[0];
     }
 
     Info<< nl << endl;
@@ -525,12 +547,7 @@ void Foam::functionObjects::fieldValues::surfaceFieldValue::initialise
 
         surfaceWriterPtr_.reset
         (
-            surfaceWriter::New
-            (
-                surfaceFormat,
-                dict.subOrEmptyDict("formatOptions").
-                    subOrEmptyDict(surfaceFormat)
-            ).ptr()
+            surfaceWriter::New(surfaceFormat, dict).ptr()
         );
     }
 }
@@ -543,8 +560,10 @@ void Foam::functionObjects::fieldValues::surfaceFieldValue::writeFileHeader
 {
     if (operation_ != operationType::none)
     {
-        writeCommented(file(), "Region type : ");
-        file() << regionTypeNames_[regionType_] << " " << regionName_ << endl;
+        writeCommented(file(), "Selection : ");
+        file()
+            << selectionTypeNames[selectionType_] << "("
+            << selectionName_.c_str() << ")" << endl;
         writeCommented(file(), "Faces  : ");
         file() << nFaces_ << endl;
         writeCommented(file(), "Area   : ");
@@ -568,79 +587,58 @@ void Foam::functionObjects::fieldValues::surfaceFieldValue::writeFileHeader
 }
 
 
-template<>
-Foam::scalar Foam::functionObjects::fieldValues::surfaceFieldValue::
-processValues
+bool Foam::functionObjects::fieldValues::surfaceFieldValue::processValues
 (
     const Field<scalar>& values,
+    const scalarField& signs,
+    const scalarField& weights,
     const vectorField& Sf,
-    const scalarField& weightField
+    scalar& result
 ) const
 {
     switch (operation_)
     {
-        case operationType::sumDirection:
-        {
-            vector n(dict_.lookup("direction"));
-            return sum(pos0(values*(Sf & n))*mag(values));
-        }
-        case operationType::sumDirectionBalance:
-        {
-            vector n(dict_.lookup("direction"));
-            const scalarField nv(values*(Sf & n));
-
-            return sum(pos0(nv)*mag(values) - neg(nv)*mag(values));
-        }
         default:
         {
-            // Fall through to other operations
-            return processSameTypeValues(values, Sf, weightField);
+            // Fall through to same-type operations
+            return processValuesTypeType
+            (
+                values,
+                signs,
+                weights,
+                Sf,
+                result
+            );
         }
     }
 }
 
 
-template<>
-Foam::vector Foam::functionObjects::fieldValues::surfaceFieldValue::
-processValues
+bool Foam::functionObjects::fieldValues::surfaceFieldValue::processValues
 (
     const Field<vector>& values,
+    const scalarField& signs,
+    const scalarField& weights,
     const vectorField& Sf,
-    const scalarField& weightField
+    scalar& result
 ) const
 {
     switch (operation_)
     {
-        case operationType::sumDirection:
-        {
-            vector n(dict_.lookup("direction"));
-            n /= mag(n) + rootVSmall;
-            const scalarField nv(n & values);
-
-            return sum(pos0(nv)*n*(nv));
-        }
-        case operationType::sumDirectionBalance:
-        {
-            vector n(dict_.lookup("direction"));
-            n /= mag(n) + rootVSmall;
-            const scalarField nv(n & values);
-
-            return sum(pos0(nv)*n*(nv));
-        }
         case operationType::areaNormalAverage:
         {
-            scalar result = sum(values & Sf)/sum(mag(Sf));
-            return vector(result, 0.0, 0.0);
+            result = gSum(weights*values & Sf)/gSum(mag(weights*Sf));
+            return true;
         }
         case operationType::areaNormalIntegrate:
         {
-            scalar result = sum(values & Sf);
-            return vector(result, 0.0, 0.0);
+            result = gSum(weights*values & Sf);
+            return true;
         }
         default:
         {
-            // Fall through to other operations
-            return processSameTypeValues(values, Sf, weightField);
+            // No fall through. Different types.
+            return false;
         }
     }
 }
@@ -656,20 +654,25 @@ Foam::functionObjects::fieldValues::surfaceFieldValue::surfaceFieldValue
 )
 :
     fieldValue(name, runTime, dict, typeName),
+    dict_(dict),
     surfaceWriterPtr_(nullptr),
-    regionType_(regionTypeNames_.read(dict.lookup("regionType"))),
+    selectionType_
+    (
+        selectionTypeNames.read
+        (
+            dict.lookupBackwardsCompatible({"select", "regionType"})
+        )
+    ),
+    selectionName_(string::null),
     operation_(operationTypeNames_.read(dict.lookup("operation"))),
-    weightFieldName_("none"),
-    orientWeightField_(false),
-    orientedFieldsStart_(labelMax),
-    scaleFactor_(1.0),
+    weightFieldNames_(),
     writeArea_(dict.lookupOrDefault("writeArea", false)),
     nFaces_(0),
     faceId_(),
     facePatchId_(),
     faceSign_()
 {
-    read(dict);
+    read(dict_);
 }
 
 Foam::functionObjects::fieldValues::surfaceFieldValue::surfaceFieldValue
@@ -680,20 +683,25 @@ Foam::functionObjects::fieldValues::surfaceFieldValue::surfaceFieldValue
 )
 :
     fieldValue(name, obr, dict, typeName),
+    dict_(dict),
     surfaceWriterPtr_(nullptr),
-    regionType_(regionTypeNames_.read(dict.lookup("regionType"))),
+    selectionType_
+    (
+        selectionTypeNames.read
+        (
+            dict.lookupBackwardsCompatible({"select", "regionType"})
+        )
+    ),
+    selectionName_(string::null),
     operation_(operationTypeNames_.read(dict.lookup("operation"))),
-    weightFieldName_("none"),
-    orientWeightField_(false),
-    orientedFieldsStart_(labelMax),
-    scaleFactor_(1.0),
+    weightFieldNames_(),
     writeArea_(dict.lookupOrDefault("writeArea", false)),
     nFaces_(0),
     faceId_(),
     facePatchId_(),
     faceSign_()
 {
-    read(dict);
+    read(dict_);
 }
 
 
@@ -710,6 +718,11 @@ bool Foam::functionObjects::fieldValues::surfaceFieldValue::read
     const dictionary& dict
 )
 {
+    if (dict != dict_)
+    {
+        dict_ = dict;
+    }
+
     fieldValue::read(dict);
     initialise(dict);
 
@@ -719,38 +732,134 @@ bool Foam::functionObjects::fieldValues::surfaceFieldValue::read
 
 bool Foam::functionObjects::fieldValues::surfaceFieldValue::write()
 {
-    if (operation_ != operationType::none)
+    // Look to see if any fields exist. Use the flag to suppress output later.
+    bool anyFields = false;
+    forAll(fields_, i)
+    {
+        #define validFieldType(fieldType, none)                          \
+            anyFields = anyFields || validField<fieldType>(fields_[i]);
+        FOR_ALL_FIELD_TYPES(validFieldType);
+        #undef validFieldType
+    }
+    if (!anyFields && fields_.size() > 1) // (error for 1 will happen below)
+    {
+        cannotFindObjects(fields_);
+    }
+
+    // Initialise the file, write the header, etc...
+    if (anyFields && operation_ != operationType::none)
     {
         fieldValue::write();
     }
 
-    if (surfacePtr_.valid())
+    // Update the surface
+    if (selectionType_ == selectionTypes::sampledSurface)
     {
         surfacePtr_().update();
     }
 
-    if (operation_ != operationType::none && Pstream::master())
+    // Write the time
+    if (anyFields && operation_ != operationType::none && Pstream::master())
     {
         writeTime(file());
     }
 
+    // Write the total area if necessary
     if (writeArea_)
     {
         totalArea_ = totalArea();
-        if (operation_ != operationType::none && Pstream::master())
+        if (anyFields && operation_ != operationType::none && Pstream::master())
         {
             file() << tab << totalArea_;
         }
         Log << "    total area = " << totalArea_ << endl;
     }
 
-    // Write the surface geometry
-    if (surfaceWriterPtr_.valid())
+    // Construct the sign and weight fields and the surface normals
+    const scalarField signs
+    (
+        selectionType_ == selectionTypes::sampledSurface
+      ? scalarField(surfacePtr_().Sf().size(), 1)
+      : List<scalar>(faceSign_)
+    );
+    scalarField weights(signs.size(), 1);
+    forAll(weightFieldNames_, i)
+    {
+        weights *= getFieldValues<scalar>(weightFieldNames_[i]);
+    }
+    const vectorField Sf
+    (
+        selectionType_ == selectionTypes::sampledSurface
+      ? surfacePtr_().Sf()
+      : (signs*filterField(mesh_.Sf()))()
+    );
+
+    // Create storage for the values
+    #define DeclareValues(fieldType, nullArg) \
+        PtrList<Field<fieldType>> fieldType##Values(fields_.size());
+    FOR_ALL_FIELD_TYPES(DeclareValues);
+    #undef DeclareValues
+
+    // Process the fields in turn. Get the values and store if necessary.
+    // Compute the operation and write into the file and the log.
+    forAll(fields_, i)
+    {
+        const word& fieldName = fields_[i];
+        bool ok = false;
+
+        #define writeValuesFieldType(fieldType, none)                          \
+        {                                                                      \
+            const bool typeOk = validField<fieldType>(fieldName);              \
+                                                                               \
+            if (typeOk)                                                        \
+            {                                                                  \
+                tmp<Field<fieldType>> values =                                 \
+                    getFieldValues<fieldType>(fieldName);                      \
+                                                                               \
+                writeValues<fieldType>                                         \
+                (                                                              \
+                    fieldName,                                                 \
+                    values(),                                                  \
+                    signs,                                                     \
+                    weights,                                                   \
+                    Sf                                                         \
+                );                                                             \
+                                                                               \
+                if (writeFields_)                                              \
+                {                                                              \
+                    fieldType##Values.set                                      \
+                    (                                                          \
+                        i,                                                     \
+                        getFieldValues<fieldType>(fieldName).ptr()             \
+                    );                                                         \
+                }                                                              \
+            }                                                                  \
+                                                                               \
+            ok = ok || typeOk;                                                 \
+        }
+        FOR_ALL_FIELD_TYPES(writeValuesFieldType);
+        #undef writeValuesFieldType
+
+        if (!ok)
+        {
+            cannotFindObject(fieldName);
+        }
+    }
+
+    // Finalise the file and the log
+    if (anyFields && operation_ != operationType::none && Pstream::master())
+    {
+        file() << endl;
+    }
+    Log << endl;
+
+    // Write a surface file with the values if specified
+    if (writeFields_)
     {
         faceList faces;
         pointField points;
 
-        if (surfacePtr_.valid())
+        if (selectionType_ == selectionTypes::sampledSurface)
         {
             combineSurfaceGeometry(faces, points);
         }
@@ -763,62 +872,78 @@ bool Foam::functionObjects::fieldValues::surfaceFieldValue::write()
         {
             surfaceWriterPtr_->write
             (
-                outputDir(),
-                regionTypeNames_[regionType_] + ("_" + regionName_),
+                baseFileDir()/name()/time_.name(),
+                word(selectionTypeNames[selectionType_])
+              + "("
+              + (
+                    selectionType_ == selectionTypes::patches
+                  ? selectionName_.replace(" ", ",").c_str()
+                  : selectionName_
+                )
+              + ")",
                 points,
                 faces,
+                fields_,
                 false
+                #define ValuesParameter(fieldType, nullArg) \
+                    , fieldType##Values
+                FOR_ALL_FIELD_TYPES(ValuesParameter)
+                #undef ValuesParameter
             );
         }
     }
-
-    // Construct weight field. Note: zero size means weight = 1
-    scalarField weightField;
-    if (weightFieldName_ != "none")
-    {
-        weightField =
-            getFieldValues<scalar>
-            (
-                weightFieldName_,
-                true,
-                orientWeightField_
-            );
-    }
-
-    // Combine onto master
-    combineFields(weightField);
-
-    // Process the fields
-    forAll(fields_, i)
-    {
-        const word& fieldName = fields_[i];
-        bool ok = false;
-
-        bool orient = i >= orientedFieldsStart_;
-        ok = ok || writeValues<scalar>(fieldName, weightField, orient);
-        ok = ok || writeValues<vector>(fieldName, weightField, orient);
-        ok = ok
-          || writeValues<sphericalTensor>(fieldName, weightField, orient);
-        ok = ok || writeValues<symmTensor>(fieldName, weightField, orient);
-        ok = ok || writeValues<tensor>(fieldName, weightField, orient);
-
-        if (!ok)
-        {
-            WarningInFunction
-                << "Requested field " << fieldName
-                << " not found in database and not processed"
-                << endl;
-        }
-    }
-
-    if (operation_ != operationType::none && Pstream::master())
-    {
-        file() << endl;
-    }
-
-    Log << endl;
 
     return true;
+}
+
+
+void Foam::functionObjects::fieldValues::surfaceFieldValue::movePoints
+(
+    const polyMesh& mesh
+)
+{
+    if (&mesh == &mesh_)
+    {
+        // It may be necessary to reset if the mesh moves. The total area might
+        // change, as might non-conformal faces.
+        initialise(dict_);
+    }
+}
+
+
+void Foam::functionObjects::fieldValues::surfaceFieldValue::topoChange
+(
+    const polyTopoChangeMap& map
+)
+{
+    if (&map.mesh() == &mesh_)
+    {
+        initialise(dict_);
+    }
+}
+
+
+void Foam::functionObjects::fieldValues::surfaceFieldValue::mapMesh
+(
+    const polyMeshMap& map
+)
+{
+    if (&map.mesh() == &mesh_)
+    {
+        initialise(dict_);
+    }
+}
+
+
+void Foam::functionObjects::fieldValues::surfaceFieldValue::distribute
+(
+    const polyDistributionMap& map
+)
+{
+    if (&map.mesh() == &mesh_)
+    {
+        initialise(dict_);
+    }
 }
 
 

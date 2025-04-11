@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,25 +24,24 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "rotatingPressureInletOutletVelocityFvPatchVectorField.H"
-#include "addToRunTimeSelectionTable.H"
 #include "volFields.H"
 #include "surfaceFields.H"
+#include "addToRunTimeSelectionTable.H"
 
 // * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
 
 void Foam::rotatingPressureInletOutletVelocityFvPatchVectorField::
 calcTangentialVelocity()
 {
-    const scalar t = this->db().time().timeOutputValue();
-    vector om = omega_->value(t);
+    const scalar omega = omega_.value(db().time().value());
 
-    vector axisHat = om/mag(om);
     const vectorField tangentialVelocity
     (
-        (-om) ^ (patch().Cf() - axisHat*(axisHat & patch().Cf()))
+        (-omega)*((patch().Cf() - origin_) ^ (axis_/mag(axis_)))
     );
 
     const vectorField n(patch().nf());
+
     refValue() = tangentialVelocity - n*(n & tangentialVelocity);
 }
 
@@ -53,40 +52,14 @@ Foam::rotatingPressureInletOutletVelocityFvPatchVectorField::
 rotatingPressureInletOutletVelocityFvPatchVectorField
 (
     const fvPatch& p,
-    const DimensionedField<vector, volMesh>& iF
-)
-:
-    pressureInletOutletVelocityFvPatchVectorField(p, iF),
-    omega_()
-{}
-
-
-Foam::rotatingPressureInletOutletVelocityFvPatchVectorField::
-rotatingPressureInletOutletVelocityFvPatchVectorField
-(
-    const rotatingPressureInletOutletVelocityFvPatchVectorField& ptf,
-    const fvPatch& p,
-    const DimensionedField<vector, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
-)
-:
-    pressureInletOutletVelocityFvPatchVectorField(ptf, p, iF, mapper),
-    omega_(ptf.omega_, false)
-{
-    calcTangentialVelocity();
-}
-
-
-Foam::rotatingPressureInletOutletVelocityFvPatchVectorField::
-rotatingPressureInletOutletVelocityFvPatchVectorField
-(
-    const fvPatch& p,
     const DimensionedField<vector, volMesh>& iF,
     const dictionary& dict
 )
 :
     pressureInletOutletVelocityFvPatchVectorField(p, iF, dict),
-    omega_(Function1<vector>::New("omega", dict))
+    origin_(dict.lookup<vector>("origin", dimLength)),
+    axis_(dict.lookup<vector>("axis", dimless)),
+    omega_(db().time(), dict)
 {
     calcTangentialVelocity();
 }
@@ -95,11 +68,16 @@ rotatingPressureInletOutletVelocityFvPatchVectorField
 Foam::rotatingPressureInletOutletVelocityFvPatchVectorField::
 rotatingPressureInletOutletVelocityFvPatchVectorField
 (
-    const rotatingPressureInletOutletVelocityFvPatchVectorField& rppvf
+    const rotatingPressureInletOutletVelocityFvPatchVectorField& pvf,
+    const fvPatch& p,
+    const DimensionedField<vector, volMesh>& iF,
+    const fieldMapper& mapper
 )
 :
-    pressureInletOutletVelocityFvPatchVectorField(rppvf),
-    omega_(rppvf.omega_, false)
+    pressureInletOutletVelocityFvPatchVectorField(pvf, p, iF, mapper),
+    origin_(pvf.origin_),
+    axis_(pvf.axis_),
+    omega_(pvf.omega_)
 {
     calcTangentialVelocity();
 }
@@ -108,12 +86,14 @@ rotatingPressureInletOutletVelocityFvPatchVectorField
 Foam::rotatingPressureInletOutletVelocityFvPatchVectorField::
 rotatingPressureInletOutletVelocityFvPatchVectorField
 (
-    const rotatingPressureInletOutletVelocityFvPatchVectorField& rppvf,
+    const rotatingPressureInletOutletVelocityFvPatchVectorField& pvf,
     const DimensionedField<vector, volMesh>& iF
 )
 :
-    pressureInletOutletVelocityFvPatchVectorField(rppvf, iF),
-    omega_(rppvf.omega_, false)
+    pressureInletOutletVelocityFvPatchVectorField(pvf, iF),
+    origin_(pvf.origin_),
+    axis_(pvf.axis_),
+    omega_(pvf.omega_)
 {
     calcTangentialVelocity();
 }
@@ -128,7 +108,9 @@ void Foam::rotatingPressureInletOutletVelocityFvPatchVectorField::write
 {
     fvPatchVectorField::write(os);
     writeEntry(os, "phi", phiName());
-    writeEntry(os, omega_());
+    writeEntry(os, "origin", origin_);
+    writeEntry(os, "axis", axis_);
+    writeEntry(os, omega_);
     writeEntry(os, "value", *this);
 }
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -208,10 +208,10 @@ int main(int argc, char *argv[])
         IOobject
         (
             fvMesh::defaultRegion,
-            runTime.timeName(),
+            runTime.name(),
             runTime
         ),
-        clone(mesh.points()),   // could we safely re-use the data?
+        clone(mesh.points()),   // could we safely reuse the data?
         clone(mesh.faces()),
         clone(mesh.cells())
     );
@@ -230,15 +230,15 @@ int main(int argc, char *argv[])
 
 
     // Refinement level
-    IOobject refHeader
+    typeIOobject<labelIOList> refHeader
     (
         "refinementLevel",
-        runTime.timeName(),
+        runTime.name(),
         polyMesh::defaultRegion,
         runTime
     );
 
-    if (!readLevel && refHeader.typeHeaderOk<labelIOList>(true))
+    if (!readLevel && refHeader.headerOk())
     {
         WarningInFunction
             << "Detected " << refHeader.name() << " file in "
@@ -254,7 +254,7 @@ int main(int argc, char *argv[])
         IOobject
         (
             "refinementLevel",
-            runTime.timeName(),
+            runTime.name(),
             mesh,
             IOobject::NO_READ,
             IOobject::AUTO_WRITE
@@ -273,7 +273,7 @@ int main(int argc, char *argv[])
         IOobject
         (
             "refinementLevel",
-            runTime.timeName(),
+            runTime.name(),
             mesh,
             IOobject::NO_READ,
             IOobject::NO_WRITE

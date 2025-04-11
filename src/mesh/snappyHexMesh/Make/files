@@ -1,5 +1,5 @@
 snappyHexMeshDriver/snappyLayerDriver.C
-/* snappyHexMeshDriver/snappyLayerDriverShrink.C */
+# snappyHexMeshDriver/snappyLayerDriverShrink.C
 snappyHexMeshDriver/snappySnapDriver.C
 snappyHexMeshDriver/snappySnapDriverFeature.C
 snappyHexMeshDriver/snappyRefineDriver.C
@@ -19,9 +19,14 @@ meshRefinement/patchFaceOrientation.C
 refinementFeatures/refinementFeatures.C
 refinementSurfaces/surfaceZonesInfo.C
 refinementSurfaces/refinementSurfaces.C
-shellSurfaces/shellSurfaces.C
+refinementRegions/refinementRegions.C
 trackedParticle/trackedParticle.C
-trackedParticle/trackedParticleCloud.C
+
+motionSmoother/motionSmoother.C
+motionSmoother/motionSmootherAlgo.C
+motionSmoother/motionSmootherData.C
+motionSmoother/badQualityToCell/badQualityToCell.C
+motionSmoother/badQualityToFace/badQualityToFace.C
 
 externalDisplacementMeshMover/displacementMeshMoverMotionSolver.C
 externalDisplacementMeshMover/externalDisplacementMeshMover.C

@@ -27,6 +27,7 @@ License
 #include "Time.H"
 #include "fvMesh.H"
 #include "addToRunTimeSelectionTable.H"
+#include "volFields.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -73,6 +74,12 @@ bool Foam::functionObjects::FUNCTIONOBJECT::read(const dictionary& dict)
     dict.lookup("labelData") >> labelData_;
 
     return true;
+}
+
+
+Foam::wordList Foam::functionObjects::FUNCTIONOBJECT::fields() const
+{
+    return wordList::null();
 }
 
 

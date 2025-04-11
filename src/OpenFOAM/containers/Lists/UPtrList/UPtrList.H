@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -59,7 +59,7 @@ template<class T> Ostream& operator<<(Ostream&, const UPtrList<T>&);
 
 
 /*---------------------------------------------------------------------------*\
-                           Class UPtrList Declaration
+                          Class UPtrList Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class T>
@@ -74,7 +74,7 @@ public:
 
     // Related types
 
-        //- Declare friendship with the UPtrList class
+        //- Declare friendship with the PtrList class
         friend class PtrList<T>;
 
 
@@ -86,8 +86,11 @@ public:
         //- Construct with size specified
         explicit UPtrList(const label);
 
-        //- Construct as copy or re-use as specified
+        //- Construct as copy or reuse as specified
         UPtrList(UPtrList<T>&, bool reuse);
+
+        //- Construct from an initialiser list of pointers
+        UPtrList(std::initializer_list<T*>);
 
 
     // Member Functions
@@ -128,6 +131,9 @@ public:
             //- Clear the UPtrList, i.e. set size to zero
             void clear();
 
+            //- Append an element at the end of the list
+            inline void append(T*);
+
             //- Transfer the contents of the argument UPtrList into this
             //  UPtrList and annul the argument list
             void transfer(UPtrList<T>&);
@@ -150,6 +156,17 @@ public:
             void shuffle(const labelUList& newToOld);
 
 
+        // Conversion
+
+            //- Convert to list of different pointer type
+            template<class T2>
+            UPtrList<T2> convert();
+
+            //- Convert to list of different pointer type
+            template<class T2>
+            UPtrList<const T2> convert() const;
+
+
     // Member Operators
 
         //- Return element const reference
@@ -160,6 +177,9 @@ public:
 
         //- Return element const pointer
         inline const T* operator()(const label) const;
+
+        //- Return element const pointer
+        inline T* operator()(const label);
 
 
     // STL type definitions

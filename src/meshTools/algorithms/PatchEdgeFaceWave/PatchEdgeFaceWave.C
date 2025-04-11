@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -45,14 +45,13 @@ template
     class Type,
     class TrackingData
 >
-Foam::label
-Foam::PatchEdgeFaceWave<PrimitivePatchType, Type, TrackingData>::
-dummyTrackData_ = 12345;
+int Foam::PatchEdgeFaceWave<PrimitivePatchType, Type, TrackingData>::
+defaultTrackingData_ = -1;
 
 
 // * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
 
-// Update info for edgeI, at position pt, with information from
+// Update info for edgei, at position pt, with information from
 // neighbouring face.
 // Updates:
 //      - changedEdge_, changedEdges_,
@@ -66,7 +65,7 @@ template
 bool Foam::PatchEdgeFaceWave<PrimitivePatchType, Type, TrackingData>::
 updateEdge
 (
-    const label edgeI,
+    const label edgei,
     const label neighbourFacei,
     const Type& neighbourInfo,
     Type& edgeInfo
@@ -81,7 +80,7 @@ updateEdge
         (
             mesh_,
             patch_,
-            edgeI,
+            edgei,
             neighbourFacei,
             neighbourInfo,
             propagationTol_,
@@ -90,10 +89,10 @@ updateEdge
 
     if (propagate)
     {
-        if (!changedEdge_[edgeI])
+        if (!changedEdge_[edgei])
         {
-            changedEdge_[edgeI] = true;
-            changedEdges_.append(edgeI);
+            changedEdge_[edgei] = true;
+            changedEdges_.append(edgei);
         }
     }
 
@@ -170,7 +169,7 @@ void Foam::PatchEdgeFaceWave<PrimitivePatchType, Type, TrackingData>::
 syncEdges()
 {
     const globalMeshData& globalData = mesh_.globalData();
-    const mapDistribute& map = globalData.globalEdgeSlavesMap();
+    const distributionMap& map = globalData.globalEdgeSlavesMap();
     const PackedBoolList& cppOrientation = globalData.globalEdgeOrientation();
 
     // Convert patch-edge data into cpp-edge data
@@ -456,25 +455,25 @@ setEdgeInfo
 {
     forAll(changedEdges, changedEdgeI)
     {
-        label edgeI = changedEdges[changedEdgeI];
+        label edgei = changedEdges[changedEdgeI];
 
-        bool wasValid = allEdgeInfo_[edgeI].valid(td_);
+        bool wasValid = allEdgeInfo_[edgei].valid(td_);
 
-        // Copy info for edgeI
-        allEdgeInfo_[edgeI] = changedEdgesInfo[changedEdgeI];
+        // Copy info for edgei
+        allEdgeInfo_[edgei] = changedEdgesInfo[changedEdgeI];
 
         // Maintain count of unset edges
-        if (!wasValid && allEdgeInfo_[edgeI].valid(td_))
+        if (!wasValid && allEdgeInfo_[edgei].valid(td_))
         {
             --nUnvisitedEdges_;
         }
 
-        // Mark edgeI as changed, both on list and on edge itself.
+        // Mark edgei as changed, both on list and on edge itself.
 
-        if (!changedEdge_[edgeI])
+        if (!changedEdge_[edgei])
         {
-            changedEdge_[edgeI] = true;
-            changedEdges_.append(edgeI);
+            changedEdge_[edgei] = true;
+            changedEdges_.append(edgei);
         }
     }
 }
@@ -513,15 +512,15 @@ faceToEdge()
 
         forAll(fEdges, fEdgeI)
         {
-            label edgeI = fEdges[fEdgeI];
+            label edgei = fEdges[fEdgeI];
 
-            Type& currentWallInfo = allEdgeInfo_[edgeI];
+            Type& currentWallInfo = allEdgeInfo_[edgei];
 
             if (!currentWallInfo.equal(neighbourWallInfo, td_))
             {
                 updateEdge
                 (
-                    edgeI,
+                    edgei,
                     facei,
                     neighbourWallInfo,
                     currentWallInfo
@@ -560,22 +559,22 @@ edgeToFace()
 
     forAll(changedEdges_, changedEdgeI)
     {
-        label edgeI = changedEdges_[changedEdgeI];
+        label edgei = changedEdges_[changedEdgeI];
 
-        if (!changedEdge_[edgeI])
+        if (!changedEdge_[edgei])
         {
             FatalErrorInFunction
-                << "edge " << edgeI
+                << "edge " << edgei
                 << " not marked as having been changed" << nl
                 << "This might be caused by multiple occurrences of the same"
                 << " seed edge." << abort(FatalError);
         }
 
-        const Type& neighbourWallInfo = allEdgeInfo_[edgeI];
+        const Type& neighbourWallInfo = allEdgeInfo_[edgei];
 
         // Evaluate all connected faces
 
-        const labelList& eFaces = edgeFaces[edgeI];
+        const labelList& eFaces = edgeFaces[edgei];
         forAll(eFaces, eFacei)
         {
             label facei = eFaces[eFacei];
@@ -587,7 +586,7 @@ edgeToFace()
                 updateFace
                 (
                     facei,
-                    edgeI,
+                    edgei,
                     neighbourWallInfo,
                     currentWallInfo
                 );

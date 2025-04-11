@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -82,7 +82,7 @@ namespace functionObjects
 {
 
 /*---------------------------------------------------------------------------*\
-                     Class writeLocalObjects Declaration
+                      Class writeLocalObjects Declaration
 \*---------------------------------------------------------------------------*/
 
 class writeLocalObjects
@@ -118,7 +118,7 @@ public:
         writeLocalObjects
         (
             const objectRegistry& obr,
-            const Switch& logRef
+            const Switch& logRef = logFalse
         );
 
         //- Disallow default bitwise copy construction

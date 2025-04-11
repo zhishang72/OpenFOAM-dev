@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -43,15 +43,13 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                         Class pointSet Declaration
+                          Class pointSet Declaration
 \*---------------------------------------------------------------------------*/
 
 class pointSet
 :
     public topoSet
 {
-
-
 public:
 
     //- Runtime type information
@@ -59,7 +57,6 @@ public:
 
 
     // Constructors
-
 
         //- Construct from IOobject
         pointSet(const IOobject& obj);
@@ -114,10 +111,10 @@ public:
         virtual label maxSize(const polyMesh& mesh) const;
 
         //- Update any stored data for new labels
-        virtual void updateMesh(const mapPolyMesh& morphMap);
+        virtual void topoChange(const polyTopoChangeMap& map);
 
         //- Update any stored data for new labels
-        // virtual void updateMesh(const polyTopoChange& meshMod);
+        // virtual void topoChange(const polyTopoChange& meshMod);
 
         //- Write maxLen items with label and coordinates.
         virtual void writeDebug
@@ -126,7 +123,6 @@ public:
             const primitiveMesh&,
             const label maxLen
         ) const;
-
 };
 
 

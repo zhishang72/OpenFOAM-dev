@@ -1,12 +1,12 @@
-IOobject ioPoints
+typeIOobject<pointIOField> ioPoints
 (
     "points",
-    runTime.timeName(),
+    runTime.name(),
     mesh.name(),
     mesh
 );
 
-if (ioPoints.typeHeaderOk<pointIOField>(true))
+if (ioPoints.headerOk())
 {
     Info<< "new points available" << endl;
     // Reading new points
@@ -15,7 +15,7 @@ if (ioPoints.typeHeaderOk<pointIOField>(true))
         IOobject
         (
             "points",
-            runTime.timeName(),
+            runTime.name(),
             mesh.name(),
             mesh,
             IOobject::MUST_READ,
@@ -23,5 +23,5 @@ if (ioPoints.typeHeaderOk<pointIOField>(true))
         )
     );
 
-    mesh.movePoints(newPoints);
+    mesh.setPoints(newPoints);
 }

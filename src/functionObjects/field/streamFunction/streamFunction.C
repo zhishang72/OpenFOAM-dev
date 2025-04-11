@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -416,10 +416,14 @@ bool Foam::functionObjects::streamFunction::calc()
         const surfaceScalarField& phi =
             mesh_.lookupObject<surfaceScalarField>(fieldName_);
 
-        return store(resultName_, calc(phi));
+        store(resultName_, calc(phi));
+
+        return true;
     }
     else
     {
+        cannotFindObject<surfaceScalarField>(fieldName_);
+
         return false;
     }
 }

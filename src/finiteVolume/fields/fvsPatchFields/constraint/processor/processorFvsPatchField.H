@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -57,6 +57,9 @@ class processorFvsPatchField
         //- Local reference cast into the processor patch
         const processorFvPatch& procPatch_;
 
+        //- Receive buffer for non-blocking communication
+        mutable Field<Type> receiveBuf_;
+
 
 public:
 
@@ -95,20 +98,11 @@ public:
             const processorFvsPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, surfaceMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
-        processorFvsPatchField(const processorFvsPatchField<Type>&);
-
-        //- Construct and return a clone
-        virtual tmp<fvsPatchField<Type>> clone() const
-        {
-            return tmp<fvsPatchField<Type>>
-            (
-                new processorFvsPatchField<Type>(*this)
-            );
-        }
+        //- Disallow copy without setting internal field reference
+        processorFvsPatchField(const processorFvsPatchField<Type>&) = delete;
 
         //- Copy constructor setting internal field reference
         processorFvsPatchField
@@ -126,6 +120,20 @@ public:
             return tmp<fvsPatchField<Type>>
             (
                 new processorFvsPatchField<Type>(*this, iF)
+            );
+        }
+
+        //- Construct and return a clone onto a new patch
+        //  setting internal field reference
+        virtual tmp<fvsPatchField<Type>> clone
+        (
+            const fvPatch& patch,
+            const DimensionedField<Type, surfaceMesh>& iF
+        ) const
+        {
+            return tmp<fvsPatchField<Type>>
+            (
+                new processorFvsPatchField<Type>(patch, iF, *this)
             );
         }
 
@@ -150,6 +158,22 @@ public:
                     return false;
                 }
             }
+
+
+        // Evaluation functions
+
+            //- Initialise return of the patchField on the opposite patch of a
+            //  coupled patch
+            virtual void initPatchNeighbourField
+            (
+                const Pstream::commsTypes commsType
+            ) const;
+
+            //- Return patchField on the opposite patch of a coupled patch
+            virtual tmp<Field<Type>> patchNeighbourField
+            (
+                const Pstream::commsTypes commsType
+            ) const;
 };
 
 

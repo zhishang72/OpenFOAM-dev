@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -30,17 +30,18 @@ Description
 \*---------------------------------------------------------------------------*/
 
 #include "argList.H"
+#include "timeSelector.H"
 #include "fvMesh.H"
 #include "volFields.H"
 #include "Time.H"
 #include "OFstream.H"
 #include "meshTools.H"
 #include "removeFaces.H"
-#include "mapPolyMesh.H"
+#include "polyTopoChangeMap.H"
 #include "polyTopoChange.H"
 #include "fvcDiv.H"
 #include "zeroGradientFvPatchFields.H"
-#include "Random.H"
+#include "randomGenerator.H"
 
 using namespace Foam;
 
@@ -56,28 +57,13 @@ bool notEqual(const scalar s1, const scalar s2, const scalar tol)
 
 int main(int argc, char *argv[])
 {
-    #include "addTimeOptions.H"
-    argList::validArgs.append("inflate (true|false)");
+    timeSelector::addOptions();
     #include "setRootCase.H"
     #include "createTime.H"
+    timeSelector::select0(runTime, args);
     #include "createMesh.H"
 
-    const Switch inflate(args.args()[1]);
-
-    if (inflate)
-    {
-        Info<< "Deleting cells using inflation/deflation" << nl << endl;
-    }
-    else
-    {
-        Info<< "Deleting cells, introducing points at new position" << nl
-            << endl;
-    }
-
-
-    Random rndGen(0);
-
-
+    randomGenerator rndGen(0);
 
     // Test mapping
     // ------------
@@ -90,7 +76,7 @@ int main(int argc, char *argv[])
         IOobject
         (
             "one",
-            runTime.timeName(),
+            runTime.name(),
             mesh,
             IOobject::NO_READ,
             IOobject::AUTO_WRITE
@@ -100,7 +86,7 @@ int main(int argc, char *argv[])
         zeroGradientFvPatchScalarField::typeName
     );
     Info<< "Writing one field "
-        << one.name() << " in " << runTime.timeName() << endl;
+        << one.name() << " in " << runTime.name() << endl;
     one.write();
 
 
@@ -110,7 +96,7 @@ int main(int argc, char *argv[])
         IOobject
         (
             "ccX",
-            runTime.timeName(),
+            runTime.name(),
             mesh,
             IOobject::NO_READ,
             IOobject::AUTO_WRITE
@@ -119,7 +105,7 @@ int main(int argc, char *argv[])
     );
     Info<< "Writing x component of cell centres to "
         << ccX.name()
-        << " in " << runTime.timeName() << endl;
+        << " in " << runTime.name() << endl;
     ccX.write();
 
 
@@ -129,7 +115,7 @@ int main(int argc, char *argv[])
         IOobject
         (
             "surfaceOne",
-            runTime.timeName(),
+            runTime.name(),
             mesh,
             IOobject::NO_READ,
             IOobject::AUTO_WRITE
@@ -139,7 +125,7 @@ int main(int argc, char *argv[])
         calculatedFvsPatchScalarField::typeName
     );
     Info<< "Writing surface one field "
-        << surfaceOne.name() << " in " << runTime.timeName() << endl;
+        << surfaceOne.name() << " in " << runTime.name() << endl;
     surfaceOne.write();
 
 
@@ -155,7 +141,7 @@ int main(int argc, char *argv[])
 
     while (runTime.loop())
     {
-        Info<< "Time = " << runTime.timeName() << nl << endl;
+        Info<< "Time = " << runTime.userTimeName() << nl << endl;
 
         if (!mesh.nInternalFaces())
         {
@@ -195,27 +181,18 @@ int main(int argc, char *argv[])
             meshMod
         );
 
-        // Change mesh and inflate
+        // Change mesh
         Info<< "Actually changing mesh" << nl << endl;
-        autoPtr<mapPolyMesh> morphMap = meshMod.changeMesh(mesh, inflate);
+        autoPtr<polyTopoChangeMap> map = meshMod.changeMesh(mesh);
 
         Info<< "Mapping fields" << nl << endl;
-        mesh.updateMesh(morphMap);
-
-        // Move mesh (since morphing does not do this)
-        if (morphMap().hasMotionPoints())
-        {
-            Info<< "Moving mesh" << nl << endl;
-            mesh.movePoints(morphMap().preMotionPoints());
-        }
+        mesh.topoChange(map);
 
         // Update numbering of cells/vertices.
-        faceRemover.updateMesh(morphMap);
-
+        faceRemover.topoChange(map);
 
         Info<< "Writing fields" << nl << endl;
         runTime.write();
-
 
         // Check mesh volume conservation
         if (mesh.moving())

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ License
 
 #include "waveSurfacePressureFvPatchScalarField.H"
 #include "addToRunTimeSelectionTable.H"
-#include "fvPatchFieldMapper.H"
+#include "fieldMapper.H"
 #include "volFields.H"
 #include "surfaceFields.H"
 #include "uniformDimensionedFields.H"
@@ -64,20 +64,6 @@ Foam::waveSurfacePressureFvPatchScalarField::
 waveSurfacePressureFvPatchScalarField
 (
     const fvPatch& p,
-    const DimensionedField<scalar, volMesh>& iF
-)
-:
-    fixedValueFvPatchScalarField(p, iF),
-    phiName_("phi"),
-    zetaName_("zeta"),
-    rhoName_("rho")
-{}
-
-
-Foam::waveSurfacePressureFvPatchScalarField::
-waveSurfacePressureFvPatchScalarField
-(
-    const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF,
     const dictionary& dict
 )
@@ -86,7 +72,31 @@ waveSurfacePressureFvPatchScalarField
     phiName_(dict.lookupOrDefault<word>("phi", "phi")),
     zetaName_(dict.lookupOrDefault<word>("zeta", "zeta")),
     rhoName_(dict.lookupOrDefault<word>("rho", "rho"))
-{}
+{
+    if (!db().foundObject<volVectorField>(zetaName_))
+    {
+        Info << "Creating field " << zetaName_ << endl;
+
+        tmp<volVectorField> tzeta
+        (
+            new volVectorField
+            (
+                IOobject
+                (
+                    "zeta",
+                    db().time().name(),
+                    db(),
+                    IOobject::READ_IF_PRESENT,
+                    IOobject::AUTO_WRITE
+                ),
+                patch().boundaryMesh().mesh(),
+                dimensionedVector(dimLength, Zero)
+            )
+        );
+
+        regIOobject::store(tzeta.ptr());
+    }
+}
 
 
 Foam::waveSurfacePressureFvPatchScalarField::
@@ -95,26 +105,13 @@ waveSurfacePressureFvPatchScalarField
     const waveSurfacePressureFvPatchScalarField& ptf,
     const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     fixedValueFvPatchScalarField(ptf, p, iF, mapper),
     phiName_(ptf.phiName_),
     zetaName_(ptf.zetaName_),
     rhoName_(ptf.rhoName_)
-{}
-
-
-Foam::waveSurfacePressureFvPatchScalarField::
-waveSurfacePressureFvPatchScalarField
-(
-    const waveSurfacePressureFvPatchScalarField& wspsf
-)
-:
-    fixedValueFvPatchScalarField(wspsf),
-    phiName_(wspsf.phiName_),
-    zetaName_(wspsf.zetaName_),
-    rhoName_(wspsf.rhoName_)
 {}
 
 
@@ -141,21 +138,25 @@ void Foam::waveSurfacePressureFvPatchScalarField::updateCoeffs()
         return;
     }
 
+    // Retrieve non-const access to zeta field from the database
+    volVectorField& zeta = db().lookupObjectRef<volVectorField>(zetaName_);
+
     const label patchi = patch().index();
 
     const scalar dt = db().time().deltaTValue();
 
-    // Retrieve non-const access to zeta field from the database
-    volVectorField& zeta = db().lookupObjectRef<volVectorField>(zetaName_);
     vectorField& zetap = zeta.boundaryFieldRef()[patchi];
 
     // Lookup d/dt scheme from database for zeta
-    const word ddtSchemeName(zeta.mesh().ddtScheme(zeta.name()));
+    const word ddtSchemeName(zeta.mesh().schemes().ddt(zeta.name()));
     ddtSchemeType ddtScheme(ddtSchemeTypeNames_[ddtSchemeName]);
 
     // Retrieve the flux field from the database
     const surfaceScalarField& phi =
         db().lookupObject<surfaceScalarField>(phiName_);
+
+    const scalarField& rhop =
+        patch().lookupPatchField<volScalarField, scalar>(rhoName_);
 
     // Cache the patch face-normal vectors
     tmp<vectorField> nf(patch().nf());
@@ -163,11 +164,8 @@ void Foam::waveSurfacePressureFvPatchScalarField::updateCoeffs()
     // Change in zeta due to flux
     vectorField dZetap(dt*nf()*phi.boundaryField()[patchi]/patch().magSf());
 
-    if (phi.dimensions() == dimDensity*dimVelocity*dimArea)
+    if (phi.dimensions() == dimMassFlux)
     {
-        const scalarField& rhop =
-            patch().lookupPatchField<volScalarField, scalar>(rhoName_);
-
         dZetap /= rhop;
     }
 
@@ -210,15 +208,14 @@ void Foam::waveSurfacePressureFvPatchScalarField::updateCoeffs()
         }
     }
 
-
-    Info<< "min/max zetap = " << gMin(zetap & nf()) << ", "
-        << gMax(zetap & nf()) << endl;
-
     // Update the surface pressure
     const uniformDimensionedVectorField& g =
         db().lookupObject<uniformDimensionedVectorField>("g");
 
-    operator==(-g.value() & zetap);
+    const uniformDimensionedScalarField& pRef =
+        this->db().template lookupObject<uniformDimensionedScalarField>("pRef");
+
+    operator==(pRef.value() - rhop*(g.value() & zetap));
 
     fixedValueFvPatchScalarField::updateCoeffs();
 }

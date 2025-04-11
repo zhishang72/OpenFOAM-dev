@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,10 +24,11 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "calcEntry.H"
-#include "addToMemberFunctionSelectionTable.H"
+#include "calcIncludeEntry.H"
 #include "dictionary.H"
 #include "dynamicCode.H"
 #include "codeStream.H"
+#include "addToMemberFunctionSelectionTable.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -52,7 +53,6 @@ namespace functionEntries
         execute,
         primitiveEntryIstream
     );
-
 }
 }
 
@@ -61,39 +61,59 @@ namespace functionEntries
 
 Foam::string Foam::functionEntries::calcEntry::calc
 (
-    const dictionary& parentDict,
+    const dictionary& dict,
     Istream& is
 )
 {
-    Info<< "Using #calcEntry at line " << is.lineNumber()
-        << " in file " <<  parentDict.name() << endl;
+    Info<< "Expanding #calc at line " << is.lineNumber()
+        << " in file " <<  dict.name() << endl;
 
     dynamicCode::checkSecurity
     (
         "functionEntries::calcEntry::execute(..)",
-        parentDict
+        dict
     );
 
-    // Read string
-    string s(is);
-    // Make sure we stop this entry
-    // is.putBack(token(token::END_STATEMENT, is.lineNumber()));
-
     // Construct codeDict for codeStream
-    // must reference parent for stringOps::expand to work nicely.
-    dictionary codeSubDict;
-    codeSubDict.add("code", "os << (" + s + ");");
-    dictionary codeDict(parentDict, codeSubDict);
+    // Parent dictionary provided for string expansion and variable substitution
+    dictionary codeDict(dict, dictionary());
+
+    // Read the code expression string delimited by either '"..."' or '#{...#}'
+    token t(is);
+
+    if (t.isVerbatimString())
+    {
+        const verbatimString& s = t.verbatimStringToken();
+
+        calcIncludeEntry::codeInclude(codeDict);
+        codeDict.add("code", s);
+    }
+    else if (t.isString())
+    {
+        const string& s = t.stringToken();
+
+        calcIncludeEntry::codeInclude(codeDict);
+        codeDict.add("code", "os << (" + s + ");");
+    }
+    else
+    {
+        FatalIOErrorInFunction(is)
+            << "Wrong string type for #calc" << nl
+            << "    Expected either a string delimited by '\"...\"' "
+               "or a verbatim string delimited by '#{...#}' " << nl
+            << "    found token " << t
+            << exit(FatalIOError);
+    }
 
     codeStream::streamingFunctionType function = codeStream::getFunction
     (
-        parentDict,
+        dict,
         codeDict
     );
 
     // Use function to write stream
     OStringStream os(is.format());
-    (*function)(os, parentDict);
+    (*function)(os, dict);
 
     // Return the string containing the results of the calculation
     return os.str();
@@ -104,22 +124,22 @@ Foam::string Foam::functionEntries::calcEntry::calc
 
 bool Foam::functionEntries::calcEntry::execute
 (
-    dictionary& parentDict,
+    dictionary& dict,
     Istream& is
 )
 {
-    return insert(parentDict, calc(parentDict, is));
+    return insert(dict, calc(dict, is));
 }
 
 
 bool Foam::functionEntries::calcEntry::execute
 (
-    const dictionary& parentDict,
+    const dictionary& dict,
     primitiveEntry& thisEntry,
     Istream& is
 )
 {
-    return insert(parentDict, thisEntry, calc(parentDict, is));
+    return insert(dict, thisEntry, calc(dict, is));
 }
 
 

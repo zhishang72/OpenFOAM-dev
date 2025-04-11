@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -94,24 +94,12 @@ public:
             const calculatedFvPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, volMesh>&,
-            const fvPatchFieldMapper&,
+            const fieldMapper&,
             const bool mappingRequired=true
         );
 
-        //- Copy constructor
-        calculatedFvPatchField
-        (
-            const calculatedFvPatchField<Type>&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchField<Type>> clone() const
-        {
-            return tmp<fvPatchField<Type>>
-            (
-                new calculatedFvPatchField<Type>(*this)
-            );
-        }
+        //- Disallow copy without setting internal field reference
+        calculatedFvPatchField(const calculatedFvPatchField<Type>&) = delete;
 
         //- Copy constructor setting internal field reference
         calculatedFvPatchField
@@ -135,15 +123,10 @@ public:
 
     // Member Functions
 
-        // Attributes
+        // Mapping functions
 
-            //- Return true if this patch field fixes a value.
-            //  Needed to check if a level has to be specified while solving
-            //  Poissons equations.
-            virtual bool fixesValue() const
-            {
-                return true;
-            }
+            //- Map the given fvPatchField onto this fvPatchField
+            virtual void map(const fvPatchField<Type>&, const fieldMapper&);
 
 
         // Evaluation functions

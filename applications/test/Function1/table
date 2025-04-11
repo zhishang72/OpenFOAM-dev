@@ -1,4 +1,6 @@
-function table
+function table;
+
+values
 (
     (0 0.1)
     (0.4 0.31)
@@ -7,9 +9,8 @@ function table
     (1.6 0.95)
     (2 1)
 );
-
 outOfBounds repeat;
 
 x0 -0.5;
 x1 2.5;
-nX 50;
+nX 51;

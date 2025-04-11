@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -45,7 +45,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class processorFvPatch Declaration
+                      Class processorFvPatch Declaration
 \*---------------------------------------------------------------------------*/
 
 class processorFvPatch
@@ -55,15 +55,8 @@ class processorFvPatch
 {
     // Private Data
 
+        //- Reference to the processor polyPatch
         const processorPolyPatch& procPolyPatch_;
-
-
-protected:
-
-    // Protected Member functions
-
-        //- Make patch weighting factors
-        void makeWeights(scalarField&) const;
 
 
 public:
@@ -121,28 +114,14 @@ public:
             }
         }
 
-        const processorPolyPatch& procPolyPatch() const
+        //- Return transformation between the coupled patches
+        virtual const transformer& transform() const
         {
-            return procPolyPatch_;
+            return procPolyPatch_.transform();
         }
 
-        //- Are the cyclic planes parallel
-        virtual bool parallel() const
-        {
-            return procPolyPatch_.parallel();
-        }
-
-        //- Return face transformation tensor
-        virtual const tensorField& forwardT() const
-        {
-            return procPolyPatch_.forwardT();
-        }
-
-        //- Return neighbour-cell transformation tensor.
-        virtual const tensorField& reverseT() const
-        {
-            return procPolyPatch_.reverseT();
-        }
+        //- Make patch weighting factors
+        virtual void makeWeights(scalarField& w) const;
 
         //- Return delta (P to N) vectors across coupled patch
         virtual tmp<vectorField> delta() const;

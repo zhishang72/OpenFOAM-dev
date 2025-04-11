@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -22,6 +22,8 @@ License
     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
 
 \*---------------------------------------------------------------------------*/
+
+#include "LindemannFallOffFunction.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
@@ -52,7 +54,6 @@ inline Foam::scalar Foam::LindemannFallOffFunction::ddT
 (
     const scalar,
     const scalar,
-    const scalar,
     const scalar
 ) const
 {
@@ -60,9 +61,8 @@ inline Foam::scalar Foam::LindemannFallOffFunction::ddT
 }
 
 
-inline Foam::scalar Foam::LindemannFallOffFunction::ddc
+inline Foam::scalar Foam::LindemannFallOffFunction::ddPr
 (
-    const scalar,
     const scalar,
     const scalar,
     const scalar

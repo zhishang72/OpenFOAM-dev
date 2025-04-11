@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -29,7 +29,7 @@ License
 #include "addToRunTimeSelectionTable.H"
 #include "OFstream.H"
 #include "meshTools.H"
-#include "mapPolyMesh.H"
+#include "polyTopoChangeMap.H"
 #include "volPointInterpolation.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
@@ -51,18 +51,19 @@ namespace Foam
 
 Foam::displacementLaplacianFvMotionSolver::displacementLaplacianFvMotionSolver
 (
+    const word& name,
     const polyMesh& mesh,
     const dictionary& dict
 )
 :
-    displacementMotionSolver(mesh, dict, typeName),
+    displacementMotionSolver(name, mesh, dict, typeName),
     fvMotionSolver(mesh),
     cellDisplacement_
     (
         IOobject
         (
             "cellDisplacement",
-            mesh.time().timeName(),
+            mesh.time().name(),
             mesh,
             IOobject::READ_IF_PRESENT,
             IOobject::AUTO_WRITE
@@ -77,21 +78,22 @@ Foam::displacementLaplacianFvMotionSolver::displacementLaplacianFvMotionSolver
         cellMotionBoundaryTypes<vector>(pointDisplacement_.boundaryField())
     ),
     pointLocation_(nullptr),
+    diffusivityType_(dict.lookup("diffusivity")),
     diffusivityPtr_
     (
-        motionDiffusivity::New(fvMesh_, coeffDict().lookup("diffusivity"))
+        motionDiffusivity::New(fvMesh_, diffusivityType_)
     ),
     frozenPointsZone_
     (
-        coeffDict().found("frozenPointsZone")
-      ? fvMesh_.pointZones().findZoneID(coeffDict().lookup("frozenPointsZone"))
+        dict.found("frozenPointsZone")
+      ? fvMesh_.pointZones().findIndex(dict.lookup("frozenPointsZone"))
       : -1
     )
 {
-    IOobject io
+    typeIOobject<pointVectorField> io
     (
         "pointLocation",
-        fvMesh_.time().timeName(),
+        fvMesh_.time().name(),
         fvMesh_,
         IOobject::MUST_READ,
         IOobject::AUTO_WRITE
@@ -104,8 +106,7 @@ Foam::displacementLaplacianFvMotionSolver::displacementLaplacianFvMotionSolver
             << "    frozenPoints zone : " << frozenPointsZone_ << endl;
     }
 
-
-    if (io.typeHeaderOk<pointVectorField>(true))
+    if (io.headerOk())
     {
         pointLocation_.reset
         (
@@ -144,10 +145,11 @@ Foam::displacementLaplacianFvMotionSolver::diffusivity()
 {
     if (!diffusivityPtr_.valid())
     {
+        diffusivityType_.rewind();
         diffusivityPtr_ = motionDiffusivity::New
         (
             fvMesh_,
-            coeffDict().lookup("diffusivity")
+            diffusivityType_
         );
     }
     return diffusivityPtr_();
@@ -241,15 +243,22 @@ void Foam::displacementLaplacianFvMotionSolver::solve()
 }
 
 
-void Foam::displacementLaplacianFvMotionSolver::updateMesh
+void Foam::displacementLaplacianFvMotionSolver::topoChange
 (
-    const mapPolyMesh& mpm
+    const polyTopoChangeMap& map
 )
 {
-    displacementMotionSolver::updateMesh(mpm);
+    displacementMotionSolver::topoChange(map);
+    diffusivityPtr_.clear();
+}
 
-    // Update diffusivity. Note two stage to make sure old one is de-registered
-    // before creating/registering new one.
+
+void Foam::displacementLaplacianFvMotionSolver::mapMesh
+(
+    const polyMeshMap& map
+)
+{
+    displacementMotionSolver::mapMesh(map);
     diffusivityPtr_.clear();
 }
 

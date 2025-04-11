@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -52,10 +52,9 @@ namespace combustionModels
                             Class PaSR Declaration
 \*---------------------------------------------------------------------------*/
 
-template<class ReactionThermo>
 class PaSR
 :
-    public laminar<ReactionThermo>
+    public laminar
 {
     // Private Data
 
@@ -78,13 +77,13 @@ public:
         PaSR
         (
             const word& modelType,
-            const ReactionThermo& thermo,
-            const compressibleTurbulenceModel& turb,
+            const fluidMulticomponentThermo& thermo,
+            const compressibleMomentumTransportModel& turb,
             const word& combustionProperties
         );
 
         //- Disallow default bitwise copy construction
-        PaSR(const PaSR&);
+        PaSR(const PaSR&) = delete;
 
 
     //- Destructor
@@ -96,7 +95,10 @@ public:
         //- Correct combustion rate
         virtual void correct();
 
-        //- Fuel consumption rate matrix.
+        //- Specie consumption rate field
+        virtual tmp<volScalarField::Internal> R(const label speciei) const;
+
+        //- Specie consumption rate matrix
         virtual tmp<fvScalarMatrix> R(volScalarField& Y) const;
 
         //- Heat release rate [kg/m/s^3]
@@ -117,12 +119,6 @@ public:
 
 } // End namespace combustionModels
 } // End namespace Foam
-
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-#ifdef NoRepository
-    #include "PaSR.C"
-#endif
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

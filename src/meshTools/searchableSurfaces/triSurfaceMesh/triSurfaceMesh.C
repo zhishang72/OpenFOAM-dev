@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,7 +24,7 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "triSurfaceMesh.H"
-#include "Random.H"
+#include "randomGenerator.H"
 #include "addToRunTimeSelectionTable.H"
 #include "EdgeMap.H"
 #include "triSurfaceFields.H"
@@ -47,16 +47,12 @@ Foam::fileName Foam::triSurfaceMesh::checkFile
     const bool isGlobal
 )
 {
-    const fileName fName
-    (
-        isGlobal
-      ? io.globalFilePath(typeName)
-      : io.localFilePath(typeName)
-    );
+    const fileName fName(io.filePath(isGlobal));
+
     if (fName.empty())
     {
         FatalErrorInFunction
-            << "Cannot find triSurfaceMesh starting from "
+            << "Cannot find triSurfaceMesh file starting from "
             << io.objectPath() << exit(FatalError);
     }
 
@@ -79,12 +75,7 @@ Foam::fileName Foam::triSurfaceMesh::relativeFilePath
         // - local to the cwd?
         // - local to the case dir?
         // - or just another name?
-        fName = fileHandler().filePath
-        (
-            isGlobal,
-            IOobject(io, fName),
-            word::null
-        );
+        fName = fileHandler().filePath(isGlobal, IOobject(io, fName));
     }
     return fName;
 }
@@ -106,23 +97,18 @@ Foam::fileName Foam::triSurfaceMesh::checkFile
         if (!exists(fName))
         {
             FatalErrorInFunction
-                << "Cannot find triSurfaceMesh at " << io.path(dictFName)
+                << "Cannot find triSurfaceMesh file " << io.path()/dictFName
                 << exit(FatalError);
         }
     }
     else
     {
-        fName =
-        (
-            isGlobal
-          ? io.globalFilePath(typeName)
-          : io.localFilePath(typeName)
-        );
+        fName = io.filePath(isGlobal);
 
         if (!exists(fName))
         {
             FatalErrorInFunction
-                << "Cannot find triSurfaceMesh starting from "
+                << "Cannot find triSurfaceMesh file starting from "
                 << io.objectPath() << exit(FatalError);
         }
     }
@@ -315,20 +301,18 @@ Foam::triSurfaceMesh::triSurfaceMesh
         checkFile(static_cast<const searchableSurface&>(*this), dict, true)
     ),
     triSurfaceRegionSearch(static_cast<const triSurface&>(*this), dict),
+    fName_
+    (
+        relativeFilePath
+        (
+            static_cast<const searchableSurface&>(*this),
+            dict.lookup("file", false, false),
+            true
+        )
+    ),
     minQuality_(-1),
     surfaceClosed_(-1)
 {
-    // Reading from supplied file name instead of objectPath/filePath
-    if (dict.readIfPresent("file", fName_, false, false))
-    {
-        fName_ = relativeFilePath
-        (
-            static_cast<const searchableSurface&>(*this),
-            fName_,
-            true
-        );
-    }
-
     scalar scaleFactor = 0;
 
     // Allow rescaling of the surface points
@@ -529,11 +513,11 @@ bool Foam::triSurfaceMesh::overlaps(const boundBox& bb) const
 }
 
 
-void Foam::triSurfaceMesh::movePoints(const pointField& newPoints)
+void Foam::triSurfaceMesh::setPoints(const pointField& newPoints)
 {
     triSurfaceRegionSearch::clearOut();
     edgeTree_.clear();
-    triSurface::movePoints(newPoints);
+    triSurface::setPoints(newPoints);
 }
 
 
@@ -545,7 +529,7 @@ Foam::triSurfaceMesh::edgeTree() const
         // Boundary edges
         labelList bEdges
         (
-            identity
+            identityMap
             (
                 nEdges()
                -nInternalEdges()
@@ -828,8 +812,8 @@ void Foam::triSurfaceMesh::setField(const labelList& values)
             IOobject
             (
                 "values",
-                objectRegistry::time().timeName(),  // instance
-                "triSurface",                       // local
+                objectRegistry::time().name(),
+                searchableSurface::geometryDir(objectRegistry::time()),
                 *this,
                 IOobject::NO_READ,
                 IOobject::AUTO_WRITE

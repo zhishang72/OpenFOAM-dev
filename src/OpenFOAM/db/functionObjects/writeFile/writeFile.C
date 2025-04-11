@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -48,18 +48,7 @@ void Foam::functionObjects::writeFile::initStream(Ostream& os) const
 
 Foam::fileName Foam::functionObjects::writeFile::baseFileDir() const
 {
-    fileName baseDir = fileObr_.time().path();
-
-    if (Pstream::parRun())
-    {
-        // Put in undecomposed case (Note: gives problems for
-        // distributed data running)
-        baseDir = baseDir/".."/outputPrefix;
-    }
-    else
-    {
-        baseDir = baseDir/outputPrefix;
-    }
+    fileName baseDir = fileObr_.time().globalPath()/outputPrefix;
 
     // Append mesh name if not default region
     if (isA<polyMesh>(fileObr_))
@@ -71,16 +60,13 @@ Foam::fileName Foam::functionObjects::writeFile::baseFileDir() const
         }
     }
 
-    // Remove any ".."
-    baseDir.clean();
-
     return baseDir;
 }
 
 
 Foam::fileName Foam::functionObjects::writeFile::baseTimeDir() const
 {
-    return baseFileDir()/prefix_/fileObr_.time().timeName();
+    return baseFileDir()/prefix_/fileObr_.time().name();
 }
 
 
@@ -154,7 +140,7 @@ void Foam::functionObjects::writeFile::writeHeader
 
 void Foam::functionObjects::writeFile::writeTime(Ostream& os) const
 {
-    os  << setw(charWidth()) << fileObr_.time().timeName();
+    os  << setw(charWidth()) << fileObr_.time().name();
 }
 
 

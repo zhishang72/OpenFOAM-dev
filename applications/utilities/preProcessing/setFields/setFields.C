@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -27,14 +27,20 @@ Description
 \*---------------------------------------------------------------------------*/
 
 #include "argList.H"
+#include "timeSelector.H"
 #include "Time.H"
 #include "fvMesh.H"
 #include "topoSetSource.H"
 #include "cellSet.H"
 #include "faceSet.H"
 #include "volFields.H"
+#include "systemDict.H"
+#include "processorFvPatch.H"
+#include "CompactListList.H"
 
 using namespace Foam;
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 template<class Type>
 bool setCellFieldType
@@ -45,9 +51,7 @@ bool setCellFieldType
     Istream& fieldValueStream
 )
 {
-    typedef GeometricField<Type, fvPatchField, volMesh> fieldType;
-
-    if (fieldTypeDesc != fieldType::typeName + "Value")
+    if (fieldTypeDesc != VolField<Type>::typeName + "Value")
     {
         return false;
     }
@@ -55,18 +59,18 @@ bool setCellFieldType
     word fieldName(fieldValueStream);
 
     // Check the current time directory
-    IOobject fieldHeader
+    typeIOobject<VolField<Type>> fieldHeader
     (
         fieldName,
-        mesh.time().timeName(),
+        mesh.time().name(),
         mesh,
         IOobject::MUST_READ
     );
 
     // Check the "constant" directory
-    if (!fieldHeader.typeHeaderOk<fieldType>(true))
+    if (!fieldHeader.headerOk())
     {
-        fieldHeader = IOobject
+        fieldHeader = typeIOobject<VolField<Type>>
         (
             fieldName,
             mesh.time().constant(),
@@ -76,15 +80,15 @@ bool setCellFieldType
     }
 
     // Check field exists
-    if (fieldHeader.typeHeaderOk<fieldType>(true))
+    if (fieldHeader.headerOk())
     {
         Info<< "    Setting internal values of "
             << fieldHeader.headerClassName()
             << " " << fieldName << endl;
 
-        fieldType field(fieldHeader, mesh);
+        VolField<Type> field(fieldHeader, mesh);
 
-        const Type& value = pTraits<Type>(fieldValueStream);
+        const Type value = pTraits<Type>(fieldValueStream);
 
         if (selectedCells.size() == field.size())
         {
@@ -98,7 +102,7 @@ bool setCellFieldType
             }
         }
 
-        typename GeometricField<Type, fvPatchField, volMesh>::
+        typename VolField<Type>::
             Boundary& fieldBf = field.boundaryFieldRef();
 
         forAll(field.boundaryField(), patchi)
@@ -191,9 +195,7 @@ bool setFaceFieldType
     Istream& fieldValueStream
 )
 {
-    typedef GeometricField<Type, fvPatchField, volMesh> fieldType;
-
-    if (fieldTypeDesc != fieldType::typeName + "Value")
+    if (fieldTypeDesc != VolField<Type>::typeName + "Value")
     {
         return false;
     }
@@ -201,18 +203,18 @@ bool setFaceFieldType
     word fieldName(fieldValueStream);
 
     // Check the current time directory
-    IOobject fieldHeader
+    typeIOobject<VolField<Type>> fieldHeader
     (
         fieldName,
-        mesh.time().timeName(),
+        mesh.time().name(),
         mesh,
         IOobject::MUST_READ
     );
 
     // Check the "constant" directory
-    if (!fieldHeader.typeHeaderOk<fieldType>(true))
+    if (!fieldHeader.headerOk())
     {
-        fieldHeader = IOobject
+        fieldHeader = typeIOobject<VolField<Type>>
         (
             fieldName,
             mesh.time().constant(),
@@ -222,78 +224,102 @@ bool setFaceFieldType
     }
 
     // Check field exists
-    if (fieldHeader.typeHeaderOk<fieldType>(true))
+    if (fieldHeader.headerOk())
     {
         Info<< "    Setting patchField values of "
             << fieldHeader.headerClassName()
             << " " << fieldName << endl;
 
-        fieldType field(fieldHeader, mesh);
+        // Read the field
+        VolField<Type> field(fieldHeader, mesh);
+        typename VolField<Type>::Boundary& fieldBf = field.boundaryFieldRef();
 
-        const Type& value = pTraits<Type>(fieldValueStream);
+        // Read the value
+        const Type value = pTraits<Type>(fieldValueStream);
 
-        // Create flat list of selected faces and their value.
-        Field<Type> allBoundaryValues(mesh.nFaces()-mesh.nInternalFaces());
-        forAll(field.boundaryField(), patchi)
+        // Determine the number of non-processor patches
+        label nNonProcPatches = 0;
+        forAll(fieldBf, patchi)
         {
-            SubField<Type>
-            (
-                allBoundaryValues,
-                field.boundaryField()[patchi].size(),
-                field.boundaryField()[patchi].patch().start()
-              - mesh.nInternalFaces()
-            ) = field.boundaryField()[patchi];
+            if (isA<processorFvPatch>(mesh.boundary()[patchi]))
+            {
+                break;
+            }
+            nNonProcPatches = patchi + 1;
         }
 
-        // Override
-        bool hasWarned = false;
-        labelList nChanged
+        // Create a copy of the boundary field
+        typename VolField<Type>::Boundary fieldBfCopy
         (
-            returnReduce(field.boundaryField().size(), maxOp<label>()),
-            0
+            VolField<Type>::Internal::null(),
+            fieldBf
         );
+
+        // Loop selected faces and set values in the copied boundary field
+        bool haveWarnedInternal = false, haveWarnedProc = false;
+        labelList nonProcPatchNChangedFaces(nNonProcPatches, 0);
         forAll(selectedFaces, i)
         {
-            label facei = selectedFaces[i];
+            const label facei = selectedFaces[i];
+
             if (mesh.isInternalFace(facei))
             {
-                if (!hasWarned)
+                if (!haveWarnedInternal)
                 {
-                    hasWarned = true;
                     WarningInFunction
                         << "Ignoring internal face " << facei
                         << ". Suppressing further warnings." << endl;
+                    haveWarnedInternal = true;
                 }
             }
             else
             {
-                label bFacei = facei-mesh.nInternalFaces();
-                allBoundaryValues[bFacei] = value;
-                nChanged[mesh.boundaryMesh().patchID()[bFacei]]++;
+                const labelUList patches =
+                    mesh.polyBFacePatches()[facei - mesh.nInternalFaces()];
+                const labelUList patchFaces =
+                    mesh.polyBFacePatchFaces()[facei - mesh.nInternalFaces()];
+
+                forAll(patches, i)
+                {
+                    if (patches[i] >= nNonProcPatches)
+                    {
+                        if (!haveWarnedProc)
+                        {
+                            WarningInFunction
+                                << "Ignoring face " << patchFaces[i]
+                                << " of processor patch " << patches[i]
+                                << ". Suppressing further warnings." << endl;
+                            haveWarnedProc = true;
+                        }
+                    }
+                    else
+                    {
+                        fieldBfCopy[patches[i]][patchFaces[i]] = value;
+                        nonProcPatchNChangedFaces[patches[i]] ++;
+                    }
+                }
             }
         }
+        Pstream::listCombineGather
+        (
+            nonProcPatchNChangedFaces,
+            plusEqOp<label>()
+        );
+        Pstream::listCombineScatter
+        (
+            nonProcPatchNChangedFaces
+        );
 
-        Pstream::listCombineGather(nChanged, plusEqOp<label>());
-        Pstream::listCombineScatter(nChanged);
-
-        typename GeometricField<Type, fvPatchField, volMesh>::
-            Boundary& fieldBf = field.boundaryFieldRef();
-
-        // Reassign.
-        forAll(field.boundaryField(), patchi)
+        // Reassign boundary values
+        forAll(nonProcPatchNChangedFaces, patchi)
         {
-            if (nChanged[patchi] > 0)
+            if (nonProcPatchNChangedFaces[patchi] > 0)
             {
                 Info<< "    On patch "
                     << field.boundaryField()[patchi].patch().name()
-                    << " set " << nChanged[patchi] << " values" << endl;
-                fieldBf[patchi] == SubField<Type>
-                (
-                    allBoundaryValues,
-                    fieldBf[patchi].size(),
-                    fieldBf[patchi].patch().start()
-                  - mesh.nInternalFaces()
-                );
+                    << " set " << nonProcPatchNChangedFaces[patchi]
+                    << " values" << endl;
+                fieldBf[patchi] == fieldBfCopy[patchi];
             }
         }
 
@@ -373,23 +399,19 @@ public:
 };
 
 
-
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 int main(int argc, char *argv[])
 {
+    timeSelector::addOptions();
     #include "addDictOption.H"
     #include "addRegionOption.H"
     #include "setRootCase.H"
     #include "createTime.H"
-    #include "createNamedMesh.H"
+    timeSelector::select0(runTime, args);
+    #include "createRegionMeshNoChangers.H"
 
-    const word dictName("setFieldsDict");
-    #include "setSystemMeshDictionaryIO.H"
-
-    Info<< "Reading " << dictName << "\n" << endl;
-
-    IOdictionary setFieldsDict(dictIO);
+    const dictionary setFieldsDict(systemDict("setFieldsDict", args, mesh));
 
     if (setFieldsDict.found("defaultFieldValues"))
     {
@@ -401,7 +423,6 @@ int main(int argc, char *argv[])
         );
         Info<< endl;
     }
-
 
     Info<< "Setting field region values" << endl;
 

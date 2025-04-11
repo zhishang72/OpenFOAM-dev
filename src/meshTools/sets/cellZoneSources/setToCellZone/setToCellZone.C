@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -34,16 +34,7 @@ namespace Foam
 {
     defineTypeNameAndDebug(setToCellZone, 0);
     addToRunTimeSelectionTable(topoSetSource, setToCellZone, word);
-    addToRunTimeSelectionTable(topoSetSource, setToCellZone, istream);
 }
-
-
-Foam::topoSetSource::addToUsageTable Foam::setToCellZone::usage_
-(
-    setToCellZone::typeName,
-    "\n    Usage: setToCellZone <cellSet>\n\n"
-    "    Select all cells in the cellSet.\n\n"
-);
 
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
@@ -66,18 +57,7 @@ Foam::setToCellZone::setToCellZone
 )
 :
     topoSetSource(mesh),
-    setName_(dict.lookup("set"))
-{}
-
-
-Foam::setToCellZone::setToCellZone
-(
-    const polyMesh& mesh,
-    Istream& is
-)
-:
-    topoSetSource(mesh),
-    setName_(checkIs(is))
+    setName_(dict.lookupBackwardsCompatible<word>({"set", "cellSet"}))
 {}
 
 

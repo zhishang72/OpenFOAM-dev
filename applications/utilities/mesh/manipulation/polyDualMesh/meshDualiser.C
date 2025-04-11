@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -27,9 +27,8 @@ License
 #include "meshTools.H"
 #include "polyMesh.H"
 #include "polyTopoChange.H"
-#include "mapPolyMesh.H"
+#include "polyTopoChangeMap.H"
 #include "edgeFaceCirculator.H"
-#include "mergePoints.H"
 #include "OFstream.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
@@ -41,43 +40,6 @@ namespace Foam
 
 
 // * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
-
-void Foam::meshDualiser::checkPolyTopoChange(const polyTopoChange& meshMod)
-{
-    // Assume no removed points
-    pointField points(meshMod.points().size());
-    forAll(meshMod.points(), i)
-    {
-        points[i] = meshMod.points()[i];
-    }
-
-    labelList oldToNew;
-    label nUnique = mergePoints
-    (
-        points,
-        1e-6,
-        false,
-        oldToNew
-    );
-
-    if (nUnique < points.size())
-    {
-        labelListList newToOld(invertOneToMany(nUnique, oldToNew));
-
-        forAll(newToOld, newI)
-        {
-            if (newToOld[newI].size() != 1)
-            {
-                FatalErrorInFunction
-                    << "duplicate verts:" << newToOld[newI]
-                    << " coords:"
-                    << UIndirectList<point>(points, newToOld[newI])()
-                    << abort(FatalError);
-            }
-        }
-    }
-}
-
 
 // Dump state so far.
 void Foam::meshDualiser::dumpPolyTopoChange
@@ -165,7 +127,6 @@ void Foam::meshDualiser::generateDualBoundaryEdges
             (
                 e.centre(mesh_.points()),
                 pointi, // masterPoint
-                -1,     // zoneID
                 true    // inCell
             );
         }
@@ -215,43 +176,6 @@ Foam::label Foam::meshDualiser::addInternalFace
         reverse(newFace);
     }
 
-    if (debug)
-    {
-        pointField facePoints(meshMod.points(), newFace);
-
-        labelList oldToNew;
-        label nUnique = mergePoints
-        (
-            facePoints,
-            1e-6,
-            false,
-            oldToNew
-        );
-
-        if (nUnique < facePoints.size())
-        {
-            FatalErrorInFunction
-                << "verts:" << verts << " newFace:" << newFace
-                << " face points:" << facePoints
-                << abort(FatalError);
-        }
-    }
-
-
-    label zoneID = -1;
-    bool zoneFlip = false;
-    if (masterFacei != -1)
-    {
-        zoneID = mesh_.faceZones().whichZone(masterFacei);
-
-        if (zoneID != -1)
-        {
-            const faceZone& fZone = mesh_.faceZones()[zoneID];
-
-            zoneFlip = fZone.flipMap()[fZone.whichFace(masterFacei)];
-        }
-    }
-
     label dualFacei;
 
     if (dualCell0 < dualCell1)
@@ -261,13 +185,9 @@ Foam::label Foam::meshDualiser::addInternalFace
             newFace,
             dualCell0,      // own
             dualCell1,      // nei
-            masterPointi,   // masterPointID
-            masterEdgeI,    // masterEdgeID
             masterFacei,    // masterFaceID
             false,          // flipFaceFlux
-            -1,             // patchID
-            zoneID,         // zoneID
-            zoneFlip        // zoneFlip
+            -1              // patchID
         );
 
         // pointField dualPoints(meshMod.points());
@@ -288,13 +208,9 @@ Foam::label Foam::meshDualiser::addInternalFace
             newFace,
             dualCell1,      // own
             dualCell0,      // nei
-            masterPointi,   // masterPointID
-            masterEdgeI,    // masterEdgeID
             masterFacei,    // masterFaceID
             false,          // flipFaceFlux
-            -1,             // patchID
-            zoneID,         // zoneID
-            zoneFlip        // zoneFlip
+            -1              // patchID
         );
 
         // pointField dualPoints(meshMod.points());
@@ -326,32 +242,14 @@ Foam::label Foam::meshDualiser::addBoundaryFace
 {
     face newFace(verts);
 
-    label zoneID = -1;
-    bool zoneFlip = false;
-    if (masterFacei != -1)
-    {
-        zoneID = mesh_.faceZones().whichZone(masterFacei);
-
-        if (zoneID != -1)
-        {
-            const faceZone& fZone = mesh_.faceZones()[zoneID];
-
-            zoneFlip = fZone.flipMap()[fZone.whichFace(masterFacei)];
-        }
-    }
-
     label dualFacei = meshMod.addFace
     (
         newFace,
         dualCelli,      // own
         -1,             // nei
-        masterPointi,   // masterPointID
-        masterEdgeI,    // masterEdgeID
         masterFacei,    // masterFaceID
         false,          // flipFaceFlux
-        patchi,         // patchID
-        zoneID,         // zoneID
-        zoneFlip        // zoneFlip
+        patchi          // patchID
     );
 
     // pointField dualPoints(meshMod.points());
@@ -1022,7 +920,6 @@ void Foam::meshDualiser::setRefinement
         (
             mesh_.points()[pointi],
             pointi,                                 // masterPoint
-            mesh_.pointZones().whichZone(pointi),   // zoneID
             true                                    // inCell
         );
 
@@ -1030,11 +927,7 @@ void Foam::meshDualiser::setRefinement
         pointToDualCells_[pointi].setSize(1);
         pointToDualCells_[pointi][0] = meshMod.addCell
         (
-            pointi, // masterPointID,
-            -1,     // masterEdgeID,
-            -1,     // masterFaceID,
-            -1,     // masterCellID,
-            -1      // zoneID
+            -1      // masterCellID,
         );
         if (dualCcStr.valid())
         {
@@ -1060,7 +953,6 @@ void Foam::meshDualiser::setRefinement
         (
             mesh_.points()[pointi],
             pointi,                                 // masterPoint
-            mesh_.pointZones().whichZone(pointi),   // zoneID
             true                                    // inCell
         );
 
@@ -1074,11 +966,7 @@ void Foam::meshDualiser::setRefinement
         {
             pointToDualCells_[pointi][pCelli] = meshMod.addCell
             (
-                pointi,                                     // masterPointID
-                -1,                                         // masterEdgeID
-                -1,                                         // masterFaceID
-                -1,                                         // masterCellID
-                mesh_.cellZones().whichZone(pCells[pCelli]) // zoneID
+                -1                                          // masterCellID
             );
             if (dualCcStr.valid())
             {
@@ -1098,11 +986,7 @@ void Foam::meshDualiser::setRefinement
             pointToDualCells_[pointi].setSize(1);
             pointToDualCells_[pointi][0] = meshMod.addCell
             (
-                pointi, // masterPointID,
-                -1,     // masterEdgeID,
-                -1,     // masterFaceID,
-                -1,     // masterCellID,
-                -1      // zoneID
+                -1      // masterCellID,
             );
 
             if (dualCcStr.valid())
@@ -1122,7 +1006,6 @@ void Foam::meshDualiser::setRefinement
         (
             cellCentres[celli],
             mesh_.faces()[mesh_.cells()[celli][0]][0],     // masterPoint
-            -1,     // zoneID
             true    // inCell
         );
     }
@@ -1137,7 +1020,6 @@ void Foam::meshDualiser::setRefinement
         (
             mesh_.faceCentres()[facei],
             mesh_.faces()[facei][0],     // masterPoint
-            -1,     // zoneID
             true    // inCell
         );
     }
@@ -1161,7 +1043,6 @@ void Foam::meshDualiser::setRefinement
                     (
                         mesh_.faceCentres()[facei],
                         f[fp],  // masterPoint
-                        -1,     // zoneID
                         true    // inCell
                     );
 
@@ -1183,7 +1064,6 @@ void Foam::meshDualiser::setRefinement
         (
             e.centre(mesh_.points()),
             e[0],   // masterPoint
-            -1,     // zoneID
             true    // inCell
         );
     }
@@ -1218,7 +1098,6 @@ void Foam::meshDualiser::setRefinement
                     (
                         e.centre(mesh_.points()),
                         e[0],                               // masterPoint
-                        mesh_.pointZones().whichZone(e[0]), // zoneID
                         true                                // inCell
                     );
 
@@ -1233,7 +1112,6 @@ void Foam::meshDualiser::setRefinement
                     (
                         e.centre(mesh_.points()),
                         e[1],   // masterPoint
-                        mesh_.pointZones().whichZone(e[1]), // zoneID
                         true    // inCell
                     );
 
@@ -1269,7 +1147,6 @@ void Foam::meshDualiser::setRefinement
     if (debug)
     {
         dumpPolyTopoChange(meshMod, "generatedPoints_");
-        checkPolyTopoChange(meshMod);
     }
 
 

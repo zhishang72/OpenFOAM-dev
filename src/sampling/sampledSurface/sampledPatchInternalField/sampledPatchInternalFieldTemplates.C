@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -33,7 +33,7 @@ template<class Type>
 Foam::tmp<Foam::Field<Type>>
 Foam::sampledSurfaces::patchInternalField::sampleField
 (
-    const GeometricField<Type, fvPatchField, volMesh>& vField
+    const VolField<Type>& vField
 ) const
 {
     // One value per face
@@ -72,45 +72,42 @@ Foam::sampledSurfaces::patchInternalField::interpolateField
 ) const
 {
     label sz = 0;
-    forAll(patchIDs(), i)
+    forAll(patchIndices(), i)
     {
-        sz += mesh().boundaryMesh()[patchIDs()[i]].size();
+        sz += mesh().boundaryMesh()[patchIndices()[i]].size();
     }
 
     Field<Type> allPatchVals(sz);
     sz = 0;
 
-    forAll(patchIDs(), i)
+    forAll(patchIndices(), i)
     {
-        // See mappedFixedValueFvPatchField
-        const mapDistribute& distMap = mappers_[i].map();
+        // Cells on which samples are generated
+        const labelList& sampleCells = mappers_[i].cellIndices();
 
-        // Send back sample points to processor that holds the cell.
-        // Mark cells with point::max so we know which ones we need
-        // to interpolate (since expensive).
-        vectorField samples(mappers_[i].samplePoints());
-        distMap.reverseDistribute(mesh().nCells(), point::max, samples);
+        // Send the sample points to the cells
+        const distributionMap& distMap = mappers_[i].map();
+        pointField samplePoints(mappers_[i].samplePoints());
+        distMap.reverseDistribute(sampleCells.size(), samplePoints);
 
-        Field<Type> patchVals(mesh().nCells());
-
-        forAll(samples, celli)
+        // Interpolate values
+        Field<Type> sampleValues(sampleCells.size());
+        forAll(sampleCells, i)
         {
-            if (samples[celli] != point::max)
+            if (sampleCells[i] != -1)
             {
-                patchVals[celli] = interpolator.interpolate
-                (
-                    samples[celli],
-                    celli
-                );
+                sampleValues[i] =
+                    interpolator.interpolate(samplePoints[i], sampleCells[i]);
             }
         }
 
-        distMap.distribute(patchVals);
+        // Send the values back to the patch
+        Field<Type> patchValues(sampleValues);
+        distMap.distribute(patchValues);
 
-        // Now patchVals holds the interpolated data in patch face order.
-        // Collect.
-        SubList<Type>(allPatchVals, patchVals.size(), sz) = patchVals;
-        sz += patchVals.size();
+        // Insert into the full value field
+        SubList<Type>(allPatchVals, patchValues.size(), sz) = patchValues;
+        sz += patchValues.size();
     }
 
     // Interpolate to points. Reconstruct the patch of all faces to aid
@@ -118,9 +115,9 @@ Foam::sampledSurfaces::patchInternalField::interpolateField
 
     labelList meshFaceLabels(allPatchVals.size());
     sz = 0;
-    forAll(patchIDs(), i)
+    forAll(patchIndices(), i)
     {
-        const polyPatch& pp = mesh().boundaryMesh()[patchIDs()[i]];
+        const polyPatch& pp = mesh().boundaryMesh()[patchIndices()[i]];
         forAll(pp, i)
         {
             meshFaceLabels[sz++] = pp.start()+i;

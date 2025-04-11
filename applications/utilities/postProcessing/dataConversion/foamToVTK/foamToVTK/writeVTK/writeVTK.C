@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,10 +24,10 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "writeVTK.H"
-#include "dictionary.H"
 #include "Time.H"
 #include "vtkMesh.H"
 #include "internalWriter.H"
+#include "OSspecific.H"
 #include "addToRunTimeSelectionTable.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
@@ -74,6 +74,12 @@ bool Foam::functionObjects::writeVTK::read(const dictionary& dict)
 }
 
 
+Foam::wordList Foam::functionObjects::writeVTK::fields() const
+{
+    return objectNames_;
+}
+
+
 bool Foam::functionObjects::writeVTK::execute()
 {
     return true;
@@ -84,9 +90,9 @@ bool Foam::functionObjects::writeVTK::write()
 {
     Info<< type() << " " << name() << " output:" << nl;
 
-    Info<< "Time: " << time_.timeName() << endl;
+    Info<< "Time: " << time_.name() << endl;
 
-    word timeDesc = time_.timeName();
+    word timeDesc = time_.name();
 
     // VTK/ directory in the case
     fileName fvPath(time_.path()/"VTK");
@@ -122,32 +128,60 @@ bool Foam::functionObjects::writeVTK::write()
     // Write mesh
     internalWriter writer(vMesh, false, vtkFileName);
 
-    UPtrList<const volScalarField> vsf(lookupFields<volScalarField>());
-    UPtrList<const volVectorField> vvf(lookupFields<volVectorField>());
-    UPtrList<const volSphericalTensorField> vsptf
-    (
-        lookupFields<volSphericalTensorField>()
-    );
-    UPtrList<const volSymmTensorField> vstf(lookupFields<volSymmTensorField>());
-    UPtrList<const volTensorField> vtf(lookupFields<volTensorField>());
+    // Declare UPtrLists to the volFields that are to be written
+    #define DeclareTypeFields(Type, nullArg) \
+        UPtrList<const VolField<Type>> Type##Fields;
+    FOR_ALL_FIELD_TYPES(DeclareTypeFields);
+    #undef DeclareTypeFields
+
+    // Look up the volFields and store the pointers
+    label nFields = 0;
+    forAll(objectNames_, i)
+    {
+        bool objectFound = false;
+
+        #define SetTypeFields(Type, nullarg)                            \
+        {                                                               \
+            if (obr_.foundObject<VolField<Type>>(objectNames_[i]))      \
+            {                                                           \
+                const VolField<Type>& field =                           \
+                    obr_.lookupObject<VolField<Type>>(objectNames_[i]); \
+                                                                        \
+                Type##Fields.resize(Type##Fields.size() + 1);           \
+                Type##Fields.set(Type##Fields.size() - 1, &field);      \
+                                                                        \
+                Info<< "    Writing " << VolField<Type>::typeName       \
+                    << " field " << field.name() << endl;               \
+                                                                        \
+                nFields ++;                                             \
+                objectFound = true;                                     \
+            }                                                           \
+        }
+        FOR_ALL_FIELD_TYPES(SetTypeFields);
+        #undef SetTypeFields
+
+        if (!objectFound)
+        {
+            cannotFindObject(objectNames_[i]);
+        }
+    }
 
     // Write header for cellID and volFields
-    writeFuns::writeCellDataHeader
+    vtkWriteOps::writeCellDataHeader
     (
         writer.os(),
         vMesh.nFieldCells(),
-        1 + vsf.size() + vvf.size() + vsptf.size() + vstf.size() + vtf.size()
+        1 + nFields
     );
 
     // Write cellID field
-    writer.writeCellIDs();
+    writer.writeCellIndices();
 
     // Write volFields
-    writer.write(vsf);
-    writer.write(vvf);
-    writer.write(vsptf);
-    writer.write(vstf);
-    writer.write(vtf);
+    #define WriteTypeFields(Type, nullArg) \
+        writer.write(Type##Fields);
+    FOR_ALL_FIELD_TYPES(WriteTypeFields);
+    #undef WriteTypeFields
 
     return true;
 }

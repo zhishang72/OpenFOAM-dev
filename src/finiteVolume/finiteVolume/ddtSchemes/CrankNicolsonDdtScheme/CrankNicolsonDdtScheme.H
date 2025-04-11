@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -29,7 +29,7 @@ Description
     previous time-step fields as well as the previous time-step ddt.
 
     The Crank-Nicolson scheme is often unstable for complex flows in complex
-    geometries and it is necessary to "off-centre" the scheme to stabilize it
+    geometries and it is necessary to "off-centre" the scheme to stabilise it
     while retaining greater temporal accuracy than the first-order
     Euler-implicit scheme.  Off-centering is specified via the mandatory
     coefficient \c ocCoeff in the range [0,1] following the scheme name e.g.
@@ -71,12 +71,12 @@ Description
     interFoam family of solvers.  Boundedness cannot be guaranteed with the
     backward scheme.
 
-Note
-    The Crank-Nicolson coefficient for the implicit part of the RHS is related
-    to the off-centering coefficient by
-    \verbatim
-        cnCoeff = 1.0/(1.0 + ocCoeff);
-    \endverbatim
+    Note:
+        The Crank-Nicolson coefficient for the implicit part of the RHS
+        is related to the off-centering coefficient by
+        \verbatim
+            cnCoeff = 1.0/(1.0 + ocCoeff);
+        \endverbatim
 
 See also
     Foam::Euler
@@ -104,7 +104,7 @@ namespace fv
 {
 
 /*---------------------------------------------------------------------------*\
-                       Class CrankNicolsonDdtScheme Declaration
+                   Class CrankNicolsonDdtScheme Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -133,7 +133,7 @@ class CrankNicolsonDdtScheme
                 const fvMesh& mesh
             );
 
-            //- Constructor from components, initisalised to zero with given
+            //- Constructor from components, initialised to zero with given
             //  dimensions.
             DDt0Field
             (
@@ -191,7 +191,7 @@ class CrankNicolsonDdtScheme
         template<class GeoField>
         dimensionedScalar rDtCoef0_(const DDt0Field<GeoField>&) const;
 
-        //- Return ddt0 multiplied by the off-centreing coefficient
+        //- Return ddt0 multiplied by the off-centering coefficient
         template<class GeoField>
         tmp<GeoField> offCentre_(const GeoField& ddt0) const;
 
@@ -222,97 +222,126 @@ public:
             return fv::ddtScheme<Type>::mesh();
         }
 
-        //- Return the current off-centreing coefficient
+        //- Return the current off-centering coefficient
         scalar ocCoeff() const
         {
             return ocCoeff_->value(mesh().time().value());
         }
 
-        virtual tmp<GeometricField<Type, fvPatchField, volMesh>> fvcDdt
+        virtual tmp<VolField<Type>> fvcDdt
         (
             const dimensioned<Type>&
         );
 
-        virtual tmp<GeometricField<Type, fvPatchField, volMesh>> fvcDdt
+        virtual tmp<VolField<Type>> fvcDdt
         (
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         );
 
-        virtual tmp<GeometricField<Type, fvPatchField, volMesh>> fvcDdt
+        virtual tmp<VolField<Type>> fvcDdt
         (
             const dimensionedScalar&,
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         );
 
-        virtual tmp<GeometricField<Type, fvPatchField, volMesh>> fvcDdt
+        virtual tmp<VolField<Type>> fvcDdt
         (
             const volScalarField&,
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         );
 
-        virtual tmp<GeometricField<Type, fvPatchField, volMesh>> fvcDdt
+        virtual tmp<VolField<Type>> fvcDdt
         (
             const volScalarField& alpha,
             const volScalarField& rho,
-            const GeometricField<Type, fvPatchField, volMesh>& psi
+            const VolField<Type>& psi
         );
 
         virtual tmp<fvMatrix<Type>> fvmDdt
         (
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         );
 
         virtual tmp<fvMatrix<Type>> fvmDdt
         (
             const dimensionedScalar&,
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         );
 
         virtual tmp<fvMatrix<Type>> fvmDdt
         (
             const volScalarField&,
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         );
 
         virtual tmp<fvMatrix<Type>> fvmDdt
         (
             const volScalarField& alpha,
             const volScalarField& rho,
-            const GeometricField<Type, fvPatchField, volMesh>& psi
+            const VolField<Type>& psi
         );
 
         typedef typename ddtScheme<Type>::fluxFieldType fluxFieldType;
 
         virtual tmp<fluxFieldType> fvcDdtUfCorr
         (
-            const GeometricField<Type, fvPatchField, volMesh>& U,
-            const GeometricField<Type, fvsPatchField, surfaceMesh>& Uf
+            const VolField<Type>& U,
+            const SurfaceField<Type>& Uf
         );
 
         virtual tmp<fluxFieldType> fvcDdtPhiCorr
         (
-            const GeometricField<Type, fvPatchField, volMesh>& U,
+            const VolField<Type>& U,
             const fluxFieldType& phi
         );
 
         virtual tmp<fluxFieldType> fvcDdtUfCorr
         (
             const volScalarField& rho,
-            const GeometricField<Type, fvPatchField, volMesh>& U,
-            const GeometricField<Type, fvsPatchField, surfaceMesh>& Uf
+            const VolField<Type>& U,
+            const SurfaceField<Type>& rhoUf
         );
 
         virtual tmp<fluxFieldType> fvcDdtPhiCorr
         (
             const volScalarField& rho,
-            const GeometricField<Type, fvPatchField, volMesh>& U,
+            const VolField<Type>& U,
             const fluxFieldType& phi
         );
 
+        virtual tmp<fluxFieldType> fvcDdtUfCorr
+        (
+            const volScalarField& alpha,
+            const volScalarField& rho,
+            const VolField<Type>& U,
+            const SurfaceField<Type>& Uf
+        )
+        {
+            NotImplemented;
+            return fluxFieldType::null();
+        }
+
+        virtual tmp<fluxFieldType> fvcDdtPhiCorr
+        (
+            const volScalarField& alpha,
+            const volScalarField& rho,
+            const VolField<Type>& U,
+            const fluxFieldType& phi
+        )
+        {
+            NotImplemented;
+            return fluxFieldType::null();
+        }
 
         virtual tmp<surfaceScalarField> meshPhi
         (
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
+        );
+
+        virtual tmp<scalarField> meshPhi
+        (
+            const VolField<Type>&,
+            const label patchi
         );
 
 
@@ -326,8 +355,8 @@ public:
 template<>
 tmp<surfaceScalarField> CrankNicolsonDdtScheme<scalar>::fvcDdtUfCorr
 (
-    const GeometricField<scalar, fvPatchField, volMesh>& U,
-    const GeometricField<scalar, fvsPatchField, surfaceMesh>& Uf
+    const VolField<scalar>& U,
+    const SurfaceField<scalar>& Uf
 );
 
 template<>
@@ -348,6 +377,24 @@ tmp<surfaceScalarField> CrankNicolsonDdtScheme<scalar>::fvcDdtUfCorr
 template<>
 tmp<surfaceScalarField> CrankNicolsonDdtScheme<scalar>::fvcDdtPhiCorr
 (
+    const volScalarField& rho,
+    const volScalarField& U,
+    const surfaceScalarField& phi
+);
+
+template<>
+tmp<surfaceScalarField> CrankNicolsonDdtScheme<scalar>::fvcDdtUfCorr
+(
+    const volScalarField& alpha,
+    const volScalarField& rho,
+    const volScalarField& U,
+    const surfaceScalarField& Uf
+);
+
+template<>
+tmp<surfaceScalarField> CrankNicolsonDdtScheme<scalar>::fvcDdtPhiCorr
+(
+    const volScalarField& alpha,
     const volScalarField& rho,
     const volScalarField& U,
     const surfaceScalarField& phi

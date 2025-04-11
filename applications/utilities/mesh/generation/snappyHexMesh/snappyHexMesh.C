@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,12 +25,13 @@ Application
     snappyHexMesh
 
 Description
-    Automatic split hex mesher. Refines and snaps to surface.
+    Automatic split hex mesher
+
+    Refines, snaps to surface and adds surface layers.
 
 \*---------------------------------------------------------------------------*/
 
 #include "argList.H"
-#include "Time.H"
 #include "fvMesh.H"
 #include "snappyRefineDriver.H"
 #include "snappySnapDriver.H"
@@ -38,26 +39,19 @@ Description
 #include "searchableSurfaces.H"
 #include "refinementSurfaces.H"
 #include "refinementFeatures.H"
-#include "shellSurfaces.H"
+#include "refinementRegions.H"
 #include "decompositionMethod.H"
-#include "noDecomp.H"
 #include "fvMeshDistribute.H"
 #include "wallPolyPatch.H"
-#include "refinementParameters.H"
 #include "snapParameters.H"
 #include "layerParameters.H"
-#include "vtkSetWriter.H"
 #include "faceSet.H"
-#include "motionSmoother.H"
-#include "polyTopoChange.H"
-#include "cellModeller.H"
+#include "meshCheck.H"
 #include "uindirectPrimitivePatch.H"
-#include "surfZoneIdentifierList.H"
-#include "UnsortedMeshedSurface.H"
 #include "MeshedSurface.H"
-#include "globalIndex.H"
 #include "IOmanip.H"
 #include "fvMeshTools.H"
+#include "systemDict.H"
 
 using namespace Foam;
 
@@ -409,7 +403,7 @@ void extractSurface
     labelList patchToCompactZone(bMesh.size(), -1);
     forAllConstIter(HashTable<label>, compactZoneID, iter)
     {
-        label patchi = bMesh.findPatchID(iter.key());
+        label patchi = bMesh.findIndex(iter.key());
         if (patchi != -1)
         {
             patchToCompactZone[patchi] = iter();
@@ -516,17 +510,10 @@ void extractSurface
 
         MeshedSurface<face> sortedFace(unsortedFace);
 
-        fileName globalCasePath
-        (
-            runTime.processorCase()
-          ? runTime.path()/".."/outFileName
-          : runTime.path()/outFileName
-        );
-        globalCasePath.clean();
+        Info<< "Writing merged surface to "
+            << runTime.globalPath()/outFileName << endl;
 
-        Info<< "Writing merged surface to " << globalCasePath << endl;
-
-        sortedFace.write(globalCasePath);
+        sortedFace.write(runTime.globalPath()/outFileName);
     }
 }
 
@@ -572,12 +559,8 @@ scalar getMergeDistance(const polyMesh& mesh, const scalar mergeTol)
 
 void removeZeroSizedPatches(fvMesh& mesh)
 {
-    // Remove any zero-sized ones. Assumes
-    // - processor patches are already only there if needed
-    // - all other patches are available on all processors
-    // - but coupled ones might still be needed, even if zero-size
-    //   (e.g. processorCyclic)
-    // See also logic in createPatch.
+    // Remove non-constraint zero-sized patches
+
     const polyBoundaryMesh& pbm = mesh.boundaryMesh();
 
     labelList oldToNew(pbm.size(), -1);
@@ -586,30 +569,15 @@ void removeZeroSizedPatches(fvMesh& mesh)
     {
         const polyPatch& pp = pbm[patchi];
 
-        if (!isA<processorPolyPatch>(pp))
-        {
-            if
-            (
-                isA<coupledPolyPatch>(pp)
-             || returnReduce(pp.size(), sumOp<label>())
-            )
-            {
-                // Coupled (and unknown size) or uncoupled and used
-                oldToNew[patchi] = newPatchi++;
-            }
-        }
-    }
-
-    forAll(pbm, patchi)
-    {
-        const polyPatch& pp = pbm[patchi];
-
-        if (isA<processorPolyPatch>(pp))
+        if
+        (
+            polyPatch::constraintType(pp.type())
+         || returnReduce(pp.size(), sumOp<label>())
+        )
         {
             oldToNew[patchi] = newPatchi++;
         }
     }
-
 
     const label nKeepPatches = newPatchi;
 
@@ -649,13 +617,13 @@ void writeMesh
     const fvMesh& mesh = meshRefiner.mesh();
 
     meshRefiner.printMeshInfo(debugLevel, msg);
-    Info<< "Writing mesh to time " << meshRefiner.timeName() << endl;
+    Info<< "Writing mesh to time " << meshRefiner.name() << endl;
 
     meshRefiner.write
     (
         debugLevel,
         meshRefinement::writeType(writeLevel | meshRefinement::WRITEMESH),
-        mesh.time().path()/meshRefiner.timeName()
+        mesh.time().path()/meshRefiner.name()
     );
     Info<< "Wrote mesh in = "
         << mesh.time().cpuTimeIncrement() << " s." << endl;
@@ -664,6 +632,7 @@ void writeMesh
 
 int main(int argc, char *argv[])
 {
+    Foam::argList::removeOption("noFunctionObjects");
     #include "addOverwriteOption.H"
     Foam::argList::addBoolOption
     (
@@ -689,41 +658,31 @@ int main(int argc, char *argv[])
         "name of the file to save the simplified surface to"
     );
     #include "addDictOption.H"
+    #include "addMeshOption.H"
+    #include "addRegionOption.H"
 
     #include "setRootCase.H"
-    #include "createTime.H"
-    runTime.functionObjects().off();
+    #include "createTimeNoFunctionObjects.H"
+    #include "createSpecifiedMeshNoChangers.H"
+
+    Info<< "Read mesh in = "
+        << runTime.cpuTimeIncrement() << " s" << endl;
 
     const bool overwrite = args.optionFound("overwrite");
     const bool checkGeometry = args.optionFound("checkGeometry");
     const bool surfaceSimplify = args.optionFound("surfaceSimplify");
 
-    autoPtr<fvMesh> meshPtr;
-
+    // Check that the read mesh is fully 3D
+    // as required for mesh relaxation after snapping
+    if (mesh.nSolutionD() != 3)
     {
-        Foam::Info
-            << "Create mesh for time = "
-            << runTime.timeName() << Foam::nl << Foam::endl;
-
-        meshPtr.set
-        (
-            new fvMesh
-            (
-                Foam::IOobject
-                (
-                    Foam::fvMesh::defaultRegion,
-                    runTime.timeName(),
-                    runTime,
-                    Foam::IOobject::MUST_READ
-                )
-            )
-        );
+        FatalErrorIn(args.executable())
+            << "Mesh provided is not fully 3D"
+               " as required for mesh relaxation after snapping" << nl
+            << "Convert all empty patches to appropriate types for a 3D mesh,"
+               " current patch types are" << nl << mesh.boundaryMesh().types()
+            << exit(FatalError);
     }
-
-    fvMesh& mesh = meshPtr();
-
-    Info<< "Read mesh in = "
-        << runTime.cpuTimeIncrement() << " s" << endl;
 
     // Check patches and faceZones are synchronised
     mesh.boundaryMesh().checkParallelSync(true);
@@ -731,9 +690,7 @@ int main(int argc, char *argv[])
 
 
     // Read meshing dictionary
-    const word dictName("snappyHexMeshDict");
-    #include "setSystemMeshDictionaryIO.H"
-    const IOdictionary meshDict(dictIO);
+    const IOdictionary meshDict(systemDict("snappyHexMeshDict", args, mesh));
 
 
     // all surface geometry
@@ -748,9 +705,6 @@ int main(int argc, char *argv[])
     // snap-to-surface parameters
     const dictionary& snapDict = meshDict.subDict("snapControls");
 
-    // layer addition parameters
-    const dictionary& layerDict = meshDict.subDict("addLayersControls");
-
     // absolute merge distance
     const scalar mergeDist = getMergeDistance
     (
@@ -761,23 +715,12 @@ int main(int argc, char *argv[])
     const Switch keepPatches(meshDict.lookupOrDefault("keepPatches", false));
 
 
-
     // Read decomposePar dictionary
     dictionary decomposeDict;
     {
         if (Pstream::parRun())
         {
-            decomposeDict = IOdictionary
-            (
-                IOobject
-                (
-                    "decomposeParDict",
-                    runTime.system(),
-                    mesh,
-                    IOobject::MUST_READ_IF_MODIFIED,
-                    IOobject::NO_WRITE
-                )
-            );
+            decomposeDict = decompositionMethod::decomposeParDict(runTime);
         }
         else
         {
@@ -867,11 +810,10 @@ int main(int argc, char *argv[])
     (
         IOobject
         (
-            "abc",                      // dummy name
-            mesh.time().constant(),     // instance
-            // mesh.time().findInstance("triSurface", word::null),// instance
-            "triSurface",               // local
-            mesh.time(),                // registry
+            "abc",
+            mesh.time().constant(),
+            searchableSurface::geometryDir(mesh.time()),
+            mesh.time(),
             IOobject::MUST_READ,
             IOobject::NO_WRITE
         ),
@@ -883,74 +825,19 @@ int main(int argc, char *argv[])
     // Read refinement surfaces
     // ~~~~~~~~~~~~~~~~~~~~~~~~
 
-    autoPtr<refinementSurfaces> surfacesPtr;
+    Info<< "Reading refinement surfaces..." << endl;
 
-    Info<< "Reading refinement surfaces." << endl;
+    refinementSurfaces surfaces
+    (
+        allGeometry,
+        refineDict.found("refinementSurfaces")
+      ? refineDict.subDict("refinementSurfaces")
+      : dictionary::null,
+        refineDict.lookupOrDefault("gapLevelIncrement", 0)
+    );
 
-    if (surfaceSimplify)
-    {
-        IOdictionary foamyHexMeshDict
-        (
-           IOobject
-           (
-                "foamyHexMeshDict",
-                runTime.system(),
-                runTime,
-                IOobject::MUST_READ_IF_MODIFIED,
-                IOobject::NO_WRITE
-           )
-        );
-
-        const dictionary& conformationDict =
-            foamyHexMeshDict.subDict("surfaceConformation").subDict
-            (
-                "geometryToConformTo"
-            );
-
-        const dictionary& motionDict =
-            foamyHexMeshDict.subDict("motionControl");
-
-        const dictionary& shapeControlDict =
-            motionDict.subDict("shapeControlFunctions");
-
-        // Calculate current ratio of hex cells v.s. wanted cell size
-        const scalar defaultCellSize =
-            motionDict.lookup<scalar>("defaultCellSize");
-
-        const scalar initialCellSize = ::pow(meshPtr().V()[0], 1.0/3.0);
-
-        // Info<< "Wanted cell size  = " << defaultCellSize << endl;
-        // Info<< "Current cell size = " << initialCellSize << endl;
-        // Info<< "Fraction          = " << initialCellSize/defaultCellSize
-        //    << endl;
-
-        surfacesPtr =
-            createRefinementSurfaces
-            (
-                allGeometry,
-                conformationDict,
-                shapeControlDict,
-                refineDict.lookupOrDefault("gapLevelIncrement", 0),
-                initialCellSize/defaultCellSize
-            );
-    }
-    else
-    {
-        surfacesPtr.set
-        (
-            new refinementSurfaces
-            (
-                allGeometry,
-                refineDict.subDict("refinementSurfaces"),
-                refineDict.lookupOrDefault("gapLevelIncrement", 0)
-            )
-        );
-
-        Info<< "Read refinement surfaces in = "
-            << mesh.time().cpuTimeIncrement() << " s" << nl << endl;
-    }
-
-    refinementSurfaces& surfaces = surfacesPtr();
+    Info<< "Read refinement surfaces in = "
+        << mesh.time().cpuTimeIncrement() << " s" << nl << endl;
 
 
     // Checking only?
@@ -993,7 +880,6 @@ int main(int argc, char *argv[])
         (
             100.0,      // max size ratio
             1e-9,       // intersection tolerance
-            autoPtr<writer<scalar>>(new vtkSetWriter<scalar>()),
             0.01,       // min triangle quality
             true
         );
@@ -1006,31 +892,29 @@ int main(int argc, char *argv[])
     // Read refinement shells
     // ~~~~~~~~~~~~~~~~~~~~~~
 
-    Info<< "Reading refinement shells." << endl;
-    shellSurfaces shells
+    Info<< "Reading refinement regions..." << endl;
+    refinementRegions shells
     (
         allGeometry,
-        refineDict.subDict("refinementRegions")
+        refineDict.found("refinementRegions")
+      ? refineDict.subDict("refinementRegions")
+      : dictionary::null
     );
-    Info<< "Read refinement shells in = "
+    Info<< "Read refinement regions in = "
         << mesh.time().cpuTimeIncrement() << " s" << nl << endl;
 
-
-    Info<< "Setting refinement level of surface to be consistent"
-        << " with shells." << endl;
-    surfaces.setMinLevelFields(shells);
-    Info<< "Checked shell refinement in = "
-        << mesh.time().cpuTimeIncrement() << " s" << nl << endl;
 
 
     // Read feature meshes
     // ~~~~~~~~~~~~~~~~~~~
 
-    Info<< "Reading features." << endl;
+    Info<< "Reading features..." << endl;
     refinementFeatures features
     (
         mesh,
-        refineDict.lookup("features")
+        refineDict.found("features")
+      ? refineDict.lookup("features")
+      : PtrList<dictionary>()
     );
     Info<< "Read features in = "
         << mesh.time().cpuTimeIncrement() << " s" << nl << endl;
@@ -1049,6 +933,7 @@ int main(int argc, char *argv[])
     meshRefinement meshRefiner
     (
         mesh,
+        refineDict,
         mergeDist,          // tolerance used in sorting coordinates
         overwrite,          // overwrite mesh files?
         surfaces,           // for surface intersection refinement
@@ -1065,7 +950,7 @@ int main(int argc, char *argv[])
     (
         meshRefinement::debugType(debugLevel&meshRefinement::OBJINTERSECTIONS),
         meshRefinement::writeType(0),
-        mesh.time().path()/meshRefiner.timeName()
+        mesh.time().path()/meshRefiner.name()
     );
 
 
@@ -1218,6 +1103,9 @@ int main(int argc, char *argv[])
 
             Info<< nl;
         }
+
+        meshRefiner.addedMeshedPatches();
+
         Info<< "Added patches in = "
             << mesh.time().cpuTimeIncrement() << " s" << nl << endl;
     }
@@ -1229,28 +1117,12 @@ int main(int argc, char *argv[])
     // Decomposition
     autoPtr<decompositionMethod> decomposerPtr
     (
-        decompositionMethod::New
-        (
-            decomposeDict
-        )
+        decompositionMethod::NewDistributor(decomposeDict)
     );
     decompositionMethod& decomposer = decomposerPtr();
 
-    if (Pstream::parRun() && !decomposer.parallelAware())
-    {
-        FatalErrorInFunction
-            << "You have selected decomposition method "
-            << decomposer.typeName
-            << " which is not parallel aware." << endl
-            << "Please select one that is (hierarchical, ptscotch)"
-            << exit(FatalError);
-    }
-
     // Mesh distribution engine (uses tolerance to reconstruct meshes)
-    fvMeshDistribute distributor(mesh, mergeDist);
-
-
-
+    fvMeshDistribute distributor(mesh);
 
 
     // Now do the real work -refinement -snapping -layers
@@ -1266,10 +1138,6 @@ int main(int argc, char *argv[])
     // Snap parameters
     const snapParameters snapParams(snapDict);
 
-    // Layer addition parameters
-    const layerParameters layerParams(layerDict, mesh.boundaryMesh());
-
-
     if (wantRefine)
     {
         cpuTime timer;
@@ -1283,12 +1151,10 @@ int main(int argc, char *argv[])
             globalToSlavePatch
         );
 
-
         if (!overwrite && !debugLevel)
         {
             const_cast<Time&>(mesh.time())++;
         }
-
 
         refineDriver.doRefine
         (
@@ -1298,7 +1164,6 @@ int main(int argc, char *argv[])
             refineParams.handleSnapProblems(),
             motionDict
         );
-
 
         if (!keepPatches && !wantSnap && !wantLayers)
         {
@@ -1367,6 +1232,12 @@ int main(int argc, char *argv[])
     {
         cpuTime timer;
 
+        // Layer addition parameters dictionary
+        const dictionary& layersDict = meshDict.subDict("addLayersControls");
+
+        // Layer addition parameters
+        const layerParameters layerParams(layersDict, mesh.boundaryMesh());
+
         snappyLayerDriver layerDriver
         (
             meshRefiner,
@@ -1389,7 +1260,7 @@ int main(int argc, char *argv[])
 
         layerDriver.doLayers
         (
-            layerDict,
+            layersDict,
             motionDict,
             layerParams,
             preBalance,
@@ -1419,7 +1290,7 @@ int main(int argc, char *argv[])
         // Check final mesh
         Info<< "Checking final mesh ..." << endl;
         faceSet wrongFaces(mesh, "wrongFaces", mesh.nFaces()/100);
-        motionSmoother::checkMesh(false, mesh, motionDict, wrongFaces);
+        meshCheck::checkMesh(false, mesh, motionDict, wrongFaces);
         const label nErrors = returnReduce
         (
             wrongFaces.size(),
@@ -1488,7 +1359,7 @@ int main(int argc, char *argv[])
             IOobject
             (
                 "internalCellCentres",
-                runTime.timeName(),
+                runTime.name(),
                 mesh,
                 IOobject::NO_READ,
                 IOobject::AUTO_WRITE

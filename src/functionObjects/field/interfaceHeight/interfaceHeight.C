@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -77,29 +77,32 @@ void Foam::functionObjects::interfaceHeight::writePositions()
             "",
             mesh_,
             meshSearch(mesh_),
-            "xyz",
+            coordSet::axisTypeNames_[coordSet::axisType::XYZ],
             locations_[li] + gHat*mesh_.bounds().mag(),
             locations_[li] - gHat*mesh_.bounds().mag()
         );
 
         // Find the height of the location above the boundary
-        scalar hLB = set.size() ? - gHat & (locations_[li] - set[0]) : - vGreat;
+        scalar hLB =
+            set.size()
+          ? - gHat & (locations_[li] - set.pointCoord(0))
+          : - vGreat;
         reduce(hLB, maxOp<scalar>());
 
         // Calculate the integrals of length and length*alpha along the sampling
         // line. The latter is equal to the equivalent length with alpha equal
         // to one.
         scalar sumLength = 0, sumLengthAlpha = 0;
-        for(label si = 0; si < set.size() - 1; ++ si)
+        for (label si = 0; si < set.size() - 1; ++ si)
         {
-            if (set.segments()[si] != set.segments()[si+1])
-            {
-                continue;
-            }
+            if (set.segments()[si] != set.segments()[si+1]) continue;
 
-            const vector& p0 = set[si], p1 = set[si+1];
+            const vector& p0 = set.pointCoord(si), p1 = set.pointCoord(si+1);
             const label c0 = set.cells()[si], c1 = set.cells()[si+1];
             const label f0 = set.faces()[si], f1 = set.faces()[si+1];
+
+            if (f0 != -1 && f1 != -1) continue;
+
             const scalar a0 = interpolator->interpolate(p0, c0, f0);
             const scalar a1 = interpolator->interpolate(p1, c1, f1);
 
@@ -224,7 +227,6 @@ Foam::functionObjects::interfaceHeight::interfaceHeight
     interpolationScheme_("cellPoint")
 {
     read(dict);
-    resetNames({"height", "position"});
 }
 
 
@@ -238,12 +240,22 @@ Foam::functionObjects::interfaceHeight::~interfaceHeight()
 
 bool Foam::functionObjects::interfaceHeight::read(const dictionary& dict)
 {
+    fvMeshFunctionObject::read(dict);
+
     dict.readIfPresent("alpha", alphaName_);
     dict.readIfPresent("liquid", liquid_);
     dict.lookup("locations") >> locations_;
     dict.readIfPresent("interpolationScheme", interpolationScheme_);
 
+    resetNames({"height", "position"});
+
     return true;
+}
+
+
+Foam::wordList Foam::functionObjects::interfaceHeight::fields() const
+{
+    return wordList(alphaName_);
 }
 
 

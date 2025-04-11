@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -38,56 +38,6 @@ namespace functionObjects
 }
 
 
-// * * * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * //
-
-bool Foam::functionObjects::regionFunctionObject::writeObject
-(
-    const word& fieldName
-)
-{
-    if (obr_.foundObject<regIOobject>(fieldName))
-    {
-        const regIOobject& field = obr_.lookupObject<regIOobject>(fieldName);
-
-        Log << "    functionObjects::" << type() << " " << name()
-            << " writing field: " << field.name() << endl;
-
-        field.write();
-
-        return true;
-    }
-    else
-    {
-        return false;
-    }
-}
-
-
-bool Foam::functionObjects::regionFunctionObject::clearObject
-(
-    const word& fieldName
-)
-{
-    if (foundObject<regIOobject>(fieldName))
-    {
-        regIOobject& resultObject = lookupObjectRef<regIOobject>(fieldName);
-
-        if (resultObject.ownedByRegistry())
-        {
-            return resultObject.checkOut();
-        }
-        else
-        {
-            return false;
-        }
-    }
-    else
-    {
-        return true;
-    }
-}
-
-
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 Foam::functionObjects::regionFunctionObject::regionFunctionObject
@@ -97,14 +47,14 @@ Foam::functionObjects::regionFunctionObject::regionFunctionObject
     const dictionary& dict
 )
 :
-    functionObject(name),
-    time_(runTime),
-    obr_
+    objectRegistryFunctionObject
     (
+        name,
         runTime.lookupObject<objectRegistry>
         (
             dict.lookupOrDefault("region", polyMesh::defaultRegion)
-        )
+        ),
+        dict
     )
 {}
 
@@ -112,13 +62,10 @@ Foam::functionObjects::regionFunctionObject::regionFunctionObject
 Foam::functionObjects::regionFunctionObject::regionFunctionObject
 (
     const word& name,
-    const objectRegistry& obr,
-    const dictionary& dict
+    const objectRegistry& obr
 )
 :
-    functionObject(name),
-    time_(obr.time()),
-    obr_(obr)
+    objectRegistryFunctionObject(name, obr)
 {}
 
 
@@ -126,14 +73,6 @@ Foam::functionObjects::regionFunctionObject::regionFunctionObject
 
 Foam::functionObjects::regionFunctionObject::~regionFunctionObject()
 {}
-
-
-// * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
-
-bool Foam::functionObjects::regionFunctionObject::read(const dictionary& dict)
-{
-    return functionObject::read(dict);
-}
 
 
 // ************************************************************************* //

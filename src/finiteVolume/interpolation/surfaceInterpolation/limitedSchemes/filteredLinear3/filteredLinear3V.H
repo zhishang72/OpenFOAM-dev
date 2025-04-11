@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -26,7 +26,7 @@ Class
 
 Description
     Class to generate weighting factors for the filteredLinear3V
-    differencing scheme.
+    interpolation scheme.
 
     The aim is to remove high-frequency modes with "staggering"
     characteristics from vector fields by comparing the face gradient in
@@ -51,7 +51,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                 Class filteredLinear3VLimiter Declaration
+                   Class filteredLinear3VLimiter Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class LimiterFunc>

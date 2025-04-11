@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,12 +25,8 @@ Class
     Foam::mappedWallPolyPatch
 
 Description
-    Determines a mapping between patch face centres and mesh cell or face
-    centres and processors they're on.
-
-Note
-    Storage is not optimal. It stores all face centres and cells on all
-    processors to keep the addressing calculation simple.
+    Wall poly patch which can do interpolative mapping of values from another
+    globally conforming poly patch
 
 SourceFiles
     mappedWallPolyPatch.C
@@ -43,16 +39,13 @@ SourceFiles
 #include "wallPolyPatch.H"
 #include "mappedPatchBase.H"
 
-
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
 {
 
-class polyMesh;
-
 /*---------------------------------------------------------------------------*\
-                      Class mappedWallPolyPatch Declaration
+                     Class mappedWallPolyPatch Declaration
 \*---------------------------------------------------------------------------*/
 
 class mappedWallPolyPatch
@@ -60,26 +53,18 @@ class mappedWallPolyPatch
     public wallPolyPatch,
     public mappedPatchBase
 {
-
 protected:
 
-        //- Initialise the calculation of the patch geometry
-        virtual void initGeometry(PstreamBuffers&);
+    // Protected Member Functions
 
         //- Calculate the patch geometry
         virtual void calcGeometry(PstreamBuffers&);
 
-        //- Initialise the patches for moving points
-        virtual void initMovePoints(PstreamBuffers&, const pointField&);
-
         //- Correct patches after moving points
         virtual void movePoints(PstreamBuffers&, const pointField&);
 
-        //- Initialise the update of the patch topology
-        virtual void initUpdateMesh(PstreamBuffers&);
-
         //- Update of the patch topology
-        virtual void updateMesh(PstreamBuffers&);
+        virtual void topoChange(PstreamBuffers&);
 
 
 public:
@@ -108,24 +93,8 @@ public:
             const label size,
             const label start,
             const label index,
-            const word& sampleRegion,
-            const mappedPatchBase::sampleMode mode,
-            const word& samplePatch,
-            const vectorField& offset,
-            const polyBoundaryMesh& bm
-        );
-
-        //- Construct from components. Uniform offset.
-        mappedWallPolyPatch
-        (
-            const word& name,
-            const label size,
-            const label start,
-            const label index,
-            const word& sampleRegion,
-            const mappedPatchBase::sampleMode mode,
-            const word& samplePatch,
-            const vector& offset,
+            const word& neighbourRegion,
+            const word& neighbourPatch,
             const polyBoundaryMesh& bm
         );
 
@@ -157,16 +126,6 @@ public:
             const label newStart
         );
 
-        //- Construct given the original patch and a map
-        mappedWallPolyPatch
-        (
-            const mappedWallPolyPatch& pp,
-            const polyBoundaryMesh& bm,
-            const label index,
-            const labelUList& mapAddressing,
-            const label newStart
-        );
-
         //- Construct and return a clone, resetting the boundary mesh
         virtual autoPtr<polyPatch> clone(const polyBoundaryMesh& bm) const
         {
@@ -191,29 +150,6 @@ public:
                     bm,
                     index,
                     newSize,
-                    newStart
-                )
-            );
-        }
-
-        //- Construct and return a clone, resetting the face list
-        //  and boundary mesh
-        virtual autoPtr<polyPatch> clone
-        (
-            const polyBoundaryMesh& bm,
-            const label index,
-            const labelUList& mapAddressing,
-            const label newStart
-        ) const
-        {
-            return autoPtr<polyPatch>
-            (
-                new mappedWallPolyPatch
-                (
-                    *this,
-                    bm,
-                    index,
-                    mapAddressing,
                     newStart
                 )
             );

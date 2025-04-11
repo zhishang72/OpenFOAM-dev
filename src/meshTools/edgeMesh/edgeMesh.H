@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -64,7 +64,7 @@ Ostream& operator<<(Ostream&, const edgeMesh&);
 
 
 /*---------------------------------------------------------------------------*\
-                           Class edgeMesh Declaration
+                          Class edgeMesh Declaration
 \*---------------------------------------------------------------------------*/
 
 class edgeMesh
@@ -239,7 +239,7 @@ public:
         virtual void clear();
 
         //- Reset primitive data (points, edges)
-        //  Note, optimized to avoid overwriting data (with null)
+        //  Note, optimised to avoid overwriting data (with null)
         virtual void reset
         (
             pointField&& points,
@@ -248,10 +248,6 @@ public:
 
         //- Scale points. A non-positive factor is ignored
         virtual void scalePoints(const scalar);
-
-        //- Merge common points (points within mergeDist). Return map from
-        //  old to new points.
-        virtual void mergePoints(const scalar mergeDist, labelList&);
 
         //- Merge duplicate edges
         virtual void mergeEdges();

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2019-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -71,7 +71,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-       Class specieTransferTemperatureFvPatchScalarField Declaration
+         Class specieTransferTemperatureFvPatchScalarField Declaration
 \*---------------------------------------------------------------------------*/
 
 class specieTransferTemperatureFvPatchScalarField
@@ -95,13 +95,6 @@ public:
 
     // Constructors
 
-        //- Construct from patch and internal field
-        specieTransferTemperatureFvPatchScalarField
-        (
-            const fvPatch&,
-            const DimensionedField<scalar, volMesh>&
-        );
-
         //- Construct from patch, internal field and dictionary
         specieTransferTemperatureFvPatchScalarField
         (
@@ -118,23 +111,14 @@ public:
             const specieTransferTemperatureFvPatchScalarField&,
             const fvPatch&,
             const DimensionedField<scalar, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         specieTransferTemperatureFvPatchScalarField
         (
             const specieTransferTemperatureFvPatchScalarField&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchScalarField> clone() const
-        {
-            return tmp<fvPatchScalarField>
-            (
-                new specieTransferTemperatureFvPatchScalarField(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         specieTransferTemperatureFvPatchScalarField

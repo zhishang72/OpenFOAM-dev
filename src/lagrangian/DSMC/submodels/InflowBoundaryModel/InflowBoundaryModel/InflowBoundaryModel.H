@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -109,29 +109,31 @@ public:
         CloudType& owner
     );
 
+    // Member Functions
 
-    // Access
+        // Access
 
-        //- Return const access the owner cloud object
-        inline const CloudType& owner() const;
+            //- Return const access the owner cloud object
+            inline const CloudType& owner() const;
 
-        //- Return non-const access the owner cloud object for manipulation
-        inline CloudType& owner();
+            //- Return non-const access the owner cloud object for manipulation
+            inline CloudType& owner();
 
-        //- Return the owner cloud dictionary
-        inline const dictionary& dict() const;
+            //- Return the owner cloud dictionary
+            inline const dictionary& dict() const;
 
-        //- Return the coefficients dictionary
-        inline const dictionary& coeffDict() const;
+            //- Return the coefficients dictionary
+            inline const dictionary& coeffDict() const;
 
-    // Mapping
 
-        //- Remap the particles to the correct cells following mesh change
-        virtual void autoMap(const mapPolyMesh&)
-        {}
+        // Mapping
 
-    //- Introduce particles
-    virtual void inflow() = 0;
+            //- Update following mesh change
+            virtual void topoChange();
+
+
+        //- Introduce particles
+        virtual void inflow() = 0;
 };
 
 

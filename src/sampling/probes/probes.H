@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -45,7 +45,6 @@ SourceFiles
 #include "volFieldsFwd.H"
 #include "surfaceFieldsFwd.H"
 #include "surfaceMesh.H"
-#include "wordReList.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -57,10 +56,10 @@ class Time;
 class objectRegistry;
 class dictionary;
 class fvMesh;
-class mapPolyMesh;
+class polyTopoChangeMap;
 
 /*---------------------------------------------------------------------------*\
-                          Class probes Declaration
+                           Class probes Declaration
 \*---------------------------------------------------------------------------*/
 
 class probes
@@ -92,14 +91,11 @@ protected:
         //- Const reference to fvMesh
         const fvMesh& mesh_;
 
-        //- Load fields from files (not from objectRegistry)
-        bool loadFromFiles_;
 
-
-        // Read from dictonary
+        // Read from dictionary
 
             //- Names of fields to probe
-            wordReList fieldSelection_;
+            wordList fields_;
 
             //- Fixed locations, default = yes
             //  Note: set to false for moving mesh calculations where locations
@@ -113,14 +109,14 @@ protected:
 
         // Calculated
 
-            //- Categorized scalar/vector/tensor vol fields
+            //- Categorised scalar/vector/tensor vol fields
             fieldGroup<scalar> scalarFields_;
             fieldGroup<vector> vectorFields_;
             fieldGroup<sphericalTensor> sphericalTensorFields_;
             fieldGroup<symmTensor> symmTensorFields_;
             fieldGroup<tensor> tensorFields_;
 
-            //- Categorized scalar/vector/tensor surf fields
+            //- Categorised scalar/vector/tensor surf fields
             fieldGroup<scalar> surfaceScalarFields_;
             fieldGroup<vector> surfaceVectorFields_;
             fieldGroup<sphericalTensor> surfaceSphericalTensorFields_;
@@ -162,7 +158,7 @@ private:
         template<class Type>
         void sampleAndWrite
         (
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         );
 
 
@@ -170,7 +166,7 @@ private:
         template<class Type>
         void sampleAndWrite
         (
-            const GeometricField<Type, fvsPatchField, surfaceMesh>&
+            const SurfaceField<Type>&
         );
 
         //- Sample and write all the fields of the given type
@@ -198,16 +194,6 @@ public:
             const dictionary& dict
         );
 
-        //- Construct for given objectRegistry and dictionary.
-        //  Allow the possibility to load fields from files
-        probes
-        (
-            const word& name,
-            const objectRegistry& obr,
-            const dictionary& dict,
-            const bool loadFromFiles = false
-        );
-
         //- Disallow default bitwise copy construction
         probes(const probes&) = delete;
 
@@ -218,11 +204,8 @@ public:
 
     // Member Functions
 
-        //- Return names of fields to probe
-        virtual const wordReList& fieldNames() const
-        {
-            return fieldSelection_;
-        }
+        //- Return the list of fields required
+        virtual wordList fields() const;
 
         //- Return locations to probe
         virtual const pointField& probeLocations() const
@@ -251,13 +234,16 @@ public:
         //- Sample and write
         virtual bool write();
 
-        //- Update for changes of mesh
-        virtual void updateMesh(const mapPolyMesh&);
-
-        //- Update for changes of mesh
+        //- Update topology using the given map
         virtual void movePoints(const polyMesh&);
 
-        //- Update for changes of mesh due to readUpdate
+        //- Update topology using the given map
+        virtual void topoChange(const polyTopoChangeMap&);
+
+        //- Update from another mesh using the given map
+        virtual void mapMesh(const polyMeshMap&);
+
+        //- Update topology using the given map due to readUpdate
         virtual void readUpdate(const polyMesh::readUpdateState state)
         {}
 
@@ -265,7 +251,7 @@ public:
         template<class Type>
         tmp<Field<Type>> sample
         (
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         ) const;
 
         //- Sample a single vol field on all sample locations
@@ -280,7 +266,7 @@ public:
         template<class Type>
         tmp<Field<Type>> sample
         (
-            const GeometricField<Type, fvsPatchField, surfaceMesh>&
+            const SurfaceField<Type>&
         ) const;
 
 

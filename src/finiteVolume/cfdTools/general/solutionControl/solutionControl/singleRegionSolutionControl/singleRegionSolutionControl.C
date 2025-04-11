@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2018-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2018-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -34,6 +34,14 @@ namespace Foam
 }
 
 
+// * * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * * //
+
+bool Foam::singleRegionSolutionControl::dependenciesModified() const
+{
+    return mesh_.solution().modified();
+}
+
+
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 Foam::singleRegionSolutionControl::singleRegionSolutionControl
@@ -42,7 +50,17 @@ Foam::singleRegionSolutionControl::singleRegionSolutionControl
     const word& algorithmName
 )
 :
-    solutionControl(mesh, mesh.time(), algorithmName),
+    solutionControl
+    (
+        mesh,
+        (
+           !mesh.solution().dict().found(algorithmName)
+         && mesh.schemes().steady()
+         && mesh.solution().dict().found("SIMPLE")
+        )
+      ? "SIMPLE"
+      : algorithmName
+    ),
     mesh_(mesh)
 {}
 
@@ -57,24 +75,16 @@ Foam::singleRegionSolutionControl::~singleRegionSolutionControl()
 
 const Foam::dictionary& Foam::singleRegionSolutionControl::dict() const
 {
-    return mesh_.solutionDict().subDict(algorithmName());
+    return mesh_.solution().dict().subDict(algorithmName());
 }
 
 
-bool Foam::singleRegionSolutionControl::isFinal() const
+void Foam::singleRegionSolutionControl::updateFinal
+(
+    const bool finalIter
+) const
 {
-    return false;
-}
-
-
-void Foam::singleRegionSolutionControl::updateFinal() const
-{
-    mesh_.data::remove("finalIteration");
-
-    if (isFinal())
-    {
-        mesh_.data::add("finalIteration", true);
-    }
+    finalIter_ = finalIter;
 }
 
 

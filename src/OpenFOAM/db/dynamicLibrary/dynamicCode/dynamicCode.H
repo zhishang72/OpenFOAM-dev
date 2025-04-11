@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -51,7 +51,7 @@ class OSstream;
 class SHA1Digest;
 
 /*---------------------------------------------------------------------------*\
-                        Class dynamicCode Declaration
+                         Class dynamicCode Declaration
 \*---------------------------------------------------------------------------*/
 
 class dynamicCode
@@ -226,12 +226,10 @@ public:
         //  Corresponds to topDirName/codeDirName()
         fileName codeRelPath() const;
 
-
         //- Library path for specified code name relative to \$FOAM_CASE
         //  Corresponds to
         //  dynamicCode/codeDirName()/libSubDir()/lib\<codeName\>.so
         fileName libRelPath() const;
-
 
         //- Path for SHA1Digest
         //  Corresponds to codePath()/Make/SHA1Digest
@@ -240,6 +238,9 @@ public:
             return codeRoot_/codeDirName_/"Make/SHA1Digest";
         }
 
+        //- Resolve code-template via the codeTemplateEnvName
+        //  alternatively in the codeTemplateDirName via Foam::findEtcFile
+        static fileName resolveTemplate(const fileName& templateName);
 
         //- Clear files and variables
         void clear();

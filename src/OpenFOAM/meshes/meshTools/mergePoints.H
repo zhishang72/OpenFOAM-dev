@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -41,7 +41,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Function mergePoints Declaration
+                       Function mergePoints Declaration
 \*---------------------------------------------------------------------------*/
 
 //- Sorts and merges points. All points closer than/equal mergeTol get merged.
@@ -68,6 +68,8 @@ bool mergePoints
     List<Type>& newPoints,
     const Type& origin = Type::zero
 );
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 } // End namespace Foam
 

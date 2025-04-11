@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -33,29 +33,19 @@ Foam::timeVaryingMappedFixedValueFvPatchField<Type>::
 timeVaryingMappedFixedValueFvPatchField
 (
     const fvPatch& p,
-    const DimensionedField<Type, volMesh>& iF
-)
-:
-    fixedValueFvPatchField<Type>(p, iF),
-    fieldMapper_(p, iF.name())
-{}
-
-
-template<class Type>
-Foam::timeVaryingMappedFixedValueFvPatchField<Type>::
-timeVaryingMappedFixedValueFvPatchField
-(
-    const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
     const dictionary& dict
 )
 :
     fixedValueFvPatchField<Type>(p, iF, dict, false),
-    fieldMapper_(p, dict, iF.name())
+    fieldMapper_(p, iF, dict)
 {
     if (dict.found("value"))
     {
-        fvPatchField<Type>::operator==(Field<Type>("value", dict, p.size()));
+        fvPatchField<Type>::operator==
+        (
+            Field<Type>("value", iF.dimensions(), dict, p.size())
+        );
     }
     else
     {
@@ -75,23 +65,11 @@ timeVaryingMappedFixedValueFvPatchField
     const timeVaryingMappedFixedValueFvPatchField<Type>& ptf,
     const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     fixedValueFvPatchField<Type>(ptf, p, iF, mapper),
-    fieldMapper_(ptf.fieldMapper_)
-{}
-
-
-template<class Type>
-Foam::timeVaryingMappedFixedValueFvPatchField<Type>::
-timeVaryingMappedFixedValueFvPatchField
-(
-    const timeVaryingMappedFixedValueFvPatchField<Type>& ptf
-)
-:
-    fixedValueFvPatchField<Type>(ptf),
-    fieldMapper_(ptf.fieldMapper_)
+    fieldMapper_(ptf.fieldMapper_, p, iF, mapper)
 {}
 
 
@@ -111,31 +89,33 @@ timeVaryingMappedFixedValueFvPatchField
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class Type>
-void Foam::timeVaryingMappedFixedValueFvPatchField<Type>::autoMap
+void Foam::timeVaryingMappedFixedValueFvPatchField<Type>::map
 (
-    const fvPatchFieldMapper& m
+    const fvPatchField<Type>& ptf,
+    const fieldMapper& mapper
 )
 {
-    fixedValueFvPatchField<Type>::autoMap(m);
-    fieldMapper_.autoMap(m);
+    fixedValueFvPatchField<Type>::map(ptf, mapper);
+    fieldMapper_.map
+    (
+        refCast<const timeVaryingMappedFixedValueFvPatchField<Type>>(ptf)
+       .fieldMapper_,
+        mapper
+    );
 }
 
 
 template<class Type>
-void Foam::timeVaryingMappedFixedValueFvPatchField<Type>::rmap
+void Foam::timeVaryingMappedFixedValueFvPatchField<Type>::reset
 (
-    const fvPatchField<Type>& ptf,
-    const labelList& addr
+    const fvPatchField<Type>& ptf
 )
 {
-    fixedValueFvPatchField<Type>::rmap(ptf, addr);
-    fieldMapper_.rmap
+    fixedValueFvPatchField<Type>::reset(ptf);
+    fieldMapper_.reset
     (
-        refCast
-        <
-            const timeVaryingMappedFixedValueFvPatchField<Type>
-        >(ptf).fieldMapper_,
-        addr
+        refCast<const timeVaryingMappedFixedValueFvPatchField<Type>>(ptf)
+       .fieldMapper_
     );
 }
 

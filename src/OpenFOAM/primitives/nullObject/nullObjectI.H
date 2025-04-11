@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2014-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2014-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -30,15 +30,27 @@ inline const T& Foam::NullObjectRef()
 }
 
 template<class T>
-inline T&& Foam::NullObjectMove()
+inline T& Foam::NullObjectNonConstRef()
 {
-    return move(const_cast<T&>(*reinterpret_cast<const T*>(nullObjectPtr)));
+    return const_cast<T&>(*reinterpret_cast<const T*>(nullObjectPtr));
 }
 
 template<class T>
-inline const T* Foam::NullObjectPtr()
+inline const T* Foam::NullObjectConstPtr()
 {
     return reinterpret_cast<const T*>(nullObjectPtr);
+}
+
+template<class T>
+inline T* Foam::NullObjectPtr()
+{
+    return const_cast<T*>(reinterpret_cast<const T*>(nullObjectPtr));
+}
+
+template<class T>
+inline T&& Foam::NullObjectMove()
+{
+    return move(const_cast<T&>(*reinterpret_cast<const T*>(nullObjectPtr)));
 }
 
 
@@ -63,6 +75,19 @@ inline bool Foam::isNull(const T* t)
 
 template<class T>
 inline bool Foam::notNull(const T* t)
+{
+    return t != NullObjectPtr<T>();
+}
+
+
+template<class T>
+inline bool Foam::isNull(T* t)
+{
+    return t == NullObjectPtr<T>();
+}
+
+template<class T>
+inline bool Foam::notNull(T* t)
 {
     return t != NullObjectPtr<T>();
 }

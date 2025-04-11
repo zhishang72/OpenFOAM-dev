@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -27,7 +27,6 @@ License
 #include "universalConstants.H"
 #include "electromagneticConstants.H"
 #include "physicoChemicalConstants.H"
-
 #include "dimensionedConstants.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -39,80 +38,95 @@ namespace constant
 
 const char* const physicoChemical::group = "physicoChemical";
 
-defineDimensionedConstantWithDefault
+
+// Note: cannot use dimless etc. as they may not have been constructed yet
+
+const Foam::dimensionedScalar physicoChemical::R
 (
-    physicoChemical,
-    R,
-    dimensionedScalar(physicoChemical::NA*physicoChemical::k)
-);
-
-
-defineDimensionedConstantWithDefault
-(
-    physicoChemical,
-    F,
-    dimensionedScalar(physicoChemical::NA*electromagnetic::e)
-);
-
-
-// Note: cannot use dimless etc. since not guaranteed to be constructed
-defineDimensionedConstantWithDefault
-(
-    physicoChemical,
-    sigma,
     dimensionedScalar
     (
-        dimensionedScalar
-        (
-            "C",
-            dimensionSet(0, 0, 0, 0, 0),
-            sqr(mathematical::pi)/60.0
-        )
-       *pow4(physicoChemical::k)
-       /(pow3(universal::hr)*sqr(universal::c))
+        "R",
+        physicoChemical::NA*physicoChemical::k
     )
 );
 
 
-defineDimensionedConstantWithDefault
+const Foam::dimensionedScalar physicoChemical::RR
 (
-    physicoChemical,
-    b,
-    dimensionedScalar
+    dimensionedConstant
     (
-        (universal::h*universal::c/physicoChemical::k)
-       /dimensionedScalar
-        (
-            "C",
-            dimensionSet(0, 0, 0, 0, 0),
-            4.965114231
-        )
+        physicoChemical::group,
+        "R",
+        "RR",
+        physicoChemical::NNA*physicoChemical::k
     )
 );
 
 
-defineDimensionedConstantWithDefault
+const Foam::dimensionedScalar physicoChemical::F
 (
-    physicoChemical,
-    c1,
     dimensionedScalar
     (
-        dimensionedScalar
-        (
-            "C",
-            dimensionSet(0, 0, 0, 0, 0),
-            mathematical::twoPi
-        )
-       *universal::h*sqr(universal::c)
+        "F",
+        physicoChemical::NA*electromagnetic::e
     )
 );
 
 
-defineDimensionedConstantWithDefault
+const Foam::dimensionedScalar physicoChemical::FF
 (
-    physicoChemical,
-    c2,
-    dimensionedScalar(universal::h*universal::c/physicoChemical::k)
+    dimensionedConstant
+    (
+        physicoChemical::group,
+        "F",
+        "FF",
+        physicoChemical::NNA*electromagnetic::e
+    )
+);
+
+
+const Foam::dimensionedScalar physicoChemical::sigma
+(
+    dimensionedConstant
+    (
+        physicoChemical::group,
+        "sigma",
+        (sqr(mathematical::pi)/60.0)
+       *pow4(physicoChemical::k)/(pow3(universal::hr)*sqr(universal::c))
+    )
+);
+
+
+const Foam::dimensionedScalar physicoChemical::b
+(
+    dimensionedConstant
+    (
+        physicoChemical::group,
+        "b",
+        (universal::h*universal::c/physicoChemical::k)/4.965114231
+    )
+);
+
+
+const Foam::dimensionedScalar physicoChemical::c1
+(
+    dimensionedConstant
+    (
+        physicoChemical::group,
+        "c1",
+        mathematical::twoPi*universal::h*sqr(universal::c)
+    )
+);
+
+
+const Foam::dimensionedScalar physicoChemical::c2
+(
+    dimensionedConstant
+    (
+        physicoChemical::group,
+        "c2",
+        universal::h*universal::c/physicoChemical::k
+    )
 );
 
 

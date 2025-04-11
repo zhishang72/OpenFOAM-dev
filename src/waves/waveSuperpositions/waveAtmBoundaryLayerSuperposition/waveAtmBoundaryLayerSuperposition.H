@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -37,21 +37,27 @@ Description
 
 Usage
     \table
-        Property | Description                              | Req'd? | Default
-        UGasRef  | The gas velocity at the reference height | yes    |
+        Property | Description                             | Required? | Default
+        UGasRef  | The gas velocity at the reference \\
+                   height                                  | yes       |
         hRef     | The reference height relative to the \\
-                   origin of the wave coordinate system     | yes    |
-        hWaveMin | The minimum wave elevation               | yes    |
-        hWaveMax | The maximum wave elevation               | yes    |
+                   origin of the wave coordinate system    | yes       |
+        hWaveMin | The minimum wave elevation              | yes       |
+        hWaveMax | The maximum wave elevation              | yes       |
     \endtable
 
     Example specification:
     \verbatim
     type        waveAtmBoundaryLayer;
+
     // parameters for waveSuperposition ...
+
     UGasRef     (10 0 0);
+
     hRef        10;
+
     hWaveMin    -2;
+
     hWaveMax    3;
     \endverbatim
 
@@ -71,7 +77,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-             Class waveAtmBoundaryLayerSuperposition Declaration
+              Class waveAtmBoundaryLayerSuperposition Declaration
 \*---------------------------------------------------------------------------*/
 
 class waveAtmBoundaryLayerSuperposition

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -75,6 +75,15 @@ inline void Foam::UPtrList<T>::resize(const label newSize)
 
 
 template<class T>
+inline void Foam::UPtrList<T>::append(T* ptr)
+{
+    label sz = this->size();
+    this->setSize(sz+1);
+    this->ptrs_[sz] = ptr;
+}
+
+
+template<class T>
 inline bool Foam::UPtrList<T>::set(const label i) const
 {
     return ptrs_[i] != nullptr;
@@ -126,6 +135,13 @@ inline T& Foam::UPtrList<T>::operator[](const label i)
 
 template<class T>
 inline const T* Foam::UPtrList<T>::operator()(const label i) const
+{
+    return ptrs_[i];
+}
+
+
+template<class T>
+inline T* Foam::UPtrList<T>::operator()(const label i)
 {
     return ptrs_[i];
 }

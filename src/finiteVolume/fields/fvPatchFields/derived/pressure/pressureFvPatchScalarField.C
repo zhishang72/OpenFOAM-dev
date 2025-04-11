@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2018-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2018-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,22 +25,11 @@ License
 
 #include "pressureFvPatchScalarField.H"
 #include "addToRunTimeSelectionTable.H"
-#include "fvPatchFieldMapper.H"
+#include "fieldMapper.H"
 #include "volFields.H"
 #include "uniformDimensionedFields.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
-
-Foam::pressureFvPatchScalarField::pressureFvPatchScalarField
-(
-    const fvPatch& p,
-    const DimensionedField<scalar, volMesh>& iF
-)
-:
-    fixedValueFvPatchScalarField(p, iF),
-    p_(p.size(), 0.0)
-{}
-
 
 Foam::pressureFvPatchScalarField::pressureFvPatchScalarField
 (
@@ -50,13 +39,13 @@ Foam::pressureFvPatchScalarField::pressureFvPatchScalarField
 )
 :
     fixedValueFvPatchScalarField(p, iF, dict, false),
-    p_("p", dict, p.size())
+    p_("p", dimPressure, dict, p.size())
 {
     if (dict.found("value"))
     {
         fvPatchScalarField::operator=
         (
-            scalarField("value", dict, p.size())
+            scalarField("value", iF.dimensions(), dict, p.size())
         );
     }
     else
@@ -71,21 +60,11 @@ Foam::pressureFvPatchScalarField::pressureFvPatchScalarField
     const pressureFvPatchScalarField& ptf,
     const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     fixedValueFvPatchScalarField(ptf, p, iF, mapper),
     p_(mapper(ptf.p_))
-{}
-
-
-Foam::pressureFvPatchScalarField::pressureFvPatchScalarField
-(
-    const pressureFvPatchScalarField& ptf
-)
-:
-    fixedValueFvPatchScalarField(ptf),
-    p_(ptf.p_)
 {}
 
 
@@ -102,28 +81,32 @@ Foam::pressureFvPatchScalarField::pressureFvPatchScalarField
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-void Foam::pressureFvPatchScalarField::autoMap
-(
-    const fvPatchFieldMapper& m
-)
-{
-    fixedValueFvPatchScalarField::autoMap(m);
-    m(p_, p_);
-}
-
-
-void Foam::pressureFvPatchScalarField::rmap
+void Foam::pressureFvPatchScalarField::map
 (
     const fvPatchScalarField& ptf,
-    const labelList& addr
+    const fieldMapper& mapper
 )
 {
-    fixedValueFvPatchScalarField::rmap(ptf, addr);
+    fixedValueFvPatchScalarField::map(ptf, mapper);
 
     const pressureFvPatchScalarField& tiptf =
         refCast<const pressureFvPatchScalarField>(ptf);
 
-    p_.rmap(tiptf.p_, addr);
+    mapper(p_, tiptf.p_);
+}
+
+
+void Foam::pressureFvPatchScalarField::reset
+(
+    const fvPatchScalarField& ptf
+)
+{
+    fixedValueFvPatchScalarField::reset(ptf);
+
+    const pressureFvPatchScalarField& tiptf =
+        refCast<const pressureFvPatchScalarField>(ptf);
+
+    p_.reset(tiptf.p_);
 }
 
 

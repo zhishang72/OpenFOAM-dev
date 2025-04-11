@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -43,7 +43,7 @@ SourceFiles
 #ifndef pointConstraints_H
 #define pointConstraints_H
 
-#include "MeshObject.H"
+#include "DemandDrivenMeshObject.H"
 #include "tensorField.H"
 #include "pointFieldsFwd.H"
 #include "pointConstraint.H"
@@ -53,33 +53,52 @@ SourceFiles
 namespace Foam
 {
 
-class pointMesh;
 class polyMesh;
 
 /*---------------------------------------------------------------------------*\
-                       Class pointConstraints Declaration
+                      Class pointConstraints Declaration
 \*---------------------------------------------------------------------------*/
 
 class pointConstraints
 :
-    public MeshObject<pointMesh, UpdateableMeshObject, pointConstraints>
+    public DemandDrivenMeshObject
+    <
+        pointMesh,
+        TopoChangeableMeshObject,
+        pointConstraints
+    >
 {
     // Private Data
 
-        // Patch-patch constraints
+        //- Mesh points on which to apply special constraints
+        labelList patchPatchPointConstraintPoints_;
 
-            //- Mesh points on which to apply special constraints
-            labelList patchPatchPointConstraintPoints_;
-            //- Special constraints (as tensors)
-            tensorField patchPatchPointConstraintTensors_;
-            //- Special constraints (raw)
-            List<pointConstraint> patchPatchPointConstraints_;
+        //- Special constraints (as tensors)
+        tensorField patchPatchPointConstraintTensors_;
+
+        //- Special constraints (raw)
+        List<pointConstraint> patchPatchPointConstraints_;
 
 
     // Private Member Functions
 
         //- Make patch-patch constraints
         void makePatchPatchAddressing();
+
+
+protected:
+
+    friend class DemandDrivenMeshObject
+    <
+        pointMesh,
+        TopoChangeableMeshObject,
+        pointConstraints
+    >;
+
+    // Protected Constructors
+
+        //- Constructor from pointMesh.
+        explicit pointConstraints(const pointMesh&);
 
 
 public:
@@ -89,9 +108,6 @@ public:
 
 
     // Constructors
-
-        //- Constructor from pointMesh.
-        explicit pointConstraints(const pointMesh&);
 
         //- Disallow default bitwise copy construction
         pointConstraints(const pointConstraints&) = delete;
@@ -126,11 +142,17 @@ public:
 
         // Edit
 
-            //- Update mesh topology using the morph engine
-            void updateMesh(const mapPolyMesh&);
-
             //- Correct weighting factors for moving mesh.
-            bool movePoints();
+            virtual bool movePoints();
+
+            //- Update mesh topology using the morph engine
+            virtual void topoChange(const polyTopoChangeMap&);
+
+            //- Update from another mesh using the given map
+            virtual void mapMesh(const polyMeshMap&);
+
+            //- Update corresponding to the given distribution map
+            virtual void distribute(const polyDistributionMap&);
 
 
         // Interpolation functions
@@ -146,18 +168,18 @@ public:
 
             //- Helper: set patchField values from internal values (on
             //  valuePointPatchFields). Opposite of
-            //  pointPatchField::setInInternalField
+            //  pointPatchField::setInternalField
             template<class Type>
             static void setPatchFields
             (
-                GeometricField<Type, pointPatchField, pointMesh>&
+                PointField<Type>&
             );
 
             //- Apply patch-patch constraints only
             template<class Type>
             void constrainCorners
             (
-                GeometricField<Type, pointPatchField, pointMesh>& pf
+                PointField<Type>& pf
             ) const;
 
             //- Apply boundary conditions (single-patch constraints) and
@@ -167,7 +189,7 @@ public:
             template<class Type>
             void constrain
             (
-                GeometricField<Type, pointPatchField, pointMesh>& pf,
+                PointField<Type>& pf,
                 const bool overrideValue = false
             ) const;
 
@@ -191,12 +213,13 @@ public:
 template<>
 void pointConstraints::constrainCorners<scalar>
 (
-    GeometricField<scalar, pointPatchField, pointMesh>& pf
+    PointField<scalar>& pf
 ) const;
+
 template<>
 void pointConstraints::constrainCorners<label>
 (
-    GeometricField<label, pointPatchField, pointMesh>& pf
+    PointField<label>& pf
 ) const;
 
 

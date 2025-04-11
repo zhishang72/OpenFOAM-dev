@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,8 +25,7 @@ License
 
 #include "wideBand.H"
 #include "addToRunTimeSelectionTable.H"
-#include "basicSpecieMixture.H"
-#include "unitConversion.H"
+#include "fluidMulticomponentThermo.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -58,17 +57,23 @@ Foam::radiationModels::absorptionEmissionModels::wideBand::wideBand
     const word& modelName
 )
 :
-    absorptionEmissionModel(dict, mesh),
-    coeffsDict_(dict.subDict(modelName + "Coeffs")),
+    absorptionEmissionModel(mesh),
     speciesNames_(0),
     specieIndex_(label(0)),
     lookUpTablePtr_(),
-    thermo_(mesh.lookupObject<fluidThermo>(basicThermo::dictName)),
+    thermo_(mesh.lookupObject<fluidThermo>(physicalProperties::typeName)),
     Yj_(nSpecies_),
     totalWaveLength_(0)
 {
+    if (!isA<fluidMulticomponentThermo>(thermo_))
+    {
+        FatalErrorInFunction
+            << "Model requires a multi-component thermo package"
+            << abort(FatalError);
+    }
+
     label nBand = 0;
-    forAllConstIter(dictionary, coeffsDict_, iter)
+    forAllConstIter(dictionary, dict, iter)
     {
         if (!iter().isDict()) continue;
 
@@ -102,16 +107,16 @@ Foam::radiationModels::absorptionEmissionModels::wideBand::wideBand
     }
     nBands_ = nBand;
 
-    if (coeffsDict_.found("lookUpTableFileName"))
+    if (dict.found("lookUpTableFileName"))
     {
-        const word name = coeffsDict_.lookup("lookUpTableFileName");
+        const word name = dict.lookup("lookUpTableFileName");
         if (name != "none")
         {
             lookUpTablePtr_.set
             (
-                new interpolationLookUpTable<scalar>
+                new interpolationLookUpTable
                 (
-                    fileName(coeffsDict_.lookup("lookUpTableFileName")),
+                    fileName(dict.lookup("lookUpTableFileName")),
                     mesh.time().constant(),
                     mesh
                 )
@@ -195,8 +200,8 @@ Foam::radiationModels::absorptionEmissionModels::wideBand::aCont
     const label bandi
 ) const
 {
-    const basicSpecieMixture& mixture =
-        dynamic_cast<const basicSpecieMixture&>(thermo_);
+    const fluidMulticomponentThermo& mcThermo =
+        dynamic_cast<const fluidMulticomponentThermo&>(thermo_);
 
     const volScalarField& T = thermo_.T();
     const volScalarField& p = thermo_.p();
@@ -213,6 +218,8 @@ Foam::radiationModels::absorptionEmissionModels::wideBand::aCont
 
     scalarField& a = ta.ref().primitiveFieldRef();
 
+    const unitConversion& unitAtm = units()["atm"];
+
     forAll(a, celli)
     {
         forAllConstIter(HashTable<label>, speciesNames_, iter)
@@ -227,22 +234,22 @@ Foam::radiationModels::absorptionEmissionModels::wideBand::aCont
                 const List<scalar>& Ynft = lookUpTablePtr_().lookUp(ft[celli]);
 
                 // moles*pressure [atm]
-                Xipi = Ynft[specieIndex_[n]]*paToAtm(p[celli]);
+                Xipi = unitAtm.toUser(Ynft[specieIndex_[n]]*p[celli]);
             }
             else
             {
                 scalar invWt = 0;
-                forAll(mixture.Y(), s)
+                forAll(mcThermo.Y(), s)
                 {
-                    invWt += mixture.Y(s)[celli]/mixture.Wi(s);
+                    invWt += mcThermo.Y(s)[celli]/mcThermo.WiValue(s);
                 }
 
-                const label index = mixture.species()[iter.key()];
+                const label index = mcThermo.species()[iter.key()];
 
                 const scalar Xk =
-                    mixture.Y(index)[celli]/(mixture.Wi(index)*invWt);
+                    mcThermo.Y(index)[celli]/(mcThermo.WiValue(index)*invWt);
 
-                Xipi = Xk*paToAtm(p[celli]);
+                Xipi = unitAtm.toUser(Xk*p[celli]);
             }
 
             scalar Ti = T[celli];

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -34,6 +34,7 @@ SourceFiles
 #ifndef surfaceFieldsFwd_H
 #define surfaceFieldsFwd_H
 
+#include "GeometricFieldFwd.H"
 #include "fieldTypes.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -48,16 +49,15 @@ class surfaceMesh;
 template<class Type>
 class fvsPatchField;
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-class GeometricField;
+template<class Type>
+using SurfaceField = GeometricField<Type, surfaceMesh, Field>;
 
-typedef GeometricField<scalar, fvsPatchField, surfaceMesh> surfaceScalarField;
-typedef GeometricField<vector, fvsPatchField, surfaceMesh> surfaceVectorField;
-typedef GeometricField<sphericalTensor, fvsPatchField, surfaceMesh>
-    surfaceSphericalTensorField;
-typedef GeometricField<symmTensor, fvsPatchField, surfaceMesh>
-    surfaceSymmTensorField;
-typedef GeometricField<tensor, fvsPatchField, surfaceMesh> surfaceTensorField;
+typedef SurfaceField<label> surfaceLabelField;
+typedef SurfaceField<scalar> surfaceScalarField;
+typedef SurfaceField<vector> surfaceVectorField;
+typedef SurfaceField<sphericalTensor> surfaceSphericalTensorField;
+typedef SurfaceField<symmTensor> surfaceSymmTensorField;
+typedef SurfaceField<tensor> surfaceTensorField;
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

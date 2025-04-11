@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -136,10 +136,6 @@ class externalCoupledMixedFvPatchField
 {
     // Private Data
 
-        //- Convenience typedefs
-        typedef externalCoupledMixedFvPatchField<Type> patchType;
-        typedef GeometricField<Type, fvPatchField, volMesh> volFieldType;
-
         //- Path to communications directory
         fileName commsDir_;
 
@@ -172,7 +168,7 @@ class externalCoupledMixedFvPatchField
         bool initialised_;
 
         //- List of coupled patch IDs
-        List<label> coupledPatchIDs_;
+        List<label> coupledPatchIndices_;
 
 
     // Private Member Functions
@@ -236,13 +232,6 @@ public:
 
     // Constructors
 
-        //- Construct from patch and internal field
-        externalCoupledMixedFvPatchField
-        (
-            const fvPatch&,
-            const DimensionedField<Type, volMesh>&
-        );
-
         //- Construct from patch, internal field and dictionary
         externalCoupledMixedFvPatchField
         (
@@ -258,23 +247,14 @@ public:
             const externalCoupledMixedFvPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         externalCoupledMixedFvPatchField
         (
             const externalCoupledMixedFvPatchField&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchField<Type>> clone() const
-        {
-            return tmp<fvPatchField<Type>>
-            (
-                new externalCoupledMixedFvPatchField<Type>(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         externalCoupledMixedFvPatchField

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -34,20 +34,6 @@ Foam::matchedFlowRateOutletVelocityFvPatchVectorField::
 matchedFlowRateOutletVelocityFvPatchVectorField
 (
     const fvPatch& p,
-    const DimensionedField<vector, volMesh>& iF
-)
-:
-    fixedValueFvPatchField<vector>(p, iF),
-    inletPatchName_(),
-    volumetric_(false),
-    rhoName_("rho")
-{}
-
-
-Foam::matchedFlowRateOutletVelocityFvPatchVectorField::
-matchedFlowRateOutletVelocityFvPatchVectorField
-(
-    const fvPatch& p,
     const DimensionedField<vector, volMesh>& iF,
     const dictionary& dict
 )
@@ -70,7 +56,7 @@ matchedFlowRateOutletVelocityFvPatchVectorField
     {
         fvPatchField<vector>::operator=
         (
-            vectorField("value", dict, p.size())
+            vectorField("value", iF.dimensions(), dict, p.size())
         );
     }
     else
@@ -86,23 +72,10 @@ matchedFlowRateOutletVelocityFvPatchVectorField
     const matchedFlowRateOutletVelocityFvPatchVectorField& ptf,
     const fvPatch& p,
     const DimensionedField<vector, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     fixedValueFvPatchField<vector>(ptf, p, iF, mapper),
-    inletPatchName_(ptf.inletPatchName_),
-    volumetric_(ptf.volumetric_),
-    rhoName_(ptf.rhoName_)
-{}
-
-
-Foam::matchedFlowRateOutletVelocityFvPatchVectorField::
-matchedFlowRateOutletVelocityFvPatchVectorField
-(
-    const matchedFlowRateOutletVelocityFvPatchVectorField& ptf
-)
-:
-    fixedValueFvPatchField<vector>(ptf),
     inletPatchName_(ptf.inletPatchName_),
     volumetric_(ptf.volumetric_),
     rhoName_(ptf.rhoName_)
@@ -197,7 +170,7 @@ void Foam::matchedFlowRateOutletVelocityFvPatchVectorField::updateCoeffs()
 
     // Find corresponding inlet patch
     const label inletPatchID =
-        patch().patch().boundaryMesh().findPatchID(inletPatchName_);
+        patch().patch().boundaryMesh().findIndex(inletPatchName_);
 
     if (inletPatchID < 0)
     {

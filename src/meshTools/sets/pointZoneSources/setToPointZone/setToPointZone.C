@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -34,16 +34,7 @@ namespace Foam
 {
     defineTypeNameAndDebug(setToPointZone, 0);
     addToRunTimeSelectionTable(topoSetSource, setToPointZone, word);
-    addToRunTimeSelectionTable(topoSetSource, setToPointZone, istream);
 }
-
-
-Foam::topoSetSource::addToUsageTable Foam::setToPointZone::usage_
-(
-    setToPointZone::typeName,
-    "\n    Usage: setToPointZone <pointSet>\n\n"
-    "    Select all points in the pointSet.\n\n"
-);
 
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
@@ -66,18 +57,7 @@ Foam::setToPointZone::setToPointZone
 )
 :
     topoSetSource(mesh),
-    setName_(dict.lookup("set"))
-{}
-
-
-Foam::setToPointZone::setToPointZone
-(
-    const polyMesh& mesh,
-    Istream& is
-)
-:
-    topoSetSource(mesh),
-    setName_(checkIs(is))
+    setName_(dict.lookupBackwardsCompatible<word>({"set", "pointSet"}))
 {}
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2019-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -28,7 +28,7 @@ License
 #include "addToRunTimeSelectionTable.H"
 #include "volFields.H"
 #include "surfaceFields.H"
-#include "basicSpecieMixture.H"
+#include "fluidMulticomponentThermo.H"
 #include "basicThermo.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
@@ -37,31 +37,13 @@ Foam::specieTransferVelocityFvPatchVectorField::
 specieTransferVelocityFvPatchVectorField
 (
     const fvPatch& p,
-    const DimensionedField<vector, volMesh>& iF
-)
-:
-    fixedValueFvPatchVectorField(p, iF),
-    rhoName_("rho")
-{}
-
-
-Foam::specieTransferVelocityFvPatchVectorField::
-specieTransferVelocityFvPatchVectorField
-(
-    const fvPatch& p,
     const DimensionedField<vector, volMesh>& iF,
-    const dictionary& dict,
-    const bool readValue
+    const dictionary& dict
 )
 :
-    fixedValueFvPatchVectorField(p, iF),
+    fixedValueInletOutletFvPatchField<vector>(p, iF, dict),
     rhoName_(dict.lookupOrDefault<word>("rho", "rho"))
-{
-    if (readValue)
-    {
-        fvPatchVectorField::operator==(vectorField("value", dict, p.size()));
-    }
-}
+{}
 
 
 Foam::specieTransferVelocityFvPatchVectorField::
@@ -70,21 +52,10 @@ specieTransferVelocityFvPatchVectorField
     const specieTransferVelocityFvPatchVectorField& ptf,
     const fvPatch& p,
     const DimensionedField<vector, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
-    fixedValueFvPatchVectorField(ptf, p, iF, mapper),
-    rhoName_(ptf.rhoName_)
-{}
-
-
-Foam::specieTransferVelocityFvPatchVectorField::
-specieTransferVelocityFvPatchVectorField
-(
-    const specieTransferVelocityFvPatchVectorField& ptf
-)
-:
-    fixedValueFvPatchVectorField(ptf),
+    fixedValueInletOutletFvPatchField<vector>(ptf, p, iF, mapper),
     rhoName_(ptf.rhoName_)
 {}
 
@@ -96,7 +67,7 @@ specieTransferVelocityFvPatchVectorField
     const DimensionedField<vector, volMesh>& iF
 )
 :
-    fixedValueFvPatchVectorField(ptf, iF),
+    fixedValueInletOutletFvPatchField<vector>(ptf, iF),
     rhoName_(ptf.rhoName_)
 {}
 
@@ -107,7 +78,7 @@ const Foam::tmp<Foam::scalarField>
 Foam::specieTransferVelocityFvPatchVectorField::phip() const
 {
     typedef specieTransferMassFractionFvPatchScalarField YBCType;
-    const PtrList<volScalarField>& Y = YBCType::composition(db()).Y();
+    const PtrList<volScalarField>& Y = YBCType::thermo(db()).Y();
 
     // Sum up the phiYp-s from all the species
     tmp<scalarField> tPhip(new scalarField(this->size(), 0));
@@ -147,7 +118,7 @@ void Foam::specieTransferVelocityFvPatchVectorField::updateCoeffs()
     const tensorField Tau(tensor::I - sqr(nf));
     this->operator==((Tau & *this) + nf*phip()/(rhop*patch().magSf()));
 
-    fixedValueFvPatchVectorField::updateCoeffs();
+    fixedValueInletOutletFvPatchField<vector>::updateCoeffs();
 }
 
 

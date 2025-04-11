@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -47,7 +47,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                      Class geometricZeroField Declaration
+                     Class geometricZeroField Declaration
 \*---------------------------------------------------------------------------*/
 
 class geometricZeroField
@@ -56,6 +56,14 @@ class geometricZeroField
 {
 
 public:
+
+    // Public Typedefs
+
+        typedef zeroField Internal;
+        typedef zeroField Patch;
+        typedef zeroFieldField Boundary;
+        typedef zero cmptType;
+
 
     // Constructors
 
@@ -70,13 +78,17 @@ public:
 
         inline scalar operator[](const label) const;
 
-        inline zeroField field() const;
+        inline geometricZeroField oldTime() const;
 
-        inline zeroField operator()() const;
+        inline Internal operator()() const;
 
-        inline zeroField oldTime() const;
+        inline Internal internalField() const;
 
-        inline zeroFieldField boundaryField() const;
+        inline Internal v() const;
+
+        inline typename Internal::FieldType primitiveField() const;
+
+        inline Boundary boundaryField() const;
 };
 
 

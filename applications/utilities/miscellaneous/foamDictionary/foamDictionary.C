@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -33,8 +33,9 @@ Description
 
 Usage
     \b foamDictionary [OPTION] dictionary
+
       - \par -case \<dir\>
-        Select a case directory
+        Select a case directory instead of the current working directory
 
       - \par -parallel
         Specify case as a parallel job
@@ -55,11 +56,22 @@ Usage
         Prints the keywords (of the selected entry or of the top level if
         no entry was selected
 
+      - \par -rename \<newName\>
+        Renames the entry selected by \c -entry
+
+      - \par -rename \<newNames\>
+        Renames a list of entries specified in the form:
+        "<entryName0>=<newName0>, <entryName1>=<newName1>..."
+
       - \par -add \<value\>
         Adds the entry (should not exist yet)
 
       - \par -set \<value\>
-        Adds or replaces the entry
+        Adds or replaces the entry selected by \c -entry
+
+      - \par -set \<substitutions\>
+        Applies the list of substitutions specified in the form:
+        "<entry0>=<value0>, <entry1>=<value1>..."
 
       - \par -merge \<value\>
         Merges the entry
@@ -75,11 +87,19 @@ Usage
         (or sub entry if -entry specified)
 
       - \par -expand
-        Read the specified dictionary file, expand the macros etc. and write
-        the resulting dictionary to standard output.
+        Read the specified dictionary file, expand the macros etc.
+        Writes the expanded dictionary to the output dictionary if specified
+        otherwise to standard output
 
       - \par -includes
-        List the \c #include and \c #includeIfPresent files to standard output
+        List the \c \#include and \c \#includeIfPresent files to standard output
+
+      - \par -output
+        Path name of the output dictionary, defaults to the input dictionary
+
+      - \par -quiet
+        Operate without outputting to the terminal or raising errors. Just use
+        an exit code to indicate success or failure.
 
     Example usage:
       - Change simulation to run for one timestep only:
@@ -89,30 +109,30 @@ Usage
 
       - Change solver:
         \verbatim
-           foamDictionary system/fvSolution -entry solvers.p.solver -set PCG
+           foamDictionary system/fvSolution -entry solvers/p/solver -set PCG
         \endverbatim
 
       - Print bc type:
         \verbatim
-           foamDictionary 0/U -entry boundaryField.movingWall.type
+           foamDictionary 0/U -entry boundaryField/movingWall/type
         \endverbatim
 
       - Change bc parameter:
         \verbatim
-           foamDictionary 0/U -entry boundaryField.movingWall.value \
+           foamDictionary 0/U -entry boundaryField/movingWall/value \
              -set "uniform (2 0 0)"
         \endverbatim
 
       - Change bc parameter in parallel:
         \verbatim
            mpirun -np 4 foamDictionary 0.5/U \
-             -entry boundaryField.movingWall.value \
+             -entry boundaryField/movingWall/value \
              -set "uniform (2 0 0)" -parallel
         \endverbatim
 
       - Change whole bc type:
         \verbatim
-          foamDictionary 0/U -entry boundaryField.movingWall \
+          foamDictionary 0/U -entry boundaryField/movingWall \
             -set "{type uniformFixedValue; uniformValue (2 0 0);}"
         \endverbatim
 
@@ -131,11 +151,16 @@ Usage
       - Change patch type:
         \verbatim
           foamDictionary constant/polyMesh/boundary \
-            -entry entry0.fixedWalls.type -set patch
+            -entry entry0/fixedWalls/type -set patch
         \endverbatim
         This uses special parsing of Lists which stores these in the
         dictionary with keyword 'entryDDD' where DDD is the position
         in the dictionary (after ignoring the FoamFile entry).
+
+      - Substitute multiple entries:
+        \verbatim
+          foamDictionary system/controlDict -set "startTime=2000, endTime=3000"
+        \endverbatim
 
 \*---------------------------------------------------------------------------*/
 
@@ -146,14 +171,14 @@ Usage
 #include "IFstream.H"
 #include "OFstream.H"
 #include "includeEntry.H"
-#include "inputSyntaxEntry.H"
+#include "mergeDictionaries.H"
 
 using namespace Foam;
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 //- Read dictionary from file and return
-//  Sets steam to binary mode if specified in the optional header
+//  Sets stream to binary mode if specified in the optional header
 IOstream::streamFormat readDict(dictionary& dict, const fileName& dictFileName)
 {
     IOstream::streamFormat dictFormat = IOstream::ASCII;
@@ -205,92 +230,11 @@ IOstream::streamFormat readDict(dictionary& dict, const fileName& dictFileName)
 }
 
 
-//- Convert keyword syntax to "dot" if the dictionary is "dot" syntax
-word scope(const fileName& entryName)
-{
-    if
-    (
-        functionEntries::inputSyntaxEntry::dot()
-     && entryName.find('/') != string::npos
-    )
-    {
-        wordList entryNames(entryName.components('/'));
-
-        word entry(entryNames[0]);
-        for (label i = 1; i < entryNames.size(); i++)
-        {
-            entry += word('.') + entryNames[i];
-        }
-        return entry;
-    }
-    else
-    {
-        return entryName;
-    }
-}
-
-
-//- Extracts dict name and keyword
-Pair<word> dictAndKeyword(const word& scopedName)
-{
-    string::size_type i = scopedName.find_last_of
-    (
-        functionEntries::inputSyntaxEntry::scopeChar()
-    );
-
-    if (i != string::npos)
-    {
-        return Pair<word>
-        (
-            scopedName.substr(0, i),
-            scopedName.substr(i+1, string::npos)
-        );
-    }
-    else
-    {
-        return Pair<word>("", scopedName);
-    }
-}
-
-
-const dictionary& lookupScopedDict
-(
-    const dictionary& dict,
-    const word& subDictName
-)
-{
-    if (subDictName == "")
-    {
-        return dict;
-    }
-    else
-    {
-        const entry* entPtr = dict.lookupScopedEntryPtr
-        (
-            subDictName,
-            false,
-            false
-        );
-        if (!entPtr || !entPtr->isDict())
-        {
-            FatalIOErrorInFunction(dict)
-                << "keyword " << subDictName
-                << " is undefined in dictionary "
-                << dict.name() << " or is not a dictionary"
-                << endl
-                << "Valid keywords are " << dict.keys()
-                << exit(FatalIOError);
-        }
-        return entPtr->dict();
-    }
-}
-
-
 void remove(dictionary& dict, const dictionary& removeDict)
 {
     forAllConstIter(dictionary, removeDict, iter)
     {
-        const entry* entPtr = dict.lookupEntryPtr
+        entry* entPtr = dict.lookupEntryPtr
         (
             iter().keyword(),
             false,
@@ -303,11 +247,7 @@ void remove(dictionary& dict, const dictionary& removeDict)
             {
                 if (iter().isDict())
                 {
-                    remove
-                    (
-                        const_cast<dictionary&>(entPtr->dict()),
-                        iter().dict()
-                    );
+                    remove(entPtr->dict(), iter().dict());
 
                     // Check if dictionary is empty
                     if (!entPtr->dict().size())
@@ -324,6 +264,51 @@ void remove(dictionary& dict, const dictionary& removeDict)
                 }
             }
         }
+    }
+}
+
+
+void rename(dictionary& dict, const string& newNames)
+{
+    List<Tuple2<wordRe, label>> args;
+    List<Tuple3<word, string, label>> namedArgs;
+    dictArgList({newNames, 0}, args, namedArgs);
+
+    forAll(namedArgs, i)
+    {
+        const Pair<word> dAk(dictAndKeyword(namedArgs[i].first()));
+        dictionary& subDict(dict.scopedDict(dAk.first()));
+        subDict.changeKeyword(dAk.second(), word(namedArgs[i].second()));
+    }
+}
+
+
+void substitute(dictionary& dict, const string& substitutions)
+{
+    List<Tuple2<wordRe, label>> args;
+    List<Tuple3<word, string, label>> namedArgs;
+    dictArgList({substitutions, 0}, args, namedArgs);
+
+    forAll(args, i)
+    {
+        const Pair<word> dAk(dictAndKeyword(args[i].first()));
+        dictionary& subDict(dict.scopedDict(dAk.first()));
+        IStringStream entryStream
+        (
+            dAk.second() + ';'
+        );
+        subDict.set(entry::New(entryStream).ptr());
+    }
+
+    forAll(namedArgs, i)
+    {
+        const Pair<word> dAk(dictAndKeyword(namedArgs[i].first()));
+        dictionary& subDict(dict.scopedDict(dAk.first()));
+        IStringStream entryStream
+        (
+            dAk.second() + ' ' + namedArgs[i].second() + ';'
+        );
+        subDict.set(entry::New(entryStream).ptr());
     }
 }
 
@@ -345,9 +330,15 @@ int main(int argc, char *argv[])
     );
     argList::addOption
     (
+        "rename",
+        "name",
+        "Rename entry or list of entries"
+    );
+    argList::addOption
+    (
         "set",
         "value",
-        "Set entry value or add new entry"
+        "Set entry value, add new entry or apply list of substitutions"
     );
     argList::addOption
     (
@@ -385,8 +376,24 @@ int main(int argc, char *argv[])
     argList::addBoolOption
     (
         "expand",
-        "Read the specified dictionary file, expand the macros etc. and write "
-        "the resulting dictionary to standard output"
+        "Read the specified dictionary file and expand the macros etc."
+    );
+    argList::addOption
+    (
+        "writePrecision",
+        "label",
+        "Write with the specified precision"
+    );
+    argList::addOption
+    (
+        "output",
+        "path name",
+        "Path name of the output dictionary"
+    );
+    argList::addBoolOption
+    (
+        "quiet",
+        "Operate without outputting to the terminal or raising errors"
     );
 
     argList args(argc, argv);
@@ -400,7 +407,23 @@ int main(int argc, char *argv[])
 
     // Do not expand functionEntries except during dictionary expansion
     // with the -expand option
-    entry::disableFunctionEntries = true;
+    if (!args.optionFound("expand"))
+    {
+        entry::disableFunctionEntries = true;
+    }
+
+    // Do not write info if the quiet option is set
+    const bool quiet = args.optionFound("quiet");
+    if (quiet) messageStream::level = 0;
+
+    // Set write precision
+    if (args.optionFound("writePrecision"))
+    {
+        const label writePrecision = args.optionRead<label>("writePrecision");
+        IOstream::defaultPrecision(writePrecision);
+        Sout.precision(writePrecision);
+        Pout.precision(IOstream::defaultPrecision());
+    }
 
     const fileName dictPath(args[1]);
 
@@ -459,7 +482,14 @@ int main(int argc, char *argv[])
     else
     {
         dictPtr = new dictionary(dictPath);
-        dictFormat = readDict(*dictPtr, dictPath);
+        dictFormat =
+            readDict
+            (
+                *dictPtr,
+                dictPath.isAbsolute()
+              ? dictPath
+              : args.path()/dictPath
+            );
     }
 
     dictionary& dict = localDictPtr ? *localDictPtr : *dictPtr;
@@ -470,36 +500,55 @@ int main(int argc, char *argv[])
     {
         return 0;
     }
-    else if (args.optionFound("expand"))
+    else if (args.optionFound("expand") && !args.optionFound("entry"))
     {
-        entry::disableFunctionEntries = false;
+        if (!args.optionFound("output"))
+        {
+            IOobject::writeBanner(Info)
+                <<"//\n// " << dictPath << "\n//\n";
 
-        IOobject::writeBanner(Info)
-            <<"//\n// " << dictPath << "\n//\n";
-        dict.dictionary::write(Info, false);
-        IOobject::writeDivider(Info);
+            // Change the format to ASCII
+            if (dict.found(IOobject::foamFile))
+            {
+                dict.subDict(IOobject::foamFile).add
+                (
+                    "format",
+                    IOstream::ASCII,
+                    true
+                );
+            }
 
-        return 0;
+            dict.dictionary::write(Info, false);
+            IOobject::writeEndDivider(Info);
+
+            return 0;
+        }
+        else
+        {
+            changed = true;
+        }
     }
-
-
-    // Second dictionary for -diff
-    fileName diffFileName;
-    dictionary diffDict;
-
-    if (args.optionReadIfPresent("diff", diffFileName))
-    {
-        readDict(diffDict, diffFileName);
-    }
-
 
     word entryName;
+    fileName diffFileName;
     if (args.optionReadIfPresent("entry", entryName))
     {
-        const word scopedName(scope(entryName));
+        const word scopedName(entryName);
 
         string newValue;
-        if
+
+        if (args.optionReadIfPresent("rename", newValue))
+        {
+            // Extract dictionary name and keyword
+            const Pair<word> dAk(dictAndKeyword(scopedName));
+
+            dictionary& subDict(dict.scopedDict(dAk.first()));
+
+            subDict.changeKeyword(dAk.second(), word(newValue));
+
+            changed = true;
+        }
+        else if
         (
             args.optionReadIfPresent("set", newValue)
          || args.optionReadIfPresent("add", newValue)
@@ -509,8 +558,10 @@ int main(int argc, char *argv[])
             const bool overwrite = args.optionFound("set");
             const bool merge = args.optionFound("merge");
 
-            Pair<word> dAk(dictAndKeyword(scopedName));
-            const dictionary& d(lookupScopedDict(dict, dAk.first()));
+            // Extract dictionary name and keyword
+            const Pair<word> dAk(dictAndKeyword(scopedName));
+
+            dictionary& subDict(dict.scopedDict(dAk.first()));
 
             entry* ePtr = nullptr;
 
@@ -549,67 +600,52 @@ int main(int argc, char *argv[])
             if (overwrite)
             {
                 Info << "New entry " << *ePtr << endl;
-                const_cast<dictionary&>(d).set(ePtr);
+                subDict.set(ePtr);
             }
             else
             {
-                const_cast<dictionary&>(d).add(ePtr, merge);
+                subDict.add(ePtr, merge);
             }
             changed = true;
-
-            // Print the changed entry
-            // const entry* entPtr = dict.lookupScopedEntryPtr
-            // (
-            //     scopedName,
-            //     false,
-            //     true            // Support wildcards
-            // );
-            // if (entPtr)
-            // {
-            //     Info<< *entPtr;
-            // }
         }
         else if (args.optionFound("remove"))
         {
             // Extract dictionary name and keyword
-            Pair<word> dAk(dictAndKeyword(scopedName));
+            const Pair<word> dAk(dictAndKeyword(scopedName));
 
-            const dictionary& d(lookupScopedDict(dict, dAk.first()));
-            const_cast<dictionary&>(d).remove(dAk.second());
+            dictionary& subDict(dict.scopedDict(dAk.first()));
+            subDict.remove(dAk.second());
             changed = true;
         }
         else
         {
-            // Optionally remove a second dictionary
-            if (args.optionFound("diff"))
+            if (args.optionReadIfPresent("diff", diffFileName))
             {
-                Pair<word> dAk(dictAndKeyword(scopedName));
+                dictionary diffDict;
+                readDict(diffDict, diffFileName);
 
-                const dictionary& d(lookupScopedDict(dict, dAk.first()));
-                const dictionary& d2(lookupScopedDict(diffDict, dAk.first()));
+                const Pair<word> dAk(dictAndKeyword(scopedName));
 
-                const entry* ePtr =
-                    d.lookupEntryPtr(dAk.second(), false, true);
+                dictionary& subDict(dict.scopedDict(dAk.first()));
+                const dictionary& subDict2(diffDict.scopedDict(dAk.first()));
+
+                entry* ePtr =
+                    subDict.lookupEntryPtr(dAk.second(), false, true);
                 const entry* e2Ptr =
-                    d2.lookupEntryPtr(dAk.second(), false, true);
+                    subDict2.lookupEntryPtr(dAk.second(), false, true);
 
                 if (ePtr && e2Ptr)
                 {
                     if (*ePtr == *e2Ptr)
                     {
-                        const_cast<dictionary&>(d).remove(dAk.second());
+                        subDict.remove(dAk.second());
                     }
                     else if (ePtr->isDict() && e2Ptr->isDict())
                     {
-                        remove
-                        (
-                            const_cast<dictionary&>(ePtr->dict()),
-                            e2Ptr->dict()
-                        );
+                        remove(ePtr->dict(), e2Ptr->dict());
                     }
                 }
             }
-
 
             const entry* entPtr = dict.lookupScopedEntryPtr
             (
@@ -664,6 +700,34 @@ int main(int argc, char *argv[])
             }
         }
     }
+    else if (args.optionFound("rename"))
+    {
+        const string newNames(args.optionRead<string>("rename"));
+        rename(dict, newNames);
+        changed = true;
+    }
+    else if (args.optionFound("set"))
+    {
+        const string substitutions(args.optionRead<string>("set"));
+        substitute(dict, substitutions);
+        changed = true;
+    }
+    else if (args.optionFound("merge"))
+    {
+        dictionary fromDict;
+        if (args.optionFound("dict"))
+        {
+            const fileName fromDictFileName(args.optionRead<fileName>("merge"));
+            readDict(fromDict, fromDictFileName);
+        }
+        else
+        {
+            const string substitutions(args.optionRead<string>("merge"));
+            substitute(fromDict, substitutions);
+        }
+        mergeDictionaries(dict, fromDict, false);
+        changed = true;
+    }
     else if (args.optionFound("keywords"))
     {
         forAllConstIter(dictionary, dict, iter)
@@ -671,12 +735,15 @@ int main(int argc, char *argv[])
             Info<< iter().keyword() << endl;
         }
     }
-    else if (args.optionFound("diff"))
+    else if (args.optionReadIfPresent("diff", diffFileName))
     {
+        dictionary diffDict;
+        readDict(diffDict, diffFileName);
+
         remove(dict, diffDict);
         dict.dictionary::write(Info, false);
     }
-    else
+    else if (!args.optionFound("output"))
     {
         dict.dictionary::write(Info, false);
     }
@@ -689,7 +756,19 @@ int main(int argc, char *argv[])
         }
         else if (dictPtr)
         {
-            OFstream os(dictPath, dictFormat);
+            // Set output dict name, defaults to the name of the input dict
+            const fileName outputDictPath
+            (
+                args.optionLookupOrDefault<fileName>("output", dictPath)
+            );
+
+            OFstream os
+            (
+                outputDictPath.isAbsolute()
+              ? outputDictPath
+              : args.path()/outputDictPath,
+                dictFormat
+            );
             IOobject::writeBanner(os);
             if (dictPtr->found(IOobject::foamFile))
             {

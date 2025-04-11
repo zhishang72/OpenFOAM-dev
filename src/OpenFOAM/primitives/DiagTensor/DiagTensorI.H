@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -66,6 +66,13 @@ inline Foam::DiagTensor<Cmpt>::DiagTensor
 
 
 template<class Cmpt>
+inline Foam::DiagTensor<Cmpt>::DiagTensor(const Vector<Cmpt>& v)
+:
+    VectorSpace<DiagTensor<Cmpt>, Cmpt, 3>(v)
+{}
+
+
+template<class Cmpt>
 inline Foam::DiagTensor<Cmpt>::DiagTensor(Istream& is)
 :
     VectorSpace<DiagTensor<Cmpt>, Cmpt, 3>(is)
@@ -109,6 +116,12 @@ template<class Cmpt>
 inline Cmpt& Foam::DiagTensor<Cmpt>::zz()
 {
     return this->v_[ZZ];
+}
+
+template<class Cmpt>
+inline Foam::DiagTensor<Cmpt>::operator Foam::Vector<Cmpt>() const
+{
+    return Vector<Cmpt>(xx(), yy(), zz());
 }
 
 
@@ -167,6 +180,58 @@ operator-(const Tensor<Cmpt>& t1, const DiagTensor<Cmpt>& dt2)
         t1.xx() - dt2.xx(), t1.xy(),            t1.xz(),
         t1.yx(),            t1.yy() - dt2.yy(), t1.yz(),
         t1.zx(),            t1.zy(),            t1.zz() - dt2.zz()
+    );
+}
+
+
+template<class Cmpt>
+inline SymmTensor<Cmpt>
+operator+(const DiagTensor<Cmpt>& dt1, const SymmTensor<Cmpt>& t2)
+{
+    return SymmTensor<Cmpt>
+    (
+        dt1.xx() + t2.xx(), t2.xy(),            t2.xz(),
+                            dt1.yy() + t2.yy(), t2.yz(),
+                                                dt1.zz() + t2.zz()
+    );
+}
+
+
+template<class Cmpt>
+inline SymmTensor<Cmpt>
+operator+(const SymmTensor<Cmpt>& t1, const DiagTensor<Cmpt>& dt2)
+{
+    return SymmTensor<Cmpt>
+    (
+        t1.xx() + dt2.xx(), t1.xy(),            t1.xz(),
+                            t1.yy() + dt2.yy(), t1.yz(),
+                                                t1.zz() + dt2.zz()
+    );
+}
+
+
+template<class Cmpt>
+inline SymmTensor<Cmpt>
+operator-(const DiagTensor<Cmpt>& dt1, const SymmTensor<Cmpt>& t2)
+{
+    return SymmTensor<Cmpt>
+    (
+        dt1.xx() - t2.xx(), -t2.xy(),            -t2.xz(),
+                             dt1.yy() - t2.yy(), -t2.yz(),
+                                                  dt1.zz() - t2.zz()
+    );
+}
+
+
+template<class Cmpt>
+inline SymmTensor<Cmpt>
+operator-(const SymmTensor<Cmpt>& t1, const DiagTensor<Cmpt>& dt2)
+{
+    return SymmTensor<Cmpt>
+    (
+        t1.xx() - dt2.xx(), t1.xy(),            t1.xz(),
+                            t1.yy() - dt2.yy(), t1.yz(),
+                                                t1.zz() - dt2.zz()
     );
 }
 

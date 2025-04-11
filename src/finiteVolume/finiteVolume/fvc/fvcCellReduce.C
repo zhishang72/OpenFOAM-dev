@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -32,21 +32,19 @@ License
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 template<class Type, class CombineOp>
-Foam::tmp<Foam::GeometricField<Type, Foam::fvPatchField, Foam::volMesh>>
+Foam::tmp<Foam::VolField<Type>>
 Foam::fvc::cellReduce
 (
-    const GeometricField<Type, fvsPatchField, surfaceMesh>& ssf,
+    const SurfaceField<Type>& ssf,
     const CombineOp& cop,
     const Type& nullValue
 )
 {
-    typedef GeometricField<Type, fvPatchField, volMesh> volFieldType;
-
     const fvMesh& mesh = ssf.mesh();
 
-    tmp<volFieldType> tresult
+    tmp<VolField<Type>> tresult
     (
-        volFieldType::New
+        VolField<Type>::New
         (
             "cellReduce(" + ssf.name() + ')',
             mesh,
@@ -59,7 +57,7 @@ Foam::fvc::cellReduce
         )
     );
 
-    volFieldType& result = tresult.ref();
+    VolField<Type>& result = tresult.ref();
 
     const labelUList& own = mesh.owner();
     const labelUList& nbr = mesh.neighbour();
@@ -82,19 +80,19 @@ Foam::fvc::cellReduce
 
 
 template<class Type, class CombineOp>
-Foam::tmp<Foam::GeometricField<Type, Foam::fvPatchField, Foam::volMesh>>
+Foam::tmp<Foam::VolField<Type>>
 Foam::fvc::cellReduce
 (
-    const tmp<GeometricField<Type, fvsPatchField, surfaceMesh>>& tssf,
+    const tmp<SurfaceField<Type>>& tssf,
     const CombineOp& cop,
     const Type& nullValue
 )
 {
-    tmp<GeometricField<Type, fvPatchField, volMesh>> tvf
+    tmp<VolField<Type>> tvf
     (
         cellReduce
         (
-            tssf,
+            tssf(),
             cop,
             nullValue
         )

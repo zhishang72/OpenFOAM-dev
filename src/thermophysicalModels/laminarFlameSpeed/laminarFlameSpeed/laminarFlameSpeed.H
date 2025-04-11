@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -43,8 +43,7 @@ SourceFiles
 #ifndef laminarFlameSpeed_H
 #define laminarFlameSpeed_H
 
-#include "psiuReactionThermo.H"
-#include "autoPtr.H"
+#include "psiuMulticomponentThermo.H"
 #include "runTimeSelectionTables.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -53,32 +52,19 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class laminarFlameSpeed Declaration
+                      Class laminarFlameSpeed Declaration
 \*---------------------------------------------------------------------------*/
 
 class laminarFlameSpeed
 {
-
 protected:
 
     // Protected data
 
-        const psiuReactionThermo& psiuReactionThermo_;
-
-        //- Fuel
-        word fuel_;
+        const psiuMulticomponentThermo& psiuMulticomponentThermo_;
 
         //- Equivalence ratio of a homogeneous mixture
         scalar equivalenceRatio_;
-
-
-private:
-
-    // Private Member Functions
-
-        //- Construct as copy (not implemented)
-        laminarFlameSpeed(const laminarFlameSpeed&);
-        void operator=(const laminarFlameSpeed&);
 
 
 public:
@@ -96,27 +82,32 @@ public:
             dictionary,
             (
                 const dictionary& dict,
-                const psiuReactionThermo& ct
+                const dictionary& coeffDict,
+                const psiuMulticomponentThermo& ct
             ),
-            (dict, ct)
+            (dict, coeffDict, ct)
         );
 
 
     // Constructors
 
-        //- Construct from dictionary and psiuReactionThermo
+        //- Construct from dictionary and psiuMulticomponentThermo
         laminarFlameSpeed
         (
             const dictionary&,
-            const psiuReactionThermo&
+            const psiuMulticomponentThermo&
         );
+
+        //- Disallow default bitwise copy construction
+        laminarFlameSpeed(const laminarFlameSpeed&) = delete;
 
 
     // Selector
 
         static autoPtr<laminarFlameSpeed> New
         (
-            const psiuReactionThermo&
+            const dictionary&,
+            const psiuMulticomponentThermo&
         );
 
 
@@ -124,10 +115,13 @@ public:
     virtual ~laminarFlameSpeed();
 
 
-    // Member Functions
+    // Member Operators
 
         //- Return the laminar flame speed [m/s]
         virtual tmp<volScalarField> operator()() const = 0;
+
+        //- Disallow default bitwise assignment
+        void operator=(const laminarFlameSpeed&) = delete;
 };
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -61,30 +61,21 @@ Description
         type                fieldAverage;
         libs                ("libfieldFunctionObjects.so");
 
-        writeControl    writeTime;
+        writeControl        writeTime;
 
         restartOnRestart    false;
         restartOnOutput     false;
         periodicRestart     false;
         restartPeriod       0.002;
 
-        fields
-        (
-            U
-            {
-                mean            on;
-                prime2Mean      on;
-                base            time;
-                window          10.0;
-                windowName      w1;
-            }
-            p
-            {
-                mean            on;
-                prime2Mean      on;
-                base            time;
-            }
-        );
+        base                time;
+        window              10.0;
+        windowName          w1;
+
+        mean                yes;
+        prime2Mean          yes;
+
+        fields              (U p);
     }
     \endverbatim
 
@@ -99,9 +90,8 @@ Usage
         fields            | list of fields and averaging options | yes |
     \endtable
 
-
-Note
-    To employ the \c prime2Mean option, the \c mean option must be selected.
+    Note:
+        To employ the \c prime2Mean option, the \c mean option must be selected.
 
 See also
     Foam::functionObjects::fvMeshFunctionObject
@@ -137,6 +127,16 @@ class fieldAverage
 :
     public fvMeshFunctionObject
 {
+public:
+
+        //- Enumeration defining the averaging base type
+        enum class baseType
+        {
+            iter,
+            time
+        };
+
+
 protected:
 
     // Protected data
@@ -156,55 +156,77 @@ protected:
         //- Restart period
         scalar restartPeriod_;
 
-        //- Initialised flag
-        bool initialised_;
+        //- Averaging base type names
+        static const NamedEnum<baseType, 2> baseTypeNames_;
+
+        //- Averaging base type
+        baseType base_;
+
+        //- Averaging window - defaults to -1 for 'all iters/time'
+        scalar window_;
+
+        //- Averaging window name - defaults to 'window'
+        word windowName_;
+
+        //- Compute mean flag
+        Switch mean_;
+
+        //- Compute prime-squared mean flag
+        Switch prime2Mean_;
 
         //- List of field average items, describing what averages to be
         //  calculated and output
-        List<fieldAverageItem> faItems_;
+        PtrList<fieldAverageItem> faItems_;
 
-        // Counters
+        //- Iteration steps counter
+        List<label> totalIter_;
 
-            //- Iteration steps counter
-            List<label> totalIter_;
-
-            //- Total time counter
-            List<scalar> totalTime_;
-
-            //- Index for periodic restart
-            label periodIndex_;
+        //- Total time counter
+        List<scalar> totalTime_;
 
 
     // Protected Member Functions
 
         // Initialisation routines
 
-            //- Checkout fields (causes deletion) from the database
-            //  and reset lists
-            void resetFields();
-
-            //- Reset lists (clear existing values) and initialize averaging.
+            //- Reset lists (clear existing values) and initialise averaging.
             //  Check requested field averages are valid, populate field lists
-            void initialize();
+            void initialise();
 
             //- Restart averaging for restartOnOutput
             void restart();
 
-            //- Add mean average field to database
+            //- Read the mean average field
             template<class Type>
-            void addMeanFieldType(const label fieldi);
+            void readMeanFieldType(const label fieldi);
 
-            //- Add mean average field to database
+            //- Read the mean average field
             template<class Type>
-            void addMeanField(const label fieldi);
+            void readMeanField(const label fieldi);
 
-            //- Add prime-squared average field to database
-            template<class Type1, class Type2>
-            void addPrime2MeanFieldType(const label fieldi);
+            //- Initialise the mean average field
+            template<class Type>
+            void initialiseMeanFieldType(const label fieldi);
 
-            //- Add prime-squared average field to database
+            //- Initialise the mean average field
+            template<class Type>
+            void initialiseMeanField(const label fieldi);
+
+            //- Read the prime-squared average field
             template<class Type1, class Type2>
-            void addPrime2MeanField(const label fieldi);
+            void readPrime2MeanFieldType(const label fieldi);
+
+            //- Read the prime-squared average field
+            template<class Type1, class Type2>
+            void readPrime2MeanField(const label fieldi);
+
+            //- Initialise the prime-squared average field
+            template<class Type1, class Type2>
+            void initialisePrime2MeanFieldType(const label fieldi);
+
+            //- Initialise the prime-squared average field
+            template<class Type1, class Type2>
+            void initialisePrime2MeanField(const label fieldi);
 
 
         // Calculation functions
@@ -250,14 +272,14 @@ protected:
             template<class Type>
             void writeFields() const;
 
-            //- Write averaging properties - steps and time
-            void writeAveragingProperties() const;
-
-            //- Read averaging properties - steps and time
-            void readAveragingProperties();
+            //- Read
+            void read(const dictionary& dict, const bool construct);
 
 
 public:
+
+    friend class fieldAverageItem;
+
 
     //- Runtime type information
     TypeName("fieldAverage");
@@ -283,8 +305,42 @@ public:
 
     // Member Functions
 
+        // Access
+
+            //- Return averaging base type name
+            const word base() const
+            {
+                return baseTypeNames_[base_];
+            }
+
+            //- Return true if base is iter
+            Switch iterBase() const
+            {
+                return base_ == baseType::iter;
+            }
+
+            //- Return true if base is time
+            Switch timeBase() const
+            {
+                return base_ == baseType::time;
+            }
+
+            scalar window() const
+            {
+                return window_;
+            }
+
+            const word& windowName() const
+            {
+                return windowName_;
+            }
+
+
         //- Read the field average data
         virtual bool read(const dictionary&);
+
+        //- Return the list of fields required
+        virtual wordList fields() const;
 
         //- Do not average at the start of the run
         virtual bool executeAtStart() const

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,8 +25,8 @@ Application
     faceAgglomerate
 
 Description
-
     Agglomerate boundary faces using the pairPatchAgglomeration algorithm.
+
     It writes a map from the fine to coarse grid.
 
 \*---------------------------------------------------------------------------*/
@@ -36,11 +36,11 @@ Description
 #include "Time.H"
 #include "volFields.H"
 #include "CompactListList.H"
-#include "unitConversion.H"
 #include "pairPatchAgglomeration.H"
 #include "labelListIOList.H"
 #include "syncTools.H"
 #include "globalIndex.H"
+#include "systemDict.H"
 
 using namespace Foam;
 
@@ -48,18 +48,17 @@ using namespace Foam;
 
 int main(int argc, char *argv[])
 {
+    #include "addMeshOption.H"
     #include "addRegionOption.H"
     #include "addDictOption.H"
     #include "setRootCase.H"
     #include "createTime.H"
-    #include "createNamedMesh.H"
+    #include "createSpecifiedMeshNoChangers.H"
 
     const word dictName("viewFactorsDict");
 
-    #include "setConstantMeshDictionaryIO.H"
-
     // Read control dictionary
-    const IOdictionary agglomDict(dictIO);
+    const IOdictionary agglomDict(systemDict(dictName, args, runTime));
 
     bool writeAgglom = readBool(agglomDict.lookup("writeFacesAgglomeration"));
 
@@ -115,7 +114,7 @@ int main(int argc, char *argv[])
     {
         if (finalAgglom[patchid].size() == 0)
         {
-            finalAgglom[patchid] = identity(boundary[patchid].size());
+            finalAgglom[patchid] = identityMap(boundary[patchid].size());
         }
     }
 
@@ -127,7 +126,7 @@ int main(int argc, char *argv[])
         const polyPatch& pp = boundary[patchid];
         if (pp.coupled())
         {
-            finalAgglom[patchid] = identity(pp.size());
+            finalAgglom[patchid] = identityMap(pp.size());
             forAll(pp, i)
             {
                 nbrAgglom[pp.start() - mesh.nInternalFaces() + i] =
@@ -160,7 +159,7 @@ int main(int argc, char *argv[])
             IOobject
             (
                 "facesAgglomeration",
-                mesh.time().timeName(),
+                mesh.time().name(),
                 mesh,
                 IOobject::NO_READ,
                 IOobject::NO_WRITE

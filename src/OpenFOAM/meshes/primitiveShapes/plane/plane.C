@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,32 +25,41 @@ License
 
 #include "plane.H"
 #include "tensor.H"
+#include "unitConversion.H"
 
 // * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
 
-void Foam::plane::calcPntAndVec(const scalarList& C)
+void Foam::plane::calcPntAndVec
+(
+    const scalar a,
+    const scalar b,
+    const scalar c,
+    const scalar d
+)
 {
-    normal_ = vector(C[0], C[1], C[2]);
+    normal_ = vector(a, b, c);
 
     const scalar magNormal = mag(normal_);
 
-    if (magNormal == 0)
+    // Normalise the normal if possible. Set to invalid if not.
+    if (magNormal > 0)
     {
-        FatalErrorInFunction
-            << "Plane normal has zero length"
-            << abort(FatalError);
+        normal_ /= magNormal;
+    }
+    else
+    {
+        normal_ = vector::zero;
     }
 
-    normal_ /= magNormal;
-
-    if (magNormal < mag(C[3])*vSmall)
+    // Construct the point if possible. Set to far away if not.
+    if (magNormal > mag(d)*vSmall)
     {
-        FatalErrorInFunction
-            << "Plane is too far from the origin"
-            << abort(FatalError);
+        point_ = - d/magNormal*normal_;
     }
-
-    point_ = - C[3]/magNormal*normal_;
+    else
+    {
+        point_ = point::max;
+    }
 }
 
 
@@ -61,34 +70,9 @@ void Foam::plane::calcPntAndVec
     const point& point3
 )
 {
+    normal_ = normalised((point1 - point2) ^ (point2 - point3));
+
     point_ = (point1 + point2 + point3)/3;
-    vector line12 = point1 - point2;
-    vector line23 = point2 - point3;
-
-    if
-    (
-        mag(line12) < vSmall
-     || mag(line23) < vSmall
-     || mag(point3-point1) < vSmall
-    )
-    {
-        FatalErrorInFunction
-            << "Bad points:" << point1 << ' ' << point2 << ' ' << point3
-            << abort(FatalError);
-    }
-
-    normal_ = line12 ^ line23;
-    scalar magUnitVector(mag(normal_));
-
-    if (magUnitVector < vSmall)
-    {
-        FatalErrorInFunction
-            << "Plane normal defined with zero length" << nl
-            << "Bad points:" << point1 << ' ' << point2 << ' ' << point3
-            << abort(FatalError);
-    }
-
-    normal_ /= magUnitVector;
 }
 
 
@@ -96,58 +80,38 @@ void Foam::plane::calcPntAndVec
 
 Foam::plane::plane(const vector& normalVector)
 :
-    normal_(normalVector),
+    normal_(normalised(normalVector)),
     point_(Zero)
-{
-    scalar magUnitVector(mag(normal_));
-
-    if (magUnitVector > vSmall)
-    {
-        normal_ /= magUnitVector;
-    }
-    else
-    {
-        FatalErrorInFunction
-            << "plane normal has zero length. basePoint:" << point_
-            << abort(FatalError);
-    }
-}
+{}
 
 
 Foam::plane::plane(const point& basePoint, const vector& normalVector)
 :
-    normal_(normalVector),
+    normal_(normalised(normalVector)),
     point_(basePoint)
+{}
+
+
+Foam::plane::plane
+(
+    const scalar a,
+    const scalar b,
+    const scalar c,
+    const scalar d
+)
 {
-    scalar magUnitVector(mag(normal_));
-
-    if (magUnitVector > vSmall)
-    {
-        normal_ /= magUnitVector;
-    }
-    else
-    {
-        FatalErrorInFunction
-            << "plane normal has zero length. basePoint:" << point_
-            << abort(FatalError);
-    }
-}
-
-
-Foam::plane::plane(const scalarList& C)
-{
-    calcPntAndVec(C);
+    calcPntAndVec(a, b, c, d);
 }
 
 
 Foam::plane::plane
 (
-    const point& a,
-    const point& b,
-    const point& c
+    const point& point1,
+    const point& point2,
+    const point& point3
 )
 {
-    calcPntAndVec(a, b, c);
+    calcPntAndVec(point1, point2, point3);
 }
 
 
@@ -158,89 +122,79 @@ Foam::plane::plane(const dictionary& dict)
 {
     const word planeType(dict.lookup("planeType"));
 
+    const dictionary& subDict = dict.optionalSubDict(planeType + "Dict");
+
     if (planeType == "planeEquation")
     {
-        const dictionary& subDict = dict.subDict("planeEquationDict");
-        scalarList C(4);
-
-        C[0] = subDict.lookup<scalar>("a");
-        C[1] = subDict.lookup<scalar>("b");
-        C[2] = subDict.lookup<scalar>("c");
-        C[3] = subDict.lookup<scalar>("d");
-
-        calcPntAndVec(C);
-
+        calcPntAndVec
+        (
+            subDict.lookup<scalar>("a", unitNone),
+            subDict.lookup<scalar>("b", unitNone),
+            subDict.lookup<scalar>("c", unitNone),
+            subDict.lookup<scalar>("d", unitNone)
+        );
     }
     else if (planeType == "embeddedPoints")
     {
-        const dictionary& subDict = dict.subDict("embeddedPointsDict");
-
-        point point1(subDict.lookup("point1"));
-        point point2(subDict.lookup("point2"));
-        point point3(subDict.lookup("point3"));
-
-        calcPntAndVec(point1, point2, point3);
+        calcPntAndVec
+        (
+            subDict.lookup<point>("point1", dimLength),
+            subDict.lookup<point>("point2", dimLength),
+            subDict.lookup<point>("point3", dimLength)
+        );
     }
     else if (planeType == "pointAndNormal")
     {
-        const dictionary& subDict = dict.subDict("pointAndNormalDict");
-
         point_ =
-            subDict.found("basePoint")
-          ? subDict.lookup("basePoint")
-          : subDict.lookup("point");
+            subDict.lookupBackwardsCompatible<point>
+            (
+                {"point", "basePoint"},
+                dimLength
+            );
 
         normal_ =
-            subDict.found("normalVector")
-          ? subDict.lookup("normalVector")
-          : subDict.lookup("normal");
-
-        normal_ /= mag(normal_);
+            normalised
+            (
+                subDict.lookupBackwardsCompatible<vector>
+                (
+                    {"normal", "normalVector"},
+                    dimless
+                )
+            );
     }
     else
     {
         FatalIOErrorInFunction(dict)
             << "Invalid plane type: " << planeType << nl
-            << "Valid options include: planeEquation, embeddedPoints and "
-            << "pointAndNormal"
+            << "Valid options include: "
+            << "planeEquation, embeddedPoints and pointAndNormal"
             << abort(FatalIOError);
+    }
+
+    if (normal_ == vector::zero)
+    {
+        FatalIOErrorInFunction(subDict)
+            << "Plane normal has zero length"
+            << exit(FatalIOError);
+    }
+
+    if (point_ == point::max)
+    {
+        FatalIOErrorInFunction(subDict)
+            << "Plane is too far from the origin"
+            << exit(FatalIOError);
     }
 }
 
 
 Foam::plane::plane(Istream& is)
 :
-    normal_(is),
+    normal_(normalised(vector(is))),
     point_(is)
-{
-    scalar magUnitVector(mag(normal_));
-
-    if (magUnitVector > vSmall)
-    {
-        normal_ /= magUnitVector;
-    }
-    else
-    {
-        FatalErrorInFunction
-            << "plane normal has zero length. basePoint:" << point_
-            << abort(FatalError);
-    }
-}
+{}
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
-
-const Foam::vector& Foam::plane::normal() const
-{
-    return normal_;
-}
-
-
-const Foam::point& Foam::plane::refPoint() const
-{
-    return point_;
-}
-
 
 Foam::FixedList<Foam::scalar, 4> Foam::plane::planeCoeffs() const
 {
@@ -358,13 +312,19 @@ Foam::point Foam::plane::aPoint() const
 
 Foam::point Foam::plane::nearestPoint(const point& p) const
 {
-    return p - normal_*((p - point_) & normal_);
+    return p - normal_*signedDistance(p);
 }
 
 
 Foam::scalar Foam::plane::distance(const point& p) const
 {
-    return mag((p - point_) & normal_);
+    return mag(signedDistance(p));
+}
+
+
+Foam::scalar Foam::plane::signedDistance(const point& p) const
+{
+    return (p - point_) & normal_;
 }
 
 

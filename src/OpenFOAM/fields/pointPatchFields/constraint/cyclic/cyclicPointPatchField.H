@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -87,20 +87,8 @@ public:
             const cyclicPointPatchField<Type>&,
             const pointPatch&,
             const DimensionedField<Type, pointMesh>&,
-            const pointPatchFieldMapper&
+            const fieldMapper&
         );
-
-        //- Construct and return a clone
-        virtual autoPtr<pointPatchField<Type>> clone() const
-        {
-            return autoPtr<pointPatchField<Type>>
-            (
-                new cyclicPointPatchField<Type>
-                (
-                    *this
-                )
-            );
-        }
 
         //- Construct as copy setting internal field reference
         cyclicPointPatchField
@@ -127,32 +115,12 @@ public:
 
     // Member Functions
 
-        //- Constraint handling
+        // Cyclic coupled interface functions
 
-            //- Return the constraint type this pointPatchField implements
-            virtual const word& constraintType() const
+            //- Return transformation between the coupled patches
+            virtual const transformer& transform() const
             {
-                return cyclicPointPatch::typeName;
-            }
-
-        //- Cyclic coupled interface functions
-
-            //- Does the patch field perform the transformation
-            virtual bool doTransform() const
-            {
-                return !(cyclicPatch_.parallel() || pTraits<Type>::rank == 0);
-            }
-
-            //- Return face transformation tensor
-            virtual const tensorField& forwardT() const
-            {
-                return cyclicPatch_.forwardT();
-            }
-
-            //- Return neighbour-cell transformation tensor
-            virtual const tensorField& reverseT() const
-            {
-                return cyclicPatch_.reverseT();
+                return cyclicPatch_.transform();
             }
 
 
@@ -165,13 +133,6 @@ public:
                     Pstream::commsTypes::blocking
             )
             {}
-
-            //- Complete swap of patch point values and add to local values
-            virtual void swapAddSeparated
-            (
-                const Pstream::commsTypes commsType,
-                Field<Type>&
-            ) const;
 };
 
 

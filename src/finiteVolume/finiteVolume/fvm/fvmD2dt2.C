@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,13 +44,13 @@ template<class Type>
 tmp<fvMatrix<Type>>
 d2dt2
 (
-    const GeometricField<Type, fvPatchField, volMesh>& vf
+    const VolField<Type>& vf
 )
 {
     return fv::d2dt2Scheme<Type>::New
     (
         vf.mesh(),
-        vf.mesh().d2dt2Scheme("d2dt2(" + vf.name() + ')')
+        vf.mesh().schemes().d2dt2("d2dt2(" + vf.name() + ')')
     ).ref().fvmD2dt2(vf);
 }
 
@@ -60,13 +60,13 @@ tmp<fvMatrix<Type>>
 d2dt2
 (
     const dimensionedScalar& rho,
-    const GeometricField<Type, fvPatchField, volMesh>& vf
+    const VolField<Type>& vf
 )
 {
     return fv::d2dt2Scheme<Type>::New
     (
         vf.mesh(),
-        vf.mesh().d2dt2Scheme("d2dt2(" + rho.name() + ',' + vf.name() + ')')
+        vf.mesh().schemes().d2dt2("d2dt2(" + rho.name() + ',' + vf.name() + ')')
     ).ref().fvmD2dt2(rho, vf);
 }
 
@@ -76,13 +76,13 @@ tmp<fvMatrix<Type>>
 d2dt2
 (
     const volScalarField& rho,
-    const GeometricField<Type, fvPatchField, volMesh>& vf
+    const VolField<Type>& vf
 )
 {
     return fv::d2dt2Scheme<Type>::New
     (
         vf.mesh(),
-        vf.mesh().d2dt2Scheme("d2dt2(" + rho.name() + ',' + vf.name() + ')')
+        vf.mesh().schemes().d2dt2("d2dt2(" + rho.name() + ',' + vf.name() + ')')
     ).ref().fvmD2dt2(rho, vf);
 }
 

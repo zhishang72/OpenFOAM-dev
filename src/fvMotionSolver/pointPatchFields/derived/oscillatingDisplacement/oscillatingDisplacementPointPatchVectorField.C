@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -40,26 +40,13 @@ oscillatingDisplacementPointPatchVectorField::
 oscillatingDisplacementPointPatchVectorField
 (
     const pointPatch& p,
-    const DimensionedField<vector, pointMesh>& iF
-)
-:
-    fixedValuePointPatchField<vector>(p, iF),
-    amplitude_(Zero),
-    omega_(0.0)
-{}
-
-
-oscillatingDisplacementPointPatchVectorField::
-oscillatingDisplacementPointPatchVectorField
-(
-    const pointPatch& p,
     const DimensionedField<vector, pointMesh>& iF,
     const dictionary& dict
 )
 :
     fixedValuePointPatchField<vector>(p, iF, dict),
-    amplitude_(dict.lookup("amplitude")),
-    omega_(dict.lookup<scalar>("omega"))
+    amplitude_(dict.lookup<vector>("amplitude", dimLength)),
+    omega_(dict.lookup<scalar>("omega", unitRadians/dimTime))
 {
     if (!dict.found("value"))
     {
@@ -74,7 +61,7 @@ oscillatingDisplacementPointPatchVectorField
     const oscillatingDisplacementPointPatchVectorField& ptf,
     const pointPatch& p,
     const DimensionedField<vector, pointMesh>& iF,
-    const pointPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     fixedValuePointPatchField<vector>(ptf, p, iF, mapper),

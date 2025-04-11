@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -36,7 +36,7 @@ int Foam::messageStream::level(Foam::debug::debugSwitch("level", 2));
 Foam::messageStream::messageStream
 (
     const string& title,
-    errorSeverity sev,
+    const errorSeverity sev,
     const int maxErrors
 )
 :
@@ -45,35 +45,6 @@ Foam::messageStream::messageStream
     maxErrors_(maxErrors),
     errorCount_(0)
 {}
-
-
-Foam::messageStream::messageStream(const dictionary& dict)
-:
-    title_(dict.lookup("title")),
-    severity_(FATAL),
-    maxErrors_(0),
-    errorCount_(0)
-{}
-
-
-Foam::OSstream& Foam::messageStream::masterStream(const label communicator)
-{
-    if (UPstream::warnComm != -1 && communicator != UPstream::warnComm)
-    {
-        Pout<< "** messageStream with comm:" << communicator
-            << endl;
-        error::printStack(Pout);
-    }
-
-    if (communicator == UPstream::worldComm || UPstream::master(communicator))
-    {
-        return operator()();
-    }
-    else
-    {
-        return Snull;
-    }
-}
 
 
 Foam::OSstream& Foam::messageStream::operator()
@@ -117,8 +88,7 @@ Foam::OSstream& Foam::messageStream::operator()
     const char* sourceFileName,
     const int sourceFileLineNumber,
     const string& ioFileName,
-    const label ioStartLineNumber,
-    const label ioEndLineNumber
+    const label ioLineNumber
 )
 {
     OSstream& os = operator OSstream&();
@@ -129,14 +99,9 @@ Foam::OSstream& Foam::messageStream::operator()
         << " at line " << sourceFileLineNumber << endl
         << "    Reading " << ioFileName;
 
-    if (ioStartLineNumber >= 0 && ioEndLineNumber >= 0)
+    if (ioLineNumber >= 0)
     {
-        os  << " from line " << ioStartLineNumber
-            << " to line " << ioEndLineNumber;
-    }
-    else if (ioStartLineNumber >= 0)
-    {
-        os  << " at line " << ioStartLineNumber;
+        os  << " at line " << ioLineNumber;
     }
 
     os << endl  << "    ";
@@ -159,8 +124,7 @@ Foam::OSstream& Foam::messageStream::operator()
         sourceFileName,
         sourceFileLineNumber,
         ioStream.name(),
-        ioStream.lineNumber(),
-        -1
+        ioStream.lineNumber()
     );
 }
 
@@ -179,20 +143,40 @@ Foam::OSstream& Foam::messageStream::operator()
         sourceFileName,
         sourceFileLineNumber,
         dict.name(),
-        dict.startLineNumber(),
         dict.endLineNumber()
     );
 }
 
 
-Foam::messageStream::operator Foam::OSstream&()
+Foam::OSstream& Foam::messageStream::operator()(label communicator)
 {
-    if (level)
+    if (communicator != -1)
     {
-        bool collect = (severity_ == INFO || severity_ == WARNING);
+        if (UPstream::warnComm != -1 && communicator != UPstream::warnComm)
+        {
+            Pout<< "** messageStream with comm:" << communicator
+                << endl;
+            error::printStack(Pout);
+        }
+    }
+    else
+    {
+        communicator = UPstream::worldComm;
+    }
 
-        // Report the error
-        if (!Pstream::master() && collect)
+    if (messageStream::level >= 1)
+    {
+        const bool master = Pstream::master(communicator);
+
+        const bool collect = severity_ == INFO || severity_ == WARNING;
+
+        const bool prefix =
+            (Pstream::parRun() && !collect)
+         || communicator != UPstream::worldComm;
+
+        OSstream& os = prefix ? Pout : Sout;
+
+        if (!master && collect)
         {
             return Snull;
         }
@@ -200,14 +184,7 @@ Foam::messageStream::operator Foam::OSstream&()
         {
             if (title().size())
             {
-                if (Pstream::parRun() && !collect)
-                {
-                    Pout<< title().c_str();
-                }
-                else
-                {
-                    Sout<< title().c_str();
-                }
+                os << title().c_str();
             }
 
             if (maxErrors_)
@@ -222,14 +199,7 @@ Foam::messageStream::operator Foam::OSstream&()
                 }
             }
 
-            if (Pstream::parRun() && !collect)
-            {
-                return Pout;
-            }
-            else
-            {
-                return Sout;
-            }
+            return os;
         }
     }
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -79,14 +79,14 @@ class blockMesh;
 template<class Type> class List;
 
 /*---------------------------------------------------------------------------*\
-                     Class vtkPVblockMesh Declaration
+                       Class vtkPVblockMesh Declaration
 \*---------------------------------------------------------------------------*/
 
 class vtkPVblockMesh
 {
     // Private classes
 
-        //- Bookkeeping for GUI checklists and the multi-block organization
+        //- Bookkeeping for GUI checklists and the multi-block organisation
         class arrayRange
         {
             const char *name_;

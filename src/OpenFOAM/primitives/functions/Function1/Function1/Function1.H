@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,10 +25,10 @@ Class
     Foam::Function1
 
 Description
-    Top level data entry class for use in dictionaries. Provides a mechanism
-    to specify a variable as a certain type, e.g. constant or table, and
-    provide functions to return the (interpolated) value, and integral between
-    limits.
+    Run-time selectable general function of one variable
+
+    with many options provided from simple constant values to complex
+    functions, interpolated tabulated data etc. etc.
 
 SourceFiles
     Function1.C
@@ -40,9 +40,11 @@ SourceFiles
 #define Function1_H
 
 #include "dictionary.H"
+#include "unitConversion.H"
 #include "tmp.H"
 #include "typeInfo.H"
 #include "Field.H"
+#include "addToRunTimeSelectionTable.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -52,6 +54,66 @@ namespace Foam
 // Forward declaration of friend functions and operators
 template<class Type> class Function1;
 template<class Type> Ostream& operator<<(Ostream&, const Function1<Type>&);
+
+/*---------------------------------------------------------------------------*\
+                Class Function1s::unitConversions Declaration
+\*---------------------------------------------------------------------------*/
+
+namespace Function1s
+{
+struct unitConversions
+{
+    // Public Data
+
+        //- Unit conversion for x-axis values
+        unitConversion x;
+
+        //- Unit conversion for result values
+        unitConversion value;
+
+
+    // Constructors
+
+        //- Construct from initialiser list
+        unitConversions(std::initializer_list<unitConversion>);
+
+        //- Construct from stream
+        unitConversions(Istream& is);
+
+        //- Construct a clone
+        autoPtr<unitConversions> clone() const;
+
+
+    // Member Functions
+
+        //- Update if found in the dictionary
+        bool readIfPresent(const word& keyword, const dictionary&);
+};
+}
+
+
+// Global Functions
+
+//- Generate an error in an context where unit conversions are not supported
+void assertNoConvertUnits
+(
+    const word& typeName,
+    const Function1s::unitConversions& units,
+    const dictionary& dict
+);
+
+//- Write a units entry
+void writeEntry(Ostream& os, const Function1s::unitConversions& units);
+
+
+// IOStream Operators
+
+//- Read from stream
+Istream& operator>>(Istream& is, Function1s::unitConversions&);
+
+//- Write to stream
+Ostream& operator<<(Ostream& os, const Function1s::unitConversions&);
+
 
 /*---------------------------------------------------------------------------*\
                           Class Function1 Declaration
@@ -65,7 +127,7 @@ class Function1
 
 protected:
 
-    // Protected data
+    // Protected Data
 
         //- Name of entry
         const word name_;
@@ -75,27 +137,44 @@ public:
 
     typedef Type returnType;
 
-    //- Runtime type information
-    TypeName("Function1")
 
-    //- Declare runtime constructor selection table
-    declareRunTimeSelectionTable
-    (
-        autoPtr,
-        Function1,
-        dictionary,
+    //- Runtime type information
+    TypeName("Function1");
+
+
+    // Declare runtime constructor selection tables
+
+        declareRunTimeSelectionTable
         (
-            const word& entryName,
-            const dictionary& dict
-        ),
-        (entryName, dict)
-    );
+            autoPtr,
+            Function1,
+            dictionary,
+            (
+                const word& name,
+                const Function1s::unitConversions& units,
+                const dictionary& dict
+            ),
+            (name, units, dict)
+        );
+
+        declareRunTimeSelectionTable
+        (
+            autoPtr,
+            Function1,
+            Istream,
+            (
+                const word& name,
+                const Function1s::unitConversions& units,
+                Istream& is
+            ),
+            (name, units, is)
+        );
 
 
     // Constructors
 
-        //- Construct from entry name
-        Function1(const word& entryName);
+        //- Construct from name
+        Function1(const word& name);
 
         //- Copy constructor
         Function1(const Function1<Type>& f1);
@@ -104,12 +183,43 @@ public:
         virtual tmp<Function1<Type>> clone() const = 0;
 
 
-    //- Selector
-    static autoPtr<Function1<Type>> New
-    (
-        const word& entryName,
-        const dictionary& dict
-    );
+    // Selectors
+
+        //- Select from dictionary
+        static autoPtr<Function1<Type>> New
+        (
+            const word& name,
+            const Function1s::unitConversions& units,
+            const dictionary& dict
+        );
+
+        //- Select from dictionary
+        static autoPtr<Function1<Type>> New
+        (
+            const word& name,
+            const unitConversion& xUnits,
+            const unitConversion& valueUnits,
+            const dictionary& dict
+        );
+
+        //- Select from Istream
+        static autoPtr<Function1<Type>> New
+        (
+            const word& name,
+            const Function1s::unitConversions& units,
+            const word& Function1Type,
+            Istream& is
+        );
+
+        //- Select from Istream
+        static autoPtr<Function1<Type>> New
+        (
+            const word& name,
+            const unitConversion& xUnits,
+            const unitConversion& valueUnits,
+            const word& Function1Type,
+            Istream& is
+        );
 
 
     //- Destructor
@@ -118,57 +228,76 @@ public:
 
     // Member Functions
 
-        // Access
+        //- Return the name of the entry
+        const word& name() const;
 
-            //- Return the name of the entry
-            const word& name() const;
+        //- Return value as a function of scalar x
+        virtual Type value(const scalar x) const = 0;
 
+        //- Return value as a function of a scalar field x
+        virtual tmp<Field<Type>> value(const scalarField& x) const = 0;
 
-        // Evaluation
+        //- Integrate between two scalars
+        virtual Type integral(const scalar x1, const scalar x2) const = 0;
 
-            //- Return value as a function of (scalar) independent variable
-            virtual Type value(const scalar x) const = 0;
+        //- Integrate between two scalar fields
+        virtual tmp<Field<Type>> integral
+        (
+            const scalarField& x1,
+            const scalarField& x2
+        ) const = 0;
 
-            //- Return value as a function of (scalar) independent variable
-            virtual tmp<Field<Type>> value(const scalarField& x) const = 0;
+        //- Is this function guaranteed to be constant?
+        virtual bool constant() const;
 
-            //- Integrate between two (scalar) values
-            virtual Type integrate(const scalar x1, const scalar x2) const = 0;
-
-            //- Integrate between two (scalar) values
-            virtual tmp<Field<Type>> integrate
-            (
-                const scalarField& x1,
-                const scalarField& x2
-            ) const = 0;
-
-
-        // I/O
-
-            //- Ostream Operator
-            friend Ostream& operator<< <Type>
-            (
-                Ostream& os,
-                const Function1<Type>& func
-            );
-
-            //- Write in dictionary format
-            virtual void writeData(Ostream& os) const;
+        //- Write data to dictionary stream
+        virtual void write
+        (
+            Ostream& os,
+            const Function1s::unitConversions&
+        ) const = 0;
 
 
     // Member Operators
 
-        //- Disallow default bitwise assignment
-        void operator=(const Function1<Type>&) = delete;
+        //- Assignment
+        void operator=(const Function1<Type>&);
+
+
+    // IOstream Operators
+
+        //- Ostream Operator
+        friend Ostream& operator<< <Type>
+        (
+            Ostream& os,
+            const Function1<Type>& func
+        );
 };
 
 
 template<class Type>
 void writeEntry(Ostream& os, const Function1<Type>& f1);
 
+template<class Type>
+void writeEntry
+(
+    Ostream& os,
+    const Function1s::unitConversions& units,
+    const Function1<Type>& f1
+);
+
+template<class Type>
+void writeEntry
+(
+    Ostream& os,
+    const unitConversion& xUnits,
+    const unitConversion& valueUnits,
+    const Function1<Type>& f1
+);
+
 
 /*---------------------------------------------------------------------------*\
-                        Class FieldFunction1 Declaration
+                       Class FieldFunction1 Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type, class Function1Type>
@@ -181,11 +310,8 @@ public:
 
     // Constructors
 
-        //- Construct from entry name
-        FieldFunction1(const word& entryName);
-
-        //- Copy constructor
-        FieldFunction1(const FieldFunction1<Type, Function1Type>& ff1);
+        //- Construct from name
+        FieldFunction1(const word& name);
 
         //- Construct and return a clone
         virtual tmp<Function1<Type>> clone() const;
@@ -197,23 +323,21 @@ public:
 
     // Member Functions
 
-        // Evaluation
+        //- Return value as a function of one scalars
+        virtual Type value(const scalar x) const = 0;
 
-            //- Return value as a function of (scalar) independent variable
-            virtual Type value(const scalar x) const = 0;
+        //- Return value as a function of one scalar field
+        virtual tmp<Field<Type>> value(const scalarField& x) const;
 
-            //- Return value as a function of (scalar) independent variable
-            virtual tmp<Field<Type>> value(const scalarField& x) const;
+        //- Integrate between two scalar values
+        virtual Type integral(const scalar x1, const scalar x2) const = 0;
 
-            //- Integrate between two (scalar) values
-            virtual Type integrate(const scalar x1, const scalar x2) const = 0;
-
-            //- Integrate between two (scalar) values
-            virtual tmp<Field<Type>> integrate
-            (
-                const scalarField& x1,
-                const scalarField& x2
-            ) const;
+        //- Integrate between two scalar fields
+        virtual tmp<Field<Type>> integral
+        (
+            const scalarField& x1,
+            const scalarField& x2
+        ) const;
 };
 
 
@@ -223,27 +347,55 @@ public:
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-#define makeFunction1(Type)                                                    \
+#define defineFunction1(Type)                                                  \
                                                                                \
     defineNamedTemplateTypeNameAndDebug(Function1<Type>, 0);                   \
+    defineTemplateRunTimeSelectionTable(Function1<Type>, dictionary);          \
+    defineTemplateRunTimeSelectionTable(Function1<Type>, Istream);
+
+
+#define addFunction1(SS, Type)                                                 \
                                                                                \
-    defineTemplateRunTimeSelectionTable(Function1<Type>, dictionary);
+    defineNamedTemplateTypeNameAndDebug(SS<Type>, 0);                          \
+    typedef Function1<Type> Type##Function1;                                   \
+    typedef SS<Type> Type##SS##Function1;                                      \
+    addToRunTimeSelectionTable                                                 \
+    (                                                                          \
+        Type##Function1,                                                       \
+        Type##SS##Function1,                                                   \
+        dictionary                                                             \
+    )
 
 
-#define makeFunction1Type(SS, Type)                                            \
+#define addStreamConstructableFunction1(SS, Type)                              \
                                                                                \
-    defineNamedTemplateTypeNameAndDebug(Function1s::SS<Type>, 0);              \
+    addFunction1(SS, Type);                                                    \
+    addToRunTimeSelectionTable                                                 \
+    (                                                                          \
+        Type##Function1,                                                       \
+        Type##SS##Function1,                                                   \
+        Istream                                                                \
+    )
+
+
+#define addNamedFunction1(SS, Type, Name)                                      \
                                                                                \
-    Function1<Type>::adddictionaryConstructorToTable<Function1s::SS<Type>>     \
-        add##SS##Type##ConstructorToTable_;
+    typedef Function1<Type> Type##Function1;                                   \
+    typedef SS<Type> Type##SS##Function1;                                      \
+    addNamedToRunTimeSelectionTable                                            \
+    (                                                                          \
+        Type##Function1,                                                       \
+        Type##SS##Function1,                                                   \
+        dictionary,                                                            \
+        Name                                                                   \
+    )
 
 
-#define makeScalarFunction1(SS)                                                \
+#define addScalarFunction1(SS)                                                 \
                                                                                \
     defineTypeNameAndDebug(SS, 0);                                             \
-                                                                               \
-    Function1<scalar>::adddictionaryConstructorToTable<SS>                     \
-        add##SS##ConstructorToTable_;
+    typedef Function1<scalar> scalarFunction1;                                 \
+    addToRunTimeSelectionTable(scalarFunction1, SS, dictionary)
 
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

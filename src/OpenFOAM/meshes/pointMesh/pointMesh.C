@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,54 +25,27 @@ License
 
 #include "pointMesh.H"
 #include "globalMeshData.H"
-#include "pointMeshMapper.H"
 #include "pointFields.H"
-#include "MapGeometricFields.H"
-#include "MapPointField.H"
 #include "facePointPatch.H"
+#include "MapGeometricFields.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
 namespace Foam
 {
-
-defineTypeNameAndDebug(pointMesh, 0);
-
+    defineTypeNameAndDebug(pointMesh, 0);
 }
 
-// * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
+const Foam::HashSet<Foam::word> Foam::pointMesh::geometryFields;
 
-void Foam::pointMesh::mapFields(const mapPolyMesh& mpm)
-{
-    if (debug)
-    {
-        Pout<< "void pointMesh::mapFields(const mapPolyMesh&): "
-            << "Mapping all registered pointFields."
-            << endl;
-    }
-    // Create a mapper
-    const pointMeshMapper m(*this, mpm);
-
-    MapGeometricFields<scalar, pointPatchField, pointMeshMapper, pointMesh>(m);
-    MapGeometricFields<vector, pointPatchField, pointMeshMapper, pointMesh>(m);
-    MapGeometricFields
-    <
-        sphericalTensor,
-        pointPatchField,
-        pointMeshMapper,
-        pointMesh
-    >(m);
-    MapGeometricFields<symmTensor, pointPatchField, pointMeshMapper, pointMesh>
-    (m);
-    MapGeometricFields<tensor, pointPatchField, pointMeshMapper, pointMesh>(m);
-}
+const Foam::HashSet<Foam::word> Foam::pointMesh::curGeometryFields;
 
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 Foam::pointMesh::pointMesh(const polyMesh& pMesh)
 :
-    MeshObject<polyMesh, Foam::PatchMeshObject, pointMesh>(pMesh),
+    DemandDrivenMeshObject<polyMesh, RepatchableMeshObject, pointMesh>(pMesh),
     GeoMesh<polyMesh>(pMesh),
     boundary_(*this, pMesh.boundaryMesh())
 {
@@ -103,24 +76,6 @@ Foam::pointMesh::~pointMesh()
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-void Foam::pointMesh::reset(const bool validBoundary)
-{
-    const polyMesh& pm = operator()();
-    if (debug)
-    {
-        Pout<< "pointMesh::reset(const bool validBoundary): "
-            << "Resetting from polyMesh " << pm.name() << endl;
-    }
-
-    boundary_.reset(pm.boundaryMesh());
-    if (validBoundary)
-    {
-        // Calculate the geometry for the patches (transformation tensors etc.)
-        boundary_.calcGeometry();
-    }
-}
-
-
 bool Foam::pointMesh::movePoints()
 {
     if (debug)
@@ -135,18 +90,36 @@ bool Foam::pointMesh::movePoints()
 }
 
 
-void Foam::pointMesh::updateMesh(const mapPolyMesh& mpm)
+void Foam::pointMesh::topoChange(const polyTopoChangeMap& map)
 {
     if (debug)
     {
-        Pout<< "pointMesh::updateMesh(const mapPolyMesh&): "
-            << "Updating for topology changes." << endl;
-        Pout<< endl;
+        Pout<< "pointMesh::topoChange(const polyTopoChangeMap&): "
+            << "Topology change." << endl;
     }
-    boundary_.updateMesh();
+    boundary_.topoChange();
+}
 
-    // Map all registered point fields
-    mapFields(mpm);
+
+void Foam::pointMesh::mapMesh(const polyMeshMap& map)
+{
+    if (debug)
+    {
+        Pout<< "pointMesh::mapMesh(const polyMeshMap&): "
+            << "Mesh mapping." << endl;
+    }
+    boundary_.topoChange();
+}
+
+
+void Foam::pointMesh::distribute(const polyDistributionMap& map)
+{
+    if (debug)
+    {
+        Pout<< "pointMesh::distribute(const polyDistributionMap&): "
+            << "Distribute." << endl;
+    }
+    boundary_.topoChange();
 }
 
 
@@ -160,17 +133,18 @@ void Foam::pointMesh::reorderPatches
     {
         Pout<< "pointMesh::reorderPatches( const labelUList&, const bool): "
             << "Updating for reordered patches." << endl;
-        Pout<< endl;
     }
 
     boundary_.shuffle(newToOld, validBoundary);
 
-    objectRegistry& db = const_cast<objectRegistry&>(thisDb());
-    ReorderPatchFields<pointScalarField>(db, newToOld);
-    ReorderPatchFields<pointVectorField>(db, newToOld);
-    ReorderPatchFields<pointSphericalTensorField>(db, newToOld);
-    ReorderPatchFields<pointSymmTensorField>(db, newToOld);
-    ReorderPatchFields<pointTensorField>(db, newToOld);
+    #define ReorderPatchFieldsType(Type, nullArg)                              \
+        ReorderPatchFields<PointField<Type>>                                   \
+        (                                                                      \
+            const_cast<objectRegistry&>(thisDb()),                             \
+            newToOld                                                           \
+        );
+    FOR_ALL_FIELD_TYPES(ReorderPatchFieldsType);
+    #undef ReorderPatchFieldsType
 }
 
 
@@ -180,10 +154,10 @@ void Foam::pointMesh::addPatch(const label patchi)
     {
         Pout<< "pointMesh::addPatch(const label): "
             << "Adding patch at " << patchi << endl;
-        Pout<< endl;
     }
 
     const polyBoundaryMesh& pbm = mesh().boundaryMesh();
+
     if (pbm.size() != boundary_.size())
     {
         FatalErrorInFunction << "Problem :"
@@ -194,22 +168,26 @@ void Foam::pointMesh::addPatch(const label patchi)
 
     boundary_.set(patchi, facePointPatch::New(pbm[patchi], boundary_).ptr());
 
-    objectRegistry& db = const_cast<objectRegistry&>(thisDb());
-    const dictionary d;
-    const word patchFieldType("calculated");
+    #define AddPatchFieldsType(Type, nullArg)                                  \
+        AddPatchFields<PointField<Type>>                                       \
+        (                                                                      \
+            const_cast<objectRegistry&>(thisDb()),                             \
+            patchi,                                                            \
+            calculatedPointPatchField<scalar>::typeName                        \
+        );
+    FOR_ALL_FIELD_TYPES(AddPatchFieldsType);
+    #undef ReorderPatchFieldsType
+}
 
-    AddPatchFields<pointScalarField>(db, patchi, d, patchFieldType, Zero);
-    AddPatchFields<pointVectorField>(db, patchi, d, patchFieldType, Zero);
-    AddPatchFields<pointSphericalTensorField>
-    (
-        db,
-        patchi,
-        d,
-        patchFieldType,
-        Zero
-    );
-    AddPatchFields<pointSymmTensorField>(db, patchi, d, patchFieldType, Zero);
-    AddPatchFields<pointTensorField>(db, patchi, d, patchFieldType, Zero);
+
+void Foam::pointMesh::reset()
+{
+    if (debug)
+    {
+        Pout<< "pointMesh::reset(): "
+            << "Mesh reset." << endl;
+    }
+    boundary_.reset();
 }
 
 

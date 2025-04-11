@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -38,7 +38,6 @@ SourceFiles
 #define functionObjects_fieldExpression_H
 
 #include "fvMeshFunctionObject.H"
-#include "volFieldsFwd.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -48,7 +47,7 @@ namespace functionObjects
 {
 
 /*---------------------------------------------------------------------------*\
-                         Class fieldExpression Declaration
+                       Class fieldExpression Declaration
 \*---------------------------------------------------------------------------*/
 
 class fieldExpression
@@ -69,9 +68,6 @@ protected:
     // Protected member functions
 
         virtual bool calc() = 0;
-
-        template<class Type>
-        bool foundObject(const word& name);
 
 
 public:
@@ -102,8 +98,8 @@ public:
 
     // Member Functions
 
-        //- Read the fieldExpression data
-        virtual bool read(const dictionary&);
+        //- Return the field required
+        virtual wordList fields() const;
 
         //- Calculate the result field
         virtual bool execute();
@@ -126,12 +122,6 @@ public:
 
 } // End namespace functionObjects
 } // End namespace Foam
-
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-#ifdef NoRepository
-    #include "fieldExpressionTemplates.C"
-#endif
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

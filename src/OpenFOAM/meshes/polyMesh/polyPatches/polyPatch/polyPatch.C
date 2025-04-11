@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -54,12 +54,19 @@ namespace Foam
 
 // * * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * * //
 
-void Foam::polyPatch::movePoints(PstreamBuffers&, const pointField& p)
+void Foam::polyPatch::movePoints(const pointField& p)
 {
-    primitivePatch::movePoints(p);
+    primitivePatch::clearGeom();
 }
 
-void Foam::polyPatch::updateMesh(PstreamBuffers&)
+
+void Foam::polyPatch::movePoints(PstreamBuffers&, const pointField& p)
+{
+    primitivePatch::clearGeom();
+}
+
+
+void Foam::polyPatch::topoChange(PstreamBuffers&)
 {
     primitivePatch::clearGeom();
     clearAddressing();
@@ -69,6 +76,18 @@ void Foam::polyPatch::updateMesh(PstreamBuffers&)
 void Foam::polyPatch::clearGeom()
 {
     primitivePatch::clearGeom();
+}
+
+
+void Foam::polyPatch::rename(const wordList& newNames)
+{
+    name_ = newNames[index_];
+}
+
+
+void Foam::polyPatch::reorder(const labelUList& newToOldIndex)
+{
+    index_ = findIndex(newToOldIndex, index_);
 }
 
 
@@ -195,33 +214,6 @@ Foam::polyPatch::polyPatch
 {}
 
 
-Foam::polyPatch::polyPatch
-(
-    const polyPatch& pp,
-    const polyBoundaryMesh& bm,
-    const label index,
-    const labelUList& mapAddressing,
-    const label newStart
-)
-:
-    patchIdentifier(pp, index),
-    primitivePatch
-    (
-        faceSubList
-        (
-            bm.mesh().faces(),
-            mapAddressing.size(),
-            newStart
-        ),
-        bm.mesh().points()
-    ),
-    start_(newStart),
-    boundaryMesh_(bm),
-    faceCellsPtr_(nullptr),
-    mePtr_(nullptr)
-{}
-
-
 Foam::polyPatch::polyPatch(const polyPatch& p)
 :
     patchIdentifier(p),
@@ -290,6 +282,12 @@ const Foam::vectorField::subField Foam::polyPatch::faceCentres() const
 const Foam::vectorField::subField Foam::polyPatch::faceAreas() const
 {
     return patchSlice(boundaryMesh().mesh().faceAreas());
+}
+
+
+const Foam::scalarField::subField Foam::polyPatch::magFaceAreas() const
+{
+    return patchSlice(boundaryMesh().mesh().magFaceAreas());
 }
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,19 +24,14 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "masterUncollatedFileOperation.H"
-#include "addToRunTimeSelectionTable.H"
-#include "Pstream.H"
 #include "Time.H"
-#include "instant.H"
-#include "IFstream.H"
 #include "masterOFstream.H"
 #include "decomposedBlockData.H"
-#include "registerSwitch.H"
 #include "dummyISstream.H"
 #include "SubList.H"
-#include "unthreadedInitialise.H"
 #include "PackedBoolList.H"
 #include "gzstream.h"
+#include "addToRunTimeSelectionTable.H"
 
 /* * * * * * * * * * * * * * * Static Member Data  * * * * * * * * * * * * * */
 
@@ -55,12 +50,6 @@ namespace fileOperations
     float masterUncollatedFileOperation::maxMasterFileBufferSize
     (
         Foam::debug::floatOptimisationSwitch("maxMasterFileBufferSize", 1e9)
-    );
-    registerOptSwitch
-    (
-        "maxMasterFileBufferSize",
-        float,
-        masterUncollatedFileOperation::maxMasterFileBufferSize
     );
 
     // Mark as not needing threaded mpi
@@ -85,7 +74,7 @@ Foam::labelList Foam::fileOperations::masterUncollatedFileOperation::subRanks
     string ioRanksString(getEnv("FOAM_IORANKS"));
     if (ioRanksString.empty())
     {
-        return identity(n);
+        return identityMap(n);
     }
     else
     {
@@ -123,7 +112,8 @@ Foam::labelList Foam::fileOperations::masterUncollatedFileOperation::subRanks
                 break;
             }
         }
-        return move(subRanks);
+
+        return subRanks;
     }
 }
 
@@ -156,7 +146,7 @@ Foam::fileOperations::masterUncollatedFileOperation::findInstancePath
 Foam::fileName
 Foam::fileOperations::masterUncollatedFileOperation::filePathInfo
 (
-    const bool checkGlobal,
+    const bool globalFile,
     const bool isFile,
     const IOobject& io,
     pathType& searchType,
@@ -185,7 +175,7 @@ Foam::fileOperations::masterUncollatedFileOperation::filePathInfo
     else
     {
         // 1. Check the writing fileName
-        fileName writePath(objectPath(io, io.headerClassName()));
+        fileName writePath(objectPath(io));
 
         if (isFileOrDir(isFile, writePath))
         {
@@ -196,7 +186,10 @@ Foam::fileOperations::masterUncollatedFileOperation::filePathInfo
         // 2. Check processors/
         if (io.time().processorCase())
         {
-            tmpNrc<dirIndexList> pDirs(lookupProcessorsPath(io.objectPath()));
+            tmpNrc<dirIndexList> pDirs
+            (
+                lookupProcessorsPath(io.objectPath(globalFile))
+            );
             forAll(pDirs(), i)
             {
                 const fileName& pDir = pDirs()[i].first();
@@ -213,7 +206,7 @@ Foam::fileOperations::masterUncollatedFileOperation::filePathInfo
         }
         {
             // 3. Check local
-            fileName localPath = io.objectPath();
+            fileName localPath = io.objectPath(globalFile);
 
             if
             (
@@ -231,7 +224,7 @@ Foam::fileOperations::masterUncollatedFileOperation::filePathInfo
         // Any global checks
         if
         (
-            checkGlobal
+            globalFile
          && io.time().processorCase()
          && (
                 io.instance() == io.time().system()
@@ -272,7 +265,7 @@ Foam::fileOperations::masterUncollatedFileOperation::filePathInfo
                 // 1. Try processors equivalent
                 tmpNrc<dirIndexList> pDirs
                 (
-                    lookupProcessorsPath(io.objectPath())
+                    lookupProcessorsPath(io.objectPath(globalFile))
                 );
                 forAll(pDirs(), i)
                 {
@@ -315,7 +308,7 @@ Foam::fileOperations::masterUncollatedFileOperation::filePathInfo
                 // 2. Check local
                 fileName fName
                 (
-                   io.rootPath()/io.caseName()
+                   io.rootPath()/io.caseName(false)
                   /newInstancePath/io.db().dbDir()/io.local()/io.name()
                 );
                 if (isFileOrDir(isFile, fName))
@@ -333,7 +326,7 @@ Foam::fileOperations::masterUncollatedFileOperation::filePathInfo
 
 
 Foam::fileName
-Foam::fileOperations::masterUncollatedFileOperation::localObjectPath
+Foam::fileOperations::masterUncollatedFileOperation::relativeObjectPath
 (
     const IOobject& io,
     const pathType& searchType,
@@ -353,13 +346,13 @@ Foam::fileOperations::masterUncollatedFileOperation::localObjectPath
 
         case fileOperation::OBJECT:
         {
-            return io.path()/io.name();
+            return io.path(false)/io.name();
         }
         break;
 
         case fileOperation::WRITEOBJECT:
         {
-            return objectPath(io, io.headerClassName());
+            return objectPath(io);
         }
         break;
 
@@ -415,7 +408,7 @@ Foam::fileOperations::masterUncollatedFileOperation::localObjectPath
         case fileOperation::FINDINSTANCE:
         {
             return
-                io.rootPath()/io.caseName()
+                io.rootPath()/io.caseName(false)
                /instancePath/io.db().dbDir()/io.local()/io.name();
         }
         break;
@@ -582,7 +575,7 @@ Foam::fileOperations::masterUncollatedFileOperation::read
                 if (filePaths[0].empty())
                 {
                     FatalIOErrorInFunction(filePaths[0])
-                        << "cannot find file " << io.objectPath()
+                        << "cannot find file for object " << io.name()
                         << exit(FatalIOError);
                 }
 
@@ -619,7 +612,7 @@ Foam::fileOperations::masterUncollatedFileOperation::read
                 if (filePaths[0].empty())
                 {
                     FatalIOErrorInFunction(filePaths[0])
-                        << "cannot find file " << io.objectPath()
+                        << "cannot find file for object " << io.name()
                         << exit(FatalIOError);
                 }
 
@@ -1138,24 +1131,23 @@ bool Foam::fileOperations::masterUncollatedFileOperation::mv
 
 Foam::fileName Foam::fileOperations::masterUncollatedFileOperation::filePath
 (
-    const bool checkGlobal,
-    const IOobject& io,
-    const word& typeName
+    const bool globalFile,
+    const IOobject& io
 ) const
 {
     if (debug)
     {
         Pout<< "masterUncollatedFileOperation::filePath :"
-            << " objectPath:" << io.objectPath()
-            << " checkGlobal:" << checkGlobal << endl;
+            << " objectPath:" << io.objectPath(globalFile)
+            << " globalFile:" << globalFile << endl;
     }
 
     // Now that we have an IOobject path use it to detect & cache
     // processor directory naming
-    (void)lookupProcessorsPath(io.objectPath());
+    (void)lookupProcessorsPath(io.objectPath(globalFile));
 
     // Trigger caching of times
-    (void)findTimes(io.time().path(), io.time().constant());
+    (void)findTimes(io.time(), io.time().path(), io.time().constant());
 
 
     // Determine master filePath and scatter
@@ -1171,7 +1163,7 @@ Foam::fileName Foam::fileOperations::masterUncollatedFileOperation::filePath
         // fail (except on master). This gets handled later on (in PARENTOBJECT)
         objPath = filePathInfo
         (
-            checkGlobal,
+            globalFile,
             true,
             io,
             searchType,
@@ -1203,7 +1195,7 @@ Foam::fileName Foam::fileOperations::masterUncollatedFileOperation::filePath
 
     if
     (
-        checkGlobal
+        globalFile
      || searchType == fileOperation::PARENTOBJECT
      || searchType == fileOperation::PROCBASEOBJECT
      || searchType == fileOperation::PROCBASEINSTANCE
@@ -1240,7 +1232,7 @@ Foam::fileName Foam::fileOperations::masterUncollatedFileOperation::filePath
             case fileOperation::PROCINSTANCE:
             {
                 // Construct equivalent local path
-                objPath = localObjectPath
+                objPath = relativeObjectPath
                 (
                     io,
                     searchType,
@@ -1258,7 +1250,7 @@ Foam::fileName Foam::fileOperations::masterUncollatedFileOperation::filePath
 
                 objPath = masterOp<fileName, fileOrNullOp>
                 (
-                    io.objectPath(),
+                    io.objectPath(globalFile),
                     fileOrNullOp(true),
                     Pstream::msgType(),
                     comm_
@@ -1272,7 +1264,7 @@ Foam::fileName Foam::fileOperations::masterUncollatedFileOperation::filePath
     {
         Pout<< "masterUncollatedFileOperation::filePath :"
             << " Returning from file searching:" << endl
-            << "    objectPath:" << io.objectPath() << endl
+            << "    objectPath:" << io.objectPath(globalFile) << endl
             << "    filePath  :" << objPath << endl << endl;
     }
     return objPath;
@@ -1281,20 +1273,20 @@ Foam::fileName Foam::fileOperations::masterUncollatedFileOperation::filePath
 
 Foam::fileName Foam::fileOperations::masterUncollatedFileOperation::dirPath
 (
-    const bool checkGlobal,
+    const bool globalFile,
     const IOobject& io
 ) const
 {
     if (debug)
     {
         Pout<< "masterUncollatedFileOperation::dirPath :"
-            << " objectPath:" << io.objectPath()
-            << " checkGlobal:" << checkGlobal << endl;
+            << " objectPath:" << io.objectPath(globalFile)
+            << " globalFile:" << globalFile << endl;
     }
 
     // Now that we have an IOobject path use it to detect & cache
     // processor directory naming
-    (void)lookupProcessorsPath(io.objectPath());
+    (void)lookupProcessorsPath(io.objectPath(globalFile));
 
     // Determine master dirPath and scatter
 
@@ -1307,7 +1299,7 @@ Foam::fileName Foam::fileOperations::masterUncollatedFileOperation::dirPath
     {
         objPath = filePathInfo
         (
-            checkGlobal,
+            globalFile,
             false,
             io,
             searchType,
@@ -1325,7 +1317,7 @@ Foam::fileName Foam::fileOperations::masterUncollatedFileOperation::dirPath
 
     if
     (
-        checkGlobal
+        globalFile
      || searchType == fileOperation::PARENTOBJECT
      || searchType == fileOperation::PROCBASEOBJECT
      || searchType == fileOperation::PROCBASEINSTANCE
@@ -1362,7 +1354,7 @@ Foam::fileName Foam::fileOperations::masterUncollatedFileOperation::dirPath
             case fileOperation::PROCINSTANCE:
             {
                 // Construct equivalent local path
-                objPath = localObjectPath
+                objPath = relativeObjectPath
                 (
                     io,
                     searchType,
@@ -1379,7 +1371,7 @@ Foam::fileName Foam::fileOperations::masterUncollatedFileOperation::dirPath
                 // have the file and some not (e.g. lagrangian data)
                 objPath = masterOp<fileName, fileOrNullOp>
                 (
-                    io.objectPath(),
+                    io.objectPath(globalFile),
                     fileOrNullOp(false),
                     Pstream::msgType(),
                     comm_
@@ -1393,7 +1385,7 @@ Foam::fileName Foam::fileOperations::masterUncollatedFileOperation::dirPath
     {
         Pout<< "masterUncollatedFileOperation::dirPath :"
             << " Returning from file searching:" << endl
-            << "    objectPath:" << io.objectPath() << endl
+            << "    objectPath:" << io.objectPath(globalFile) << endl
             << "    filePath  :" << objPath << endl << endl;
     }
     return objPath;
@@ -1412,7 +1404,7 @@ bool Foam::fileOperations::masterUncollatedFileOperation::exists
     const bool isFile = !io.name().empty();
 
     // Generate output filename for object
-    const fileName writePath(objectPath(io, word::null));
+    const fileName writePath(objectPath(io));
 
     // 1. Test writing name for either directory or a (valid) file
     if (isFileOrDir(isFile, writePath))
@@ -1437,7 +1429,7 @@ bool Foam::fileOperations::masterUncollatedFileOperation::exists
     }
 
     // 3. Check local
-    fileName localPath = io.objectPath();
+    fileName localPath = io.objectPath(false);
 
     if (localPath != writePath && isFileOrDir(isFile, localPath))
     {
@@ -1477,7 +1469,7 @@ Foam::fileOperations::masterUncollatedFileOperation::findInstance
     //         parent directory in case of parallel)
 
 
-    tmpNrc<dirIndexList> pDirs(lookupProcessorsPath(io.objectPath()));
+    tmpNrc<dirIndexList> pDirs(lookupProcessorsPath(io.objectPath(false)));
 
     word foundInstance;
 
@@ -1528,7 +1520,7 @@ Foam::fileOperations::masterUncollatedFileOperation::findInstance
         {
             // Shortcut: if actual directory is the timeName we've
             // already tested it
-            if (ts[instanceI].name() == time.timeName())
+            if (ts[instanceI].name() == time.name())
             {
                 continue;
             }
@@ -1560,7 +1552,7 @@ Foam::fileOperations::masterUncollatedFileOperation::findInstance
                     {
                         FatalErrorInFunction
                             << "Cannot find directory "
-                            << io.local() << " in times " << time.timeName()
+                            << io.local() << " in times " << time.name()
                             << " down to " << stopInstance
                             << exit(FatalError);
                     }
@@ -1569,7 +1561,7 @@ Foam::fileOperations::masterUncollatedFileOperation::findInstance
                         FatalErrorInFunction
                             << "Cannot find file \"" << io.name()
                             << "\" in directory " << io.local()
-                            << " in times " << time.timeName()
+                            << " in times " << time.name()
                             << " down to " << stopInstance
                             << exit(FatalError);
                     }
@@ -1697,6 +1689,7 @@ Foam::fileOperations::masterUncollatedFileOperation::readObjects
             (
                 fileOperation::findTimes
                 (
+                    db.time(),
                     db.time().path(),
                     db.time().constant()
                 )
@@ -1747,8 +1740,8 @@ bool Foam::fileOperations::masterUncollatedFileOperation::readHeader
 
     if (debug)
     {
-        Pout<< "masterUncollatedFileOperation::readHeader :" << endl
-            << "    objectPath:" << io.objectPath() << endl
+        Pout<< "masterUncollatedFileOperation::readHeader :" << nl
+            << "    object :" << io.name() << nl
             << "    fName     :" << fName << endl;
     }
 
@@ -1877,7 +1870,6 @@ Foam::fileOperations::masterUncollatedFileOperation::readStream
             << " fName : " << fName << " read:" << read << endl;
     }
 
-
     autoPtr<ISstream> isPtr;
     bool isCollated = false;
     IOobject headerIO(io);
@@ -1895,6 +1887,7 @@ Foam::fileOperations::masterUncollatedFileOperation::readStream
             // the fName is already rewritten to processors/.
 
             isPtr.reset(new IFstream(fName));
+            isPtr->global() = io.global();
 
             if (isPtr().good())
             {
@@ -1916,7 +1909,8 @@ Foam::fileOperations::masterUncollatedFileOperation::readStream
                             << " doing straight IFstream input from "
                             << fName << endl;
                     }
-                    io = headerIO;
+                    io.close();
+                    io.IOobject::operator=(headerIO);
                     return isPtr;
                 }
             }
@@ -2110,11 +2104,15 @@ bool Foam::fileOperations::masterUncollatedFileOperation::read
 (
     regIOobject& io,
     const bool masterOnly,
-    const IOstream::streamFormat format,
+    const IOstream::streamFormat defaultFormat,
     const word& typeName
 ) const
 {
     bool ok = true;
+
+    // Initialise format to the defaultFormat
+    // but reset to ASCII if defaultFormat and file format are ASCII
+    IOstream::streamFormat format = defaultFormat;
 
     if (io.global())
     {
@@ -2129,7 +2127,7 @@ bool Foam::fileOperations::masterUncollatedFileOperation::read
         (void)lookupProcessorsPath(io.objectPath());
 
         // Trigger caching of times
-        (void)findTimes(io.time().path(), io.time().constant());
+        (void)findTimes(io.time(), io.time().path(), io.time().constant());
 
         bool ok = false;
         if (Pstream::master())  // comm_))
@@ -2138,16 +2136,34 @@ bool Foam::fileOperations::masterUncollatedFileOperation::read
             bool oldParRun = UPstream::parRun();
             UPstream::parRun() = false;
 
-            ok = io.readData(io.readStream(typeName));
+            // Open file and read header
+            Istream& is = io.readStream(typeName);
+
+            // Set format to ASCII if defaultFormat and file format are ASCII
+            if (defaultFormat == IOstream::ASCII)
+            {
+                format = is.format();
+            }
+
+            // Read the data from the file
+            ok = io.readData(is);
+
+            // Close the file
             io.close();
 
             UPstream::parRun() = oldParRun;
         }
 
-        Pstream::scatter(ok);   //, Pstream::msgType(), comm_);
-        Pstream::scatter(io.headerClassName()); //, Pstream::msgType(), comm_);
-        Pstream::scatter(io.note());    //, Pstream::msgType(), comm_);
+        Pstream::scatter(ok);
+        Pstream::scatter(io.headerClassName());
+        Pstream::scatter(io.note());
 
+        if (defaultFormat == IOstream::ASCII)
+        {
+            std::underlying_type_t<IOstream::streamFormat> formatValue(format);
+            Pstream::scatter(formatValue);
+            format = IOstream::streamFormat(formatValue);
+        }
 
         // scatter operation for regIOobjects
 
@@ -2169,9 +2185,12 @@ bool Foam::fileOperations::masterUncollatedFileOperation::read
                 myComm.above(),
                 0,
                 Pstream::msgType(),
-                Pstream::worldComm, // comm_,
-                format
+                Pstream::worldComm,
+                format,
+                IOstream::currentVersion,
+                io.global()
             );
+
             ok = io.readData(fromAbove);
         }
 
@@ -2184,9 +2203,12 @@ bool Foam::fileOperations::masterUncollatedFileOperation::read
                 myComm.below()[belowI],
                 0,
                 Pstream::msgType(),
-                Pstream::worldComm, // comm_,
-                format
+                Pstream::worldComm,
+                format,
+                IOstream::currentVersion,
+                io.global()
             );
+
             bool okWrite = io.writeData(toBelow);
             ok = ok && okWrite;
         }
@@ -2216,12 +2238,12 @@ bool Foam::fileOperations::masterUncollatedFileOperation::writeObject
     const bool write
 ) const
 {
-    fileName pathName(io.objectPath());
+    fileName filePath(io.objectPath());
 
     if (debug)
     {
         Pout<< "masterUncollatedFileOperation::writeObject :"
-            << " io:" << pathName << " write:" << write << endl;
+            << " io:" << filePath << " write:" << write << endl;
     }
 
     // Make sure to pick up any new times
@@ -2231,7 +2253,7 @@ bool Foam::fileOperations::masterUncollatedFileOperation::writeObject
     (
         NewOFstream
         (
-            pathName,
+            filePath,
             fmt,
             ver,
             cmp,
@@ -2265,47 +2287,55 @@ bool Foam::fileOperations::masterUncollatedFileOperation::writeObject
 
 Foam::instantList Foam::fileOperations::masterUncollatedFileOperation::findTimes
 (
+    const Time& time,
     const fileName& directory,
     const word& constantName
 ) const
 {
-    HashPtrTable<instantList>::const_iterator iter = times_.find(directory);
-    if (iter != times_.end())
+    if (!time.processorCase())
     {
-        if (debug)
-        {
-            Pout<< "masterUncollatedFileOperation::findTimes :"
-                << " Found " << iter()->size() << " cached times" << endl;
-        }
-        return *iter();
+        return fileOperation::findTimes(time, directory, constantName);
     }
     else
     {
-        instantList times;
-        if (Pstream::master())  // comm_))
+        HashPtrTable<instantList>::const_iterator iter = times_.find(directory);
+        if (iter != times_.end())
         {
-            // Do master-only reading always.
-            bool oldParRun = UPstream::parRun();
-            UPstream::parRun() = false;
-            times = fileOperation::findTimes(directory, constantName);
-            UPstream::parRun() = oldParRun;
+            if (debug)
+            {
+                Pout<< "masterUncollatedFileOperation::findTimes :"
+                    << " Found " << iter()->size() << " cached times" << endl;
+            }
+            return *iter();
         }
-        Pstream::scatter(times);    //, Pstream::msgType(), comm_);
-
-        // Note: do we also cache if no times have been found since it might
-        //       indicate a directory that is being filled later on ...
-
-        instantList* tPtr = new instantList(move(times));
-
-        times_.insert(directory, tPtr);
-
-        if (debug)
+        else
         {
-            Pout<< "masterUncollatedFileOperation::findTimes :"
-                << " Caching times:" << *tPtr << nl
-                << "    for directory:" << directory << endl;
+            instantList times;
+            if (Pstream::master())  // comm_))
+            {
+                // Do master-only reading always.
+                bool oldParRun = UPstream::parRun();
+                UPstream::parRun() = false;
+                times = fileOperation::findTimes(time, directory, constantName);
+                UPstream::parRun() = oldParRun;
+            }
+            Pstream::scatter(times);    //, Pstream::msgType(), comm_);
+
+            // Note: do we also cache if no times have been found since it might
+            //       indicate a directory that is being filled later on ...
+
+            instantList* tPtr = new instantList(move(times));
+
+            times_.insert(directory, tPtr);
+
+            if (debug)
+            {
+                Pout<< "masterUncollatedFileOperation::findTimes :"
+                    << " Caching times:" << *tPtr << nl
+                    << "    for directory:" << directory << endl;
+            }
+            return *tPtr;
         }
-        return *tPtr;
     }
 }
 
@@ -2325,7 +2355,7 @@ void Foam::fileOperations::masterUncollatedFileOperation::setTime
     {
         instantList& times = *iter();
 
-        const instant timeNow(tm.value(), tm.timeName());
+        const instant timeNow(tm.value(), tm.name());
 
         if (times.size() > 0 && times[0].name() == tm.constant())
         {
@@ -2344,7 +2374,7 @@ void Foam::fileOperations::masterUncollatedFileOperation::setTime
                 if (debug)
                 {
                     Pout<< "masterUncollatedFileOperation::setTime :"
-                        << " Caching time " << tm.timeName()
+                        << " Caching time " << tm.name()
                         << " for case:" << tm.path() << endl;
                 }
 
@@ -2360,7 +2390,7 @@ void Foam::fileOperations::masterUncollatedFileOperation::setTime
                 if (debug)
                 {
                     Pout<< "masterUncollatedFileOperation::setTime :"
-                        << " Caching time " << tm.timeName()
+                        << " Caching time " << tm.name()
                         << " for case:" << tm.path() << endl;
                 }
 
@@ -2376,7 +2406,9 @@ void Foam::fileOperations::masterUncollatedFileOperation::setTime
 Foam::autoPtr<Foam::ISstream>
 Foam::fileOperations::masterUncollatedFileOperation::NewIFstream
 (
-    const fileName& filePath
+    const fileName& filePath,
+    IOstream::streamFormat format,
+    IOstream::versionNumber version
 ) const
 {
     if (Pstream::parRun())
@@ -2443,7 +2475,7 @@ Foam::fileOperations::masterUncollatedFileOperation::NewIFstream
             // Read myself
             return autoPtr<ISstream>
             (
-                new IFstream(filePaths[Pstream::masterNo()])
+                new IFstream(filePaths[Pstream::masterNo()], format, version)
             );
         }
         else
@@ -2477,7 +2509,7 @@ Foam::fileOperations::masterUncollatedFileOperation::NewIFstream
     else
     {
         // Read myself
-        return autoPtr<ISstream>(new IFstream(filePath));
+        return autoPtr<ISstream>(new IFstream(filePath, format, version));
     }
 }
 
@@ -2485,10 +2517,10 @@ Foam::fileOperations::masterUncollatedFileOperation::NewIFstream
 Foam::autoPtr<Foam::Ostream>
 Foam::fileOperations::masterUncollatedFileOperation::NewOFstream
 (
-    const fileName& pathName,
-    IOstream::streamFormat fmt,
-    IOstream::versionNumber ver,
-    IOstream::compressionType cmp,
+    const fileName& filePath,
+    IOstream::streamFormat format,
+    IOstream::versionNumber version,
+    IOstream::compressionType compression,
     const bool write
 ) const
 {
@@ -2496,10 +2528,10 @@ Foam::fileOperations::masterUncollatedFileOperation::NewOFstream
     (
         new masterOFstream
         (
-            pathName,
-            fmt,
-            ver,
-            cmp,
+            filePath,
+            format,
+            version,
+            compression,
             false,      // append
             write
         )

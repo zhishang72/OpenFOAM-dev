@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2019-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -50,10 +50,10 @@ SourceFiles
 namespace Foam
 {
 
-class basicSpecieMixture;
+class fluidMulticomponentThermo;
 
 /*---------------------------------------------------------------------------*\
-          Class specieTransferMassFractionFvPatchScalarField Declaration
+        Class specieTransferMassFractionFvPatchScalarField Declaration
 \*---------------------------------------------------------------------------*/
 
 class specieTransferMassFractionFvPatchScalarField
@@ -107,18 +107,14 @@ public:
 
     // Static member functions
 
-        //- Access the composition for the given database
-        static const basicSpecieMixture& composition(const objectRegistry& db);
+        //- Get the thermo from the given database
+        static const fluidMulticomponentThermo& thermo
+        (
+            const objectRegistry& db
+        );
 
 
     // Constructors
-
-        //- Construct from patch and internal field
-        specieTransferMassFractionFvPatchScalarField
-        (
-            const fvPatch&,
-            const DimensionedField<scalar, volMesh>&
-        );
 
         //- Construct from patch, internal field and dictionary
         specieTransferMassFractionFvPatchScalarField
@@ -128,21 +124,22 @@ public:
             const dictionary&
         );
 
-        //- Construct by mapping given fixedValueTypeFvPatchField
+        //- Construct by mapping given
+        //  specieTransferMassFractionFvPatchScalarField
         //  onto a new patch
         specieTransferMassFractionFvPatchScalarField
         (
             const specieTransferMassFractionFvPatchScalarField&,
             const fvPatch&,
             const DimensionedField<scalar, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         specieTransferMassFractionFvPatchScalarField
         (
             const specieTransferMassFractionFvPatchScalarField&
-        );
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         specieTransferMassFractionFvPatchScalarField
@@ -156,13 +153,12 @@ public:
 
         // Mapping functions
 
-            //- Map (and resize as needed) from self given a mapping object
-            //  Used to update fields following mesh topology change
-            virtual void autoMap(const fvPatchFieldMapper&);
+            //- Map the given fvPatchField onto this fvPatchField
+            virtual void map(const fvPatchScalarField&, const fieldMapper&);
 
-            //- Reverse map the given fvPatchField onto this fvPatchField
-            //  Used to reconstruct fields
-            virtual void rmap(const fvPatchScalarField&, const labelList&);
+            //- Reset the fvPatchField to the given fvPatchField
+            //  Used for mesh to mesh mapping
+            virtual void reset(const fvPatchScalarField&);
 
 
         // Evaluation functions
@@ -175,6 +171,11 @@ public:
 
             //- Update the coefficients associated with the patch field
             virtual void updateCoeffs();
+
+
+    // Member Operators
+
+        using mixedFvPatchScalarField::operator=;
 
 
         //- Write

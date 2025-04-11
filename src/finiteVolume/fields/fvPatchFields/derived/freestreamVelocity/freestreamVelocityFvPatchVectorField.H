@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2018-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2018-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -46,8 +46,9 @@ Usage
     }
     \endverbatim
 
-Note
-    This condition is designed to operate with the freestreamPressure condition
+    Note:
+        This condition is designed to operate with the freestreamPressure
+        condition
 
 See also
     Foam::mixedFvPatchField
@@ -70,7 +71,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-             Class freestreamVelocityFvPatchVectorField Declaration
+            Class freestreamVelocityFvPatchVectorField Declaration
 \*---------------------------------------------------------------------------*/
 
 class freestreamVelocityFvPatchVectorField
@@ -85,13 +86,6 @@ public:
 
 
     // Constructors
-
-        //- Construct from patch and internal field
-        freestreamVelocityFvPatchVectorField
-        (
-            const fvPatch&,
-            const DimensionedField<vector, volMesh>&
-        );
 
         //- Construct from patch, internal field and dictionary
         freestreamVelocityFvPatchVectorField
@@ -108,23 +102,14 @@ public:
             const freestreamVelocityFvPatchVectorField&,
             const fvPatch&,
             const DimensionedField<vector, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         freestreamVelocityFvPatchVectorField
         (
             const freestreamVelocityFvPatchVectorField&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchVectorField> clone() const
-        {
-            return tmp<fvPatchVectorField>
-            (
-                new freestreamVelocityFvPatchVectorField(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         freestreamVelocityFvPatchVectorField

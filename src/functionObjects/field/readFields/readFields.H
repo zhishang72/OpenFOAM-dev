@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -85,7 +85,7 @@ protected:
     // Protected data
 
         //- Fields to load
-        wordList fieldSet_;
+        wordList fields_;
 
         //- Loaded fields
         PtrList<volScalarField> vsf_;
@@ -107,8 +107,8 @@ protected:
         void loadField
         (
             const word&,
-            PtrList<GeometricField<Type, fvPatchField, volMesh>>&,
-            PtrList<GeometricField<Type, fvsPatchField, surfaceMesh>>&
+            PtrList<VolField<Type>>&,
+            PtrList<SurfaceField<Type>>&
         ) const;
 
 
@@ -141,6 +141,9 @@ public:
 
         //- Read the set of fields from dictionary
         virtual bool read(const dictionary&);
+
+        //- Return the list of fields required
+        virtual wordList fields() const;
 
         //- Read the fields
         virtual bool execute();

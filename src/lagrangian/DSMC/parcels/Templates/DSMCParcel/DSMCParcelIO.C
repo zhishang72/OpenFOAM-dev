@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -40,14 +40,9 @@ const std::size_t Foam::DSMCParcel<ParcelType>::sizeofFields_
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class ParcelType>
-Foam::DSMCParcel<ParcelType>::DSMCParcel
-(
-    const polyMesh& mesh,
-    Istream& is,
-    bool readFields
-)
+Foam::DSMCParcel<ParcelType>::DSMCParcel(Istream& is, bool readFields)
 :
-    ParcelType(mesh, is, readFields),
+    ParcelType(is, readFields),
     U_(Zero),
     Ei_(0.0),
     typeId_(-1)
@@ -76,7 +71,10 @@ Foam::DSMCParcel<ParcelType>::DSMCParcel
 
 
 template<class ParcelType>
-void Foam::DSMCParcel<ParcelType>::readFields(Cloud<DSMCParcel<ParcelType>>& c)
+void Foam::DSMCParcel<ParcelType>::readFields
+(
+    lagrangian::Cloud<DSMCParcel<ParcelType>>& c
+)
 {
     bool valid = c.size();
 
@@ -96,7 +94,7 @@ void Foam::DSMCParcel<ParcelType>::readFields(Cloud<DSMCParcel<ParcelType>>& c)
     c.checkFieldIOobject(c, typeId);
 
     label i = 0;
-    forAllIter(typename Cloud<DSMCParcel<ParcelType>>, c, iter)
+    forAllIter(typename lagrangian::Cloud<DSMCParcel<ParcelType>>, c, iter)
     {
         DSMCParcel<ParcelType>& p = iter();
 
@@ -111,7 +109,7 @@ void Foam::DSMCParcel<ParcelType>::readFields(Cloud<DSMCParcel<ParcelType>>& c)
 template<class ParcelType>
 void Foam::DSMCParcel<ParcelType>::writeFields
 (
-    const Cloud<DSMCParcel<ParcelType>>& c
+    const lagrangian::Cloud<DSMCParcel<ParcelType>>& c
 )
 {
     ParcelType::writeFields(c);
@@ -123,7 +121,7 @@ void Foam::DSMCParcel<ParcelType>::writeFields
     IOField<label> typeId(c.fieldIOobject("typeId", IOobject::NO_READ), np);
 
     label i = 0;
-    forAllConstIter(typename Cloud<DSMCParcel<ParcelType>>, c, iter)
+    forAllConstIter(typename lagrangian::Cloud<DSMCParcel<ParcelType>>, c, iter)
     {
         const DSMCParcel<ParcelType>& p = iter();
 

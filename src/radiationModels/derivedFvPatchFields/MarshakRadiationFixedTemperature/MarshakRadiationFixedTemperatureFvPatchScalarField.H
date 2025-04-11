@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -33,8 +33,8 @@ Description
 
 Usage
     \table
-        Property     | Description             | Required    | Default value
-        T            | temperature field name  | no          | T
+        Property     | Description                  | Required | Default value
+        Trad         | radiation temperature field  | yes      |
     \endtable
 
     Example of the boundary condition specification:
@@ -91,13 +91,6 @@ public:
 
     // Constructors
 
-        //- Construct from patch and internal field
-        MarshakRadiationFixedTemperatureFvPatchScalarField
-        (
-            const fvPatch&,
-            const DimensionedField<scalar, volMesh>&
-        );
-
         //- Construct from patch, internal field and dictionary
         MarshakRadiationFixedTemperatureFvPatchScalarField
         (
@@ -113,23 +106,14 @@ public:
             const MarshakRadiationFixedTemperatureFvPatchScalarField&,
             const fvPatch&,
             const DimensionedField<scalar, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         MarshakRadiationFixedTemperatureFvPatchScalarField
         (
             const MarshakRadiationFixedTemperatureFvPatchScalarField&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchScalarField> clone() const
-        {
-            return tmp<fvPatchScalarField>
-            (
-                new MarshakRadiationFixedTemperatureFvPatchScalarField(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         MarshakRadiationFixedTemperatureFvPatchScalarField
@@ -175,13 +159,12 @@ public:
 
         // Mapping functions
 
-            //- Map (and resize as needed) from self given a mapping object
-            //  Used to update fields following mesh topology change
-            virtual void autoMap(const fvPatchFieldMapper&);
+            //- Map the given fvPatchField onto this fvPatchField
+            virtual void map(const fvPatchScalarField&, const fieldMapper&);
 
-            //- Reverse map the given fvPatchField onto this fvPatchField
-            //  Used to reconstruct fields
-            virtual void rmap(const fvPatchScalarField&, const labelList&);
+            //- Reset the fvPatchField to the given fvPatchField
+            //  Used for mesh to mesh mapping
+            virtual void reset(const fvPatchScalarField&);
 
 
         // Evaluation functions

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -33,17 +33,6 @@ Foam::uniformInterpolatedDisplacementPointPatchVectorField::
 uniformInterpolatedDisplacementPointPatchVectorField
 (
     const pointPatch& p,
-    const DimensionedField<vector, pointMesh>& iF
-)
-:
-    fixedValuePointPatchField<vector>(p, iF)
-{}
-
-
-Foam::uniformInterpolatedDisplacementPointPatchVectorField::
-uniformInterpolatedDisplacementPointPatchVectorField
-(
-    const pointPatch& p,
     const DimensionedField<vector, pointMesh>& iF,
     const dictionary& dict
 )
@@ -67,7 +56,7 @@ uniformInterpolatedDisplacementPointPatchVectorField
     const uniformInterpolatedDisplacementPointPatchVectorField& ptf,
     const pointPatch& p,
     const DimensionedField<vector, pointMesh>& iF,
-    const pointPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     fixedValuePointPatchField<vector>(ptf, p, iF, mapper)

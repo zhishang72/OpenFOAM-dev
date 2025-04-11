@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,39 +24,56 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "bound.H"
-#include "volFields.H"
-#include "fvc.H"
+#include "fvcAverage.H"
 
 // * * * * * * * * * * * * * * * Global Functions  * * * * * * * * * * * * * //
 
-Foam::volScalarField&
-Foam::bound(volScalarField& vsf, const dimensionedScalar& lowerBound)
+bool Foam::bound(volScalarField& vsf, const dimensionedScalar& min)
 {
-    const scalar minVsf = min(vsf).value();
+    const scalar minVsf = Foam::min(vsf).value();
 
-    if (minVsf < lowerBound.value())
+    if (minVsf < min.value())
     {
+        scalarField& isf = vsf.primitiveFieldRef();
+
         Info<< "bounding " << vsf.name()
             << ", min: " << minVsf
             << " max: " << max(vsf).value()
-            << " average: " << gAverage(vsf.primitiveField())
+            << " average: " << gAverage(isf)
             << endl;
 
-        vsf.primitiveFieldRef() = max
+        isf = max
         (
             max
             (
-                vsf.primitiveField(),
-                fvc::average(max(vsf, lowerBound))().primitiveField()
-              * pos0(-vsf.primitiveField())
+                isf,
+                fvc::average(max(vsf, min))().primitiveField()
+               *pos0(-isf)
             ),
-            lowerBound.value()
+            min.value()
         );
 
-        vsf.boundaryFieldRef() = max(vsf.boundaryField(), lowerBound.value());
-    }
+        volScalarField::Boundary& bsf = vsf.boundaryFieldRef();
+        forAll(bsf, patchi)
+        {
+            bsf[patchi] == max
+            (
+                max
+                (
+                    bsf[patchi],
+                    bsf[patchi].patchInternalField()
+                   *pos0(-bsf[patchi])
+                ),
+                min.value()
+            );
+        }
 
-    return vsf;
+        return true;
+    }
+    else
+    {
+        return false;
+    }
 }
 
 

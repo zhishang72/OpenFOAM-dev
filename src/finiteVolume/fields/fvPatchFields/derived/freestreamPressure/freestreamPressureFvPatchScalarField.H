@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -48,8 +48,9 @@ Usage
     }
     \endverbatim
 
-Note
-    This condition is designed to operate with a freestreamVelocity condition
+    Note:
+        This condition is designed to operate with a freestreamVelocity
+        condition
 
 See also
     Foam::mixedFvPatchField
@@ -72,7 +73,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-             Class freestreamPressureFvPatchScalarField Declaration
+            Class freestreamPressureFvPatchScalarField Declaration
 \*---------------------------------------------------------------------------*/
 
 class freestreamPressureFvPatchScalarField
@@ -96,13 +97,6 @@ public:
 
     // Constructors
 
-        //- Construct from patch and internal field
-        freestreamPressureFvPatchScalarField
-        (
-            const fvPatch&,
-            const DimensionedField<scalar, volMesh>&
-        );
-
         //- Construct from patch, internal field and dictionary
         freestreamPressureFvPatchScalarField
         (
@@ -118,23 +112,14 @@ public:
             const freestreamPressureFvPatchScalarField&,
             const fvPatch&,
             const DimensionedField<scalar, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         freestreamPressureFvPatchScalarField
         (
             const freestreamPressureFvPatchScalarField&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchScalarField> clone() const
-        {
-            return tmp<fvPatchScalarField>
-            (
-                new freestreamPressureFvPatchScalarField(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         freestreamPressureFvPatchScalarField

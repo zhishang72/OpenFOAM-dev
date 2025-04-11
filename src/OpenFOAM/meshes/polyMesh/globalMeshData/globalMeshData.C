@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -29,29 +29,17 @@ License
 #include "processorPolyPatch.H"
 #include "globalPoints.H"
 #include "polyMesh.H"
-#include "mapDistribute.H"
+#include "distributionMap.H"
 #include "labelIOList.H"
-#include "mergePoints.H"
 #include "globalIndexAndTransform.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
 namespace Foam
 {
-defineTypeNameAndDebug(globalMeshData, 0);
+    defineTypeNameAndDebug(globalMeshData, 0);
 
-const scalar globalMeshData::matchTol_ = 1e-8;
-
-template<>
-class minEqOp<labelPair>
-{
-public:
-    void operator()(labelPair& x, const labelPair& y) const
-    {
-        x[0] = min(x[0], y[0]);
-        x[1] = min(x[1], y[1]);
-    }
-};
+    const scalar globalMeshData::matchTol_ = 1e-8;
 }
 
 
@@ -556,7 +544,7 @@ void Foam::globalMeshData::calcGlobalPointSlaves() const
 
     globalPointSlavesMapPtr_.reset
     (
-        new mapDistribute
+        new distributionMap
         (
             move(globalData.map())
         )
@@ -1083,7 +1071,7 @@ void Foam::globalMeshData::calcGlobalEdgeSlaves() const
     List<Map<label>> compactMap(Pstream::nProcs());
     globalEdgeSlavesMapPtr_.reset
     (
-        new mapDistribute
+        new distributionMap
         (
             globalEdgeNumbers,
             globalEdgeSlaves,
@@ -1116,114 +1104,44 @@ void Foam::globalMeshData::calcGlobalEdgeOrientation() const
             << " calculating edge orientation w.r.t. master edge." << endl;
     }
 
+    // 1. Determine the master point for every coupled point
+    const distributionMap& pointsMap = globalPointSlavesMap();
     const globalIndex& globalPoints = globalPointNumbering();
 
-    // 1. Determine master point
-    labelList masterPoint;
+    labelList masterPoint(pointsMap.constructSize(), labelMax);
+    for (label pointi = 0; pointi < coupledPatch().nPoints(); pointi++)
     {
-        const mapDistribute& map = globalPointSlavesMap();
-
-        masterPoint.setSize(map.constructSize());
-        masterPoint = labelMax;
-
-        for (label pointi = 0; pointi < coupledPatch().nPoints(); pointi++)
-        {
-            masterPoint[pointi] = globalPoints.toGlobal(pointi);
-        }
-        syncData
-        (
-            masterPoint,
-            globalPointSlaves(),
-            globalPointTransformedSlaves(),
-            map,
-            minEqOp<label>()
-        );
+        masterPoint[pointi] = globalPoints.toGlobal(pointi);
     }
 
-    // Now all points should know who is master by comparing their global
-    // pointID with the masterPointID. We now can use this information
-    // to find the orientation of the master edge.
+    syncData
+    (
+        masterPoint,
+        globalPointSlaves(),
+        globalPointTransformedSlaves(),
+        pointsMap,
+        minEqOp<label>()
+    );
 
+    // 2. Now we define the master edge to be the one in which the master
+    // points are in order. So, the edge orientation can be easily obtained by
+    // comparing the master point indices.
+    globalEdgeOrientationPtr_.reset
+    (
+        new PackedBoolList(coupledPatch().nEdges())
+    );
+    PackedBoolList& globalEdgeOrientation = globalEdgeOrientationPtr_();
+
+    forAll(coupledPatch().edges(), edgeI)
     {
-        const mapDistribute& map = globalEdgeSlavesMap();
-        const labelListList& slaves = globalEdgeSlaves();
-        const labelListList& transformedSlaves = globalEdgeTransformedSlaves();
-
-        // Distribute orientation of master edge (in masterPoint numbering)
-        labelPairList masterEdgeVerts(map.constructSize());
-        masterEdgeVerts = labelPair(labelMax, labelMax);
-
-        for (label edgeI = 0; edgeI < coupledPatch().nEdges(); edgeI++)
-        {
-            if
-            (
-                (
-                    slaves[edgeI].size()
-                  + transformedSlaves[edgeI].size()
-                )
-              > 0
-            )
-            {
-                // I am master. Fill in my masterPoint equivalent.
-
-                const edge& e = coupledPatch().edges()[edgeI];
-                masterEdgeVerts[edgeI] = labelPair
-                (
-                    masterPoint[e[0]],
-                    masterPoint[e[1]]
-                );
-            }
-        }
-        syncData
-        (
-            masterEdgeVerts,
-            slaves,
-            transformedSlaves,
-            map,
-            minEqOp<labelPair>()
-        );
-
-        // Now check my edges on how they relate to the master's edgeVerts
-        globalEdgeOrientationPtr_.reset
-        (
-            new PackedBoolList(coupledPatch().nEdges())
-        );
-        PackedBoolList& globalEdgeOrientation = globalEdgeOrientationPtr_();
-
-        forAll(coupledPatch().edges(), edgeI)
-        {
-            const edge& e = coupledPatch().edges()[edgeI];
-            const labelPair masterE
-            (
-                masterPoint[e[0]],
-                masterPoint[e[1]]
-            );
-
-            label stat = labelPair::compare
-            (
-                masterE,
-                masterEdgeVerts[edgeI]
-            );
-            if (stat == 0)
-            {
-                FatalErrorInFunction
-                    << "problem : my edge:" << e
-                    << " in master points:" << masterE
-                    << " v.s. masterEdgeVerts:" << masterEdgeVerts[edgeI]
-                    << exit(FatalError);
-            }
-            else
-            {
-                globalEdgeOrientation[edgeI] = (stat == 1);
-            }
-        }
+        const edge& e = coupledPatch().edges()[edgeI];
+        globalEdgeOrientation[edgeI] = masterPoint[e[0]] < masterPoint[e[1]];
     }
 
     if (debug)
     {
         Pout<< "globalMeshData::calcGlobalEdgeOrientation() :"
-            << " finished calculating edge orientation."
-            << endl;
+            << " finished calculating edge orientation." << endl;
     }
 }
 
@@ -1472,7 +1390,7 @@ void Foam::globalMeshData::calcGlobalPointBoundaryFaces() const
 
     globalPointBoundaryFacesMapPtr_.reset
     (
-        new mapDistribute
+        new distributionMap
         (
             globalIndices,
             globalPointBoundaryFaces,
@@ -1700,7 +1618,7 @@ void Foam::globalMeshData::calcGlobalPointBoundaryCells() const
 
     globalPointBoundaryCellsMapPtr_.reset
     (
-        new mapDistribute
+        new distributionMap
         (
             globalIndices,
             globalPointBoundaryCells,
@@ -1749,7 +1667,7 @@ void Foam::globalMeshData::calcGlobalCoPointSlaves() const
     );
     globalCoPointSlavesMapPtr_.reset
     (
-        new mapDistribute
+        new distributionMap
         (
             move(globalData.map())
         )
@@ -1768,11 +1686,11 @@ void Foam::globalMeshData::calcGlobalCoPointSlaves() const
 
 Foam::globalMeshData::globalMeshData(const polyMesh& mesh)
 :
-    processorTopology(mesh.boundaryMesh(), UPstream::worldComm),
     mesh_(mesh),
     nTotalPoints_(-1),
     nTotalFaces_(-1),
     nTotalCells_(-1),
+    processorTopology_(mesh.boundaryMesh(), UPstream::worldComm),
     processorPatches_(0),
     processorPatchIndices_(0),
     processorPatchNeighbours_(0),
@@ -1784,7 +1702,7 @@ Foam::globalMeshData::globalMeshData(const polyMesh& mesh)
     sharedEdgeLabelsPtr_(nullptr),
     sharedEdgeAddrPtr_(nullptr)
 {
-    updateMesh();
+    topoChange();
 }
 
 
@@ -1858,7 +1776,7 @@ const Foam::labelList& Foam::globalMeshData::sharedPointGlobalLabels() const
         );
         labelList& sharedPointGlobalLabels = sharedPointGlobalLabelsPtr_();
 
-        IOobject addrHeader
+        typeIOobject<labelIOList> addrHeader
         (
             "pointProcAddressing",
             mesh_.facesInstance()/mesh_.meshSubDir,
@@ -1866,7 +1784,7 @@ const Foam::labelList& Foam::globalMeshData::sharedPointGlobalLabels() const
             IOobject::MUST_READ
         );
 
-        if (addrHeader.typeHeaderOk<labelIOList>(true))
+        if (addrHeader.headerOk())
         {
             // There is a pointProcAddressing file so use it to get labels
             // on the original mesh
@@ -1984,34 +1902,6 @@ Foam::pointField Foam::globalMeshData::sharedPoints() const
     }
 
     return sharedPoints;
-}
-
-
-Foam::pointField Foam::globalMeshData::geometricSharedPoints() const
-{
-    // Get coords of my shared points
-    pointField sharedPoints(mesh_.points(), sharedPointLabels());
-
-    // Append from all processors
-    combineReduce(sharedPoints, ListPlusEqOp<pointField>());
-
-    // Merge tolerance
-    scalar tolDim = matchTol_ * mesh_.bounds().mag();
-
-    // And see how many are unique
-    labelList pMap;
-    pointField mergedPoints;
-
-    Foam::mergePoints
-    (
-        sharedPoints,   // coordinates to merge
-        tolDim,         // tolerance
-        false,          // verbosity
-        pMap,
-        mergedPoints
-    );
-
-    return mergedPoints;
 }
 
 
@@ -2220,7 +2110,7 @@ const
 }
 
 
-const Foam::mapDistribute& Foam::globalMeshData::globalPointSlavesMap() const
+const Foam::distributionMap& Foam::globalMeshData::globalPointSlavesMap() const
 {
     if (!globalPointSlavesMapPtr_.valid())
     {
@@ -2274,7 +2164,7 @@ const Foam::PackedBoolList& Foam::globalMeshData::globalEdgeOrientation() const
 }
 
 
-const Foam::mapDistribute& Foam::globalMeshData::globalEdgeSlavesMap() const
+const Foam::distributionMap& Foam::globalMeshData::globalEdgeSlavesMap() const
 {
     if (!globalEdgeSlavesMapPtr_.valid())
     {
@@ -2317,7 +2207,7 @@ Foam::globalMeshData::globalPointTransformedBoundaryFaces() const
 }
 
 
-const Foam::mapDistribute& Foam::globalMeshData::globalPointBoundaryFacesMap()
+const Foam::distributionMap& Foam::globalMeshData::globalPointBoundaryFacesMap()
 const
 {
     if (!globalPointBoundaryFacesMapPtr_.valid())
@@ -2371,7 +2261,7 @@ Foam::globalMeshData::globalPointTransformedBoundaryCells() const
 }
 
 
-const Foam::mapDistribute& Foam::globalMeshData::globalPointBoundaryCellsMap()
+const Foam::distributionMap& Foam::globalMeshData::globalPointBoundaryCellsMap()
 const
 {
     if (!globalPointBoundaryCellsMapPtr_.valid())
@@ -2392,7 +2282,8 @@ const Foam::labelListList& Foam::globalMeshData::globalCoPointSlaves() const
 }
 
 
-const Foam::mapDistribute& Foam::globalMeshData::globalCoPointSlavesMap() const
+const Foam::distributionMap&
+Foam::globalMeshData::globalCoPointSlavesMap() const
 {
     if (!globalCoPointSlavesMapPtr_.valid())
     {
@@ -2412,7 +2303,7 @@ Foam::autoPtr<Foam::globalIndex> Foam::globalMeshData::mergePoints
     const globalIndex& globalCoupledPoints = globalPointNumbering();
     // Use collocated only
     const labelListList& pointSlaves = globalCoPointSlaves();
-    const mapDistribute& pointSlavesMap = globalCoPointSlavesMap();
+    const distributionMap& pointSlavesMap = globalCoPointSlavesMap();
 
 
     // Points are either
@@ -2520,7 +2411,7 @@ Foam::autoPtr<Foam::globalIndex> Foam::globalMeshData::mergePoints
         // Send back
         pointSlavesMap.reverseDistribute(cpp.nPoints(), masterToGlobal);
 
-        // On slave copy master index into overal map.
+        // On slave copy master index into overall map.
         forAll(pointSlaves, pointi)
         {
             label meshPointi = cpp.meshPoints()[pointi];
@@ -2546,7 +2437,7 @@ Foam::autoPtr<Foam::globalIndex> Foam::globalMeshData::mergePoints
 {
     const indirectPrimitivePatch& cpp = coupledPatch();
     const labelListList& pointSlaves = globalCoPointSlaves();
-    const mapDistribute& pointSlavesMap = globalCoPointSlavesMap();
+    const distributionMap& pointSlavesMap = globalCoPointSlavesMap();
 
 
     // The patch points come in two variants:
@@ -2567,7 +2458,6 @@ Foam::autoPtr<Foam::globalIndex> Foam::globalMeshData::mergePoints
     globalIndex globalPPoints(meshPoints.size());
 
     labelList patchToCoupled(meshPoints.size(), -1);
-    label nCoupled = 0;
     labelList coupledToGlobalPatch(pointSlavesMap.constructSize(), -1);
 
     // Note: loop over patch since usually smaller
@@ -2581,13 +2471,8 @@ Foam::autoPtr<Foam::globalIndex> Foam::globalMeshData::mergePoints
         {
             patchToCoupled[patchPointi] = iter();
             coupledToGlobalPatch[iter()] = globalPPoints.toGlobal(patchPointi);
-            nCoupled++;
         }
     }
-
-    // Pout<< "Patch:" << nl
-    //    << "    points:" << meshPoints.size() << nl
-    //    << "    of which on coupled patch:" << nCoupled << endl;
 
 
     // Determine master of connected points
@@ -2668,12 +2553,6 @@ Foam::autoPtr<Foam::globalIndex> Foam::globalMeshData::mergePoints
     }
 
     autoPtr<globalIndex> globalPointsPtr(new globalIndex(nMasters));
-
-    // Pout<< "Patch:" << nl
-    //    << "    points:" << meshPoints.size() << nl
-    //    << "    of which on coupled patch:" << nCoupled << nl
-    //    << "    of which master:" << nMasters << endl;
-
 
 
     // Push back compact numbering for master point onto slaves
@@ -2760,7 +2639,7 @@ void Foam::globalMeshData::movePoints(const pointField& newPoints)
 }
 
 
-void Foam::globalMeshData::updateMesh()
+void Foam::globalMeshData::topoChange()
 {
     // Clear out old data
     clearOut();
@@ -2780,7 +2659,7 @@ void Foam::globalMeshData::updateMesh()
     label comm = UPstream::allocateCommunicator
     (
         UPstream::worldComm,
-        identity(UPstream::nProcs()),
+        identityMap(UPstream::nProcs()),
         true
     );
 

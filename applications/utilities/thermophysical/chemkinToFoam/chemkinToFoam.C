@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,9 +44,6 @@ int main(int argc, char *argv[])
 {
     #include "removeCaseOptions.H"
 
-    // Increase the precision of the output for JANAF coefficients
-    Ostream::defaultPrecision(10);
-
     argList::validArgs.append("CHEMKIN file");
     argList::validArgs.append("CHEMKIN thermodynamics file");
     argList::validArgs.append("CHEMKIN transport file");
@@ -59,13 +56,24 @@ int main(int argc, char *argv[])
         "read Chemkin thermo file in new format"
     );
 
+    argList::addOption
+    (
+        "precision",
+        "label",
+        "set the write precision"
+    );
+
     argList args(argc, argv);
+
+    label precision = 10;
+    args.optionReadIfPresent("precision", precision);
+
+    // Increase the precision of the output for JANAF coefficients
+    Ostream::defaultPrecision(precision);
 
     bool newFormat = args.optionFound("newFormat");
 
-    speciesTable species;
-    chemkinReader cr(species, args[1], args[3], args[2], newFormat);
-    const HashPtrTable<gasHThermoPhysics>& speciesThermo = cr.speciesThermo();
+    chemkinReader cr(args[1], args[3], args[2], newFormat);
 
     dictionary thermoDict;
     thermoDict.add("species", cr.species());
@@ -73,7 +81,7 @@ int main(int argc, char *argv[])
     // Add the species thermo formatted entries
     {
         OStringStream os;
-        speciesThermo.write(os);
+        cr.speciesThermo().write(os);
         dictionary speciesThermoDict(IStringStream(os.str())());
         thermoDict.merge(speciesThermoDict);
     }
@@ -82,7 +90,12 @@ int main(int argc, char *argv[])
     // pending complete integration into the thermodynamics structure
 
     // Add elements
-    forAllConstIter(HashPtrTable<gasHThermoPhysics>, speciesThermo, iter)
+    forAllConstIter
+    (
+        HashPtrTable<chemkinReader::thermoPhysics>,
+        cr.speciesThermo(),
+        iter
+    )
     {
         const word specieName(iter.key());
 

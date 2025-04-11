@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -30,6 +30,7 @@ License
 #include "DynamicField.H"
 #include "PatchTools.H"
 #include "triSurfaceMesh.H"
+#include "vtkWritePolyData.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -65,105 +66,12 @@ bool Foam::searchableSurfaces::connected
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
-// Construct with length.
 Foam::searchableSurfaces::searchableSurfaces(const label size)
 :
     PtrList<searchableSurface>(size),
     regionNames_(size),
-    allSurfaces_(identity(size))
+    allSurfaces_(identityMap(size))
 {}
-
-
-//Foam::searchableSurfaces::searchableSurfaces
-//(
-//    const IOobject& io,
-//    const PtrList<dictionary>& dicts
-//)
-//:
-//    PtrList<searchableSurface>(dicts.size()),
-//    regionNames_(dicts.size()),
-//    allSurfaces_(identity(dicts.size()))
-//{
-//    forAll(dicts, surfI)
-//    {
-//        const dictionary& dict = dicts[surfI];
-//
-//        // Make IOobject with correct name
-//        autoPtr<IOobject> namedIO(io.clone());
-//        namedIO().rename(dict.lookup("name"));
-//
-//        // Create and hook surface
-//        set
-//        (
-//            surfI,
-//            searchableSurface::New
-//            (
-//                dict.lookup("type"),
-//                namedIO(),
-//                dict
-//            )
-//        );
-//        const searchableSurface& s = operator[](surfI);
-//
-//        // Construct default region names by prepending surface name
-//        // to region name.
-//        const wordList& localNames = s.regions();
-//
-//        wordList globalNames(localNames.size());
-//        forAll(localNames, regionI)
-//        {
-//            globalNames[regionI] = s.name() + '_' + localNames[regionI];
-//        }
-//
-//        // See if dictionary provides any global region names.
-//        if (dict.found("regions"))
-//        {
-//            const dictionary& regionsDict = dict.subDict("regions");
-//
-//            forAllConstIter(dictionary, regionsDict, iter)
-//            {
-//                const word& key = iter().keyword();
-//
-//                if (regionsDict.isDict(key))
-//                {
-//                    // Get the dictionary for region iter.key()
-//                    const dictionary& regionDict = regionsDict.subDict(key);
-//
-//                    label index = findIndex(localNames, key);
-//
-//                    if (index == -1)
-//                    {
-//                        FatalErrorInFunction
-//                            << "Unknown region name " << key
-//                            << " for surface " << s.name() << endl
-//                            << "Valid region names are " << localNames
-//                            << exit(FatalError);
-//                    }
-//
-//                    globalNames[index] = word(regionDict.lookup("name"));
-//                }
-//            }
-//        }
-//
-//        // Now globalNames contains the names of the regions.
-//        Info<< "Surface:" << s.name() << " has regions:"
-//            << endl;
-//        forAll(globalNames, regionI)
-//        {
-//            Info<< "    " << globalNames[regionI] << endl;
-//        }
-//
-//        // Create reverse lookup
-//        forAll(globalNames, regionI)
-//        {
-//            regionNames_.insert
-//            (
-//                globalNames[regionI],
-//                labelPair(surfI, regionI)
-//            );
-//        }
-//    }
-//}
 
 
 Foam::searchableSurfaces::searchableSurfaces
@@ -176,7 +84,7 @@ Foam::searchableSurfaces::searchableSurfaces
     PtrList<searchableSurface>(topDict.size()),
     names_(topDict.size()),
     regionNames_(topDict.size()),
-    allSurfaces_(identity(topDict.size()))
+    allSurfaces_(identityMap(topDict.size()))
 {
     label surfI = 0;
     forAllConstIter(dictionary, topDict, iter)
@@ -583,7 +491,6 @@ bool Foam::searchableSurfaces::checkSizes
 bool Foam::searchableSurfaces::checkIntersection
 (
     const scalar tolerance,
-    const autoPtr<writer<scalar>>& setWriter,
     const bool report
 ) const
 {
@@ -667,43 +574,27 @@ bool Foam::searchableSurfaces::checkIntersection
                             << " locations."
                             << endl;
 
-                        // vtkSetWriter<scalar> setWriter;
-                        if (setWriter.valid())
-                        {
-                            scalarField dist(mag(intersections));
-                            coordSet track
-                            (
-                                names()[i] + '_' + names()[j],
-                                "xyz",
-                                move(intersections),
-                                dist
-                            );
-                            wordList valueSetNames(1, "edgeIndex");
-                            List<const scalarField*> valueSets
-                            (
-                                1,
-                                &intersectionEdge
-                            );
+                        const fileName fName
+                        (
+                            names()[i] + '_' + names()[j] + "_edgeIndex.vtk"
+                        );
 
-                            fileName fName
-                            (
-                                setWriter().getFileName(track, valueSetNames)
-                            );
-                            Info<< "    Writing intersection locations to "
-                                << fName << endl;
-                            OFstream os
-                            (
-                                s0.searchableSurface::time().path()
-                               /fName
-                            );
-                            setWriter().write
-                            (
-                                track,
-                                valueSetNames,
-                                valueSets,
-                                os
-                            );
-                        }
+                        Info<< "    Writing intersection locations to "
+                            << fName << endl;
+
+                        vtkWritePolyData::write
+                        (
+                            fName,
+                            names()[i] + '_' + names()[j],
+                            false,
+                            intersections,
+                            identityMap(intersections.size()),
+                            edgeList(),
+                            faceList(),
+                            "edgeIndex",
+                            true,
+                            intersectionEdge
+                        );
                     }
 
                     hasError = true;
@@ -811,7 +702,6 @@ Foam::label Foam::searchableSurfaces::checkGeometry
 (
     const scalar maxRatio,
     const scalar tol,
-    const autoPtr<writer<scalar>>& setWriter,
     const scalar minQuality,
     const bool report
 ) const
@@ -823,7 +713,7 @@ Foam::label Foam::searchableSurfaces::checkGeometry
         noFailedChecks++;
     }
 
-    if (checkIntersection(tol, setWriter, report))
+    if (checkIntersection(tol, report))
     {
         noFailedChecks++;
     }

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,13 +24,11 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "codedBase.H"
-#include "SHA1Digest.H"
 #include "dynamicCode.H"
-#include "dynamicCodeContext.H"
 #include "dlLibraryTable.H"
-#include "PstreamReduceOps.H"
-#include "OSspecific.H"
 #include "regIOobject.H"
+#include "OSspecific.H"
+#include "stringOps.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -42,6 +40,32 @@ namespace Foam
 
 // * * * * * * * * * * * * * Static Member Functions * * * * * * * * * * * * //
 
+Foam::word Foam::codedBase::codeName(const word& name)
+{
+    word result(name);
+
+    if (!isalpha(result[0]))
+    {
+        FatalErrorInFunction
+            << "Cannot construct code name from function name \"" << name
+            << "\" as the first character is not alphabetic"
+            << exit(FatalError);
+    }
+
+    for (word::size_type i = 1; i < name.size(); ++ i)
+    {
+        const bool valid = isalnum(result[i]) || result[i] == '_';
+
+        if (!valid)
+        {
+            result[i] = '_';
+        }
+    }
+
+    return result;
+}
+
+
 void* Foam::codedBase::loadLibrary
 (
     const fileName& libPath,
@@ -51,20 +75,20 @@ void* Foam::codedBase::loadLibrary
 {
     void* lib = 0;
 
-    // avoid compilation by loading an existing library
+    // Avoid compilation by loading an existing library
     if (!libPath.empty())
     {
-        if (libs().open(libPath, false))
+        if (libs.open(libPath, false))
         {
-            lib = libs().findLibrary(libPath);
+            lib = libs.findLibrary(libPath);
 
-            // verify the loaded version and unload if needed
+            // Verify the loaded version and unload if needed
             if (lib)
             {
-                // provision for manual execution of code after loading
+                // Provision for manual execution of code after loading
                 if (dlSymFound(lib, globalFuncName))
                 {
-                    loaderFunctionType function =
+                    const loaderFunctionType function =
                         reinterpret_cast<loaderFunctionType>
                         (
                             dlSym(lib, globalFuncName)
@@ -72,7 +96,7 @@ void* Foam::codedBase::loadLibrary
 
                     if (function)
                     {
-                        (*function)(true);    // force load
+                        (*function)(true);    // Force load
                     }
                     else
                     {
@@ -92,7 +116,7 @@ void* Foam::codedBase::loadLibrary
                         << "from " << libPath << exit(FatalIOError);
 
                     lib = 0;
-                    if (!libs().close(libPath, false))
+                    if (!libs.close(libPath, false))
                     {
                         FatalIOErrorInFunction
                         (
@@ -124,17 +148,17 @@ void Foam::codedBase::unloadLibrary
         return;
     }
 
-    lib = libs().findLibrary(libPath);
+    lib = libs.findLibrary(libPath);
 
     if (!lib)
     {
         return;
     }
 
-    // provision for manual execution of code before unloading
+    // Provision for manual execution of code before unloading
     if (dlSymFound(lib, globalFuncName))
     {
-        loaderFunctionType function =
+        const loaderFunctionType function =
             reinterpret_cast<loaderFunctionType>
             (
                 dlSym(lib, globalFuncName)
@@ -142,7 +166,7 @@ void Foam::codedBase::unloadLibrary
 
         if (function)
         {
-            (*function)(false);    // force unload
+            (*function)(false);    // Force unload
         }
         else
         {
@@ -154,7 +178,7 @@ void Foam::codedBase::unloadLibrary
         }
     }
 
-    if (!libs().close(libPath, false))
+    if (!libs.close(libPath, false))
     {
         FatalIOErrorInFunction
         (
@@ -167,22 +191,52 @@ void Foam::codedBase::unloadLibrary
 
 // * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
 
+Foam::verbatimString Foam::codedBase::expandCodeString
+(
+    const word& codeKey,
+    const word& codeDictVar,
+    const dictionary& dict
+) const
+{
+    verbatimString codeString;
+
+    if (dict.found(codeKey))
+    {
+        codeString = dict.lookupOrDefault<verbatimString>
+        (
+            codeKey,
+            verbatimString::null
+        );
+
+        stringOps::inplaceExpandCodeString
+        (
+            codeString,
+            dict,
+            codeDictVar
+        );
+    }
+
+    return codeString;
+}
+
+
 void Foam::codedBase::createLibrary
 (
+    const dictionary& dict,
     dynamicCode& dynCode,
     const dynamicCodeContext& context
 ) const
 {
-    bool create =
+    const bool create =
         Pstream::master()
-     || (regIOobject::fileModificationSkew <= 0);   // not NFS
+     || (regIOobject::fileModificationSkew <= 0);   // Not NFS
 
     if (create)
     {
         // Write files for new library
         if (!dynCode.upToDate(context))
         {
-            // filter with this context
+            // Filter with this context
             dynCode.reset(context);
 
             this->prepare(dynCode, context);
@@ -191,7 +245,7 @@ void Foam::codedBase::createLibrary
             {
                 FatalIOErrorInFunction
                 (
-                    context.dict()
+                    dict
                 )   << "Failed writing files for" << nl
                     << dynCode.libRelPath() << nl
                     << exit(FatalIOError);
@@ -202,14 +256,14 @@ void Foam::codedBase::createLibrary
         {
             FatalIOErrorInFunction
             (
-                context.dict()
+                dict
             )   << "Failed wmake " << dynCode.libRelPath() << nl
                 << exit(FatalIOError);
         }
     }
 
 
-    // all processes must wait for compile to finish
+    // All processes must wait for compile to finish
     if (regIOobject::fileModificationSkew > 0)
     {
         //- Since the library has only been compiled on the master the
@@ -219,7 +273,7 @@ void Foam::codedBase::createLibrary
 
         const fileName libPath = dynCode.libPath();
 
-        off_t mySize = Foam::fileSize(libPath);
+        off_t mySize = fileSize(libPath);
         off_t masterSize = mySize;
         Pstream::scatter(masterSize);
 
@@ -230,7 +284,6 @@ void Foam::codedBase::createLibrary
                 << " and localSize:" << mySize
                 << endl;
         }
-
 
         if (mySize < masterSize)
         {
@@ -243,7 +296,7 @@ void Foam::codedBase::createLibrary
                     << regIOobject::fileModificationSkew
                     << " seconds." << endl;
             }
-            Foam::sleep(regIOobject::fileModificationSkew);
+            sleep(regIOobject::fileModificationSkew);
 
             // Recheck local size
             mySize = Foam::fileSize(libPath);
@@ -252,7 +305,7 @@ void Foam::codedBase::createLibrary
             {
                 FatalIOErrorInFunction
                 (
-                    context.dict()
+                    dict
                 )   << "Cannot read (NFS mounted) library " << nl
                     << libPath << nl
                     << "on processor " << Pstream::myProcNo()
@@ -274,79 +327,39 @@ void Foam::codedBase::createLibrary
                 << endl;
         }
     }
-    reduce(create, orOp<bool>());
-}
-
-
-// * * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * * //
-
-void Foam::codedBase::updateLibrary
-(
-    const word& name
-) const
-{
-    const dictionary& dict = this->codeDict();
-
-    dynamicCode::checkSecurity
-    (
-        "codedBase::updateLibrary()",
-        dict
-    );
-
-    dynamicCodeContext context(dict, codeKeys());
-
-    // codeName: name + _<sha1>
-    // codeDir : name
-    dynamicCode dynCode
-    (
-        name + context.sha1().str(true),
-        name
-    );
-    const fileName libPath = dynCode.libPath();
-
-
-    // the correct library was already loaded => we are done
-    if (libs().findLibrary(libPath))
-    {
-        return;
-    }
-
-    Info<< "Using dynamicCode for " << this->description().c_str()
-        << " at line " << dict.startLineNumber()
-        << " in " << dict.name() << endl;
-
-
-    // remove instantiation of fvPatchField provided by library
-    this->clearRedirect();
-
-    // may need to unload old library
-    unloadLibrary
-    (
-        oldLibPath_,
-        dynamicCode::libraryBaseName(oldLibPath_),
-        context.dict()
-    );
-
-    // try loading an existing library (avoid compilation when possible)
-    if (!loadLibrary(libPath, dynCode.codeName(), context.dict()))
-    {
-        createLibrary(dynCode, context);
-
-        if (!loadLibrary(libPath, dynCode.codeName(), context.dict()))
-        {
-            FatalIOErrorInFunction(context.dict())
-                << "Failed to load " << libPath << exit(FatalIOError);
-        }
-    }
-
-    // retain for future reference
-    oldLibPath_ = libPath;
 }
 
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
-Foam::codedBase::codedBase()
+Foam::codedBase::codedBase
+(
+    const word& name,
+    const dictionary& dict,
+    const wordList& codeKeys,
+    const wordList& codeDictVars
+)
+:
+    codeName_(codeName(name)),
+    codeContext_(dict, codeKeys, codeDictVars)
+{}
+
+
+Foam::codedBase::codedBase
+(
+    const dictionary& dict,
+    const wordList& codeKeys,
+    const wordList& codeDictVars
+)
+:
+    codedBase(codeName(dict.lookup("name")), dict, codeKeys, codeDictVars)
+{}
+
+
+Foam::codedBase::codedBase(const codedBase& cb)
+:
+    codeName_(cb.codeName_),
+    codeContext_(cb.codeContext_)
 {}
 
 
@@ -354,6 +367,106 @@ Foam::codedBase::codedBase()
 
 Foam::codedBase::~codedBase()
 {}
+
+
+// * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+
+const Foam::word& Foam::codedBase::codeName() const
+{
+    return codeName_;
+}
+
+
+Foam::string Foam::codedBase::description() const
+{
+    return this->type() + " " + codeName();
+}
+
+
+Foam::word Foam::codedBase::codeTemplateC(const word& baseTypeName) const
+{
+    return baseTypeName + "Template.C";
+}
+
+
+Foam::word Foam::codedBase::codeTemplateH(const word& baseTypeName) const
+{
+    return baseTypeName + "Template.H";
+}
+
+
+bool Foam::codedBase::updateLibrary(const dictionary& dict) const
+{
+    const word& name = codeName();
+
+    dynamicCode::checkSecurity
+    (
+        "codedBase::updateLibrary()",
+        dict
+    );
+
+    // codeName: name + _<sha1>
+    // codeDir : name
+    dynamicCode dynCode
+    (
+        name + codeContext_.sha1().str(true),
+        name
+    );
+    const fileName libPath = dynCode.libPath();
+
+
+    // The correct library was already loaded => we are done
+    if (libs.findLibrary(libPath))
+    {
+        return false;
+    }
+
+    Info<< "Using dynamicCode for " << this->description().c_str()
+        << " at line " << dict.startLineNumber()
+        << " in " << dict.name() << endl;
+
+    // May need to unload old library
+    unloadLibrary
+    (
+        oldLibPath_,
+        dynamicCode::libraryBaseName(oldLibPath_),
+        dict
+    );
+
+    // Try loading an existing library (avoid compilation when possible)
+    if (!loadLibrary(libPath, dynCode.codeName(), dict))
+    {
+        createLibrary(dict, dynCode, codeContext_);
+
+        if (!loadLibrary(libPath, dynCode.codeName(), dict))
+        {
+            FatalIOErrorInFunction(dict)
+                << "Failed to load " << libPath << exit(FatalIOError);
+        }
+    }
+
+    // Retain for future reference
+    oldLibPath_ = libPath;
+
+    return true;
+}
+
+
+void Foam::codedBase::read(const dictionary& dict)
+{
+    codeContext_.read(dict);
+}
+
+
+void Foam::codedBase::write(Ostream& os) const
+{
+    if (codeName().size())
+    {
+        writeEntry(os, "name", codeName());
+    }
+
+    codeContext_.write(os);
+}
 
 
 // ************************************************************************* //

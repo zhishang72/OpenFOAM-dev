@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,7 +44,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                 Class processorPointPatchField Declaration
+                  Class processorPointPatchField Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -56,6 +56,7 @@ class processorPointPatchField
 
         //- Local reference to processor patch
         const processorPointPatch& procPatch_;
+
 
 public:
 
@@ -86,20 +87,8 @@ public:
             const processorPointPatchField<Type>&,
             const pointPatch&,
             const DimensionedField<Type, pointMesh>&,
-            const pointPatchFieldMapper&
+            const fieldMapper&
         );
-
-        //- Construct and return a clone
-        virtual autoPtr<pointPatchField<Type>> clone() const
-        {
-            return autoPtr<pointPatchField<Type>>
-            (
-                new processorPointPatchField<Type>
-                (
-                    *this
-                )
-            );
-        }
 
         //- Construct as copy setting internal field reference
         processorPointPatchField
@@ -119,6 +108,24 @@ public:
                 new processorPointPatchField<Type>
                 (
                     *this,
+                    iF
+                )
+            );
+        }
+
+        //- Construct and return a clone onto a new patch
+        //  setting internal field reference
+        virtual autoPtr<pointPatchField<Type>> clone
+        (
+            const pointPatch& patch,
+            const DimensionedField<Type, pointMesh>& iF
+        ) const
+        {
+            return autoPtr<pointPatchField<Type>>
+            (
+                new processorPointPatchField<Type>
+                (
+                    patch,
                     iF
                 )
             );
@@ -146,25 +153,6 @@ public:
                 }
             }
 
-            //- Does the patch field perform the transformation
-            virtual bool doTransform() const
-            {
-                return
-                   !(
-                        procPatch_.procPolyPatch().parallel()
-                     || pTraits<Type>::rank == 0
-                    );
-            }
-
-
-        // Constraint handling
-
-            //- Return the constraint type this pointPatchField implements
-            virtual const word& constraintType() const
-            {
-                return type();
-            }
-
 
         // Evaluation functions
 
@@ -174,14 +162,6 @@ public:
                 const Pstream::commsTypes commsType =
                     Pstream::commsTypes::blocking
             )
-            {}
-
-            //- Assume processor patch always collocated
-            virtual void swapAddSeparated
-            (
-                const Pstream::commsTypes commsType,
-                Field<Type>&
-            ) const
             {}
 };
 

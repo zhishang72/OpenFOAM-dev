@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ License
 
 #include "adiabaticPerfectFluid.H"
 
-// * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
+// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class Specie>
 inline Foam::adiabaticPerfectFluid<Specie>::adiabaticPerfectFluid
@@ -44,8 +44,6 @@ inline Foam::adiabaticPerfectFluid<Specie>::adiabaticPerfectFluid
     B_(B)
 {}
 
-
-// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class Specie>
 inline Foam::adiabaticPerfectFluid<Specie>::adiabaticPerfectFluid
@@ -73,20 +71,6 @@ Foam::adiabaticPerfectFluid<Specie>::clone() const
 }
 
 
-template<class Specie>
-inline Foam::autoPtr<Foam::adiabaticPerfectFluid<Specie>>
-Foam::adiabaticPerfectFluid<Specie>::New
-(
-    const dictionary& dict
-)
-{
-    return autoPtr<adiabaticPerfectFluid<Specie>>
-    (
-        new adiabaticPerfectFluid<Specie>(dict)
-    );
-}
-
-
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class Specie>
@@ -101,7 +85,7 @@ inline Foam::scalar Foam::adiabaticPerfectFluid<Specie>::rho
 
 
 template<class Specie>
-inline Foam::scalar Foam::adiabaticPerfectFluid<Specie>::H
+inline Foam::scalar Foam::adiabaticPerfectFluid<Specie>::h
 (
     scalar p,
     scalar T
@@ -124,7 +108,7 @@ inline Foam::scalar Foam::adiabaticPerfectFluid<Specie>::Cp
 
 
 template<class Specie>
-inline Foam::scalar Foam::adiabaticPerfectFluid<Specie>::E
+inline Foam::scalar Foam::adiabaticPerfectFluid<Specie>::e
 (
     scalar p,
     scalar T
@@ -147,7 +131,7 @@ inline Foam::scalar Foam::adiabaticPerfectFluid<Specie>::Cv
 
 
 template<class Specie>
-inline Foam::scalar Foam::adiabaticPerfectFluid<Specie>::S
+inline Foam::scalar Foam::adiabaticPerfectFluid<Specie>::sp
 (
     scalar p,
     scalar T
@@ -157,6 +141,18 @@ inline Foam::scalar Foam::adiabaticPerfectFluid<Specie>::S
     return
        -pow(p0_ + B_, 1.0/gamma_)*(pow((p + B_), n) - pow((Pstd + B_), n))
        /(rho0_*T*n);
+}
+
+
+template<class Specie>
+inline Foam::scalar Foam::adiabaticPerfectFluid<Specie>::sv
+(
+    scalar p,
+    scalar T
+) const
+{
+    NotImplemented;
+    return 0;
 }
 
 
@@ -174,14 +170,29 @@ inline Foam::scalar Foam::adiabaticPerfectFluid<Specie>::psi
 
 
 template<class Specie>
-inline Foam::scalar Foam::adiabaticPerfectFluid<Specie>::Z(scalar, scalar) const
+inline Foam::scalar Foam::adiabaticPerfectFluid<Specie>::Z
+(
+    scalar p,
+    scalar T
+) const
 {
-    return 1;
+    return p/(rho(p, T)*this->R()*T);
 }
 
 
 template<class Specie>
 inline Foam::scalar Foam::adiabaticPerfectFluid<Specie>::CpMCv
+(
+    scalar p,
+    scalar T
+) const
+{
+    return 0;
+}
+
+
+template<class Specie>
+inline Foam::scalar Foam::adiabaticPerfectFluid<Specie>::alphav
 (
     scalar p,
     scalar T
@@ -199,7 +210,7 @@ inline void Foam::adiabaticPerfectFluid<Specie>::operator+=
     const adiabaticPerfectFluid<Specie>& pf
 )
 {
-    NotImplemented;
+    noCoefficientMixing(adiabaticPerfectFluid);
 }
 
 
@@ -219,7 +230,7 @@ inline Foam::adiabaticPerfectFluid<Specie> Foam::operator+
     const adiabaticPerfectFluid<Specie>& pf2
 )
 {
-    NotImplemented;
+    noCoefficientMixing(adiabaticPerfectFluid);
     return pf1;
 }
 
@@ -249,7 +260,7 @@ inline Foam::adiabaticPerfectFluid<Specie> Foam::operator==
     const adiabaticPerfectFluid<Specie>& pf2
 )
 {
-    NotImplemented;
+    noCoefficientMixing(adiabaticPerfectFluid);
     return pf1;
 }
 

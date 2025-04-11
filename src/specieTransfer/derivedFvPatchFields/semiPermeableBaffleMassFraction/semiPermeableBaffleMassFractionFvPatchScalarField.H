@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -30,7 +30,7 @@ Description
     This condition models a baffle which is permeable to a some species and
     impermeable to others. It must be used in conjunction with a
     specieTransferVelocityFvPatchVectorField velocity condition, and a
-    specieTransferTemperatureFvPatchScalarField  temperature condition.
+    specieTransferTemperatureFvPatchScalarField temperature condition.
 
     The mass flux of a species is calculated as a coefficient multiplied by the
     difference in a property across the baffle.
@@ -85,7 +85,6 @@ SourceFiles
 #ifndef semiPermeableBaffleMassFractionFvPatchScalarField_H
 #define semiPermeableBaffleMassFractionFvPatchScalarField_H
 
-#include "mappedPatchBase.H"
 #include "specieTransferMassFractionFvPatchScalarField.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -93,15 +92,12 @@ SourceFiles
 namespace Foam
 {
 
-class basicSpecieMixture;
-
 /*---------------------------------------------------------------------------*\
       Class semiPermeableBaffleMassFractionFvPatchScalarField Declaration
 \*---------------------------------------------------------------------------*/
 
 class semiPermeableBaffleMassFractionFvPatchScalarField
 :
-    public mappedPatchBase,
     public specieTransferMassFractionFvPatchScalarField
 {
 public:
@@ -110,20 +106,7 @@ public:
     TypeName("semiPermeableBaffleMassFraction");
 
 
-    // Static member functions
-
-        //- Access the composition for the given database
-        static const basicSpecieMixture& composition(const objectRegistry& db);
-
-
     // Constructors
-
-        //- Construct from patch and internal field
-        semiPermeableBaffleMassFractionFvPatchScalarField
-        (
-            const fvPatch&,
-            const DimensionedField<scalar, volMesh>&
-        );
 
         //- Construct from patch, internal field and dictionary
         semiPermeableBaffleMassFractionFvPatchScalarField
@@ -140,23 +123,14 @@ public:
             const semiPermeableBaffleMassFractionFvPatchScalarField&,
             const fvPatch&,
             const DimensionedField<scalar, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         semiPermeableBaffleMassFractionFvPatchScalarField
         (
             const semiPermeableBaffleMassFractionFvPatchScalarField&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchScalarField> clone() const
-        {
-            return tmp<fvPatchScalarField>
-            (
-                new semiPermeableBaffleMassFractionFvPatchScalarField(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         semiPermeableBaffleMassFractionFvPatchScalarField

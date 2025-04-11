@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -58,19 +58,10 @@ class cyclicPointPatch
         const cyclicPolyPatch& cyclicPolyPatch_;
 
 
-    // Private Member Functions
-
-        //- Disallow default bitwise copy construction
-        cyclicPointPatch(const cyclicPointPatch&);
-
-        //- Disallow default bitwise assignment
-        void operator=(const cyclicPointPatch&);
-
-
     // Demand driven private data
 
         //- Initialise the calculation of the patch geometry
-        virtual void initGeometry(PstreamBuffers&);
+        virtual void initCalcGeometry(PstreamBuffers&);
 
         //- Calculate the patch geometry
         virtual void calcGeometry(PstreamBuffers&);
@@ -82,10 +73,10 @@ class cyclicPointPatch
         virtual void movePoints(PstreamBuffers&, const pointField&);
 
         //- Initialise the update of the patch topology
-        virtual void initUpdateMesh(PstreamBuffers&);
+        virtual void initTopoChange(PstreamBuffers&);
 
         //- Update of the patch topology
-        virtual void updateMesh(PstreamBuffers&);
+        virtual void topoChange(PstreamBuffers&);
 
 
 public:
@@ -103,6 +94,9 @@ public:
             const pointBoundaryMesh& bm
         );
 
+        //- Disallow default bitwise copy construction
+        cyclicPointPatch(const cyclicPointPatch&) = delete;
+
 
     //- Destructor
     virtual ~cyclicPointPatch();
@@ -112,12 +106,6 @@ public:
 
         // Access
 
-            //- Return the constraint type this pointPatch implements.
-            virtual const word& constraintType() const
-            {
-                return type();
-            }
-
             //- Return the underlying cyclicPolyPatch
             const cyclicPolyPatch& cyclicPatch() const
             {
@@ -125,29 +113,17 @@ public:
             }
 
             //- Return neighbour point patch
-            const cyclicPointPatch& neighbPatch() const
+            const cyclicPointPatch& nbrPatch() const
             {
-                label patchi = cyclicPolyPatch_.neighbPatchID();
+                label patchi = cyclicPolyPatch_.nbrPatchIndex();
                 const pointPatch& pp = this->boundaryMesh()[patchi];
                 return refCast<const cyclicPointPatch>(pp);
             }
 
-            //- Are the cyclic planes parallel
-            bool parallel() const
+            //- Return transformation between the coupled patches
+            virtual const transformer& transform() const
             {
-                return cyclicPolyPatch_.parallel();
-            }
-
-            //- Return face transformation tensor
-            const tensorField& forwardT() const
-            {
-                return cyclicPolyPatch_.forwardT();
-            }
-
-            //- Return neighbour-cell transformation tensor
-            const tensorField& reverseT() const
-            {
-                return cyclicPolyPatch_.reverseT();
+                return cyclicPolyPatch_.transform();
             }
 
 
@@ -157,6 +133,12 @@ public:
             //  and/or mapping. First index is on this patch, second on the
             //  neighbour patch.
             virtual const edgeList& transformPairs() const;
+
+
+    // Member Operators
+
+        //- Disallow default bitwise assignment
+        void operator=(const cyclicPointPatch&) = delete;
 };
 
 

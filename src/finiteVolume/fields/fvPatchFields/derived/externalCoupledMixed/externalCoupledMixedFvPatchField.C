@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,10 +24,11 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "externalCoupledMixedFvPatchField.H"
-#include "fvPatchFieldMapper.H"
+#include "fieldMapper.H"
 #include "volFields.H"
 #include "IFstream.H"
 #include "globalIndex.H"
+#include "OSspecific.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -63,12 +64,12 @@ void Foam::externalCoupledMixedFvPatchField<Type>::setMaster
     const labelList& patchIDs
 )
 {
-    const volFieldType& cvf =
-        static_cast<const volFieldType&>(this->internalField());
+    const VolField<Type>& cvf =
+        static_cast<const VolField<Type>&>(this->internalField());
 
-    volFieldType& vf = const_cast<volFieldType&>(cvf);
+    VolField<Type>& vf = const_cast<VolField<Type>&>(cvf);
 
-    typename volFieldType::Boundary& bf = vf.boundaryFieldRef();
+    typename VolField<Type>::Boundary& bf = vf.boundaryFieldRef();
 
     // number of patches can be different in parallel...
     label nPatch = bf.size();
@@ -86,7 +87,8 @@ void Foam::externalCoupledMixedFvPatchField<Type>::setMaster
     {
         label patchi = patchIDs[i];
 
-        patchType& pf = refCast<patchType>(bf[patchi]);
+        externalCoupledMixedFvPatchField<Type>& pf =
+            refCast<externalCoupledMixedFvPatchField<Type>>(bf[patchi]);
 
         offsets_[patchi][Pstream::myProcNo()] = pf.size();
 
@@ -241,17 +243,18 @@ void Foam::externalCoupledMixedFvPatchField<Type>::startWait() const
 {
     // only wait on master patch
 
-    const volFieldType& cvf =
-        static_cast<const volFieldType&>(this->internalField());
+    const VolField<Type>& cvf =
+        static_cast<const VolField<Type>&>(this->internalField());
 
-    const typename volFieldType::Boundary& bf =
+    const typename VolField<Type>::Boundary& bf =
         cvf.boundaryField();
 
-    forAll(coupledPatchIDs_, i)
+    forAll(coupledPatchIndices_, i)
     {
-        label patchi = coupledPatchIDs_[i];
+        label patchi = coupledPatchIndices_[i];
 
-        const patchType& pf = refCast<const patchType>(bf[patchi]);
+        const externalCoupledMixedFvPatchField<Type>& pf =
+            refCast<const externalCoupledMixedFvPatchField<Type>>(bf[patchi]);
 
         if (pf.master())
         {
@@ -405,17 +408,18 @@ void Foam::externalCoupledMixedFvPatchField<Type>::writeData
 
     writeHeader(os);
 
-    const volFieldType& cvf =
-        static_cast<const volFieldType&>(this->internalField());
+    const VolField<Type>& cvf =
+        static_cast<const VolField<Type>&>(this->internalField());
 
-    const typename volFieldType::Boundary& bf =
+    const typename VolField<Type>::Boundary& bf =
         cvf.boundaryField();
 
-    forAll(coupledPatchIDs_, i)
+    forAll(coupledPatchIndices_, i)
     {
-        label patchi = coupledPatchIDs_[i];
+        label patchi = coupledPatchIndices_[i];
 
-        const patchType& pf = refCast<const patchType>(bf[patchi]);
+        const externalCoupledMixedFvPatchField<Type>& pf =
+            refCast<const externalCoupledMixedFvPatchField<Type>>(bf[patchi]);
 
         pf.transferData(os);
     }
@@ -439,63 +443,11 @@ Foam::externalCoupledMixedFvPatchField<Type>::
 externalCoupledMixedFvPatchField
 (
     const fvPatch& p,
-    const DimensionedField<Type, volMesh>& iF
-)
-:
-    mixedFvPatchField<Type>(p, iF),
-    commsDir_("unknown-commsDir"),
-    fName_("unknown-fName"),
-    waitInterval_(0),
-    timeOut_(0),
-    calcFrequency_(0),
-    initByExternal_(false),
-    log_(false),
-    master_(false),
-    offsets_(),
-    initialised_(false),
-    coupledPatchIDs_()
-{
-    this->refValue() = Zero;
-    this->refGrad() = Zero;
-    this->valueFraction() = 0.0;
-}
-
-
-template<class Type>
-Foam::externalCoupledMixedFvPatchField<Type>::
-externalCoupledMixedFvPatchField
-(
-    const externalCoupledMixedFvPatchField& ptf,
-    const fvPatch& p,
-    const DimensionedField<Type, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
-)
-:
-    mixedFvPatchField<Type>(ptf, p, iF, mapper),
-    commsDir_(ptf.commsDir_),
-    fName_(ptf.fName_),
-    waitInterval_(ptf.waitInterval_),
-    timeOut_(ptf.timeOut_),
-    calcFrequency_(ptf.calcFrequency_),
-    initByExternal_(ptf.initByExternal_),
-    log_(ptf.log_),
-    master_(ptf.master_),
-    offsets_(ptf.offsets_),
-    initialised_(ptf.initialised_),
-    coupledPatchIDs_(ptf.coupledPatchIDs_)
-{}
-
-
-template<class Type>
-Foam::externalCoupledMixedFvPatchField<Type>::
-externalCoupledMixedFvPatchField
-(
-    const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
     const dictionary& dict
 )
 :
-    mixedFvPatchField<Type>(p, iF),
+    mixedFvPatchField<Type>(p, iF, dict, false),
     commsDir_(dict.lookup("commsDir")),
     fName_(dict.lookup("file")),
     waitInterval_(dict.lookupOrDefault("waitInterval", 1)),
@@ -506,13 +458,13 @@ externalCoupledMixedFvPatchField
     master_(true),
     offsets_(),
     initialised_(false),
-    coupledPatchIDs_()
+    coupledPatchIndices_()
 {
     if (dict.found("value"))
     {
         fvPatchField<Type>::operator=
         (
-            Field<Type>("value", dict, p.size())
+            Field<Type>("value", iF.dimensions(), dict, p.size())
         );
     }
     else
@@ -543,21 +495,24 @@ template<class Type>
 Foam::externalCoupledMixedFvPatchField<Type>::
 externalCoupledMixedFvPatchField
 (
-    const externalCoupledMixedFvPatchField& ecmpf
+    const externalCoupledMixedFvPatchField& ptf,
+    const fvPatch& p,
+    const DimensionedField<Type, volMesh>& iF,
+    const fieldMapper& mapper
 )
 :
-    mixedFvPatchField<Type>(ecmpf),
-    commsDir_(ecmpf.commsDir_),
-    fName_(ecmpf.fName_),
-    waitInterval_(ecmpf.waitInterval_),
-    timeOut_(ecmpf.timeOut_),
-    calcFrequency_(ecmpf.calcFrequency_),
-    initByExternal_(ecmpf.initByExternal_),
-    log_(ecmpf.log_),
-    master_(ecmpf.master_),
-    offsets_(ecmpf.offsets_),
-    initialised_(ecmpf.initialised_),
-    coupledPatchIDs_(ecmpf.coupledPatchIDs_)
+    mixedFvPatchField<Type>(ptf, p, iF, mapper),
+    commsDir_(ptf.commsDir_),
+    fName_(ptf.fName_),
+    waitInterval_(ptf.waitInterval_),
+    timeOut_(ptf.timeOut_),
+    calcFrequency_(ptf.calcFrequency_),
+    initByExternal_(ptf.initByExternal_),
+    log_(ptf.log_),
+    master_(ptf.master_),
+    offsets_(ptf.offsets_),
+    initialised_(ptf.initialised_),
+    coupledPatchIndices_(ptf.coupledPatchIndices_)
 {}
 
 
@@ -580,7 +535,7 @@ externalCoupledMixedFvPatchField
     master_(ecmpf.master_),
     offsets_(ecmpf.offsets_),
     initialised_(ecmpf.initialised_),
-    coupledPatchIDs_(ecmpf.coupledPatchIDs_)
+    coupledPatchIndices_(ecmpf.coupledPatchIndices_)
 {}
 
 
@@ -607,25 +562,25 @@ void Foam::externalCoupledMixedFvPatchField<Type>::initialise
         return;
     }
 
-    const volFieldType& cvf =
-        static_cast<const volFieldType&>(this->internalField());
+    const VolField<Type>& cvf =
+        static_cast<const VolField<Type>&>(this->internalField());
 
-    volFieldType& vf = const_cast<volFieldType&>(cvf);
+    VolField<Type>& vf = const_cast<VolField<Type>&>(cvf);
 
-    typename volFieldType::Boundary& bf = vf.boundaryFieldRef();
+    typename VolField<Type>::Boundary& bf = vf.boundaryFieldRef();
 
     // identify all coupled patches
     DynamicList<label> coupledPatchIDs(bf.size());
 
     forAll(bf, patchi)
     {
-        if (isA<patchType>(bf[patchi]))
+        if (isA<externalCoupledMixedFvPatchField<Type>>(bf[patchi]))
         {
             coupledPatchIDs.append(patchi);
         }
     }
 
-    coupledPatchIDs_.transfer(coupledPatchIDs);
+    coupledPatchIndices_.transfer(coupledPatchIDs);
 
 
     // initialise by external solver, or just set the master patch
@@ -634,13 +589,14 @@ void Foam::externalCoupledMixedFvPatchField<Type>::initialise
         // remove lock file, signalling external source to execute
 //        removeLockFile();
 
-        forAll(coupledPatchIDs_, i)
+        forAll(coupledPatchIndices_, i)
         {
-            label patchi = coupledPatchIDs_[i];
+            label patchi = coupledPatchIndices_[i];
 
-            patchType& pf = refCast<patchType>(bf[patchi]);
+            externalCoupledMixedFvPatchField<Type>& pf =
+                refCast<externalCoupledMixedFvPatchField<Type>>(bf[patchi]);
 
-            pf.setMaster(coupledPatchIDs_);
+            pf.setMaster(coupledPatchIndices_);
         }
 
 
@@ -650,11 +606,12 @@ void Foam::externalCoupledMixedFvPatchField<Type>::initialise
         // read the initial data
         if (master_)
         {
-            forAll(coupledPatchIDs_, i)
+            forAll(coupledPatchIndices_, i)
             {
-                label patchi = coupledPatchIDs_[i];
+                label patchi = coupledPatchIndices_[i];
 
-                patchType& pf = refCast<patchType>(bf[patchi]);
+                externalCoupledMixedFvPatchField<Type>& pf =
+                    refCast<externalCoupledMixedFvPatchField<Type>>(bf[patchi]);
 
                 pf.readData(transferFile);
             }
@@ -662,7 +619,7 @@ void Foam::externalCoupledMixedFvPatchField<Type>::initialise
     }
     else
     {
-        setMaster(coupledPatchIDs_);
+        setMaster(coupledPatchIndices_);
     }
 
     initialised_ = true;
@@ -776,10 +733,10 @@ void Foam::externalCoupledMixedFvPatchField<Type>::transferData
 template<class Type>
 void Foam::externalCoupledMixedFvPatchField<Type>::writeGeometry() const
 {
-    const volFieldType& cvf =
-        static_cast<const volFieldType&>(this->internalField());
+    const VolField<Type>& cvf =
+        static_cast<const VolField<Type>&>(this->internalField());
 
-    const typename volFieldType::Boundary& bf =
+    const typename VolField<Type>::Boundary& bf =
         cvf.boundaryField();
 
     OFstream osPoints(baseDir()/"patchPoints");
@@ -793,9 +750,13 @@ void Foam::externalCoupledMixedFvPatchField<Type>::writeGeometry() const
 
     forAll(bf, patchi)
     {
-        if (isA<patchType>(bf[patchi]))
+        if (isA<externalCoupledMixedFvPatchField<Type>>(bf[patchi]))
         {
-            const patchType& pf = refCast<const patchType>(bf[patchi]);
+            const externalCoupledMixedFvPatchField<Type>& pf =
+                refCast<const externalCoupledMixedFvPatchField<Type>>
+                (
+                    bf[patchi]
+                );
 
             pf.writeGeometry(osPoints, osFaces);
         }

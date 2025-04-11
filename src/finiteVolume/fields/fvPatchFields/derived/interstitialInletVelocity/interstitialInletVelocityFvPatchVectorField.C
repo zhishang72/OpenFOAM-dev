@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -26,38 +26,10 @@ License
 #include "interstitialInletVelocityFvPatchVectorField.H"
 #include "volFields.H"
 #include "addToRunTimeSelectionTable.H"
-#include "fvPatchFieldMapper.H"
+#include "fieldMapper.H"
 #include "surfaceFields.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
-
-Foam::interstitialInletVelocityFvPatchVectorField::
-interstitialInletVelocityFvPatchVectorField
-(
-    const fvPatch& p,
-    const DimensionedField<vector, volMesh>& iF
-)
-:
-    fixedValueFvPatchVectorField(p, iF),
-    inletVelocity_(p.size(), Zero),
-    alphaName_("alpha")
-{}
-
-
-Foam::interstitialInletVelocityFvPatchVectorField::
-interstitialInletVelocityFvPatchVectorField
-(
-    const interstitialInletVelocityFvPatchVectorField& ptf,
-    const fvPatch& p,
-    const DimensionedField<vector, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
-)
-:
-    fixedValueFvPatchVectorField(ptf, p, iF, mapper),
-    inletVelocity_(mapper(ptf.inletVelocity_)),
-    alphaName_(ptf.alphaName_)
-{}
-
 
 Foam::interstitialInletVelocityFvPatchVectorField::
 interstitialInletVelocityFvPatchVectorField
@@ -68,7 +40,7 @@ interstitialInletVelocityFvPatchVectorField
 )
 :
     fixedValueFvPatchVectorField(p, iF, dict),
-    inletVelocity_("inletVelocity", dict, p.size()),
+    inletVelocity_("inletVelocity", dimVelocity, dict, p.size()),
     alphaName_(dict.lookupOrDefault<word>("alpha", "alpha"))
 {}
 
@@ -76,11 +48,14 @@ interstitialInletVelocityFvPatchVectorField
 Foam::interstitialInletVelocityFvPatchVectorField::
 interstitialInletVelocityFvPatchVectorField
 (
-    const interstitialInletVelocityFvPatchVectorField& ptf
+    const interstitialInletVelocityFvPatchVectorField& ptf,
+    const fvPatch& p,
+    const DimensionedField<vector, volMesh>& iF,
+    const fieldMapper& mapper
 )
 :
-    fixedValueFvPatchVectorField(ptf),
-    inletVelocity_(ptf.inletVelocity_),
+    fixedValueFvPatchVectorField(ptf, p, iF, mapper),
+    inletVelocity_(mapper(ptf.inletVelocity_)),
     alphaName_(ptf.alphaName_)
 {}
 
@@ -100,28 +75,32 @@ interstitialInletVelocityFvPatchVectorField
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-void Foam::interstitialInletVelocityFvPatchVectorField::autoMap
-(
-    const fvPatchFieldMapper& m
-)
-{
-    fixedValueFvPatchVectorField::autoMap(m);
-    m(inletVelocity_, inletVelocity_);
-}
-
-
-void Foam::interstitialInletVelocityFvPatchVectorField::rmap
+void Foam::interstitialInletVelocityFvPatchVectorField::map
 (
     const fvPatchVectorField& ptf,
-    const labelList& addr
+    const fieldMapper& mapper
 )
 {
-    fixedValueFvPatchVectorField::rmap(ptf, addr);
+    fixedValueFvPatchVectorField::map(ptf, mapper);
 
     const interstitialInletVelocityFvPatchVectorField& tiptf =
         refCast<const interstitialInletVelocityFvPatchVectorField>(ptf);
 
-    inletVelocity_.rmap(tiptf.inletVelocity_, addr);
+    mapper(inletVelocity_, tiptf.inletVelocity_);
+}
+
+
+void Foam::interstitialInletVelocityFvPatchVectorField::reset
+(
+    const fvPatchVectorField& ptf
+)
+{
+    fixedValueFvPatchVectorField::reset(ptf);
+
+    const interstitialInletVelocityFvPatchVectorField& tiptf =
+        refCast<const interstitialInletVelocityFvPatchVectorField>(ptf);
+
+    inletVelocity_.reset(tiptf.inletVelocity_);
 }
 
 

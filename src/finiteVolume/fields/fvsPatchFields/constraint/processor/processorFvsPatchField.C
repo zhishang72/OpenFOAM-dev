@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,6 +24,7 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "processorFvsPatchField.H"
+#include "surfaceMesh.H"
 
 // * * * * * * * * * * * * * * * * Constructors * * * * * * * * * * * * * * //
 
@@ -63,7 +64,7 @@ Foam::processorFvsPatchField<Type>::processorFvsPatchField
     coupledFvsPatchField<Type>(p, iF, dict),
     procPatch_(refCast<const processorFvPatch>(p))
 {
-    if (!isType<processorFvPatch>(p))
+    if (!isA<processorFvPatch>(p))
     {
         FatalIOErrorInFunction
         (
@@ -81,13 +82,13 @@ Foam::processorFvsPatchField<Type>::processorFvsPatchField
     const processorFvsPatchField<Type>& ptf,
     const fvPatch& p,
     const DimensionedField<Type, surfaceMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     coupledFvsPatchField<Type>(ptf, p, iF, mapper),
     procPatch_(refCast<const processorFvPatch>(p))
 {
-    if (!isType<processorFvPatch>(this->patch()))
+    if (!isA<processorFvPatch>(this->patch()))
     {
         FatalErrorInFunction
             << "Field type does not correspond to patch type for patch "
@@ -97,17 +98,6 @@ Foam::processorFvsPatchField<Type>::processorFvsPatchField
             << exit(FatalError);
     }
 }
-
-
-template<class Type>
-Foam::processorFvsPatchField<Type>::processorFvsPatchField
-(
-    const processorFvsPatchField<Type>& ptf
-)
-:
-    coupledFvsPatchField<Type>(ptf),
-    procPatch_(refCast<const processorFvPatch>(ptf.patch()))
-{}
 
 
 template<class Type>
@@ -127,6 +117,79 @@ Foam::processorFvsPatchField<Type>::processorFvsPatchField
 template<class Type>
 Foam::processorFvsPatchField<Type>::~processorFvsPatchField()
 {}
+
+
+// * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+
+template<class Type>
+void Foam::processorFvsPatchField<Type>::initPatchNeighbourField
+(
+    const Pstream::commsTypes commsType
+) const
+{
+    if (Pstream::parRun())
+    {
+        if (commsType == Pstream::commsTypes::nonBlocking)
+        {
+            receiveBuf_.setSize(this->size());
+
+            IPstream::read
+            (
+                commsType,
+                procPatch_.neighbProcNo(),
+                reinterpret_cast<char*>(receiveBuf_.begin()),
+                receiveBuf_.byteSize(),
+                procPatch_.tag(),
+                procPatch_.comm()
+            );
+        }
+
+        OPstream::write
+        (
+            commsType,
+            procPatch_.neighbProcNo(),
+            reinterpret_cast<const char*>(this->begin()),
+            this->byteSize(),
+            procPatch_.tag(),
+            procPatch_.comm()
+        );
+    }
+}
+
+
+template<class Type>
+Foam::tmp<Foam::Field<Type>>
+Foam::processorFvsPatchField<Type>::patchNeighbourField
+(
+    const Pstream::commsTypes commsType
+) const
+{
+    if (Pstream::parRun())
+    {
+        if (commsType != Pstream::commsTypes::nonBlocking)
+        {
+            receiveBuf_.setSize(this->size());
+
+            IPstream::read
+            (
+                commsType,
+                procPatch_.neighbProcNo(),
+                reinterpret_cast<char*>(receiveBuf_.begin()),
+                receiveBuf_.byteSize(),
+                procPatch_.tag(),
+                procPatch_.comm()
+            );
+        }
+
+        procPatch_.transform().transform(receiveBuf_, receiveBuf_);
+
+        return receiveBuf_;
+    }
+    else
+    {
+        return tmp<Field<Type>>(new Field<Type>());
+    }
+}
 
 
 // ************************************************************************* //

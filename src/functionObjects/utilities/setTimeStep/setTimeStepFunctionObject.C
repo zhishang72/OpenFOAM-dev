@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -53,8 +53,7 @@ Foam::functionObjects::setTimeStepFunctionObject::setTimeStepFunctionObject
     const dictionary& dict
 )
 :
-    functionObject(name),
-    time_(runTime)
+    functionObject(name, runTime)
 {
     read(dict);
 }
@@ -68,30 +67,19 @@ Foam::functionObjects::setTimeStepFunctionObject::~setTimeStepFunctionObject()
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-const Foam::Time&
-Foam::functionObjects::setTimeStepFunctionObject::time() const
-{
-    return time_;
-}
-
-
-bool Foam::functionObjects::setTimeStepFunctionObject::setTimeStep()
-{
-    const_cast<Time&>(time()).setDeltaTNoAdjust
-    (
-        timeStepPtr_().value(time_.timeOutputValue())
-    );
-
-    return true;
-}
-
-
 bool Foam::functionObjects::setTimeStepFunctionObject::read
 (
     const dictionary& dict
 )
 {
-    timeStepPtr_ = Function1<scalar>::New("deltaT", dict);
+    timeStepPtr_ =
+        Function1<scalar>::New
+        (
+            "deltaT",
+            time_.userUnits(),
+            time_.userUnits(),
+            dict
+        );
 
     return true;
 }
@@ -99,12 +87,12 @@ bool Foam::functionObjects::setTimeStepFunctionObject::read
 
 bool Foam::functionObjects::setTimeStepFunctionObject::execute()
 {
-    bool adjustTimeStep =
-        time().controlDict().lookupOrDefault("adjustTimeStep", false);
+    const bool adjustTimeStep =
+        time_.controlDict().lookupOrDefault("adjustTimeStep", false);
 
     if (!adjustTimeStep)
     {
-        return setTimeStep();
+        const_cast<Time&>(time_).setDeltaT(timeStepPtr_().value(time_.value()));
     }
 
     return true;

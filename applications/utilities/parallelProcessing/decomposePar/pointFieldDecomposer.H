@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -29,7 +29,7 @@ Description
 
 SourceFiles
     pointFieldDecomposer.C
-    pointFieldDecomposerDecomposeFields.C
+    pointFieldDecomposerTemplates.C
 
 \*---------------------------------------------------------------------------*/
 
@@ -37,69 +37,55 @@ SourceFiles
 #define pointFieldDecomposer_H
 
 #include "pointMesh.H"
-#include "pointPatchFieldMapperPatchRef.H"
 #include "pointFields.H"
+#include "forwardFieldMapper.H"
+#include "IOobjectList.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
 {
 
+class fvMesh;
+
 /*---------------------------------------------------------------------------*\
-               Class pointFieldDecomposer Declaration
+                    Class pointFieldDecomposer Declaration
 \*---------------------------------------------------------------------------*/
 
 class pointFieldDecomposer
 {
-
 public:
+
+    // Public classes
 
         //- Point patch field decomposer class
         class patchFieldDecomposer
         :
-            public pointPatchFieldMapperPatchRef
+            public labelList,
+            public forwardFieldMapper
         {
-            // Private Data
+            // Private Member Functions
 
-                labelList directAddressing_;
+                //- Generate the addressing
+                static labelList addressing
+                (
+                    const pointPatch& completePatch,
+                    const pointPatch& procPatch,
+                    const labelList& pointProcAddressing
+                );
 
-                //- Does map contain any unmapped values
-                bool hasUnmapped_;
 
         public:
 
             // Constructors
 
-                //- Construct given addressing
+                //- Construct given patches and addressing
                 patchFieldDecomposer
                 (
-                    const pointPatch& completeMeshPatch,
-                    const pointPatch& procMeshPatch,
-                    const labelList& directAddr
+                    const pointPatch& completePatch,
+                    const pointPatch& procPatch,
+                    const labelList& pointProcAddressing
                 );
-
-
-            // Member Functions
-
-                label size() const
-                {
-                    return directAddressing_.size();
-                }
-
-                bool direct() const
-                {
-                    return true;
-                }
-
-                bool hasUnmapped() const
-                {
-                    return hasUnmapped_;
-                }
-
-                const labelUList& directAddressing() const
-                {
-                    return directAddressing_;
-                }
         };
 
 
@@ -110,17 +96,22 @@ private:
         //- Reference to complete mesh
         const pointMesh& completeMesh_;
 
-        //- Reference to processor mesh
-        const pointMesh& procMesh_;
+        //- Reference to processor meshes
+        const PtrList<fvMesh>& procMeshes_;
 
         //- Reference to point addressing
-        const labelList& pointAddressing_;
-
-        //- Reference to boundary addressing
-        const labelList& boundaryAddressing_;
+        const labelListList& pointProcAddressing_;
 
         //- List of patch field decomposers
-        List<patchFieldDecomposer*> patchFieldDecomposerPtrs_;
+        PtrList<PtrList<patchFieldDecomposer>> patchFieldDecomposers_;
+
+
+    // Private Member Functions
+
+        //- Decompose a field
+        template<class Type>
+        PtrList<PointField<Type>>
+        decomposeField(const IOobject& fieldIoObject) const;
 
 
 public:
@@ -131,9 +122,8 @@ public:
         pointFieldDecomposer
         (
             const pointMesh& completeMesh,
-            const pointMesh& procMesh,
-            const labelList& pointAddressing,
-            const labelList& boundaryAddressing
+            const PtrList<fvMesh>& procMeshes,
+            const labelListList& pointAddressing
         );
 
         //- Disallow default bitwise copy construction
@@ -146,16 +136,12 @@ public:
 
     // Member Functions
 
-        //- Decompose point field
-        template<class Type>
-        tmp<GeometricField<Type, pointPatchField, pointMesh>>
-        decomposeField
-        (
-            const GeometricField<Type, pointPatchField, pointMesh>&
-        ) const;
+        //- Return whether anything in the object list gets decomposed
+        static bool decomposes(const IOobjectList& objects);
 
-        template<class GeoField>
-        void decomposeFields(const PtrList<GeoField>& fields) const;
+        //- Read, decompose and write all fields
+        template<class Type>
+        void decomposeFields(const IOobjectList& objects);
 
 
     // Member Operators
@@ -172,7 +158,7 @@ public:
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 #ifdef NoRepository
-    #include "pointFieldDecomposerDecomposeFields.C"
+    #include "pointFieldDecomposerTemplates.C"
 #endif
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

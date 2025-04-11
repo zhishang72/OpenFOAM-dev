@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -58,7 +58,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-             Class gradientEnergyFvPatchScalarField Declaration
+              Class gradientEnergyFvPatchScalarField Declaration
 \*---------------------------------------------------------------------------*/
 
 class gradientEnergyFvPatchScalarField
@@ -96,23 +96,14 @@ public:
             const gradientEnergyFvPatchScalarField&,
             const fvPatch&,
             const DimensionedField<scalar, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         gradientEnergyFvPatchScalarField
         (
             const gradientEnergyFvPatchScalarField&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchScalarField> clone() const
-        {
-            return tmp<fvPatchScalarField>
-            (
-                new gradientEnergyFvPatchScalarField(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         gradientEnergyFvPatchScalarField
@@ -135,6 +126,19 @@ public:
 
 
     // Member Functions
+
+        // Mapping functions
+
+            //- Map the given fvPatchField onto this fvPatchField
+            void map
+            (
+                const gradientEnergyFvPatchScalarField&,
+                const fieldMapper&
+            );
+
+            //- Map the given fvPatchField onto this fvPatchField
+            virtual void map(const fvPatchScalarField&, const fieldMapper&);
+
 
         // Evaluation functions
 

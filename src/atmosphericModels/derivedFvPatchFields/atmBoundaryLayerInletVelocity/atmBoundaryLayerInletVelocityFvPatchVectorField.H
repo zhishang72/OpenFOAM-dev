@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -35,8 +35,8 @@ Description
     ground
     {
         type            atmBoundaryLayerInletVelocity;
-        n               (1 0 0);
-        z               (0 0 1);
+        flowDir         (1 0 0);
+        zDir            (0 0 1);
         Uref            10.0;
         Zref            20.0;
         z0              uniform 0.1;
@@ -84,13 +84,6 @@ public:
 
     // Constructors
 
-        //- Construct from patch and internal field
-        atmBoundaryLayerInletVelocityFvPatchVectorField
-        (
-            const fvPatch&,
-            const DimensionedField<vector, volMesh>&
-        );
-
         //- Construct from patch, internal field and dictionary
         atmBoundaryLayerInletVelocityFvPatchVectorField
         (
@@ -100,23 +93,14 @@ public:
         );
 
         //- Construct by mapping given
-        // atmBoundaryLayerInletVelocityFvPatchVectorField onto a new patch
+        //  atmBoundaryLayerInletVelocityFvPatchVectorField onto a new patch
         atmBoundaryLayerInletVelocityFvPatchVectorField
         (
             const atmBoundaryLayerInletVelocityFvPatchVectorField&,
             const fvPatch&,
             const DimensionedField<vector, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchVectorField> clone() const
-        {
-            return tmp<fvPatchVectorField>
-            (
-                new atmBoundaryLayerInletVelocityFvPatchVectorField(*this)
-            );
-        }
 
         //- Construct as copy setting internal field reference
         atmBoundaryLayerInletVelocityFvPatchVectorField
@@ -142,13 +126,12 @@ public:
 
         // Mapping functions
 
-            //- Map (and resize as needed) from self given a mapping object
-            //  Used to update fields following mesh topology change
-            virtual void autoMap(const fvPatchFieldMapper&);
+            //- Map the given fvPatchField onto this fvPatchField
+            virtual void map(const fvPatchVectorField&, const fieldMapper&);
 
-            //- Reverse map the given fvPatchField onto this fvPatchField
-            //  Used to reconstruct fields
-            virtual void rmap(const fvPatchVectorField&, const labelList&);
+            //- Reset the fvPatchField to the given fvPatchField
+            //  Used for mesh to mesh mapping
+            virtual void reset(const fvPatchVectorField&);
 
 
         //- Write

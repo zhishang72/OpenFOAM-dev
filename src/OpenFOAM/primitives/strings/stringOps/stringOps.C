@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,22 +24,22 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "stringOps.H"
-#include "typeInfo.H"
 #include "OSspecific.H"
 #include "etcFiles.H"
-#include "OStringStream.H"
-
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-//! \cond fileScope
-//  Find the type/position of the ":-" or ":+" alternative values
-//
+namespace Foam
+{
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// Find the type/position of the ":-" or ":+" alternative values
 static inline int findParameterAlternative
 (
-    const std::string& s,
-    std::string::size_type& pos,
-    std::string::size_type endPos
+    const string& s,
+    string::size_type& pos,
+    string::size_type endPos
 )
 {
     while (pos != std::string::npos)
@@ -49,18 +49,18 @@ static inline int findParameterAlternative
         {
             if (pos < endPos)
             {
-                // in-range: check for '+' or '-' following the ':'
-                const int altType = s[pos+1];
+                // Nn-range: check for '+' or '-' following the ':'
+                const int altType = s[pos + 1];
                 if (altType == '+' || altType == '-')
                 {
                     return altType;
                 }
 
-                ++pos;    // unknown/unsupported - continue at next position
+                ++pos;    // Unknown/unsupported - continue at next position
             }
             else
             {
-                // out-of-range: abort
+                // Out-of-range: abort
                 pos = std::string::npos;
             }
         }
@@ -68,188 +68,10 @@ static inline int findParameterAlternative
 
     return 0;
 }
-//! \endcond
 
 
-Foam::string Foam::stringOps::expand
-(
-    const string& original,
-    const HashTable<string, word, string::hash>& mapping,
-    const char sigil
-)
-{
-    string s(original);
-    return inplaceExpand(s, mapping);
-}
-
-
-Foam::string& Foam::stringOps::inplaceExpand
-(
-    string& s,
-    const HashTable<string, word, string::hash>& mapping,
-    const char sigil
-)
-{
-    string::size_type begVar = 0;
-
-    // Expand $VAR or ${VAR}
-    // Repeat until nothing more is found
-    while
-    (
-        (begVar = s.find(sigil, begVar)) != string::npos
-     && begVar < s.size()-1
-    )
-    {
-        if (begVar == 0 || s[begVar-1] != '\\')
-        {
-            // Find end of first occurrence
-            string::size_type endVar = begVar;
-            string::size_type delim = 0;
-
-            // The type/position of the ":-" or ":+" alternative values
-            int altType = 0;
-            string::size_type altPos = string::npos;
-
-            if (s[begVar+1] == '{')
-            {
-                endVar = s.find('}', begVar);
-                delim = 1;
-
-                // check for ${parameter:-word} or ${parameter:+word}
-                if (endVar != string::npos)
-                {
-                    altPos = begVar;
-                    altType = findParameterAlternative(s, altPos, endVar);
-                }
-            }
-            else
-            {
-                string::iterator iter = s.begin() + begVar + 1;
-
-                // more generous in accepting keywords than for env variables
-                while
-                (
-                    iter != s.end()
-                 &&
-                    (
-                        isalnum(*iter)
-                     || *iter == '.'
-                     || *iter == ':'
-                     || *iter == '_'
-                    )
-                )
-                {
-                    ++iter;
-                    ++endVar;
-                }
-            }
-
-            if (endVar == string::npos)
-            {
-                // likely parsed '${...' without closing '}' - abort
-                break;
-            }
-            else if (endVar == begVar)
-            {
-                // parsed '${}' or $badChar  - skip over
-                begVar = endVar + 1;
-            }
-            else
-            {
-                const word varName
-                (
-                    s.substr
-                    (
-                        begVar + 1 + delim,
-                        (
-                            (altPos == string::npos ? endVar : altPos)
-                          - begVar - 2*delim
-                        )
-                    ),
-                    false
-                );
-
-                std::string altValue;
-                if (altPos != string::npos)
-                {
-                    // had ":-" or ":+" alternative value
-                    altValue = s.substr
-                    (
-                        altPos + 2,
-                        endVar - altPos - 2*delim
-                    );
-                }
-
-
-                HashTable<string, word, string::hash>::const_iterator fnd =
-                    mapping.find(varName);
-
-                if (fnd != HashTable<string, word, string::hash>::end())
-                {
-                    if (altPos != string::npos && altType == '+')
-                    {
-                        // was found, use ":+" alternative
-                        s.std::string::replace
-                        (
-                            begVar,
-                            endVar - begVar + 1,
-                            altValue
-                        );
-                        begVar += altValue.size();
-                    }
-                    else
-                    {
-                        // was found, use value
-                        s.std::string::replace
-                        (
-                            begVar,
-                            endVar - begVar + 1,
-                            *fnd
-                        );
-                        begVar += (*fnd).size();
-                    }
-                }
-                else if (altPos != string::npos && altType == '-')
-                {
-                    // was not found, use ":-" alternative
-                    s.std::string::replace
-                    (
-                        begVar,
-                        endVar - begVar + 1,
-                        altValue
-                    );
-                    begVar += altValue.size();
-                }
-                else
-                {
-                    // substitute with nothing, also for ":+" alternative
-                    s.std::string::erase(begVar, endVar - begVar + 1);
-                }
-            }
-        }
-        else
-        {
-            ++begVar;
-        }
-    }
-
-    return s;
-}
-
-
-Foam::string Foam::stringOps::expand
-(
-    const string& original,
-    const dictionary& dict,
-    const char sigil
-)
-{
-    string s(original);
-    return inplaceExpand(s, dict, sigil);
-}
-
-
-Foam::string Foam::stringOps::getVariable
+// Get dictionary or (optionally) environment variable
+string getVariable
 (
     const word& name,
     const dictionary& dict,
@@ -257,35 +79,42 @@ Foam::string Foam::stringOps::getVariable
     const bool allowEmpty
 )
 {
-    string value;
+    const entry* ePtr = dict.lookupScopedEntryPtr(name, true, false);
 
-    const entry* ePtr = dict.lookupScopedEntryPtr
-    (
-        name,
-        true,
-        false
-    );
     if (ePtr)
     {
         OStringStream buf;
+
         // Force floating point numbers to be printed with at least
         // some decimal digits.
         buf << scientific;
+
         buf.precision(IOstream::defaultPrecision());
 
-        // fail for non-primitiveEntry
-        dynamicCast<const primitiveEntry>
-        (
-            *ePtr
-        ).write(buf, true);
+        // Fail for non-primitiveEntry
+        dynamicCast<const primitiveEntry>(*ePtr).write(buf, true);
 
-        value = buf.str();
+        return buf.str();
     }
     else if (allowEnvVars)
     {
-        value = getEnv(name);
+        string::const_iterator iter = name.begin();
 
-        if (!allowEmpty && value.empty())
+        // Search for the sub-set of characters in name which are allowed
+        // in environment variables
+        string::size_type begVar = 0;
+        string::size_type endVar = begVar;
+        while (iter != name.end() && (isalnum(*iter) || *iter == '_'))
+        {
+            ++iter;
+            ++endVar;
+        }
+
+        const word varName(name.substr(begVar, endVar - begVar), false);
+
+        string varValue = getEnv(varName);
+
+        if (!allowEmpty && varValue.empty())
         {
             FatalIOErrorInFunction
             (
@@ -293,6 +122,10 @@ Foam::string Foam::stringOps::getVariable
             )   << "Cannot find dictionary or environment variable "
                 << name << exit(FatalIOError);
         }
+
+        varValue += name.substr(endVar, name.size() - endVar);
+
+        return varValue;
     }
     else
     {
@@ -301,13 +134,15 @@ Foam::string Foam::stringOps::getVariable
             dict
         )   << "Cannot find dictionary variable "
             << name << exit(FatalIOError);
-    }
 
-    return value;
+        return string::null;
+    }
 }
 
 
-Foam::string Foam::stringOps::expand
+// Recursively expands dictionary or environment variable starting at index
+// in string. Updates index.
+string expand
 (
     const string& s,
     string::size_type& index,
@@ -320,7 +155,7 @@ Foam::string Foam::stringOps::expand
 
     while (index < s.size())
     {
-        if (s[index] == '$' && s[index+1] == '{')
+        if (s[index] == '$' && s[index + 1] == '{')
         {
             // Recurse to parse variable name
             index += 2;
@@ -341,7 +176,587 @@ Foam::string Foam::stringOps::expand
 }
 
 
-Foam::string& Foam::stringOps::inplaceExpand
+// Expand path parts of a string
+Foam::string& inplaceExpandPath(string& s)
+{
+    if (!s.empty())
+    {
+        if (s[0] == '~')
+        {
+            // Expand initial ~
+            //   ~/        => home directory
+            //   ~OpenFOAM => site/user OpenFOAM configuration directory
+            //   ~user     => home directory for specified user
+
+            string user;
+            fileName file;
+
+            const string::size_type pos = s.find('/');
+            if (pos != string::npos)
+            {
+                user = s.substr(1, pos - 1);
+                file = s.substr(pos + 1);
+            }
+            else
+            {
+                user = s.substr(1);
+            }
+
+            // NB: be a bit lazy and expand ~unknownUser as an
+            // empty string rather than leaving it untouched.
+            // otherwise add extra test
+            if (user == "OpenFOAM")
+            {
+                s = findEtcFile(file);
+            }
+            else
+            {
+                s = home(user)/file;
+            }
+        }
+        else if (s[0] == '.')
+        {
+            // Expand a lone '.' and an initial './' into cwd
+            if (s.size() == 1)
+            {
+                s = cwd();
+            }
+            else if (s[1] == '/')
+            {
+                s.std::string::replace(0, 1, cwd());
+            }
+        }
+    }
+
+    return s;
+}
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+} // End namespace Foam
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+Foam::string Foam::stringOps::expandEnvVar
+(
+    const string& original,
+    const bool allowEmpty
+)
+{
+    string s(original);
+    return inplaceExpandEnvVar(s, allowEmpty);
+}
+
+
+Foam::string& Foam::stringOps::inplaceExpandEnvVar
+(
+    string& s,
+    const bool allowEmpty
+)
+{
+    string::size_type begVar = 0;
+
+    // Expand $VARS
+    // Repeat until nothing more is found
+    while
+    (
+        (begVar = s.find('$', begVar)) != string::npos
+     && begVar < s.size() - 1
+    )
+    {
+        if (begVar == 0 || s[begVar - 1] != '\\')
+        {
+            // Find end of first occurrence
+            string::size_type endVar = begVar;
+            string::size_type delim = 0;
+
+            // The type/position of the ":-" or ":+" alternative values
+            int altType = 0;
+            string::size_type altPos = string::npos;
+
+            if (s[begVar + 1] == '{')
+            {
+                endVar = s.find('}', begVar);
+                delim = 1;
+
+                // Check for ${parameter:-word} or ${parameter:+word}
+                if (endVar != string::npos)
+                {
+                    altPos = begVar;
+                    altType = findParameterAlternative(s, altPos, endVar);
+                }
+            }
+            else
+            {
+                string::iterator iter = s.begin() + begVar + 1;
+
+                while
+                (
+                    iter != s.end()
+                 && (isalnum(*iter) || *iter == '_')
+                )
+                {
+                    ++iter;
+                    ++endVar;
+                }
+            }
+
+            if (endVar == string::npos)
+            {
+                // Likely parsed '${...' without closing '}' - abort
+                break;
+            }
+            else if (endVar == begVar)
+            {
+                // Parsed '${}' or $badChar  - skip over
+                begVar = endVar + 1;
+            }
+            else
+            {
+                const word varName
+                (
+                    s.substr
+                    (
+                        begVar + 1 + delim,
+                        (
+                            (altPos == string::npos ? endVar : altPos)
+                          - begVar - 2*delim
+                        )
+                    ),
+                    false
+                );
+
+                std::string altValue;
+                if (altPos != string::npos)
+                {
+                    // Had ":-" or ":+" alternative value
+                    altValue = s.substr
+                    (
+                        altPos + 2,
+                        endVar - altPos - 2*delim
+                    );
+                }
+
+                const string varValue = getEnv(varName);
+                if (varValue.size())
+                {
+                    if (altPos != string::npos && altType == '+')
+                    {
+                        // Was found, use ":+" alternative
+                        s.std::string::replace
+                        (
+                            begVar,
+                            endVar - begVar + 1,
+                            altValue
+                        );
+                        begVar += altValue.size();
+                    }
+                    else
+                    {
+                        // Was found, use value
+                        s.std::string::replace
+                        (
+                            begVar,
+                            endVar - begVar + 1,
+                            varValue
+                        );
+                        begVar += varValue.size();
+                    }
+                }
+                else if (altPos != string::npos)
+                {
+                    // Use ":-" or ":+" alternative values
+                    if (altType == '-')
+                    {
+                        // Was not found, use ":-" alternative
+                        s.std::string::replace
+                        (
+                            begVar,
+                            endVar - begVar + 1,
+                            altValue
+                        );
+                        begVar += altValue.size();
+                    }
+                    else
+                    {
+                        // Was not found, ":+" alternative implies
+                        // substitute with nothing
+                        s.std::string::erase(begVar, endVar - begVar + 1);
+                    }
+                }
+                else if (allowEmpty)
+                {
+                    s.std::string::erase(begVar, endVar - begVar + 1);
+                }
+                else
+                {
+                    FatalErrorInFunction
+                        << "Unknown variable name '" << varName << "'"
+                        << exit(FatalError);
+                }
+            }
+        }
+        else
+        {
+            ++begVar;
+        }
+    }
+
+    return inplaceExpandPath(s);
+}
+
+
+Foam::string& Foam::stringOps::inplaceExpandCodeString
+(
+    string& s,
+    const dictionary& dict,
+    const word& dictVar,
+    const char sigil
+)
+{
+    string::size_type begVar = 0;
+
+    // Expand $VAR or ${VAR}
+    // Repeat until nothing more is found
+    while
+    (
+        (begVar = s.find(sigil, begVar)) != string::npos
+     && begVar < s.size() - 1
+    )
+    {
+        if (begVar == 0 || s[begVar - 1] != '\\')
+        {
+            // Find end of first occurrence
+            string::size_type endVar = begVar;
+            string::size_type begDelim = 0, endDelim = 0;
+
+            // Get the type, if any
+            word varType;
+            if (s[begVar + 1] == '<')
+            {
+                begDelim += s.findClosing('>', begVar + 1) - begVar;
+                varType = s.substr(begVar + 2, begDelim - 2);
+            }
+
+            // Parse any braces and find the end of the variable
+            if (s[begVar+begDelim + 1] == '{')
+            {
+                // endVar = s.find('}', begVar+begDelim);
+                endVar = s.findClosing('}', begVar+begDelim + 1);
+                begDelim += 1;
+                endDelim += 1;
+            }
+            else
+            {
+                endVar = begVar + begDelim;
+
+                string::iterator iter = s.begin() + begVar + begDelim + 1;
+
+                // Accept all dictionary and environment variable characters
+                while
+                (
+                    iter != s.end()
+                 &&
+                    (
+                        isalnum(*iter)
+                     || *iter == '/'
+                     || *iter == '!'
+                     || *iter == '.'
+                     || *iter == ':'
+                     || *iter == '_'
+                    )
+                )
+                {
+                    ++iter;
+                    ++endVar;
+                }
+            }
+
+            if (endVar == string::npos)
+            {
+                // Likely parsed '${...' without closing '}' - abort
+                break;
+            }
+            else if (endVar == begVar)
+            {
+                // Parsed '${}' or $badChar  - skip over
+                begVar = endVar + 1;
+            }
+            else
+            {
+                word varName
+                (
+                    s.substr
+                    (
+                        begVar + begDelim + 1,
+                        (endVar - endDelim) - (begVar + begDelim)
+                    ),
+                    false
+                );
+
+                // Expand any environment variable paths in the variable name
+                inplaceExpandEnvVar(varName);
+
+                // Lookup in the dictionary
+                const entry* ePtr = dict.lookupScopedEntryPtr
+                (
+                    varName,
+                    true,
+                    false   // Wildcards disabled. See primitiveEntry
+                );
+
+                // Substitute if found
+                if (ePtr)
+                {
+                    OStringStream buf;
+                    bool compound = false;
+
+                    // Check if variable type can be obtained from the single
+                    // token type and if the token is a compound
+                    if (!ePtr->isDict())
+                    {
+                        const primitiveEntry& pe =
+                            dynamicCast<const primitiveEntry>(*ePtr);
+
+                        // Check that the primitive entry is a single token
+                        if (pe.size() == 1)
+                        {
+                            // If the variable type is not specified
+                            // obtain the variable type from the token type name
+                            if (varType.empty())
+                            {
+                                varType = pe[0].typeName();
+                            }
+
+                            // Check if the token is a compound which can be
+                            // accessed directly
+                            compound = pe[0].isCompound();
+                        }
+                    }
+
+                    if (!dictVar.empty())
+                    {
+                        if (!varType.empty())
+                        {
+                            // If the dictionary is accessible and the variable
+                            // type is specified or could be deduced
+                            // from the value, then lookup the variable in the
+                            // code, rather than substituting its value. That
+                            // way we don't need to recompile this string if the
+                            // value changes.
+                            //
+                            // Compound types have special handling
+                            // to return as constant reference rather than
+                            // constructing the container
+                            if (compound)
+                            {
+                                buf << dictVar
+                                    << ".lookupCompoundScoped<"
+                                    << varType << ">"
+                                    << "(\"" << varName << "\", true, false)";
+                            }
+                            else
+                            {
+                                buf << dictVar
+                                    << ".lookupScoped<" << varType << ">"
+                                    << "(\"" << varName << "\", true, false)";
+                            }
+                        }
+                        else
+                        {
+                            // If the dictionary is accessible but the
+                            // variable type is not specified and cannot be
+                            // deduced from the value issue an error
+                            FatalIOErrorInFunction(dict)
+                                << "Type not specified for variable "
+                                << varName << " in code string " << nl
+                                << "    " << s << nl
+                                << "Variable " << varName << " expands to "
+                                << nl;
+
+                            if (ePtr->isDict())
+                            {
+                                ePtr->dict().write(FatalIOError, false);
+                            }
+                            else
+                            {
+                                dynamicCast<const primitiveEntry>(*ePtr)
+                                    .write(FatalIOError, true);
+                            }
+
+                            FatalIOErrorInFunction(dict) << exit(FatalIOError);
+                        }
+                    }
+                    else
+                    {
+                        if (!varType.empty())
+                        {
+                            // If the dictionary is not accessible but the
+                            // type is known, then read the substituted value
+                            // from a string
+                            buf << "Foam::read<" << varType << ">(\"";
+                        }
+
+                        // If the dictionary is not accessible and/or the type
+                        // is not known, then we need to substitute the
+                        // variable's value
+
+                        // Make sure floating point values print with at least
+                        // some decimal points
+                        buf << scientific;
+                        buf.precision(IOstream::defaultPrecision());
+
+                        // Write the dictionary or primitive entry.
+                        // Fail if anything else.
+                        if (ePtr->isDict())
+                        {
+                            ePtr->dict().write(buf, false);
+                        }
+                        else
+                        {
+                            dynamicCast<const primitiveEntry>(*ePtr)
+                                .write(buf, true);
+                        }
+
+                        if (!varType.empty())
+                        {
+                            // Close the string and read function as necessary
+                            buf << "\")";
+                        }
+                    }
+
+                    s.std::string::replace
+                    (
+                        begVar,
+                        endVar - begVar + 1,
+                        buf.str()
+                    );
+                    begVar += buf.str().size();
+                }
+                else
+                {
+                    // Not found. Leave original string untouched.
+                    begVar = endVar + 1;
+                }
+            }
+        }
+        else
+        {
+            ++begVar;
+        }
+    }
+
+    return s;
+}
+
+
+Foam::string& Foam::stringOps::inplaceExpandCodeTemplate
+(
+    string& s,
+    const HashTable<string, word, string::hash>& mapping,
+    const char sigil
+)
+{
+    string::size_type begVar = 0;
+
+    // Expand $VAR or ${VAR}
+    // Repeat until nothing more is found
+    while
+    (
+        (begVar = s.find(sigil, begVar)) != string::npos
+     && begVar < s.size() - 1
+    )
+    {
+        if (begVar == 0 || s[begVar - 1] != '\\')
+        {
+            // Find end of first occurrence
+            string::size_type endVar = begVar;
+            string::size_type delim = 0;
+
+            if (s[begVar + 1] == '{')
+            {
+                endVar = s.findClosing('}', begVar + 1);
+                delim = 1;
+            }
+            else
+            {
+                string::iterator iter = s.begin() + begVar + 1;
+
+                // Accept all dictionary and environment variable characters
+                while
+                (
+                    iter != s.end()
+                 &&
+                    (
+                        isalnum(*iter)
+                     || *iter == '/'
+                     || *iter == '!'
+                     || *iter == '.'
+                     || *iter == ':'
+                     || *iter == '_'
+                    )
+                )
+                {
+                    ++iter;
+                    ++endVar;
+                }
+            }
+
+            if (endVar == string::npos)
+            {
+                // Likely parsed '${...' without closing '}' - abort
+                break;
+            }
+            else if (endVar == begVar)
+            {
+                // Parsed '${}' or $badChar  - skip over
+                begVar = endVar + 1;
+            }
+            else
+            {
+                const word varName
+                (
+                    s.substr
+                    (
+                        begVar + 1 + delim,
+                        endVar - begVar - 2*delim
+                    ),
+                    false
+                );
+
+                // Lookup in the table
+                HashTable<string, word, string::hash>::const_iterator fnd =
+                    mapping.find(varName);
+
+                // Substitute if found
+                if (fnd != HashTable<string, word, string::hash>::end())
+                {
+                    s.std::string::replace
+                    (
+                        begVar,
+                        endVar - begVar + 1,
+                        *fnd
+                    );
+                    begVar += (*fnd).size();
+                }
+                else
+                {
+                    // Not found. Remove.
+                    s.std::string::erase(begVar, endVar - begVar + 1);
+                }
+            }
+        }
+        else
+        {
+            ++begVar;
+        }
+    }
+
+    return s;
+}
+
+
+Foam::string& Foam::stringOps::inplaceExpandEntry
 (
     string& s,
     const dictionary& dict,
@@ -357,12 +772,12 @@ Foam::string& Foam::stringOps::inplaceExpand
     while
     (
         (begVar = s.find(sigil, begVar)) != string::npos
-     && begVar < s.size()-1
+     && begVar < s.size() - 1
     )
     {
-        if (begVar == 0 || s[begVar-1] != '\\')
+        if (begVar == 0 || s[begVar - 1] != '\\')
         {
-            if (s[begVar+1] == '{')
+            if (s[begVar + 1] == '{')
             {
                 // Recursive variable expansion mode
                 label stringStart = begVar;
@@ -392,7 +807,7 @@ Foam::string& Foam::stringOps::inplaceExpand
             {
                 string::iterator iter = s.begin() + begVar + 1;
 
-                // more generous in accepting keywords than for env variables
+                // Accept all dictionary and environment variable characters
                 string::size_type endVar = begVar;
                 while
                 (
@@ -400,6 +815,8 @@ Foam::string& Foam::stringOps::inplaceExpand
                  &&
                     (
                         isalnum(*iter)
+                     || *iter == '/'
+                     || *iter == '!'
                      || *iter == '.'
                      || *iter == ':'
                      || *iter == '_'
@@ -434,7 +851,7 @@ Foam::string& Foam::stringOps::inplaceExpand
                 s.std::string::replace
                 (
                     begVar,
-                    varName.size()+1,
+                    varName.size() + 1,
                     varValue
                 );
                 begVar += varValue.size();
@@ -446,400 +863,7 @@ Foam::string& Foam::stringOps::inplaceExpand
         }
     }
 
-    if (!s.empty())
-    {
-        if (s[0] == '~')
-        {
-            // Expand initial ~
-            //   ~/        => home directory
-            //   ~OpenFOAM => site/user OpenFOAM configuration directory
-            //   ~user     => home directory for specified user
-
-            string user;
-            fileName file;
-
-            if ((begVar = s.find('/')) != string::npos)
-            {
-                user = s.substr(1, begVar - 1);
-                file = s.substr(begVar + 1);
-            }
-            else
-            {
-                user = s.substr(1);
-            }
-
-            // NB: be a bit lazy and expand ~unknownUser as an
-            // empty string rather than leaving it untouched.
-            // otherwise add extra test
-            if (user == "OpenFOAM")
-            {
-                s = findEtcFile(file);
-            }
-            else
-            {
-                s = home(user)/file;
-            }
-        }
-        else if (s[0] == '.')
-        {
-            // Expand a lone '.' and an initial './' into cwd
-            if (s.size() == 1)
-            {
-                s = cwd();
-            }
-            else if (s[1] == '/')
-            {
-                s.std::string::replace(0, 1, cwd());
-            }
-        }
-    }
-
-    return s;
-}
-
-
-Foam::string& Foam::stringOps::inplaceExpand
-(
-    string& s,
-    const dictionary& dict,
-    const char sigil
-)
-{
-    string::size_type begVar = 0;
-
-    // Expand $VAR or ${VAR}
-    // Repeat until nothing more is found
-    while
-    (
-        (begVar = s.find(sigil, begVar)) != string::npos
-     && begVar < s.size()-1
-    )
-    {
-        if (begVar == 0 || s[begVar-1] != '\\')
-        {
-            // Find end of first occurrence
-            string::size_type endVar = begVar;
-            string::size_type delim = 0;
-
-            if (s[begVar+1] == '{')
-            {
-                endVar = s.find('}', begVar);
-                delim = 1;
-            }
-            else
-            {
-                string::iterator iter = s.begin() + begVar + 1;
-
-                // more generous in accepting keywords than for env variables
-                while
-                (
-                    iter != s.end()
-                 &&
-                    (
-                        isalnum(*iter)
-                     || *iter == '.'
-                     || *iter == ':'
-                     || *iter == '_'
-                    )
-                )
-                {
-                    ++iter;
-                    ++endVar;
-                }
-            }
-
-            if (endVar == string::npos)
-            {
-                // likely parsed '${...' without closing '}' - abort
-                break;
-            }
-            else if (endVar == begVar)
-            {
-                // parsed '${}' or $badChar  - skip over
-                begVar = endVar + 1;
-            }
-            else
-            {
-                const word varName
-                (
-                    s.substr
-                    (
-                        begVar + 1 + delim,
-                        endVar - begVar - 2*delim
-                    ),
-                    false
-                );
-
-
-                // lookup in the dictionary
-                const entry* ePtr = dict.lookupScopedEntryPtr
-                (
-                    varName,
-                    true,
-                    false   // wildcards disabled. See primitiveEntry
-                );
-
-                // if defined - copy its entries
-                if (ePtr)
-                {
-                    OStringStream buf;
-                    // Force floating point numbers to be printed with at least
-                    // some decimal digits.
-                    buf << scientific;
-                    buf.precision(IOstream::defaultPrecision());
-                    if (ePtr->isDict())
-                    {
-                        ePtr->dict().write(buf, false);
-                    }
-                    else
-                    {
-                        // fail for other types
-                        dynamicCast<const primitiveEntry>
-                        (
-                            *ePtr
-                        ).write(buf, true);
-                    }
-
-                    s.std::string::replace
-                    (
-                        begVar,
-                        endVar - begVar + 1,
-                        buf.str()
-                    );
-                    begVar += buf.str().size();
-                }
-                else
-                {
-                    // not defined - leave original string untouched
-                    begVar = endVar + 1;
-                }
-            }
-        }
-        else
-        {
-            ++begVar;
-        }
-    }
-
-    return s;
-}
-
-
-Foam::string Foam::stringOps::expand
-(
-    const string& original,
-    const bool allowEmpty
-)
-{
-    string s(original);
-    return inplaceExpand(s, allowEmpty);
-}
-
-
-Foam::string& Foam::stringOps::inplaceExpand
-(
-    string& s,
-    const bool allowEmpty
-)
-{
-    string::size_type begVar = 0;
-
-    // Expand $VARS
-    // Repeat until nothing more is found
-    while
-    (
-        (begVar = s.find('$', begVar)) != string::npos
-     && begVar < s.size()-1
-    )
-    {
-        if (begVar == 0 || s[begVar-1] != '\\')
-        {
-            // Find end of first occurrence
-            string::size_type endVar = begVar;
-            string::size_type delim = 0;
-
-            // The type/position of the ":-" or ":+" alternative values
-            int altType = 0;
-            string::size_type altPos = string::npos;
-
-            if (s[begVar+1] == '{')
-            {
-                endVar = s.find('}', begVar);
-                delim = 1;
-
-                // check for ${parameter:-word} or ${parameter:+word}
-                if (endVar != string::npos)
-                {
-                    altPos = begVar;
-                    altType = findParameterAlternative(s, altPos, endVar);
-                }
-            }
-            else
-            {
-                string::iterator iter = s.begin() + begVar + 1;
-
-                while
-                (
-                    iter != s.end()
-                 && (isalnum(*iter) || *iter == '_')
-                )
-                {
-                    ++iter;
-                    ++endVar;
-                }
-            }
-
-
-            if (endVar == string::npos)
-            {
-                // likely parsed '${...' without closing '}' - abort
-                break;
-            }
-            else if (endVar == begVar)
-            {
-                // parsed '${}' or $badChar  - skip over
-                begVar = endVar + 1;
-            }
-            else
-            {
-                const word varName
-                (
-                    s.substr
-                    (
-                        begVar + 1 + delim,
-                        (
-                            (altPos == string::npos ? endVar : altPos)
-                          - begVar - 2*delim
-                        )
-                    ),
-                    false
-                );
-
-                std::string altValue;
-                if (altPos != string::npos)
-                {
-                    // had ":-" or ":+" alternative value
-                    altValue = s.substr
-                    (
-                        altPos + 2,
-                        endVar - altPos - 2*delim
-                    );
-                }
-
-                const string varValue = getEnv(varName);
-                if (varValue.size())
-                {
-                    if (altPos != string::npos && altType == '+')
-                    {
-                        // was found, use ":+" alternative
-                        s.std::string::replace
-                        (
-                            begVar,
-                            endVar - begVar + 1,
-                            altValue
-                        );
-                        begVar += altValue.size();
-                    }
-                    else
-                    {
-                        // was found, use value
-                        s.std::string::replace
-                        (
-                            begVar,
-                            endVar - begVar + 1,
-                            varValue
-                        );
-                        begVar += varValue.size();
-                    }
-                }
-                else if (altPos != string::npos)
-                {
-                    // use ":-" or ":+" alternative values
-                    if (altType == '-')
-                    {
-                        // was not found, use ":-" alternative
-                        s.std::string::replace
-                        (
-                            begVar,
-                            endVar - begVar + 1,
-                            altValue
-                        );
-                        begVar += altValue.size();
-                    }
-                    else
-                    {
-                        // was not found, ":+" alternative implies
-                        // substitute with nothing
-                        s.std::string::erase(begVar, endVar - begVar + 1);
-                    }
-                }
-                else if (allowEmpty)
-                {
-                    s.std::string::erase(begVar, endVar - begVar + 1);
-                }
-                else
-                {
-                    FatalErrorInFunction
-                        << "Unknown variable name '" << varName << "'"
-                        << exit(FatalError);
-                }
-            }
-        }
-        else
-        {
-            ++begVar;
-        }
-    }
-
-    if (!s.empty())
-    {
-        if (s[0] == '~')
-        {
-            // Expand initial ~
-            //   ~/        => home directory
-            //   ~OpenFOAM => site/user OpenFOAM configuration directory
-            //   ~user     => home directory for specified user
-
-            string user;
-            fileName file;
-
-            if ((begVar = s.find('/')) != string::npos)
-            {
-                user = s.substr(1, begVar - 1);
-                file = s.substr(begVar + 1);
-            }
-            else
-            {
-                user = s.substr(1);
-            }
-
-            // NB: be a bit lazy and expand ~unknownUser as an
-            // empty string rather than leaving it untouched.
-            // otherwise add extra test
-            if (user == "OpenFOAM")
-            {
-                s = findEtcFile(file);
-            }
-            else
-            {
-                s = home(user)/file;
-            }
-        }
-        else if (s[0] == '.')
-        {
-            // Expand a lone '.' and an initial './' into cwd
-            if (s.size() == 1)
-            {
-                s = cwd();
-            }
-            else if (s[1] == '/')
-            {
-                s.std::string::replace(0, 1, cwd());
-            }
-        }
-    }
-
-    return s;
+    return inplaceExpandPath(s);
 }
 
 
@@ -888,7 +912,7 @@ Foam::string Foam::stringOps::trimRight(const string& s)
     if (!s.empty())
     {
         string::size_type sz = s.size();
-        while (sz && isspace(s[sz-1]))
+        while (sz && isspace(s[sz - 1]))
         {
             --sz;
         }
@@ -908,7 +932,7 @@ Foam::string& Foam::stringOps::inplaceTrimRight(string& s)
     if (!s.empty())
     {
         string::size_type sz = s.size();
-        while (sz && isspace(s[sz-1]))
+        while (sz && isspace(s[sz - 1]))
         {
             --sz;
         }
@@ -932,6 +956,70 @@ Foam::string& Foam::stringOps::inplaceTrim(string& s)
     inplaceTrimLeft(s);
 
     return s;
+}
+
+
+Foam::string Foam::stringOps::breakIntoIndentedLines
+(
+    const string& message,
+    const string::size_type nLength,
+    const string::size_type nIndent
+)
+{
+    const string indent(nIndent, token::SPACE);
+
+    string result;
+
+    word::size_type i0 = 0, i1 = 0;
+    while (true)
+    {
+        const word::size_type iNewLine =
+            message.find_first_of(token::NL, i1);
+        const word::size_type iSpace =
+            message.find_first_of(token::SPACE, i1);
+
+        // New line next
+        if
+        (
+            iNewLine != string::npos
+         && (iSpace == string::npos || iNewLine < iSpace)
+        )
+        {
+            result += indent + message.substr(i0, iNewLine - i0) + '\n';
+            i0 = i1 = iNewLine + 1;
+        }
+
+        // Space next
+        else if (iSpace != string::npos)
+        {
+            if (iSpace - i0 > nLength - nIndent)
+            {
+                result += indent + message.substr(i0, i1 - i0) + '\n';
+                i0 = i1;
+            }
+            else
+            {
+                i1 = iSpace + 1;
+            }
+        }
+
+        // End of string next
+        else
+        {
+            if (message.size() - i0 > nLength - nIndent)
+            {
+                result += indent + message.substr(i0, i1 - i0) + '\n';
+                i0 = i1;
+            }
+            else
+            {
+                result += indent + message.substr(i0);
+                break;
+            }
+        }
+    }
+
+    return result;
 }
 
 

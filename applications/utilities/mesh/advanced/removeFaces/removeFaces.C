@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -50,6 +50,8 @@ using namespace Foam;
 int main(int argc, char *argv[])
 {
     #include "addOverwriteOption.H"
+    #include "addRegionOption.H"
+    #include "addMeshOption.H"
     argList::validArgs.append("faceSet");
     argList::addBoolOption
     (
@@ -57,15 +59,13 @@ int main(int argc, char *argv[])
         "do not update fields"
     );
 
-
     #include "setRootCase.H"
-    #include "createTime.H"
-    runTime.functionObjects().off();
+    #include "createTimeNoFunctionObjects.H"
 
     const bool overwrite = args.optionFound("overwrite");
     const bool fields = !args.optionFound("noFields");
 
-    #include "createMesh.H"
+    #include "createSpecifiedMeshNoChangers.H"
     const word oldInstance = mesh.pointsInstance();
 
     const word setName = args[1];
@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
     // Read faces
     faceSet candidateSet(mesh, setName);
 
-    Pout<< "Read " << candidateSet.size() << " faces to remove" << nl
+    Info<< "Read " << candidateSet.size() << " faces to remove" << nl
         << endl;
 
 
@@ -98,11 +98,11 @@ int main(int argc, char *argv[])
     {
         faceSet compatibleRemoves(mesh, "compatibleRemoves", facesToRemove);
 
-        Pout<< "Original faces to be removed:" << candidateSet.size() << nl
+        Info<< "Original faces to be removed:" << candidateSet.size() << nl
             << "New faces to be removed:" << compatibleRemoves.size() << nl
             << endl;
 
-        Pout<< "Writing new faces to be removed to faceSet "
+        Info<< "Writing new faces to be removed to faceSet "
             << compatibleRemoves.instance()
               /compatibleRemoves.local()
               /compatibleRemoves.name()
@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
 
 
     // Read objects in time directory
-    IOobjectList objects(mesh, runTime.timeName());
+    IOobjectList objects(mesh, runTime.name());
 
     if (fields) Info<< "Reading geometric fields" << nl << endl;
 
@@ -136,18 +136,12 @@ int main(int argc, char *argv[])
         meshMod
     );
 
-    autoPtr<mapPolyMesh> morphMap = meshMod.changeMesh(mesh, false);
+    autoPtr<polyTopoChangeMap> map = meshMod.changeMesh(mesh);
 
-    mesh.updateMesh(morphMap);
-
-    // Move mesh (since morphing does not do this)
-    if (morphMap().hasMotionPoints())
-    {
-        mesh.movePoints(morphMap().preMotionPoints());
-    }
+    mesh.topoChange(map);
 
     // Update numbering of cells/vertices.
-    faceRemover.updateMesh(morphMap);
+    faceRemover.topoChange(map);
 
     if (!overwrite)
     {
@@ -159,10 +153,10 @@ int main(int argc, char *argv[])
     }
 
     // Take over refinement levels and write to new time directory.
-    Pout<< "Writing mesh to time " << runTime.timeName() << endl;
+    Info<< "Writing mesh to time " << runTime.name() << endl;
     mesh.write();
 
-    Pout<< "End\n" << endl;
+    Info<< "End\n" << endl;
 
     return 0;
 }

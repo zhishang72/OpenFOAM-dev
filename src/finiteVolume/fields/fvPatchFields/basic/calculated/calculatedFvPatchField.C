@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,7 +24,25 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "calculatedFvPatchField.H"
-#include "fvPatchFieldMapper.H"
+#include "fieldMapper.H"
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+namespace Foam
+{
+    template<class Type>
+    Type calculatedFvPatchFieldNaN()
+    {
+        return pTraits<Type>::nan;
+    }
+
+    template<>
+    inline label calculatedFvPatchFieldNaN<label>()
+    {
+        return -labelMax;
+    }
+}
+
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -67,22 +85,17 @@ Foam::calculatedFvPatchField<Type>::calculatedFvPatchField
     const calculatedFvPatchField<Type>& ptf,
     const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
-    const fvPatchFieldMapper& mapper,
+    const fieldMapper& mapper,
     const bool mappingRequired
 )
 :
-    fvPatchField<Type>(ptf, p, iF, mapper, mappingRequired)
-{}
-
-
-template<class Type>
-Foam::calculatedFvPatchField<Type>::calculatedFvPatchField
-(
-    const calculatedFvPatchField<Type>& ptf
-)
-:
-    fvPatchField<Type>(ptf)
-{}
+    fvPatchField<Type>(ptf, p, iF, mapper, false)
+{
+    if (mappingRequired)
+    {
+        mapper(*this, ptf, calculatedFvPatchFieldNaN<Type>());
+    }
+}
 
 
 template<class Type>
@@ -140,6 +153,17 @@ Foam::tmp<Foam::fvPatchField<Type>> Foam::fvPatchField<Type>::NewCalculatedType
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+
+template<class Type>
+void Foam::calculatedFvPatchField<Type>::map
+(
+    const fvPatchField<Type>& ptf,
+    const fieldMapper& mapper
+)
+{
+    mapper(*this, ptf, calculatedFvPatchFieldNaN<Type>());
+}
+
 
 template<class Type>
 Foam::tmp<Foam::Field<Type>>

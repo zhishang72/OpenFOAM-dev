@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -23,6 +23,9 @@ License
 
 \*---------------------------------------------------------------------------*/
 
+#include "ArrheniusReactionRate.H"
+#include "physicoChemicalConstants.H"
+
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 inline Foam::ArrheniusReactionRate::ArrheniusReactionRate
@@ -32,8 +35,8 @@ inline Foam::ArrheniusReactionRate::ArrheniusReactionRate
     const scalar Ta
 )
 :
-    A_(A),
     beta_(beta),
+    A_(A),
     Ta_(Ta)
 {}
 
@@ -41,16 +44,31 @@ inline Foam::ArrheniusReactionRate::ArrheniusReactionRate
 inline Foam::ArrheniusReactionRate::ArrheniusReactionRate
 (
     const speciesTable&,
+    const dimensionSet& dims,
     const dictionary& dict
 )
 :
-    A_(dict.lookup<scalar>("A")),
-    beta_(dict.lookup<scalar>("beta")),
-    Ta_(dict.lookup<scalar>("Ta"))
+    beta_(dict.lookup<scalar>("beta", dimless)),
+    A_(dict.lookup<scalar>("A", dims/pow(dimTemperature, beta_))),
+    Ta_
+    (
+        dict.found("Ta") || !dict.found("Ea")
+      ? dict.lookup<scalar>("Ta", dimTemperature)
+      : dict.lookup<scalar>("Ea", dimEnergy/dimMoles)
+       /constant::physicoChemical::RR.value()
+    )
 {}
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+
+inline void Foam::ArrheniusReactionRate::preEvaluate() const
+{}
+
+
+inline void Foam::ArrheniusReactionRate::postEvaluate() const
+{}
+
 
 inline Foam::scalar Foam::ArrheniusReactionRate::operator()
 (
@@ -100,33 +118,22 @@ inline Foam::scalar Foam::ArrheniusReactionRate::ddT
 }
 
 
-inline const Foam::List<Foam::Tuple2<Foam::label, Foam::scalar>>&
-Foam::ArrheniusReactionRate::beta() const
+inline bool Foam::ArrheniusReactionRate::hasDdc() const
 {
-    return NullObjectRef<List<Tuple2<label, scalar>>>();
+    return false;
 }
 
 
-inline void Foam::ArrheniusReactionRate::dcidc
+inline void Foam::ArrheniusReactionRate::ddc
 (
     const scalar p,
     const scalar T,
     const scalarField& c,
     const label li,
-    scalarField& dcidc
-) const
-{}
-
-
-inline Foam::scalar Foam::ArrheniusReactionRate::dcidT
-(
-    const scalar p,
-    const scalar T,
-    const scalarField& c,
-    const label li
+    scalarField& ddc
 ) const
 {
-    return 0;
+    ddc = 0;
 }
 
 

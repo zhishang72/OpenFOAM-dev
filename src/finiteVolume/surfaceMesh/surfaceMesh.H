@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -34,7 +34,6 @@ Description
 
 #include "GeoMesh.H"
 #include "fvMesh.H"
-#include "primitiveMesh.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -42,35 +41,54 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class surfaceMesh Declaration
+                         Class surfaceMesh Declaration
 \*---------------------------------------------------------------------------*/
 
 class surfaceMesh
 :
     public GeoMesh<fvMesh>
 {
-
 public:
 
-    explicit surfaceMesh(const fvMesh& mesh)
-    :
-        GeoMesh<fvMesh>(mesh)
-    {}
+    // Public typedefs
 
-    label size() const
-    {
-        return size(mesh_);
-    }
+        //- Patch field type
+        template<class Type>
+        using PatchField = fvsPatchField<Type>;
 
-    static label size(const Mesh& mesh)
-    {
-        return mesh.nInternalFaces();
-    }
+        //- Field source type
+        template<class Type>
+        using FieldSource = NoFieldSource<Type>;
 
-    const surfaceVectorField& C()
-    {
-        return mesh_.Cf();
-    }
+
+    // Constructors
+
+        //- Construct from fvMesh
+        explicit surfaceMesh(const fvMesh& mesh)
+        :
+            GeoMesh<fvMesh>(mesh)
+        {}
+
+
+    // Member Functions
+
+        //- Return size
+        label size() const
+        {
+            return size(mesh_);
+        }
+
+        //- Return size
+        static label size(const Mesh& mesh)
+        {
+            return mesh.nInternalFaces();
+        }
+
+        //- Return face centres
+        const surfaceVectorField& C()
+        {
+            return mesh_.Cf();
+        }
 };
 
 

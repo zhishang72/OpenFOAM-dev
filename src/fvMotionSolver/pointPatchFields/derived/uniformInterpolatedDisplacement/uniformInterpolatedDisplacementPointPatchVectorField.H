@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -84,13 +84,6 @@ public:
 
     // Constructors
 
-        //- Construct from patch and internal field
-        uniformInterpolatedDisplacementPointPatchVectorField
-        (
-            const pointPatch&,
-            const DimensionedField<vector, pointMesh>&
-        );
-
         //- Construct from patch, internal field and dictionary
         uniformInterpolatedDisplacementPointPatchVectorField
         (
@@ -105,20 +98,8 @@ public:
             const uniformInterpolatedDisplacementPointPatchVectorField&,
             const pointPatch&,
             const DimensionedField<vector, pointMesh>&,
-            const pointPatchFieldMapper&
+            const fieldMapper&
         );
-
-        //- Construct and return a clone
-        virtual autoPtr<pointPatchField<vector>> clone() const
-        {
-            return autoPtr<pointPatchField<vector>>
-            (
-                new uniformInterpolatedDisplacementPointPatchVectorField
-                (
-                    *this
-                )
-            );
-        }
 
         //- Construct as copy setting internal field reference
         uniformInterpolatedDisplacementPointPatchVectorField

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,12 +24,24 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "zoneCombustion.H"
+#include "addToRunTimeSelectionTable.H"
+
+// * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
+
+namespace Foam
+{
+namespace combustionModels
+{
+    defineTypeNameAndDebug(zoneCombustion, 0);
+    addToRunTimeSelectionTable(combustionModel, zoneCombustion, dictionary);
+}
+}
+
 
 // * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * * //
 
-template<class ReactionThermo>
 Foam::tmp<Foam::fvScalarMatrix>
-Foam::combustionModels::zoneCombustion<ReactionThermo>::filter
+Foam::combustionModels::zoneCombustion::filter
 (
     const tmp<fvScalarMatrix>& tR
 ) const
@@ -72,11 +84,11 @@ Foam::combustionModels::zoneCombustion<ReactionThermo>::filter
 }
 
 
-template<class ReactionThermo>
-Foam::tmp<Foam::volScalarField>
-Foam::combustionModels::zoneCombustion<ReactionThermo>::filter
+template<class GeoField>
+inline Foam::tmp<GeoField>
+Foam::combustionModels::zoneCombustion::filter
 (
-    const tmp<volScalarField>& tS
+    const tmp<GeoField>& tS
 ) const
 {
     scalarField& S = tS.ref();
@@ -100,16 +112,15 @@ Foam::combustionModels::zoneCombustion<ReactionThermo>::filter
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
-template<class ReactionThermo>
-Foam::combustionModels::zoneCombustion<ReactionThermo>::zoneCombustion
+Foam::combustionModels::zoneCombustion::zoneCombustion
 (
     const word& modelType,
-    const ReactionThermo& thermo,
-    const compressibleTurbulenceModel& turb,
+    const fluidMulticomponentThermo& thermo,
+    const compressibleMomentumTransportModel& turb,
     const word& combustionProperties
 )
 :
-    CombustionModel<ReactionThermo>
+    combustionModel
     (
         modelType,
         thermo,
@@ -118,7 +129,7 @@ Foam::combustionModels::zoneCombustion<ReactionThermo>::zoneCombustion
     ),
     combustionModelPtr_
     (
-        CombustionModel<ReactionThermo>::New
+        combustionModel::New
         (
             thermo,
             turb,
@@ -131,51 +142,42 @@ Foam::combustionModels::zoneCombustion<ReactionThermo>::zoneCombustion
 
 // * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
 
-template<class ReactionThermo>
-Foam::combustionModels::zoneCombustion<ReactionThermo>::~zoneCombustion()
+Foam::combustionModels::zoneCombustion::~zoneCombustion()
 {}
 
 
 // * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * * //
 
-template<class ReactionThermo>
-const ReactionThermo&
-Foam::combustionModels::zoneCombustion<ReactionThermo>::thermo() const
-{
-    return combustionModelPtr_->thermo();
-}
-
-
-template<class ReactionThermo>
-void Foam::combustionModels::zoneCombustion<ReactionThermo>::correct()
+void Foam::combustionModels::zoneCombustion::correct()
 {
     combustionModelPtr_->correct();
 }
 
 
-template<class ReactionThermo>
+Foam::tmp<Foam::volScalarField::Internal>
+Foam::combustionModels::zoneCombustion::R(const label speciei) const
+{
+    return filter(combustionModelPtr_->R(speciei));
+}
+
+
 Foam::tmp<Foam::fvScalarMatrix>
-Foam::combustionModels::zoneCombustion<ReactionThermo>::R
-(
-    volScalarField& Y
-) const
+Foam::combustionModels::zoneCombustion::R(volScalarField& Y) const
 {
     return filter(combustionModelPtr_->R(Y));
 }
 
 
-template<class ReactionThermo>
 Foam::tmp<Foam::volScalarField>
-Foam::combustionModels::zoneCombustion<ReactionThermo>::Qdot() const
+Foam::combustionModels::zoneCombustion::Qdot() const
 {
     return filter(combustionModelPtr_->Qdot());
 }
 
 
-template<class ReactionThermo>
-bool Foam::combustionModels::zoneCombustion<ReactionThermo>::read()
+bool Foam::combustionModels::zoneCombustion::read()
 {
-    if (CombustionModel<ReactionThermo>::read())
+    if (combustionModel::read())
     {
         combustionModelPtr_->read();
         return true;

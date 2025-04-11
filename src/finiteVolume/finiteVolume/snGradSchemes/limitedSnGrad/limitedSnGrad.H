@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -61,7 +61,7 @@ namespace fv
 {
 
 /*---------------------------------------------------------------------------*\
-                 Class limitedSnGrad Declaration
+                        Class limitedSnGrad Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -116,30 +116,10 @@ public:
     // Constructors
 
         //- Construct from mesh
-        limitedSnGrad(const fvMesh& mesh)
-        :
-            snGradScheme<Type>(mesh),
-            correctedScheme_(new correctedSnGrad<Type>(this->mesh())),
-            limitCoeff_(1)
-        {}
-
+        limitedSnGrad(const fvMesh& mesh);
 
         //- Construct from mesh and data stream
-        limitedSnGrad(const fvMesh& mesh, Istream& schemeData)
-        :
-            snGradScheme<Type>(mesh),
-            correctedScheme_(lookupCorrectedScheme(schemeData))
-        {
-            if (limitCoeff_ < 0 || limitCoeff_ > 1)
-            {
-                FatalIOErrorInFunction
-                (
-                    schemeData
-                )   << "limitCoeff is specified as " << limitCoeff_
-                    << " but should be >= 0 && <= 1"
-                    << exit(FatalIOError);
-            }
-        }
+        limitedSnGrad(const fvMesh& mesh, Istream& schemeData);
 
 
     //- Destructor
@@ -151,11 +131,8 @@ public:
         //- Return the interpolation weighting factors for the given field
         virtual tmp<surfaceScalarField> deltaCoeffs
         (
-            const GeometricField<Type, fvPatchField, volMesh>&
-        ) const
-        {
-            return this->mesh().nonOrthDeltaCoeffs();
-        }
+            const VolField<Type>&
+        ) const;
 
         //- Return true if this scheme uses an explicit correction
         virtual bool corrected() const
@@ -165,8 +142,8 @@ public:
 
         //- Return the explicit correction to the limitedSnGrad
         //  for the given field
-        virtual tmp<GeometricField<Type, fvsPatchField, surfaceMesh>>
-        correction(const GeometricField<Type, fvPatchField, volMesh>&) const;
+        virtual tmp<SurfaceField<Type>>
+        correction(const VolField<Type>&) const;
 
 
     // Member Operators

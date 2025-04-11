@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ Class
     Foam::clippedLinear
 
 Description
-    Central-differencing interpolation scheme using clipped-weights to
+    Centred interpolation interpolation scheme using clipped-weights to
     improve stability on meshes with very rapid variations in cell size.
 
 SourceFiles
@@ -45,7 +45,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class clippedLinear Declaration
+                        Class clippedLinear Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -121,7 +121,7 @@ public:
         //- Return the interpolation weighting factors
         tmp<surfaceScalarField> weights
         (
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         ) const
         {
             const fvMesh& mesh = this->mesh();

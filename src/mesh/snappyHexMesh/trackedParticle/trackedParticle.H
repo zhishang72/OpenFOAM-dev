@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -37,15 +37,13 @@ SourceFiles
 #define trackedParticle_H
 
 #include "particle.H"
+#include "Cloud.H"
 #include "autoPtr.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
 {
-
-class trackedParticleCloud;
-
 
 // Forward declaration of friend functions and operators
 
@@ -55,7 +53,7 @@ Ostream& operator<<(Ostream&, const trackedParticle&);
 
 
 /*---------------------------------------------------------------------------*\
-                     Class trackedParticle Declaration
+                       Class trackedParticle Declaration
 \*---------------------------------------------------------------------------*/
 
 class trackedParticle
@@ -85,7 +83,7 @@ class trackedParticle
 
 public:
 
-    friend class Cloud<trackedParticle>;
+    friend class lagrangian::Cloud<trackedParticle>;
 
     //- Class used to pass tracking data to the trackToFace function
     class trackingData
@@ -93,6 +91,8 @@ public:
         public particle::trackingData
     {
     public:
+
+        const scalar maxTrackLen_;
 
         labelList& maxLevel_;
 
@@ -103,36 +103,22 @@ public:
 
             trackingData
             (
-                Cloud<trackedParticle>& cloud,
+                lagrangian::Cloud<trackedParticle>& cloud,
+                const scalar maxTrackLen,
                 labelList& maxLevel,
                 List<PackedBoolList>& featureEdgeVisited
             )
             :
                 particle::trackingData(cloud),
+                maxTrackLen_(maxTrackLen),
                 maxLevel_(maxLevel),
                 featureEdgeVisited_(featureEdgeVisited)
             {}
-
     };
 
 
 
     // Constructors
-
-        //- Construct from components
-        trackedParticle
-        (
-            const polyMesh& mesh,
-            const barycentric& coordinates,
-            const label celli,
-            const label tetFacei,
-            const label tetPtI,
-            const point& end,
-            const label level,
-            const label i,
-            const label j,
-            const label k
-        );
 
         //- Construct from a position and a cell, searching for the rest of the
         //  required topology
@@ -141,6 +127,7 @@ public:
             const polyMesh& mesh,
             const vector& position,
             const label celli,
+            label& nLocateBoundaryHits,
             const point& end,
             const label level,
             const label i,
@@ -149,12 +136,7 @@ public:
         );
 
         //- Construct from Istream
-        trackedParticle
-        (
-            const polyMesh& mesh,
-            Istream& is,
-            bool readFields = true
-        );
+        trackedParticle(Istream& is, bool readFields = true);
 
         //- Construct and return a clone
         autoPtr<particle> clone() const
@@ -162,27 +144,11 @@ public:
             return autoPtr<particle>(new trackedParticle(*this));
         }
 
-        //- Factory class to read-construct particles used for
-        //  parallel transfer
-        class iNew
+        //- Construct from Istream and return
+        static autoPtr<trackedParticle> New(Istream& is)
         {
-            const polyMesh& mesh_;
-
-        public:
-
-            iNew(const polyMesh& mesh)
-            :
-                mesh_(mesh)
-            {}
-
-            autoPtr<trackedParticle> operator()(Istream& is) const
-            {
-                return autoPtr<trackedParticle>
-                (
-                    new trackedParticle(mesh_, is, true)
-                );
-            }
-        };
+            return autoPtr<trackedParticle>(new trackedParticle(is));
+        }
 
 
     // Member Functions
@@ -240,64 +206,52 @@ public:
         // Tracking
 
             //- Track all particles to their end point
-            bool move(Cloud<trackedParticle>&, trackingData&, const scalar);
-
-            //- Overridable function to handle the particle hitting a patch
-            //  Executed before other patch-hitting functions
-            bool hitPatch(Cloud<trackedParticle>&, trackingData&);
+            bool move(lagrangian::Cloud<trackedParticle>&, trackingData&);
 
             //- Overridable function to handle the particle hitting a wedge
-            void hitWedgePatch(Cloud<trackedParticle>&, trackingData&);
+            void hitWedgePatch
+            (
+                lagrangian::Cloud<trackedParticle>&,
+                trackingData&
+            );
 
             //- Overridable function to handle the particle hitting a
             //  symmetry plane
-            void hitSymmetryPlanePatch(Cloud<trackedParticle>&, trackingData&);
+            void hitSymmetryPlanePatch
+            (
+                lagrangian::Cloud<trackedParticle>&,
+                trackingData&
+            );
 
             //- Overridable function to handle the particle hitting a
             //  symmetry patch
-            void hitSymmetryPatch(Cloud<trackedParticle>&, trackingData&);
+            void hitSymmetryPatch
+            (
+                lagrangian::Cloud<trackedParticle>&,
+                trackingData&
+            );
 
             //- Overridable function to handle the particle hitting a cyclic
-            void hitCyclicPatch(Cloud<trackedParticle>&, trackingData&);
-
-            //- Overridable function to handle the particle hitting a cyclicAMI
-            void hitCyclicAMIPatch
+            void hitCyclicPatch
             (
-                const vector&,
-                const scalar,
-                Cloud<trackedParticle>&,
+                lagrangian::Cloud<trackedParticle>&,
                 trackingData&
             );
-
-            //- Overridable function to handle the particle hitting a cyclicACMI
-            void hitCyclicACMIPatch
-            (
-                const vector&,
-                const scalar,
-                Cloud<trackedParticle>&,
-                trackingData&
-            );
-
-            //- Overridable function to handle the particle hitting a
-            //  cyclicRepeatAMI
-            void hitCyclicRepeatAMIPatch
-            (
-                const vector&,
-                const scalar,
-                Cloud<trackedParticle>&,
-                trackingData&
-            );
-
-            //- Overridable function to handle the particle hitting a
-            //- processorPatch
-            void hitProcessorPatch(Cloud<trackedParticle>&, trackingData&);
 
             //- Overridable function to handle the particle hitting a wallPatch
-            void hitWallPatch(Cloud<trackedParticle>&, trackingData&);
+            void hitWallPatch
+            (
+                lagrangian::Cloud<trackedParticle>&,
+                trackingData&
+            );
 
-            //- Convert processor patch addressing to the global equivalents
-            //  and set the celli to the face-neighbour
-            void correctAfterParallelTransfer(const label, trackingData&);
+            //- Do corrections to the particle and tracking data following a
+            //  transfer between processors
+            void correctAfterParallelTransfer
+            (
+                lagrangian::Cloud<trackedParticle>&,
+                trackingData&
+            );
 
 
     // Ostream Operator
@@ -311,12 +265,6 @@ inline bool contiguous<trackedParticle>()
 {
     return true;
 }
-
-//template<>
-//void Cloud<trackedParticle>::readFields();
-//
-//template<>
-//void Cloud<trackedParticle>::writeFields() const;
 
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

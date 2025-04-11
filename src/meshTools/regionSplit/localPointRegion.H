@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -59,10 +59,10 @@ namespace Foam
 class primitiveMesh;
 class polyMesh;
 class face;
-class mapPolyMesh;
+class polyTopoChangeMap;
 
 /*---------------------------------------------------------------------------*\
-                           Class localPointRegion Declaration
+                      Class localPointRegion Declaration
 \*---------------------------------------------------------------------------*/
 
 class localPointRegion
@@ -190,7 +190,7 @@ public:
         // Edit
 
             //- Force recalculation of locally stored data on topological change
-            void updateMesh(const mapPolyMesh&);
+            void topoChange(const polyTopoChangeMap&);
 };
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -100,10 +100,11 @@ public:
         template<class AnyType, class AnyHash>
         HashSet(const HashTable<AnyType, Key, AnyHash>&);
 
+        //- Construct from an initialiser list
+        HashSet(std::initializer_list<Key>);
+
 
     // Member Functions
-
-        // Edit
 
         //- Insert a new entry
         bool insert(const Key& key)
@@ -114,6 +115,10 @@ public:
         //- Insert keys from a UList of Key
         //  Return the number of new elements inserted
         label insert(const UList<Key>&);
+
+        //- Insert keys from a HashSet of Key
+        //  Return the number of new elements inserted
+        label insert(const HashSet<Key, Hash>&);
 
         //- Same as insert (cannot overwrite nil content)
         bool set(const Key& key)

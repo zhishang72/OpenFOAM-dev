@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -68,7 +68,7 @@ namespace sampledSets
 {
 
 /*---------------------------------------------------------------------------*\
-                          Class circleRandom Declaration
+                        Class circleRandom Declaration
 \*---------------------------------------------------------------------------*/
 
 class circleRandom
@@ -95,15 +95,14 @@ class circleRandom
         //- Samples all points in sampleCoords
         void calcSamples
         (
-            DynamicList<point>& samplingPts,
-            DynamicList<label>& samplingCells,
-            DynamicList<label>& samplingFaces,
+            DynamicList<point>& samplingPositions,
             DynamicList<label>& samplingSegments,
-            DynamicList<scalar>& samplingCurveDist
+            DynamicList<label>& samplingCells,
+            DynamicList<label>& samplingFaces
         ) const;
 
         //- Uses calcSamples to obtain samples. Copies them into *this.
-        void genSamples();
+        virtual void genSamples();
 
 
 public:
@@ -124,9 +123,8 @@ public:
         );
 
 
-    // Destructor
-
-        virtual ~circleRandom();
+    //- Destructor
+    virtual ~circleRandom();
 };
 
 

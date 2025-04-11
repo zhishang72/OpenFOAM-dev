@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -40,7 +40,7 @@ Description
     to create cell zones and faces zones (similar to
     fluentMeshWithInternalFaces).
 
-    A use of the cell zone information, is for field initialization with the
+    A use of the cell zone information, is for field initialisation with the
     "setFields" utility. see the classes:  topoSetSource, zoneToCell.
 
 \*---------------------------------------------------------------------------*/
@@ -51,7 +51,7 @@ Description
 #include "polyMesh.H"
 #include "IFstream.H"
 #include "cellModeller.H"
-#include "repatchPolyTopoChanger.H"
+#include "repatcher.H"
 #include "cellSet.H"
 #include "faceSet.H"
 
@@ -264,7 +264,7 @@ scalar readMeshFormat(IFstream& inFile)
 
     inFile.getLine(line);
     IStringStream tagStr(line);
-    word tag(tagStr);
+    variable tag(tagStr);
 
     if (tag != "$EndMeshFormat")
     {
@@ -319,7 +319,7 @@ void readPoints(IFstream& inFile, pointField& points, Map<label>& mshToFoam)
 
     inFile.getLine(line);
     IStringStream tagStr(line);
-    word tag(tagStr);
+    variable tag(tagStr);
 
     if (tag != "$ENDNOD" && tag != "$EndNodes")
     {
@@ -392,7 +392,7 @@ void readPhysNames(IFstream& inFile, Map<word>& physicalNames)
 
     inFile.getLine(line);
     IStringStream tagStr(line);
-    word tag(tagStr);
+    variable tag(tagStr);
 
     if (tag != "$EndPhysicalNames")
     {
@@ -695,7 +695,7 @@ void readCells
 
     inFile.getLine(line);
     IStringStream tagStr(line);
-    word tag(tagStr);
+    variable tag(tagStr);
 
     if (tag != "$ENDELM" && tag != "$EndElements")
     {
@@ -761,9 +761,11 @@ int main(int argc, char *argv[])
         "retain raw orientation for prisms/hexs"
     );
 
+    #include "addMeshOption.H"
     #include "addRegionOption.H"
 
     #include "setRootCase.H"
+    #include "setMeshPath.H"
     #include "createTime.H"
 
     Foam::word regionName;
@@ -811,7 +813,7 @@ int main(int argc, char *argv[])
         inFile.getLine(line);
         IStringStream lineStr(line);
 
-        word tag(lineStr);
+        variable tag(lineStr);
 
         if (tag == "$MeshFormat")
         {
@@ -914,6 +916,7 @@ int main(int argc, char *argv[])
         (
             regionName,
             runTime.constant(),
+            meshPath,
             runTime
         ),
         move(points),
@@ -926,7 +929,7 @@ int main(int argc, char *argv[])
         boundaryPatchPhysicalTypes
     );
 
-    repatchPolyTopoChanger repatcher(mesh);
+    repatcher repatcher(mesh);
 
     // Now use the patchFaces to patch up the outside faces of the mesh.
 
@@ -1045,7 +1048,6 @@ int main(int argc, char *argv[])
                 (
                     zoneName,
                     zoneCells[zoneI],
-                    nValidCellZones,
                     mesh.cellZones()
                 );
                 nValidCellZones++;
@@ -1085,7 +1087,6 @@ int main(int argc, char *argv[])
                     zoneName,
                     zoneFaces[zoneI],
                     boolList(zoneFaces[zoneI].size(), true),
-                    nValidFaceZones,
                     mesh.faceZones()
                 );
                 nValidFaceZones++;
@@ -1099,7 +1100,7 @@ int main(int argc, char *argv[])
     }
 
     // Remove empty defaultFaces
-    label defaultPatchID = mesh.boundaryMesh().findPatchID(defaultFacesName);
+    label defaultPatchID = mesh.boundaryMesh().findIndex(defaultFacesName);
     if (mesh.boundaryMesh()[defaultPatchID].size() == 0)
     {
         List<polyPatch*> newPatchPtrList((mesh.boundaryMesh().size() - 1));

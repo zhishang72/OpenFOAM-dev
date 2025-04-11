@@ -7,7 +7,6 @@
 \*---------------------------------------------------------------------------*/
 FoamFile
 {
-    version     2.0;
     format      ascii;
     class       volScalarField;
     object      p;
@@ -27,9 +26,9 @@ boundaryField
 
     atmosphere
     {
-        type            totalPressure;
-        gamma           1.4;
+        type            entrainmentPressure;
         p0              uniform 0;
+        value           uniform 0;
     }
 
     #includeEtc "caseDicts/setConstraintTypes"

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,7 +44,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                            Class ode Declaration
+                             Class ode Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class ChemistryModel>
@@ -53,8 +53,6 @@ class ode
     public chemistrySolver<ChemistryModel>
 {
     // Private Data
-
-        dictionary coeffsDict_;
 
         mutable autoPtr<ODESolver> odeSolver_;
 
@@ -71,7 +69,7 @@ public:
     // Constructors
 
         //- Construct from thermo
-        ode(const typename ChemistryModel::reactionThermo& thermo);
+        ode(const fluidMulticomponentThermo& thermo);
 
 
     //- Destructor

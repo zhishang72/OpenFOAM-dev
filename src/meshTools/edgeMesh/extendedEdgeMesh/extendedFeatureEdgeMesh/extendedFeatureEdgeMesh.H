@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -47,7 +47,7 @@ namespace Foam
 class objectRegistry;
 
 /*---------------------------------------------------------------------------*\
-                       Class extendedFeatureEdgeMesh Declaration
+                   Class extendedFeatureEdgeMesh Declaration
 \*---------------------------------------------------------------------------*/
 
 class extendedFeatureEdgeMesh
@@ -140,22 +140,15 @@ public:
         {
             return true;
         }
-
-        //- Return complete path + object name if the file exists
-        //  either in the case/processor or case otherwise null
-        virtual fileName filePath() const
-        {
-            return globalFilePath(type());
-        }
 };
 
 
-//- Template function for obtaining global status
+//- Trait for obtaining global status
 template<>
-inline bool typeGlobal<extendedFeatureEdgeMesh>()
+struct typeGlobal<extendedFeatureEdgeMesh>
 {
-    return true;
-}
+    static const bool global = true;
+};
 
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

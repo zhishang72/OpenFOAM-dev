@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -26,6 +26,7 @@ License
 #include "volFieldValue.H"
 #include "fvMesh.H"
 #include "volFields.H"
+#include "writeFile.H"
 #include "addToRunTimeSelectionTable.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
@@ -48,28 +49,26 @@ const char*
 Foam::NamedEnum
 <
     Foam::functionObjects::fieldValues::volFieldValue::operationType,
-    13
+    11
 >::names[] =
 {
     "none",
     "sum",
-    "weightedSum",
     "sumMag",
     "average",
-    "weightedAverage",
     "volAverage",
-    "weightedVolAverage",
     "volIntegrate",
-    "weightedVolIntegrate",
     "min",
     "max",
+    "minMag",
+    "maxMag",
     "CoV"
 };
 
 const Foam::NamedEnum
 <
     Foam::functionObjects::fieldValues::volFieldValue::operationType,
-    13
+    11
 > Foam::functionObjects::fieldValues::volFieldValue::operationTypeNames_;
 
 
@@ -80,12 +79,70 @@ void Foam::functionObjects::fieldValues::volFieldValue::initialise
     const dictionary& dict
 )
 {
-    if (dict.readIfPresent("weightField", weightFieldName_))
+    dict.readIfPresent<Switch>("writeLocation", writeLocation_);
+
+    if (dict.readIfPresent("weightFields", weightFieldNames_))
     {
-        Info<< "    weight field = " << weightFieldName_;
+        Info<< name() << " " << operationTypeNames_[operation_]
+            << " weight fields " << weightFieldNames_;
+    }
+    else if (dict.found("weightField"))
+    {
+        weightFieldNames_.setSize(1);
+        dict.lookup("weightField") >> weightFieldNames_[0];
+
+        Info<< name() << " " << operationTypeNames_[operation_]
+            << " weight field " << weightFieldNames_[0];
+    }
+
+    if (dict.readIfPresent("scaleFactor", scaleFactor_))
+    {
+        Info<< "    scale factor = " << scaleFactor_ << nl;
     }
 
     Info<< nl << endl;
+}
+
+
+template<class Type>
+void Foam::functionObjects::fieldValues::volFieldValue::
+writeFileHeaderLocation()
+{
+    switch (operation_)
+    {
+        case operationType::minMag:
+        case operationType::maxMag:
+            file() << tab << "location" << tab << "cell";
+            if (Pstream::parRun())
+            {
+                file() << tab << "processor";
+            }
+            break;
+        default:
+            break;
+    }
+}
+
+
+template<>
+void Foam::functionObjects::fieldValues::volFieldValue::
+writeFileHeaderLocation<Foam::scalar>()
+{
+    switch (operation_)
+    {
+        case operationType::min:
+        case operationType::max:
+        case operationType::minMag:
+        case operationType::maxMag:
+            file() << tab << "location" << tab << "cell";
+            if (Pstream::parRun())
+            {
+                file() << tab << "processor";
+            }
+            break;
+        default:
+            break;
+    }
 }
 
 
@@ -94,18 +151,73 @@ void Foam::functionObjects::fieldValues::volFieldValue::writeFileHeader
     const label i
 )
 {
-    volRegion::writeFileHeader(*this, file());
+    fvCellSet::writeFileHeader(*this, file());
 
     writeCommented(file(), "Time");
 
     forAll(fields_, fieldi)
     {
-        file()
-            << tab << operationTypeNames_[operation_]
-            << "(" << fields_[fieldi] << ")";
+        file() << tab << operationTypeNames_[operation_] << "(";
+
+        forAll(weightFieldNames_, i)
+        {
+            file() << weightFieldNames_[i] << ',';
+        }
+
+        file() << fields_[fieldi] << ")";
+
+        if (writeLocation_)
+        {
+            #define writeFileHeaderLocationFieldType(fieldType, none)          \
+                if (validField<fieldType>(fields_[fieldi]))                    \
+                {                                                              \
+                    writeFileHeaderLocation<fieldType>();                      \
+                }
+            FOR_ALL_FIELD_TYPES(writeFileHeaderLocationFieldType)
+            #undef writeHeaderLocationFieldType
+        }
     }
 
     file() << endl;
+}
+
+
+bool Foam::functionObjects::fieldValues::volFieldValue::processValues
+(
+    const Field<scalar>& values,
+    const scalarField& weights,
+    const scalarField& V,
+    Result<scalar>& result
+) const
+{
+    switch (operation_)
+    {
+        case operationType::min:
+        {
+            compareScalars(values, vGreat, result, lessOp<scalar>());
+            return true;
+        }
+        case operationType::minMag:
+        {
+            compareScalars(mag(values), vGreat, result, lessOp<scalar>());
+            return true;
+        }
+        case operationType::max:
+        {
+            compareScalars(values, -vGreat, result, greaterOp<scalar>());
+            return true;
+        }
+        case operationType::maxMag:
+        {
+            compareScalars(mag(values), -vGreat, result, greaterOp<scalar>());
+            return true;
+        }
+        default:
+        {
+            // Fall through to same-type operations
+            return processValuesTypeType(values, weights, V, result);
+        }
+    }
 }
 
 
@@ -119,9 +231,10 @@ Foam::functionObjects::fieldValues::volFieldValue::volFieldValue
 )
 :
     fieldValue(name, runTime, dict, typeName),
-    volRegion(fieldValue::mesh_, dict),
+    fvCellSet(fieldValue::mesh_, dict),
+    writeLocation_(false),
     operation_(operationTypeNames_.read(dict.lookup("operation"))),
-    weightFieldName_("none")
+    scaleFactor_(1)
 {
     read(dict);
 }
@@ -135,9 +248,10 @@ Foam::functionObjects::fieldValues::volFieldValue::volFieldValue
 )
 :
     fieldValue(name, obr, dict, typeName),
-    volRegion(fieldValue::mesh_, dict),
+    fvCellSet(fieldValue::mesh_, dict),
+    writeLocation_(false),
     operation_(operationTypeNames_.read(dict.lookup("operation"))),
-    weightFieldName_("none")
+    scaleFactor_(1)
 {
     read(dict);
 }
@@ -167,38 +281,62 @@ bool Foam::functionObjects::fieldValues::volFieldValue::read
 
 bool Foam::functionObjects::fieldValues::volFieldValue::write()
 {
-    fieldValue::write();
+    // Look to see if any fields exist. Use the flag to suppress output later.
+    bool anyFields = false;
+    forAll(fields_, i)
+    {
+        #define validFieldType(fieldType, none)                          \
+            anyFields = anyFields || validField<fieldType>(fields_[i]);
+        FOR_ALL_FIELD_TYPES(validFieldType);
+        #undef validFieldType
+    }
+    if (!anyFields && fields_.size() > 1) // (error for 1 will happen below)
+    {
+        cannotFindObjects(fields_);
+    }
 
-    if (Pstream::master())
+    // Initialise the file, write the header, etc...
+    if (anyFields && operation_ != operationType::none)
+    {
+        fieldValue::write();
+    }
+
+    // Write the time
+    if (anyFields && operation_ != operationType::none && Pstream::master())
     {
         writeTime(file());
     }
 
+    // Construct the weight field and the volumes
+    scalarField weights(nCells(), 1);
+    forAll(weightFieldNames_, i)
+    {
+        weights *= getFieldValues<scalar>(weightFieldNames_[i]);
+    }
+    const scalarField V(filterField(fieldValue::mesh_.V()));
+
+    // Process the fields
     forAll(fields_, i)
     {
         const word& fieldName = fields_[i];
-        bool processed = false;
+        bool ok = false;
 
-        processed = processed || writeValues<scalar>(fieldName);
-        processed = processed || writeValues<vector>(fieldName);
-        processed = processed || writeValues<sphericalTensor>(fieldName);
-        processed = processed || writeValues<symmTensor>(fieldName);
-        processed = processed || writeValues<tensor>(fieldName);
+        #define writeValuesFieldType(fieldType, none)                          \
+            ok = ok || writeValues<fieldType>(fieldName, weights, V);
+        FOR_ALL_FIELD_TYPES(writeValuesFieldType)
+        #undef writeValuesFieldType
 
-        if (!processed)
+        if (!ok)
         {
-            WarningInFunction
-                << "Requested field " << fieldName
-                << " not found in database and not processed"
-                << endl;
+            cannotFindObject(fieldName);
         }
     }
 
-    if (Pstream::master())
+    // Finalise
+    if (anyFields && operation_ != operationType::none && Pstream::master())
     {
-        file()<< endl;
+        file() << endl;
     }
-
     Log << endl;
 
     return true;

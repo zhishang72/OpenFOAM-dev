@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -64,7 +64,6 @@ SourceFiles
 #define functionObjects_writeVTK_H
 
 #include "fvMeshFunctionObject.H"
-#include "wordReList.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -74,7 +73,7 @@ namespace functionObjects
 {
 
 /*---------------------------------------------------------------------------*\
-                   Class writeVTK Declaration
+                          Class writeVTK Declaration
 \*---------------------------------------------------------------------------*/
 
 class writeVTK
@@ -84,7 +83,7 @@ class writeVTK
     // Private Data
 
         //- Names of objects
-        wordReList objectNames_;
+        wordList objectNames_;
 
 
     // Private Member Functions
@@ -122,6 +121,9 @@ public:
         //- Read the writeVTK data
         virtual bool read(const dictionary&);
 
+        //- Return the list of fields required
+        virtual wordList fields() const;
+
         //- Execute, currently does nothing
         virtual bool execute();
 
@@ -140,12 +142,6 @@ public:
 
 } // End namespace functionObjects
 } // End namespace Foam
-
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-#ifdef NoRepository
-    #include "writeVTKTemplates.C"
-#endif
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

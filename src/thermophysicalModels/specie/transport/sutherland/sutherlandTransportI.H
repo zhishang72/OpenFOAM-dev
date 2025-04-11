@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -30,8 +30,10 @@ License
 template<class Thermo>
 inline void Foam::sutherlandTransport<Thermo>::calcCoeffs
 (
-    const scalar mu1, const scalar T1,
-    const scalar mu2, const scalar T2
+    const scalar mu1,
+    const scalar T1,
+    const scalar mu2,
+    const scalar T2
 )
 {
     scalar rootT1 = sqrt(T1);
@@ -64,8 +66,10 @@ template<class Thermo>
 inline Foam::sutherlandTransport<Thermo>::sutherlandTransport
 (
     const Thermo& t,
-    const scalar mu1, const scalar T1,
-    const scalar mu2, const scalar T2
+    const scalar mu1,
+    const scalar T1,
+    const scalar mu2,
+    const scalar T2
 )
 :
     Thermo(t)
@@ -98,20 +102,6 @@ Foam::sutherlandTransport<Thermo>::clone() const
 }
 
 
-template<class Thermo>
-inline Foam::autoPtr<Foam::sutherlandTransport<Thermo>>
-Foam::sutherlandTransport<Thermo>::New
-(
-    const dictionary& dict
-)
-{
-    return autoPtr<sutherlandTransport<Thermo>>
-    (
-        new sutherlandTransport<Thermo>(dict)
-    );
-}
-
-
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class Thermo>
@@ -134,18 +124,6 @@ inline Foam::scalar Foam::sutherlandTransport<Thermo>::kappa
 {
     scalar Cv_ = this->Cv(p, T);
     return mu(p, T)*Cv_*(1.32 + 1.77*this->R()/Cv_);
-}
-
-
-template<class Thermo>
-inline Foam::scalar Foam::sutherlandTransport<Thermo>::alphah
-(
-    const scalar p,
-    const scalar T
-) const
-{
-
-    return kappa(p, T)/this->Cp(p, T);
 }
 
 

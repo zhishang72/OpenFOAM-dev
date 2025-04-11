@@ -32,49 +32,63 @@ wmake $targetType triSurface
 wmake $targetType meshTools
 
 # Decomposition methods needed by dummyThirdParty
-# (dummy metisDecomp, scotchDecomp etc) needed by e.g. meshTools
+# (dummy metis, scotch etc) needed by e.g. meshTools
 dummyThirdParty/Allwmake $targetType $*
 
 wmake $targetType finiteVolume
-wmake $targetType lagrangian/basic
-wmake $targetType lagrangian/distributionModels
-wmake $targetType genericPatchFields
-
-wmake $targetType conversion
-wmake $targetType mesh/extrudeModel
-wmake $targetType dynamicMesh
-wmake $targetType sampling
-wmake $targetType dynamicFvMesh
-wmake $targetType topoChangerFvMesh
-
-# Compile scotchDecomp, metisDecomp etc.
-parallel/Allwmake $targetType $*
 
 wmake $targetType ODE
+wmake $targetType physicalProperties
+thermophysicalModels/Allwmake $targetType $*
+
+wmake $targetType tracking
+wmake $targetType lagrangian/basic
+wmake $targetType Lagrangian/Lagrangian
+
+generic/Allwmake $targetType $*
+
+wmake $targetType sampling
+wmake $targetType meshCheck
+
+wmake $targetType motionSolvers
+
+wmake $targetType mesh/extrudeModel
+wmake $targetType polyTopoChange
+
+wmake $targetType conversion
+
+parallel/Allwmake $targetType $*
+
+wmake $targetType fvMeshStitchers
+fvMeshMovers/Allwmake $targetType $*
+fvMeshTopoChangers/Allwmake $targetType $*
+wmake $targetType fvMeshDistributors
+
 wmake $targetType randomProcesses
 
-transportModels/Allwmake $targetType $*
-thermophysicalModels/Allwmake $targetType $*
-TurbulenceModels/Allwmake $targetType $*
+twoPhaseModels/Allwmake $targetType $*
+multiphaseModels/Allwmake $targetType $*
+MomentumTransportModels/Allwmake $targetType $*
+ThermophysicalTransportModels/Allwmake $targetType $*
 wmake $targetType radiationModels
 wmake $targetType combustionModels
-regionModels/Allwmake $targetType $*
-lagrangian/Allwmake $targetType $*
 mesh/Allwmake $targetType $*
 renumber/Allwmake $targetType $*
 fvAgglomerationMethods/Allwmake $targetType $*
-
 wmake $targetType fvMotionSolver
-wmake $targetType engine
-wmake $targetType fvOptions
 
+wmake $targetType fvConstraints
+
+fvModels/Allwmake $targetType $*
 functionObjects/Allwmake $targetType $*
 
-wmake $targetType sixDoFRigidBodyMotion
-wmake $targetType sixDoFRigidBodyState
-wmake $targetType rigidBodyDynamics
-wmake $targetType rigidBodyMeshMotion
-wmake $targetType rigidBodyState
+lagrangian/Allwmake $targetType $*
+Lagrangian/Allwmake $targetType $*
+rigidBodyMotion/Allwmake $targetType $*
+
+wmake $targetType fvModels/propellerDisk
+wmake $targetType fvModels/rigidBodyPropellerDisk
+
 wmake $targetType specieTransfer
 wmake $targetType atmosphericModels
 wmake $targetType waves

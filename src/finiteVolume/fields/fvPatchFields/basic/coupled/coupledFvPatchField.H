@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -93,18 +93,11 @@ public:
             const coupledFvPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, volMesh>&,
-            const fvPatchFieldMapper&,
-            const bool mappingRequired=true
+            const fieldMapper&
         );
 
-        //- Copy constructor
-        coupledFvPatchField
-        (
-            const coupledFvPatchField<Type>&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchField<Type>> clone() const = 0;
+        //- Disallow copy without setting internal field reference
+        coupledFvPatchField(const coupledFvPatchField<Type>&) = delete;
 
         //- Copy constructor setting internal field reference
         coupledFvPatchField
@@ -132,7 +125,17 @@ public:
             }
 
             //- Return neighbour field of internal field
-            virtual tmp<Field<Type>> patchNeighbourField() const = 0;
+            virtual tmp<Field<Type>> patchNeighbourField
+            (
+                const Pstream::commsTypes commsType =
+                    Pstream::commsTypes::blocking
+            ) const = 0;
+
+
+        // Mapping functions
+
+            //- Map the given fvPatchField onto this fvPatchField
+            virtual void map(const fvPatchField<Type>&, const fieldMapper&);
 
 
         // Evaluation functions
@@ -155,6 +158,9 @@ public:
             (
                 const Pstream::commsTypes commsType
             );
+
+            //- Evaluate the patch field, but don't update the coeffs
+            void evaluateNoUpdateCoeffs();
 
             //- Evaluate the patch field
             virtual void evaluate

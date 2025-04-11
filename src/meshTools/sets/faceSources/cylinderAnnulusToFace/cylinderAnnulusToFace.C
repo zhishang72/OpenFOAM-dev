@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -33,24 +33,14 @@ namespace Foam
 {
     defineTypeNameAndDebug(cylinderAnnulusToFace, 0);
     addToRunTimeSelectionTable(topoSetSource, cylinderAnnulusToFace, word);
-    addToRunTimeSelectionTable(topoSetSource, cylinderAnnulusToFace, istream);
 }
-
-
-Foam::topoSetSource::addToUsageTable Foam::cylinderAnnulusToFace::usage_
-(
-    cylinderAnnulusToFace::typeName,
-    "\n    Usage: cylinderAnnulusToFace (p1X p1Y p1Z) (p2X p2Y p2Z)"
-    " outerRadius innerRadius\n\n"
-    "    Select all faces with face centre within bounding cylinder annulus\n\n"
-);
 
 
 // * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
 
 void Foam::cylinderAnnulusToFace::combine(topoSet& set, const bool add) const
 {
-    const vector axis = p2_ - p1_;
+    const vector axis = point2_ - point1_;
     const scalar orad2 = sqr(outerRadius_);
     const scalar irad2 = sqr(innerRadius_);
     const scalar magAxis2 = magSqr(axis);
@@ -59,7 +49,7 @@ void Foam::cylinderAnnulusToFace::combine(topoSet& set, const bool add) const
 
     forAll(ctrs, facei)
     {
-        vector d = ctrs[facei] - p1_;
+        vector d = ctrs[facei] - point1_;
         scalar magD = d & axis;
 
         if ((magD > 0) && (magD < magAxis2))
@@ -79,15 +69,15 @@ void Foam::cylinderAnnulusToFace::combine(topoSet& set, const bool add) const
 Foam::cylinderAnnulusToFace::cylinderAnnulusToFace
 (
     const polyMesh& mesh,
-    const vector& p1,
-    const vector& p2,
+    const vector& point1,
+    const vector& point2,
     const scalar outerRadius,
     const scalar innerRadius
 )
 :
     topoSetSource(mesh),
-    p1_(p1),
-    p2_(p2),
+    point1_(point1),
+    point2_(point2),
     outerRadius_(outerRadius),
     innerRadius_(innerRadius)
 {}
@@ -100,24 +90,10 @@ Foam::cylinderAnnulusToFace::cylinderAnnulusToFace
 )
 :
     topoSetSource(mesh),
-    p1_(dict.lookup("p1")),
-    p2_(dict.lookup("p2")),
-    outerRadius_(dict.lookup<scalar>("outerRadius")),
-    innerRadius_(dict.lookup<scalar>("innerRadius"))
-{}
-
-
-Foam::cylinderAnnulusToFace::cylinderAnnulusToFace
-(
-    const polyMesh& mesh,
-    Istream& is
-)
-:
-    topoSetSource(mesh),
-    p1_(checkIs(is)),
-    p2_(checkIs(is)),
-    outerRadius_(readScalar(checkIs(is))),
-    innerRadius_(readScalar(checkIs(is)))
+    point1_(dict.lookupBackwardsCompatible<point>({"point1", "p1"}, dimLength)),
+    point2_(dict.lookupBackwardsCompatible<point>({"point2", "p2"}, dimLength)),
+    outerRadius_(dict.lookup<scalar>("outerRadius", dimLength)),
+    innerRadius_(dict.lookup<scalar>("innerRadius", dimLength))
 {}
 
 
@@ -138,19 +114,17 @@ void Foam::cylinderAnnulusToFace::applyToSet
     if ((action == topoSetSource::NEW) || (action == topoSetSource::ADD))
     {
         Info<< "    Adding faces with centre within cylinder annulus,"
-            << " with p1 = "
-            << p1_ << ", p2 = " << p2_ << " and outer radius = " << outerRadius_
-        << " and inner radius = " << innerRadius_
-        << endl;
+            << " with point1 = "
+            << point1_ << ", point2 = " << point2_ << " and outer radius = "
+            << outerRadius_ << " and inner radius = " << innerRadius_ << endl;
 
         combine(set, true);
     }
     else if (action == topoSetSource::DELETE)
     {
-        Info<< "    Removing faces with centre within cylinder, with p1 = "
-            << p1_ << ", p2 = " << p2_ << " and outer radius = " << outerRadius_
-        << " and inner radius " << innerRadius_
-        << endl;
+        Info<< "    Removing faces with centre within cylinder, with point1 = "
+            << point1_ << ", point2 = " << point2_ << " and outer radius = "
+            << outerRadius_ << " and inner radius " << innerRadius_ << endl;
 
         combine(set, false);
     }

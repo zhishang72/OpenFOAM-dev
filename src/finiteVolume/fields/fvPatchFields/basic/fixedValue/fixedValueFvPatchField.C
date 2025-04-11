@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ License
 
 #include "fixedValueFvPatchField.H"
 
-// * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class Type>
 Foam::fixedValueFvPatchField<Type>::fixedValueFvPatchField
@@ -57,31 +57,11 @@ Foam::fixedValueFvPatchField<Type>::fixedValueFvPatchField
     const fixedValueFvPatchField<Type>& ptf,
     const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
-    const fvPatchFieldMapper& mapper,
+    const fieldMapper& mapper,
     const bool mappingRequired
 )
 :
     fvPatchField<Type>(ptf, p, iF, mapper, mappingRequired)
-{
-    if (mappingRequired && notNull(iF) && mapper.hasUnmapped())
-    {
-        WarningInFunction
-            << "On field " << iF.name() << " patch " << p.name()
-            << " patchField " << this->type()
-            << " : mapper does not map all values." << nl
-            << "    To avoid this warning fully specify the mapping in derived"
-            << " patch fields." << endl;
-    }
-}
-
-
-template<class Type>
-Foam::fixedValueFvPatchField<Type>::fixedValueFvPatchField
-(
-    const fixedValueFvPatchField<Type>& ptf
-)
-:
-    fvPatchField<Type>(ptf)
 {}
 
 

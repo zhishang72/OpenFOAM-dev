@@ -7,7 +7,6 @@
 \*---------------------------------------------------------------------------*/
 FoamFile
 {
-    version     2.0;
     format      ascii;
     class       dictionary;
     object      collapseDict;
@@ -63,7 +62,7 @@ collapseEdgesCoeffs
 //controlMeshQualityCoeffs
 //{
 //    // Name of the dictionary that has the mesh quality coefficients used
-//    // by motionSmoother::checkMesh
+//    // by meshCheck::checkMesh
 //    #include                    "meshQualityDict";
 //
 //    // The amount that minimumEdgeLength will be reduced by for each

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2015-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2015-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -38,7 +38,7 @@ SourceFiles
 #include "dictionary.H"
 #include "HashSet.H"
 #include "volFieldsFwd.H"
-#include "mapPolyMesh.H"
+#include "polyTopoChangeMap.H"
 #include "fixedValueFvPatchFields.H"
 #include "zeroGradientFvPatchFields.H"
 #include "runTimeSelectionTables.H"
@@ -51,7 +51,7 @@ namespace Foam
 class fvMesh;
 
 /*---------------------------------------------------------------------------*\
-                          Class patchDistMethod Declaration
+                       Class patchDistMethod Declaration
 \*---------------------------------------------------------------------------*/
 
 class patchDistMethod
@@ -65,7 +65,7 @@ protected:
         const fvMesh& mesh_;
 
         //- Set of patch IDs
-        const labelHashSet patchIDs_;
+        const labelHashSet patchIndices_;
 
 
 public:
@@ -132,9 +132,9 @@ public:
     // Member Functions
 
         //- Return the patchIDs
-        const labelHashSet& patchIDs() const
+        const labelHashSet& patchIndices() const
         {
-            return patchIDs_;
+            return patchIndices_;
         }
 
         //- Update cached geometry when the mesh moves
@@ -144,7 +144,15 @@ public:
         }
 
         //- Update cached topology and geometry when the mesh changes
-        virtual void updateMesh(const mapPolyMesh&)
+        virtual void topoChange(const polyTopoChangeMap&)
+        {}
+
+        //- Update from another mesh using the given map
+        virtual void mapMesh(const polyMeshMap&)
+        {}
+
+        //- Redistribute or update using the given distribution map
+        virtual void distribute(const polyDistributionMap&)
         {}
 
         //- Correct the given distance-to-patch field

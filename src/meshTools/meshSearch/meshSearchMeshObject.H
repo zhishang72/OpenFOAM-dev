@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ Class
     Foam::meshSearchMeshObject
 
 Description
-    MeshObject wrapper around meshSearch(mesh).
+    DemandDrivenMeshObject wrapper around meshSearch(mesh).
 
 SourceFiles
 
@@ -34,7 +34,7 @@ SourceFiles
 #ifndef meshSearchMeshObject_H
 #define meshSearchMeshObject_H
 
-#include "MeshObject.H"
+#include "DemandDrivenMeshObject.H"
 #include "meshSearch.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -43,25 +43,39 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-              Class meshSearchMeshObject Declaration
+                    Class meshSearchMeshObject Declaration
 \*---------------------------------------------------------------------------*/
 
 class meshSearchMeshObject
 :
-    public MeshObject<polyMesh, GeometricMeshObject, meshSearchMeshObject>,
+    public DemandDrivenMeshObject
+    <
+        polyMesh,
+        DeletableMeshObject,
+        meshSearchMeshObject
+    >,
     public meshSearch
 {
+
+protected:
+
+    friend class DemandDrivenMeshObject
+    <
+        polyMesh,
+        DeletableMeshObject,
+        meshSearchMeshObject
+    >;
+
+    // Protected Constructors
+
+        //- Constructor from polyMesh
+        explicit meshSearchMeshObject(const polyMesh& mesh);
+
 
 public:
 
     // Declare name of the class and its debug switch
     TypeName("meshSearchMeshObject");
-
-
-    // Constructors
-
-        //- Constructor given polyMesh
-        explicit meshSearchMeshObject(const polyMesh& mesh);
 
     //- Destructor
     virtual ~meshSearchMeshObject()

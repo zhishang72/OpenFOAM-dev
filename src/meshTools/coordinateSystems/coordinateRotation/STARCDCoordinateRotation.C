@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,8 +24,7 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "STARCDCoordinateRotation.H"
-
-#include "mathematicalConstants.H"
+#include "unitConversions.H"
 #include "addToRunTimeSelectionTable.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
@@ -43,131 +42,20 @@ namespace Foam
     (
         coordinateRotation,
         STARCDCoordinateRotation,
-        objectRegistry
+        points
     );
 }
 
-
-// * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * * //
-
-Foam::vector Foam::STARCDCoordinateRotation::transform(const vector& st) const
-{
-    return (R_ & st);
-}
-
-
-Foam::vector Foam::STARCDCoordinateRotation::invTransform
-(
-    const vector& st
-) const
-{
-    return (Rtr_ & st);
-}
-
-
-Foam::tmp<Foam::vectorField> Foam::STARCDCoordinateRotation::transform
-(
-    const vectorField& st
-) const
-{
-    NotImplemented;
-    return tmp<vectorField>(nullptr);
-}
-
-
-Foam::tmp<Foam::vectorField> Foam::STARCDCoordinateRotation::invTransform
-(
-    const vectorField& st
-) const
-{
-    NotImplemented;
-    return tmp<vectorField>(nullptr);
-}
-
-
-const Foam::tensorField& Foam::STARCDCoordinateRotation::Tr() const
-{
-    NotImplemented;
-    return NullObjectRef<tensorField>();
-}
-
-
-Foam::tmp<Foam::tensorField> Foam::STARCDCoordinateRotation::transformTensor
-(
-    const tensorField& st
-) const
-{
-     NotImplemented;
-    return tmp<tensorField>(nullptr);
-}
-
-
-Foam::tensor Foam::STARCDCoordinateRotation::transformTensor
-(
-    const tensor& st
-) const
-{
-    return (R_ & st & Rtr_);
-}
-
-
-Foam::tmp<Foam::tensorField> Foam::STARCDCoordinateRotation::transformTensor
-(
-    const tensorField& st,
-    const labelList& cellMap
-) const
-{
-    NotImplemented;
-    return tmp<tensorField>(nullptr);
-}
-
-
-Foam::tmp<Foam::symmTensorField> Foam::STARCDCoordinateRotation::
-transformVector
-(
-    const vectorField& st
-) const
-{
-    tmp<symmTensorField> tfld(new symmTensorField(st.size()));
-    symmTensorField& fld = tfld.ref();
-
-    forAll(fld, i)
-    {
-        fld[i] = transformPrincipal(R_, st[i]);
-    }
-    return tfld;
-}
-
-
-Foam::symmTensor Foam::STARCDCoordinateRotation::transformVector
-(
-    const vector& st
-) const
-{
-    return transformPrincipal(R_, st);
-}
 
 // * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
 
 void Foam::STARCDCoordinateRotation::calcTransform
 (
-    const scalar rotZ,
-    const scalar rotX,
-    const scalar rotY,
-    const bool inDegrees
+    const scalar z,
+    const scalar x,
+    const scalar y
 )
 {
-    scalar x = rotX;
-    scalar y = rotY;
-    scalar z = rotZ;
-
-    if (inDegrees)
-    {
-        x *= constant::mathematical::pi/180.0;
-        y *= constant::mathematical::pi/180.0;
-        z *= constant::mathematical::pi/180.0;
-    }
-
     R_ =
     (
         tensor
@@ -192,47 +80,6 @@ void Foam::STARCDCoordinateRotation::calcTransform
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
-Foam::STARCDCoordinateRotation::STARCDCoordinateRotation()
-:
-    R_(sphericalTensor::I),
-    Rtr_(R_)
-{}
-
-
-Foam::STARCDCoordinateRotation::STARCDCoordinateRotation
-(
-    const vector& rotZrotXrotY,
-    const bool inDegrees
-)
-:
-    R_(sphericalTensor::I),
-    Rtr_(R_)
-{
-    calcTransform
-    (
-        rotZrotXrotY.component(vector::X),
-        rotZrotXrotY.component(vector::Y),
-        rotZrotXrotY.component(vector::Z),
-        inDegrees
-    );
-}
-
-
-Foam::STARCDCoordinateRotation::STARCDCoordinateRotation
-(
-    const scalar rotZ,
-    const scalar rotX,
-    const scalar rotY,
-    const bool inDegrees
-)
-:
-    R_(sphericalTensor::I),
-    Rtr_(R_)
-{
-    calcTransform(rotZ, rotX, rotY, inDegrees);
-}
-
-
 Foam::STARCDCoordinateRotation::STARCDCoordinateRotation
 (
     const dictionary& dict
@@ -241,14 +88,22 @@ Foam::STARCDCoordinateRotation::STARCDCoordinateRotation
     R_(sphericalTensor::I),
     Rtr_(R_)
 {
-    vector rotation(dict.lookup("rotation"));
+    const vector rotation(dict.lookup<vector>("rotation", unitDegrees));
+
+    if (dict.found("degrees"))
+    {
+        FatalIOErrorInFunction(dict)
+            << "Angle units are no longer specified with a 'degrees' entry. "
+            << "Instead, the 'rotation' can have its units specified directly."
+            << " e.g., rotation (30 45 60) [deg]."
+            << exit(FatalIOError);
+    }
 
     calcTransform
     (
         rotation.component(vector::X),
         rotation.component(vector::Y),
-        rotation.component(vector::Z),
-        dict.lookupOrDefault("degrees", true)
+        rotation.component(vector::Z)
     );
 }
 
@@ -256,18 +111,91 @@ Foam::STARCDCoordinateRotation::STARCDCoordinateRotation
 Foam::STARCDCoordinateRotation::STARCDCoordinateRotation
 (
     const dictionary& dict,
-    const objectRegistry&
+    const UList<vector>& points
 )
-{
-    vector rotation(dict.lookup("rotation"));
+:
+    STARCDCoordinateRotation(dict)
+{}
 
-    calcTransform
-    (
-        rotation.component(vector::X),
-        rotation.component(vector::Y),
-        rotation.component(vector::Z),
-        dict.lookupOrDefault("degrees", true)
-    );
+
+// * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * * //
+
+Foam::vector Foam::STARCDCoordinateRotation::transform(const vector& v) const
+{
+    return (R_ & v);
+}
+
+
+Foam::vector Foam::STARCDCoordinateRotation::invTransform(const vector& v) const
+{
+    return (Rtr_ & v);
+}
+
+
+Foam::tmp<Foam::vectorField> Foam::STARCDCoordinateRotation::transform
+(
+    const vectorField& vf
+) const
+{
+    NotImplemented;
+    return tmp<vectorField>(nullptr);
+}
+
+
+Foam::tmp<Foam::vectorField> Foam::STARCDCoordinateRotation::invTransform
+(
+    const vectorField& vf
+) const
+{
+    NotImplemented;
+    return tmp<vectorField>(nullptr);
+}
+
+
+Foam::tmp<Foam::tensorField> Foam::STARCDCoordinateRotation::transform
+(
+    const tensorField& tf
+) const
+{
+    NotImplemented;
+    return tmp<tensorField>(nullptr);
+}
+
+
+Foam::tensor Foam::STARCDCoordinateRotation::transform
+(
+    const vector& p,
+    const tensor& t
+) const
+{
+    return (R_ & t & Rtr_);
+}
+
+
+Foam::tmp<Foam::symmTensorField> Foam::STARCDCoordinateRotation::
+transformDiagTensor
+(
+    const vectorField& vf
+) const
+{
+    tmp<symmTensorField> tfld(new symmTensorField(vf.size()));
+    symmTensorField& fld = tfld.ref();
+
+    forAll(fld, i)
+    {
+        fld[i] = transformVectorDiagTensor(R_, vf[i]);
+    }
+    return tfld;
+}
+
+
+Foam::symmTensor Foam::STARCDCoordinateRotation::transformDiagTensor
+(
+    const vector& p,
+    const vector& v
+) const
+{
+    return transformVectorDiagTensor(R_, v);
 }
 
 
@@ -278,4 +206,5 @@ void Foam::STARCDCoordinateRotation::write(Ostream& os) const
      writeEntry(os, "e3", e3());
 }
 
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// ************************************************************************* //

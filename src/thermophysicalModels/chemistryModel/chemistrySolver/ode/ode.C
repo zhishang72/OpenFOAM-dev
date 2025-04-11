@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -28,14 +28,10 @@ License
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class ChemistryModel>
-Foam::ode<ChemistryModel>::ode
-(
-    const typename ChemistryModel::reactionThermo& thermo
-)
+Foam::ode<ChemistryModel>::ode(const fluidMulticomponentThermo& thermo)
 :
     chemistrySolver<ChemistryModel>(thermo),
-    coeffsDict_(this->subDict("odeCoeffs")),
-    odeSolver_(ODESolver::New(*this, coeffsDict_)),
+    odeSolver_(ODESolver::New(*this, this->subDict("odeCoeffs"))),
     cTp_(this->nEqns())
 {}
 
@@ -76,6 +72,14 @@ void Foam::ode<ChemistryModel>::solve
     }
     cTp_[nSpecie] = T;
     cTp_[nSpecie+1] = p;
+
+    if (debug)
+    {
+        scalarField dcTp(this->nEqns(), rootSmall);
+        dcTp[nSpecie] = T*rootSmall;
+        dcTp[nSpecie+1] = p*rootSmall;
+        this->check(0, cTp_, dcTp, li);
+    }
 
     odeSolver_->solve(0, deltaT, cTp_, li, subDeltaT);
 

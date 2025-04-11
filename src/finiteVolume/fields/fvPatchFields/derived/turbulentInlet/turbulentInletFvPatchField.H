@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -73,7 +73,7 @@ SourceFiles
 #ifndef turbulentInletFvPatchField_H
 #define turbulentInletFvPatchField_H
 
-#include "Random.H"
+#include "randomGenerator.H"
 #include "fixedValueFvPatchFields.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -93,7 +93,7 @@ class turbulentInletFvPatchField
     // Private Data
 
         //- Random number generator
-        Random ranGen_;
+        randomGenerator ranGen_;
 
         //- Fluctuation scale
         Type fluctuationScale_;
@@ -116,13 +116,6 @@ public:
 
     // Constructors
 
-        //- Construct from patch and internal field
-        turbulentInletFvPatchField
-        (
-            const fvPatch&,
-            const DimensionedField<Type, volMesh>&
-        );
-
         //- Construct from patch, internal field and dictionary
         turbulentInletFvPatchField
         (
@@ -138,23 +131,14 @@ public:
             const turbulentInletFvPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         turbulentInletFvPatchField
         (
             const turbulentInletFvPatchField<Type>&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchField<Type>> clone() const
-        {
-            return tmp<fvPatchField<Type>>
-            (
-                new turbulentInletFvPatchField<Type>(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         turbulentInletFvPatchField
@@ -207,13 +191,12 @@ public:
 
         // Mapping functions
 
-            //- Map (and resize as needed) from self given a mapping object
-            //  Used to update fields following mesh topology change
-            virtual void autoMap(const fvPatchFieldMapper&);
+            //- Map the given fvPatchField onto this fvPatchField
+            virtual void map(const fvPatchField<Type>&, const fieldMapper&);
 
-            //- Reverse map the given fvPatchField onto this fvPatchField
-            //  Used to reconstruct fields
-            virtual void rmap(const fvPatchField<Type>&, const labelList&);
+            //- Reset the fvPatchField to the given fvPatchField
+            //  Used for mesh to mesh mapping
+            virtual void reset(const fvPatchField<Type>&);
 
 
         // Evaluation functions

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -66,7 +66,7 @@ Foam::wedgeFvsPatchField<Type>::wedgeFvsPatchField
     const wedgeFvsPatchField<Type>& ptf,
     const fvPatch& p,
     const DimensionedField<Type, surfaceMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     fvsPatchField<Type>(ptf, p, iF, mapper)
@@ -86,22 +86,22 @@ Foam::wedgeFvsPatchField<Type>::wedgeFvsPatchField
 template<class Type>
 Foam::wedgeFvsPatchField<Type>::wedgeFvsPatchField
 (
-    const wedgeFvsPatchField<Type>& ptf
-)
-:
-    fvsPatchField<Type>(ptf)
-{}
-
-
-template<class Type>
-Foam::wedgeFvsPatchField<Type>::wedgeFvsPatchField
-(
     const wedgeFvsPatchField<Type>& ptf,
     const DimensionedField<Type, surfaceMesh>& iF
 )
 :
     fvsPatchField<Type>(ptf, iF)
 {}
+
+
+// * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+
+template<class Type>
+void Foam::wedgeFvsPatchField<Type>::write(Ostream& os) const
+{
+    fvsPatchField<Type>::write(os);
+    writeEntry(os, "value", *this);
+}
 
 
 // ************************************************************************* //

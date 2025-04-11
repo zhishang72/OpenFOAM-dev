@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -40,38 +40,31 @@ void Foam::dynamicCodeContext::addLineDirective
 }
 
 
-// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
-
-Foam::dynamicCodeContext::dynamicCodeContext
+void Foam::dynamicCodeContext::read
 (
-    const dictionary& dict,
-    const wordList& codeKeys
+    const dictionary& contextDict,
+    const dictionary& codeDict
 )
-:
-    dict_(dict),
-    code_(),
-    options_(),
-    libs_()
 {
     // Expand all dictionary entries. Note that this removes any leading or
     // trailing whitespace, which is necessary for compilation options, and
     // doesn't hurt for everything else
-    List<const entry*> codePtrs(codeKeys.size(), nullptr);
-    forAll(codeKeys, i)
+    List<const entry*> codePtrs(codeKeys_.size(), nullptr);
+    code_.clear();
+    forAll(codeKeys_, i)
     {
-        const word& key = codeKeys[i];
-        codePtrs[i] = dict.lookupEntryPtr(key, false, false);
+        const word& key = codeKeys_[i];
+        codePtrs[i] = codeDict.lookupEntryPtr(key, false, false);
         if (codePtrs[i])
         {
-            code_.insert
+            codeStrings_[i] = verbatimString(codePtrs[i]->stream());
+            stringOps::inplaceExpandCodeString
             (
-                key,
-                stringOps::expand
-                (
-                    stringOps::trim(verbatimString(codePtrs[i]->stream())),
-                    dict
-                )
+                codeStrings_[i],
+                contextDict, // Lookup variables from the context dictionary
+                codeDictVars_[i]
             );
+            code_.insert(key, codeStrings_[i]);
         }
         else
         {
@@ -80,27 +73,32 @@ Foam::dynamicCodeContext::dynamicCodeContext
     }
 
     // Options
-    const entry* optionsPtr = dict.lookupEntryPtr("codeOptions", false, false);
+    const entry* optionsPtr =
+        codeDict.lookupEntryPtr("codeOptions", false, false);
     if (optionsPtr)
     {
-        options_ =
-            stringOps::expand
-            (
-                stringOps::trim(verbatimString(optionsPtr->stream())),
-                dict
-            );
+        optionsString_ = verbatimString(optionsPtr->stream());
+        stringOps::inplaceExpandCodeString
+        (
+            optionsString_,
+            contextDict,
+            word::null
+        );
+        options_ = stringOps::trim(optionsString_);
     }
 
     // Libs
-    const entry* libsPtr = dict.lookupEntryPtr("codeLibs", false, false);
+    const entry* libsPtr = codeDict.lookupEntryPtr("codeLibs", false, false);
     if (libsPtr)
     {
-        libs_ =
-            stringOps::expand
-            (
-                stringOps::trim(verbatimString(libsPtr->stream())),
-                dict
-            );
+        libsString_ = verbatimString(libsPtr->stream());
+        stringOps::inplaceExpandCodeString
+        (
+            libsString_,
+            contextDict,
+            word::null
+        );
+        libs_ = stringOps::trim(libsString_);
     }
 
     // Calculate SHA1 digest from all entries
@@ -112,20 +110,78 @@ Foam::dynamicCodeContext::dynamicCodeContext
     os << options_ << libs_;
     sha1_ = os.digest();
 
-    // Add line directive after calculating SHA1 since this includes
-    // "processor..." in the path which differs between cores
-    forAll(codeKeys, i)
+    // Add line directives after calculating SHA1
+    forAll(codeKeys_, i)
     {
         if (codePtrs[i])
         {
-            const word& key = codeKeys[i];
+            const word& key = codeKeys_[i];
             addLineDirective
             (
                 code_[key],
                 codePtrs[i]->startLineNumber(),
-                dict.name()
+                codeDict.name()
             );
         }
+    }
+}
+
+
+void Foam::dynamicCodeContext::read(const dictionary& contextDict)
+{
+    read(contextDict, contextDict);
+}
+
+
+// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
+
+Foam::dynamicCodeContext::dynamicCodeContext
+(
+    const dictionary& contextDict,
+    const dictionary& codeDict,
+    const wordList& codeKeys,
+    const wordList& codeDictVars
+)
+:
+    codeKeys_(codeKeys),
+    codeDictVars_(codeDictVars),
+    codeStrings_(codeKeys.size())
+{
+    read(contextDict, codeDict);
+}
+
+
+Foam::dynamicCodeContext::dynamicCodeContext
+(
+    const dictionary& contextDict,
+    const wordList& codeKeys,
+    const wordList& codeDictVars
+)
+:
+    dynamicCodeContext(contextDict, contextDict, codeKeys, codeDictVars)
+{}
+
+
+// * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+
+void Foam::dynamicCodeContext::write(Ostream& os) const
+{
+    forAll(codeStrings_, i)
+    {
+        if (codeStrings_[i] != verbatimString::null)
+        {
+            writeEntry(os, codeKeys_[i], codeStrings_[i]);
+        }
+    }
+
+    if (optionsString_ != verbatimString::null)
+    {
+        writeEntry(os, "codeOptions", optionsString_);
+    }
+
+    if (libsString_ != verbatimString::null)
+    {
+        writeEntry(os, "codeLibs", libsString_);
     }
 }
 

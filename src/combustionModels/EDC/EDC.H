@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -35,7 +35,7 @@ Description
     There are many versions and developments of the EDC model, 4 of which are
     currently supported in this implementation: v1981, v1996, v2005 and
     v2016.  The model variant is selected using the optional \c version entry in
-    the \c EDCCoeffs dictionary, \eg
+    the \c EDCCoeffs dictionary
 
     \verbatim
         EDCCoeffs
@@ -67,7 +67,7 @@ Description
             Changes coefficients exp1 = 3 and exp2 = 3
 
             Magnussen, B. (1981, January).
-            On the structure of turbulence and a generalized
+            On the structure of turbulence and a generalised
             eddy dissipation concept for chemical reaction in turbulent flow.
             In 19th Aerospace Sciences Meeting (p. 42).
 
@@ -76,7 +76,7 @@ Description
             Changes coefficients exp1 = 2 and exp2 = 3
 
             Gran, I. R., & Magnussen, B. F. (1996).
-            A numerical study of a bluff-body stabilized diffusion flame.
+            A numerical study of a bluff-body stabilised diffusion flame.
             Part 2. Influence of combustion modeling and finite-rate chemistry.
             Combustion Science and Technology, 119(1-6), 191-217.
 
@@ -99,7 +99,9 @@ SourceFiles
 #ifndef EDC_H
 #define EDC_H
 
-#include "../laminar/laminar.H"
+#include "autoPtr.H"
+#include "combustionModel.H"
+#include "basicChemistryModel.H"
 #include "NamedEnum.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -125,28 +127,47 @@ const scalar EDCexp1[] = {3, 2, 2, 2};
 const scalar EDCexp2[] = {3, 3, 2, 2};
 
 /*---------------------------------------------------------------------------*\
-                            Class EDC Declaration
+                             Class EDC Declaration
 \*---------------------------------------------------------------------------*/
 
-template<class ReactionThermo>
 class EDC
 :
-    public laminar<ReactionThermo>
+    public combustionModel
 {
     // Private Data
 
         //- The selected model version
         EDCversions version_;
 
+        //- Model constant
         scalar C1_;
+
+        //- Model constant
         scalar C2_;
+
+        //- Model constant
         scalar Cgamma_;
+
+        //- Model constant
         scalar Ctau_;
+
+        //- Model constant
         scalar exp1_;
+
+        //- Model constant
         scalar exp2_;
 
         //- Mixing parameter
         volScalarField kappa_;
+
+        //- Run chemistry correction on every outer iteration. Default true.
+        bool outerCorrect_;
+
+        //- The time index of the last correction
+        label timeIndex_;
+
+        //- Pointer to chemistry model
+        autoPtr<basicChemistryModel> chemistryPtr_;
 
 
 public:
@@ -161,13 +182,13 @@ public:
         EDC
         (
             const word& modelType,
-            const ReactionThermo& type,
-            const compressibleTurbulenceModel& turb,
+            const fluidMulticomponentThermo& type,
+            const compressibleMomentumTransportModel& turb,
             const word& combustionProperties
         );
 
         //- Disallow default bitwise copy construction
-        EDC(const EDC&);
+        EDC(const EDC&) = delete;
 
 
     //- Destructor
@@ -179,7 +200,10 @@ public:
         //- Correct combustion rate
         virtual void correct();
 
-        //- Fuel consumption rate matrix.
+        //- Specie consumption rate field
+        virtual tmp<volScalarField::Internal> R(const label speciei) const;
+
+        //- Specie consumption rate matrix
         virtual tmp<fvScalarMatrix> R(volScalarField& Y) const;
 
         //- Heat release rate [kg/m/s^3]
@@ -200,12 +224,6 @@ public:
 
 } // End namespace combustionModels
 } // End namespace Foam
-
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-#ifdef NoRepository
-    #include "EDC.C"
-#endif
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

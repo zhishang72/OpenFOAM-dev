@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -26,13 +26,33 @@ Class
 
 Description
     Simple extension of the perfect gas equation of state to liquids by
-    the addition of a constant density off-set.
+    the addition of a constant density off-set:
 
-    Coefficient mixing is very inaccurate and not supported,
-    so this equation of state is not applicable to mixtures.
+    \verbatim
+        rho = rho0 + p/(R*T)
+    \endverbatim
+
+    Coefficient mixing is very inaccurate and not supported, so this equation of
+    state is not applicable to mixtures.
 
     This equation of state is rather inaccurate and has been superseded by
     rPolynomial which is much more accurate and supports mixtures.
+
+Usage
+    \table
+        Property     | Description
+        rho0         | Reference density
+        R            | Fluid constant
+    \endtable
+
+    Example specification of the perfectFluid equation of state:
+    \verbatim
+    equationOfState
+    {
+        rho0        1000;
+        R           100;
+    }
+    \endverbatim
 
 SourceFiles
     perfectFluidI.H
@@ -84,7 +104,7 @@ Ostream& operator<<
 
 
 /*---------------------------------------------------------------------------*\
-                           Class perfectFluid Declaration
+                        Class perfectFluid Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Specie>
@@ -113,17 +133,14 @@ public:
             const scalar rho0
         );
 
-        //- Construct from dictionary
-        perfectFluid(const dictionary& dict);
+        //- Construct from name and dictionary
+        perfectFluid(const word& name, const dictionary& dict);
 
         //- Construct as named copy
         inline perfectFluid(const word& name, const perfectFluid&);
 
         //- Construct and return a clone
         inline autoPtr<perfectFluid> clone() const;
-
-        // Selector from dictionary
-        inline static autoPtr<perfectFluid> New(const dictionary& dict);
 
 
     // Member Functions
@@ -149,20 +166,23 @@ public:
             //- Return density [kg/m^3]
             inline scalar rho(scalar p, scalar T) const;
 
-            //- Return enthalpy departure [J/kg]
-            inline scalar H(const scalar p, const scalar T) const;
+            //- Return enthalpy contribution [J/kg]
+            inline scalar h(const scalar p, const scalar T) const;
 
-            //- Return Cp departure [J/(kg K]
+            //- Return Cp contribution [J/(kg K]
             inline scalar Cp(scalar p, scalar T) const;
 
-            //- Return internal energy departure [J/kg]
-            inline scalar E(const scalar p, const scalar T) const;
+            //- Return internal energy contribution [J/kg]
+            inline scalar e(const scalar p, const scalar T) const;
 
-            //- Return Cv departure [J/(kg K]
+            //- Return Cv contribution [J/(kg K]
             inline scalar Cv(scalar p, scalar T) const;
 
-            //- Return entropy [J/kg/K]
-            inline scalar S(const scalar p, const scalar T) const;
+            //- Return entropy contribution to the integral of Cp/T [J/kg/K]
+            inline scalar sp(const scalar p, const scalar T) const;
+
+            //- Return entropy contribution to the integral of Cv/T [J/kg/K]
+            inline scalar sv(const scalar p, const scalar T) const;
 
             //- Return compressibility [s^2/m^2]
             inline scalar psi(scalar p, scalar T) const;
@@ -172,6 +192,9 @@ public:
 
             //- Return (Cp - Cv) [J/(kg K]
             inline scalar CpMCv(scalar p, scalar T) const;
+
+            //- Return volumetric coefficient of thermal expansion [1/T]
+            inline scalar alphav(const scalar p, const scalar T) const;
 
 
         // IO

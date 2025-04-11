@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -50,7 +50,7 @@ class solidProperties;
 Ostream& operator<<(Ostream&, const solidProperties&);
 
 /*---------------------------------------------------------------------------*\
-                     Class solidProperties Declaration
+                       Class solidProperties Declaration
 \*---------------------------------------------------------------------------*/
 
 class solidProperties
@@ -67,7 +67,7 @@ class solidProperties
         scalar kappa_;
 
         //- Heat of formation [J/kg]
-        scalar Hf_;
+        scalar hf_;
 
         //- Emissivity
         scalar emissivity_;
@@ -108,7 +108,7 @@ public:
             scalar rho,
             scalar Cp,
             scalar kappa,
-            scalar Hf,
+            scalar hf,
             scalar emissivity
         );
 
@@ -146,14 +146,23 @@ public:
             //- Specific heat capacity [J/kg/K]
             inline scalar Cp() const;
 
+            //- Heat of formation [J/kg]
+            inline scalar hf() const;
+
+            //- Sensible enthalpy [J/kg]
+            inline scalar hs(const scalar T) const;
+
+            //- Absolute enthalpy [J/kg]
+            inline scalar ha(scalar T) const;
+
+            //- Sensible internal energy [J/kg]
+            inline scalar es(const scalar T) const;
+
+            //- Absolute internal energy [J/kg]
+            inline scalar ea(scalar T) const;
+
             //- Thermal conductivity [W/m/K]
             inline scalar kappa() const;
-
-            //- Heat of formation [J/kg]
-            inline scalar Hf() const;
-
-            //- Sensible enthalpy - reference to Tstd [J/kg]
-            inline scalar Hs(const scalar T) const;
 
             //- Emissivity []
             inline scalar emissivity() const;

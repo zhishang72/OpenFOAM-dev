@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -111,7 +111,7 @@ Foam::processorFvPatchField<Type>::processorFvPatchField
     const processorFvPatchField<Type>& ptf,
     const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     coupledFvPatchField<Type>(ptf, p, iF, mapper),
@@ -132,31 +132,6 @@ Foam::processorFvPatchField<Type>::processorFvPatchField
             << " in file " << this->internalField().objectPath()
             << exit(FatalIOError);
     }
-    if (debug && !ptf.ready())
-    {
-        FatalErrorInFunction
-            << "On patch " << procPatch_.name() << " outstanding request."
-            << abort(FatalError);
-    }
-}
-
-
-template<class Type>
-Foam::processorFvPatchField<Type>::processorFvPatchField
-(
-    const processorFvPatchField<Type>& ptf
-)
-:
-    processorLduInterfaceField(),
-    coupledFvPatchField<Type>(ptf),
-    procPatch_(refCast<const processorFvPatch>(ptf.patch())),
-    sendBuf_(move(ptf.sendBuf_)),
-    receiveBuf_(move(ptf.receiveBuf_)),
-    outstandingSendRequest_(-1),
-    outstandingRecvRequest_(-1),
-    scalarSendBuf_(move(ptf.scalarSendBuf_)),
-    scalarReceiveBuf_(move(ptf.scalarReceiveBuf_))
-{
     if (debug && !ptf.ready())
     {
         FatalErrorInFunction
@@ -202,7 +177,10 @@ Foam::processorFvPatchField<Type>::~processorFvPatchField()
 
 template<class Type>
 Foam::tmp<Foam::Field<Type>>
-Foam::processorFvPatchField<Type>::patchNeighbourField() const
+Foam::processorFvPatchField<Type>::patchNeighbourField
+(
+    const Pstream::commsTypes
+) const
 {
     if (debug && !this->ready())
     {
@@ -295,10 +273,7 @@ void Foam::processorFvPatchField<Type>::evaluate
             procPatch_.compressedReceive<Type>(commsType, *this);
         }
 
-        if (doTransform())
-        {
-            transform(*this, procPatch_.forwardT(), *this);
-        }
+        procPatch_.transform().transform(*this, *this);
     }
 }
 

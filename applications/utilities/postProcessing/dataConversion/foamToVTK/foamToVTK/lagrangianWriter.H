@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2020 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ Class
     Foam::lagrangianWriter
 
 Description
-    Write fields (internal).
+    Writes Lagrangian points and fields
 
 SourceFiles
     lagrangianWriter.C
@@ -36,13 +36,8 @@ SourceFiles
 #ifndef lagrangianWriter_H
 #define lagrangianWriter_H
 
-#include "OFstream.H"
-#include "Cloud.H"
-#include "volFields.H"
-#include "pointFields.H"
 #include "vtkMesh.H"
-
-using namespace Foam;
+#include <fstream>
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -52,7 +47,7 @@ namespace Foam
 class volPointInterpolation;
 
 /*---------------------------------------------------------------------------*\
-                           Class lagrangianWriter Declaration
+                      Class lagrangianWriter Declaration
 \*---------------------------------------------------------------------------*/
 
 class lagrangianWriter
@@ -87,12 +82,8 @@ public:
 
     // Member Functions
 
-        std::ofstream& os()
-        {
-            return os_;
-        }
-
-        void writeParcelHeader(const label nFields);
+        //- Write the fields header specifying the number of fields
+        void writeFieldsHeader(const label nFields);
 
         //- Write IOField
         template<class Type>
@@ -109,7 +100,6 @@ public:
 #ifdef NoRepository
     #include "lagrangianWriterTemplates.C"
 #endif
-
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

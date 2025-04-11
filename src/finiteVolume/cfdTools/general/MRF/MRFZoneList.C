@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -39,8 +39,6 @@ Foam::MRFZoneList::MRFZoneList
     mesh_(mesh)
 {
     reset(dict);
-
-    active(true);
 }
 
 
@@ -51,23 +49,6 @@ Foam::MRFZoneList::~MRFZoneList()
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
-
-bool Foam::MRFZoneList::active(const bool warn) const
-{
-    bool a = false;
-    forAll(*this, i)
-    {
-        a = a || this->operator[](i).active();
-    }
-
-    if (warn && this->size() && !a)
-    {
-        Info<< "    No MRF zones active" << endl;
-    }
-
-    return a;
-}
-
 
 void Foam::MRFZoneList::reset(const dictionary& dict)
 {
@@ -114,75 +95,28 @@ bool Foam::MRFZoneList::read(const dictionary& dict)
 }
 
 
-bool Foam::MRFZoneList::writeData(Ostream& os) const
-{
-    forAll(*this, i)
-    {
-        os  << nl;
-        this->operator[](i).writeData(os);
-    }
-
-    return os.good();
-}
-
-
-void Foam::MRFZoneList::addAcceleration
-(
-    const volVectorField& U,
-    volVectorField& ddtU
-) const
-{
-    forAll(*this, i)
-     {
-        operator[](i).addCoriolis(U, ddtU);
-    }
-}
-
-
-void Foam::MRFZoneList::addAcceleration(fvVectorMatrix& UEqn) const
-{
-    forAll(*this, i)
-    {
-        operator[](i).addCoriolis(UEqn);
-    }
-}
-
-
-void Foam::MRFZoneList::addAcceleration
-(
-    const volScalarField& rho,
-    fvVectorMatrix& UEqn
-) const
-{
-    forAll(*this, i)
-    {
-        operator[](i).addCoriolis(rho, UEqn);
-    }
-}
-
-
 Foam::tmp<Foam::volVectorField> Foam::MRFZoneList::DDt
 (
     const volVectorField& U
 ) const
 {
-    tmp<volVectorField> tacceleration
+    tmp<volVectorField> tDDt
     (
         volVectorField::New
         (
-            "MRFZoneList:acceleration",
+            "MRFZoneList:DDt",
             U.mesh(),
             dimensionedVector(U.dimensions()/dimTime, Zero)
         )
     );
-    volVectorField& acceleration = tacceleration.ref();
+    volVectorField& DDt = tDDt.ref();
 
     forAll(*this, i)
     {
-        operator[](i).addCoriolis(U, acceleration);
+        operator[](i).addCoriolis(U, DDt);
     }
 
-    return tacceleration;
+    return tDDt;
 }
 
 
@@ -194,6 +128,30 @@ Foam::tmp<Foam::volVectorField> Foam::MRFZoneList::DDt
 {
     return rho*DDt(U);
 }
+
+
+Foam::tmp<Foam::volVectorField>
+Foam::MRFZoneList::centrifugalAcceleration() const
+{
+    tmp<volVectorField> tcentrifugalAcceleration
+    (
+        volVectorField::New
+        (
+            "MRFZoneList:centrifugalAcceleration",
+            mesh_,
+            dimensionedVector(dimAcceleration, Zero)
+        )
+    );
+    volVectorField& centrifugalAcceleration = tcentrifugalAcceleration.ref();
+
+    forAll(*this, i)
+    {
+        operator[](i).addCentrifugalAcceleration(centrifugalAcceleration);
+    }
+
+    return tcentrifugalAcceleration;
+}
+
 
 
 void Foam::MRFZoneList::makeRelative(volVectorField& U) const
@@ -245,15 +203,15 @@ Foam::tmp<Foam::surfaceScalarField> Foam::MRFZoneList::relative
 }
 
 
-Foam::tmp<Foam::FieldField<Foam::fvsPatchField, Foam::scalar>>
+Foam::tmp<Foam::FieldField<Foam::surfaceMesh::PatchField, Foam::scalar>>
 Foam::MRFZoneList::relative
 (
-    const tmp<FieldField<fvsPatchField, scalar>>& tphi
+    const tmp<FieldField<surfaceMesh::PatchField, scalar>>& tphi
 ) const
 {
     if (size())
     {
-        tmp<FieldField<fvsPatchField, scalar>> rphi(New(tphi, true));
+        tmp<FieldField<surfaceMesh::PatchField, scalar>> rphi(New(tphi, true));
 
         forAll(*this, i)
         {
@@ -266,7 +224,7 @@ Foam::MRFZoneList::relative
     }
     else
     {
-        return tmp<FieldField<fvsPatchField, scalar>>(tphi, true);
+        return tmp<FieldField<surfaceMesh::PatchField, scalar>>(tphi, true);
     }
 }
 
@@ -373,64 +331,47 @@ void Foam::MRFZoneList::makeAbsolute
 }
 
 
-void Foam::MRFZoneList::correctBoundaryVelocity(volVectorField& U) const
-{
-    forAll(*this, i)
-    {
-        operator[](i).correctBoundaryVelocity(U);
-    }
-}
-
-
-void Foam::MRFZoneList::correctBoundaryFlux
+Foam::tmp<Foam::surfaceScalarField> Foam::MRFZoneList::absolute
 (
-    const volVectorField& U,
-    surfaceScalarField& phi
+    const tmp<surfaceScalarField>& tphi,
+    const volScalarField& rho
 ) const
 {
-    FieldField<fvsPatchField, scalar> Uf
-    (
-        relative(mesh_.Sf().boundaryField() & U.boundaryField())
-    );
-
-
-    surfaceScalarField::Boundary& phibf = phi.boundaryFieldRef();
-
-    forAll(mesh_.boundary(), patchi)
+    if (size())
     {
-        if
+        tmp<surfaceScalarField> rphi
         (
-            isA<fixedValueFvsPatchScalarField>(phibf[patchi])
-        )
-        {
-            phibf[patchi] == Uf[patchi];
-        }
+            New
+            (
+                tphi,
+                "absolute(" + tphi().name() + ')',
+                tphi().dimensions(),
+                true
+            )
+        );
+
+        makeAbsolute(fvc::interpolate(rho), rphi.ref());
+
+        tphi.clear();
+
+        return rphi;
+    }
+    else
+    {
+        return tmp<surfaceScalarField>(tphi, true);
     }
 }
 
 
 void Foam::MRFZoneList::update()
 {
-    if (mesh_.topoChanging())
+    if (mesh_.topoChanged())
     {
         forAll(*this, i)
         {
             operator[](i).update();
         }
     }
-}
-
-
-// * * * * * * * * * * * * * * * IOstream Operators  * * * * * * * * * * * * //
-
-Foam::Ostream& Foam::operator<<
-(
-    Ostream& os,
-    const MRFZoneList& models
-)
-{
-    models.writeData(os);
-    return os;
 }
 
 

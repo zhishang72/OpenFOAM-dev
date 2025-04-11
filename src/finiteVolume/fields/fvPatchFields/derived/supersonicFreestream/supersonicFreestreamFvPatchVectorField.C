@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,32 +25,10 @@ License
 
 #include "supersonicFreestreamFvPatchVectorField.H"
 #include "addToRunTimeSelectionTable.H"
-#include "fvPatchFieldMapper.H"
+#include "fieldMapper.H"
 #include "volFields.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
-
-Foam::supersonicFreestreamFvPatchVectorField::
-supersonicFreestreamFvPatchVectorField
-(
-    const fvPatch& p,
-    const DimensionedField<vector, volMesh>& iF
-)
-:
-    mixedFvPatchVectorField(p, iF),
-    TName_("T"),
-    pName_("p"),
-    psiName_("thermo:psi"),
-    UInf_(Zero),
-    pInf_(0),
-    TInf_(0),
-    gamma_(0)
-{
-    refValue() = patchInternalField();
-    refGrad() = Zero;
-    valueFraction() = 1;
-}
-
 
 Foam::supersonicFreestreamFvPatchVectorField::
 supersonicFreestreamFvPatchVectorField
@@ -60,20 +38,20 @@ supersonicFreestreamFvPatchVectorField
     const dictionary& dict
 )
 :
-    mixedFvPatchVectorField(p, iF),
+    mixedFvPatchVectorField(p, iF, dict, false),
     TName_(dict.lookupOrDefault<word>("T", "T")),
     pName_(dict.lookupOrDefault<word>("p", "p")),
-    psiName_(dict.lookupOrDefault<word>("psi", "thermo:psi")),
-    UInf_(dict.lookup("UInf")),
-    pInf_(dict.lookup<scalar>("pInf")),
-    TInf_(dict.lookup<scalar>("TInf")),
+    psiName_(dict.lookupOrDefault<word>("psi", "psi")),
+    UInf_(dict.lookup<vector>("UInf", dimVelocity)),
+    pInf_(dict.lookup<scalar>("pInf", dimPressure)),
+    TInf_(dict.lookup<scalar>("TInf", dimTemperature)),
     gamma_(dict.lookup<scalar>("gamma"))
 {
     if (dict.found("value"))
     {
         fvPatchField<vector>::operator=
         (
-            vectorField("value", dict, p.size())
+            vectorField("value", iF.dimensions(), dict, p.size())
         );
     }
     else
@@ -105,7 +83,7 @@ supersonicFreestreamFvPatchVectorField
     const supersonicFreestreamFvPatchVectorField& ptf,
     const fvPatch& p,
     const DimensionedField<vector, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     mixedFvPatchVectorField(ptf, p, iF, mapper),
@@ -116,23 +94,6 @@ supersonicFreestreamFvPatchVectorField
     pInf_(ptf.pInf_),
     TInf_(ptf.TInf_),
     gamma_(ptf.gamma_)
-{}
-
-
-Foam::supersonicFreestreamFvPatchVectorField::
-supersonicFreestreamFvPatchVectorField
-(
-    const supersonicFreestreamFvPatchVectorField& sfspvf
-)
-:
-    mixedFvPatchVectorField(sfspvf),
-    TName_(sfspvf.TName_),
-    pName_(sfspvf.pName_),
-    psiName_(sfspvf.psiName_),
-    UInf_(sfspvf.UInf_),
-    pInf_(sfspvf.pInf_),
-    TInf_(sfspvf.TInf_),
-    gamma_(sfspvf.gamma_)
 {}
 
 
@@ -297,7 +258,7 @@ void Foam::supersonicFreestreamFvPatchVectorField::write(Ostream& os) const
     fvPatchVectorField::write(os);
     writeEntryIfDifferent<word>(os, "T", "T", TName_);
     writeEntryIfDifferent<word>(os, "p", "p", pName_);
-    writeEntryIfDifferent<word>(os, "psi", "thermo:psi", psiName_);
+    writeEntryIfDifferent<word>(os, "psi", "psi", psiName_);
     writeEntry(os, "UInf", UInf_);
     writeEntry(os, "pInf", pInf_);
     writeEntry(os, "TInf", TInf_);

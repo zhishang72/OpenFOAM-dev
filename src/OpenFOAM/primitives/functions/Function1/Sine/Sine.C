@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,35 +25,23 @@ License
 
 #include "Sine.H"
 
-// * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
-
-template<class Type>
-void Foam::Function1s::Sine<Type>::read(const dictionary& coeffs)
-{
-    amplitude_ = Function1<Type>::New("amplitude", coeffs);
-    frequency_ = coeffs.lookup<scalar>("frequency");
-    start_ = coeffs.lookupOrDefault<scalar>("start", 0);
-    level_ = Function1<Type>::New("level", coeffs);
-
-    integrable_ =
-        isA<Constant<Type>>(amplitude_())
-     && isA<Constant<Type>>(level_());
-}
-
-
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class Type>
 Foam::Function1s::Sine<Type>::Sine
 (
-    const word& entryName,
+    const word& name,
+    const unitConversions& units,
     const dictionary& dict
 )
 :
-    FieldFunction1<Type, Sine<Type>>(entryName)
-{
-    read(dict);
-}
+    FieldFunction1<Type, Sine<Type>>(name),
+    amplitude_(Function1<Type>::New("amplitude", units, dict)),
+    constantAmplitude_(amplitude_->constant()),
+    frequency_(dict.lookup<scalar>("frequency", unitless/units.x)),
+    start_(dict.lookupOrDefault<scalar>("start", units.x, 0)),
+    level_(Function1<Type>::New("level", units, dict))
+{}
 
 
 template<class Type>
@@ -61,10 +49,10 @@ Foam::Function1s::Sine<Type>::Sine(const Sine<Type>& se)
 :
     FieldFunction1<Type, Sine<Type>>(se),
     amplitude_(se.amplitude_, false),
+    constantAmplitude_(amplitude_->constant()),
     frequency_(se.frequency_),
     start_(se.start_),
-    level_(se.level_, false),
-    integrable_(se.integrable_)
+    level_(se.level_, false)
 {}
 
 
@@ -78,17 +66,16 @@ Foam::Function1s::Sine<Type>::~Sine()
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class Type>
-void Foam::Function1s::Sine<Type>::writeData(Ostream& os) const
+void Foam::Function1s::Sine<Type>::write
+(
+    Ostream& os,
+    const unitConversions& units
+) const
 {
-    Function1<Type>::writeData(os);
-    os  << token::END_STATEMENT << nl;
-    os  << indent << word(this->name() + "Coeffs") << nl;
-    os  << indent << token::BEGIN_BLOCK << incrIndent << nl;
-    amplitude_->writeData(os);
-    writeEntry(os, "frequency", frequency_);
-    writeEntry(os, "start", start_);
-    level_->writeData(os);
-    os  << decrIndent << indent << token::END_BLOCK << endl;
+    writeEntry(os, units, amplitude_());
+    writeEntry(os, "frequency", unitless/units.x, frequency_);
+    writeEntry(os, "start", units.x, start_);
+    writeEntry(os, units, level_());
 }
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ License
 
 #include "icoPolynomial.H"
 
-// * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
+// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class Specie, int PolySize>
 inline Foam::icoPolynomial<Specie, PolySize>::icoPolynomial
@@ -38,8 +38,6 @@ inline Foam::icoPolynomial<Specie, PolySize>::icoPolynomial
     rhoCoeffs_(rhoCoeffs)
 {}
 
-
-// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class Specie, int PolySize>
 inline Foam::icoPolynomial<Specie, PolySize>::icoPolynomial
@@ -64,17 +62,6 @@ Foam::icoPolynomial<Specie, PolySize>::clone() const
 }
 
 
-template<class Specie, int PolySize>
-inline Foam::autoPtr<Foam::icoPolynomial<Specie, PolySize>>
-Foam::icoPolynomial<Specie, PolySize>::New(const dictionary& dict)
-{
-    return autoPtr<icoPolynomial<Specie, PolySize>>
-    (
-        new icoPolynomial<Specie, PolySize>(dict)
-    );
-}
-
-
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class Specie, int PolySize>
@@ -89,7 +76,7 @@ inline Foam::scalar Foam::icoPolynomial<Specie, PolySize>::rho
 
 
 template<class Specie, int PolySize>
-inline Foam::scalar Foam::icoPolynomial<Specie, PolySize>::H
+inline Foam::scalar Foam::icoPolynomial<Specie, PolySize>::h
 (
     scalar p,
     scalar T
@@ -111,7 +98,7 @@ inline Foam::scalar Foam::icoPolynomial<Specie, PolySize>::Cp
 
 
 template<class Specie, int PolySize>
-inline Foam::scalar Foam::icoPolynomial<Specie, PolySize>::E
+inline Foam::scalar Foam::icoPolynomial<Specie, PolySize>::e
 (
     scalar p,
     scalar T
@@ -133,7 +120,18 @@ inline Foam::scalar Foam::icoPolynomial<Specie, PolySize>::Cv
 
 
 template<class Specie, int PolySize>
-inline Foam::scalar Foam::icoPolynomial<Specie, PolySize>::S
+inline Foam::scalar Foam::icoPolynomial<Specie, PolySize>::sp
+(
+    scalar p,
+    scalar T
+) const
+{
+    return 0;
+}
+
+
+template<class Specie, int PolySize>
+inline Foam::scalar Foam::icoPolynomial<Specie, PolySize>::sv
 (
     scalar p,
     scalar T
@@ -161,7 +159,7 @@ inline Foam::scalar Foam::icoPolynomial<Specie, PolySize>::Z
     scalar T
 ) const
 {
-    return 0;
+    return p/(rho(p, T)*this->R()*T);
 }
 
 
@@ -176,6 +174,17 @@ inline Foam::scalar Foam::icoPolynomial<Specie, PolySize>::CpMCv
 }
 
 
+template<class Specie, int PolySize>
+inline Foam::scalar Foam::icoPolynomial<Specie, PolySize>::alphav
+(
+    scalar p,
+    scalar T
+) const
+{
+    return -rhoCoeffs_.derivative(T)/rho(p, T);
+}
+
+
 // * * * * * * * * * * * * * * * Member Operators  * * * * * * * * * * * * * //
 
 template<class Specie, int PolySize>
@@ -184,7 +193,7 @@ inline void Foam::icoPolynomial<Specie, PolySize>::operator+=
     const icoPolynomial<Specie, PolySize>& ip
 )
 {
-    NotImplemented;
+    noCoefficientMixing(icoPolynomial);
 }
 
 
@@ -204,7 +213,7 @@ Foam::icoPolynomial<Specie, PolySize> Foam::operator+
     const icoPolynomial<Specie, PolySize>& ip2
 )
 {
-    NotImplemented;
+    noCoefficientMixing(icoPolynomial);
     return ip1;
 }
 
@@ -231,7 +240,7 @@ Foam::icoPolynomial<Specie, PolySize> Foam::operator==
     const icoPolynomial<Specie, PolySize>& ip2
 )
 {
-    NotImplemented;
+    noCoefficientMixing(icoPolynomial);
     return ip1;
 }
 

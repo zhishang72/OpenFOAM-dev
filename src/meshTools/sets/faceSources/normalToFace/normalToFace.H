@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,20 +44,18 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                       Class normalToFace Declaration
+                        Class normalToFace Declaration
 \*---------------------------------------------------------------------------*/
 
 class normalToFace
 :
     public topoSetSource
 {
-
 private:
 
-        //- Add usage string
-        static addToUsageTable usage_;
+    // Private Data
 
-        //- (unit)vector to compare to
+        //- (unit) vector to compare to
         vector normal_;
 
         //- Tolerance (i.e. cos of angle between normal_ and faceNormal)
@@ -66,7 +64,7 @@ private:
 
     // Private Member Functions
 
-        //- Normalize normal and check tolerance
+        //- Normalise normal and check tolerance
         void setNormal();
 
 
@@ -74,6 +72,7 @@ public:
 
     //- Runtime type information
     TypeName("normalToFace");
+
 
     // Constructors
 
@@ -87,9 +86,6 @@ public:
 
         //- Construct from dictionary
         normalToFace(const polyMesh& mesh, const dictionary& dict);
-
-        //- Construct from Istream
-        normalToFace(const polyMesh& mesh, Istream&);
 
 
     //- Destructor
@@ -108,7 +104,6 @@ public:
             const topoSetSource::setAction action,
             topoSet&
         ) const;
-
 };
 
 

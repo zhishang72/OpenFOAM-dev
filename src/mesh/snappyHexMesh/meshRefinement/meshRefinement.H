@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,13 +44,14 @@ SourceFiles
 #define meshRefinement_H
 
 #include "hexRef8.H"
-#include "mapPolyMesh.H"
+#include "polyTopoChangeMap.H"
 #include "autoPtr.H"
 #include "labelPair.H"
 #include "indirectPrimitivePatch.H"
 #include "pointFieldsFwd.H"
 #include "Tuple2.H"
 #include "pointIndexHit.H"
+#include "refinementParameters.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -59,11 +60,11 @@ namespace Foam
 
 // Class forward declarations
 class fvMesh;
-class mapDistributePolyMesh;
+class polyDistributionMap;
 class decompositionMethod;
 class refinementSurfaces;
 class refinementFeatures;
-class shellSurfaces;
+class refinementRegions;
 class removeCells;
 class fvMeshDistribute;
 class searchableSurface;
@@ -75,7 +76,7 @@ class localPointRegion;
 class snapParameters;
 
 /*---------------------------------------------------------------------------*\
-                           Class meshRefinement Declaration
+                       Class meshRefinement Declaration
 \*---------------------------------------------------------------------------*/
 
 class meshRefinement
@@ -178,7 +179,7 @@ private:
         const refinementFeatures& features_;
 
         //- All shell-refinement interaction
-        const shellSurfaces& shells_;
+        const refinementRegions& shells_;
 
         //- Refinement engine
         hexRef8 meshCutter_;
@@ -200,7 +201,7 @@ private:
         //  that were marked for refinement.
         static labelList getChangedFaces
         (
-            const mapPolyMesh&,
+            const polyTopoChangeMap&,
             const labelList& oldCellsToRefine
         );
 
@@ -215,7 +216,7 @@ private:
         void updateIntersections(const labelList& changedFaces);
 
         //- Remove cells. Put exposedFaces into exposedPatchIDs.
-        autoPtr<mapPolyMesh> doRemoveCells
+        autoPtr<polyTopoChangeMap> doRemoveCells
         (
             const labelList& cellsToRemove,
             const labelList& exposedFaces,
@@ -225,11 +226,11 @@ private:
 
         // Get cells which are inside any closed surface. Note that
         // all closed surfaces
-        // will have already been oriented to have keepPoint outside.
+        // will have already been oriented to have insidePoint outside.
         labelList getInsideCells(const word&) const;
 
         // Do all to remove inside cells
-        autoPtr<mapPolyMesh> removeInsideCells
+        autoPtr<polyTopoChangeMap> removeInsideCells
         (
             const string& msg,
             const label exposedPatchi
@@ -253,7 +254,7 @@ private:
             //  (or -1 if not passed through). Uses tracking.
             void markFeatureCellLevel
             (
-                const pointField& keepPoints,
+                const List<point>& insidePoints,
                 labelList& maxFeatureLevel
             ) const;
 
@@ -261,7 +262,7 @@ private:
             //  features.
             label markFeatureRefinement
             (
-                const pointField& keepPoints,
+                const List<point>& insidePoints,
                 const label nAllowRefine,
 
                 labelList& refineCell,
@@ -371,7 +372,7 @@ private:
                 const labelList& neiLevel,
                 const pointField& neiCc,
                 labelList& ownPatch,
-                labelList& neiPatch
+                labelList& nbrPatch
             ) const;
 
             //- Repatches external face or creates baffle for internal face
@@ -381,7 +382,7 @@ private:
             (
                 const label facei,
                 const label ownPatch,
-                const label neiPatch,
+                const label nbrPatch,
                 polyTopoChange& meshMod
             ) const;
 
@@ -431,6 +432,12 @@ private:
             //- Returns list with for every internal face -1 or the patch
             //  they should be baffled into. If removeEdgeConnectedCells is set
             //  removes cells based on perpendicularAngle.
+            //
+            //  Gets run after createBaffles so all the unzoned surface
+            //  intersections have already been turned into baffles. (Note:
+            //  zoned surfaces are not baffled at this stage) Used to remove
+            //  cells by baffling all their faces and have the splitMeshRegions
+            //  chuck away non used regions.
             labelList markFacesOnProblemCells
             (
                 const dictionary& motionDict,
@@ -503,7 +510,7 @@ private:
             //  marked in namedSurfaceIndex regarded as blocked.
             void findCellZoneTopo
             (
-                const point& keepPoint,
+                const List<point>& insidePoints,
                 const labelList& namedSurfaceIndex,
                 const labelList& surfaceToCellZone,
                 labelList& cellToZone
@@ -584,11 +591,12 @@ public:
         meshRefinement
         (
             fvMesh& mesh,
+            const dictionary& refineDict,
             const scalar mergeDistance,
             const bool overwrite,
-            const refinementSurfaces&,
+            refinementSurfaces&,
             const refinementFeatures&,
-            const shellSurfaces&
+            const refinementRegions&
         );
 
         //- Disallow default bitwise copy construction
@@ -604,6 +612,7 @@ public:
             {
                 return mesh_;
             }
+
             fvMesh& mesh()
             {
                 return mesh_;
@@ -639,7 +648,7 @@ public:
             }
 
             //- Reference to refinement shells (regions)
-            const shellSurfaces& shells() const
+            const refinementRegions& shells() const
             {
                 return shells_;
             }
@@ -685,7 +694,7 @@ public:
             //  keepZoneFaces : find all faceZones from zoned surfaces and keep
             //                  owner and neighbour together
             //  keepBaffles   : find all baffles and keep them together
-            autoPtr<mapDistributePolyMesh> balance
+            autoPtr<polyDistributionMap> balance
             (
                 const bool keepZoneFaces,
                 const bool keepBaffles,
@@ -773,7 +782,7 @@ public:
             //- Calculate list of cells to refine.
             labelList refineCandidates
             (
-                const pointField& keepPoints,
+                const List<point>& insidePoints,
                 const scalar curvature,
                 const scalar planarAngle,
 
@@ -788,10 +797,10 @@ public:
             ) const;
 
             //- Refine some cells
-            autoPtr<mapPolyMesh> refine(const labelList& cellsToRefine);
+            autoPtr<polyTopoChangeMap> refine(const labelList& cellsToRefine);
 
             //- Refine some cells and rebalance
-            autoPtr<mapDistributePolyMesh> refineAndBalance
+            autoPtr<polyDistributionMap> refineAndBalance
             (
                 const string& msg,
                 decompositionMethod& decomposer,
@@ -801,7 +810,7 @@ public:
             );
 
             //- Balance before refining some cells
-            autoPtr<mapDistributePolyMesh> balanceAndRefine
+            autoPtr<polyDistributionMap> balanceAndRefine
             (
                 const string& msg,
                 decompositionMethod& decomposer,
@@ -832,34 +841,37 @@ public:
                 Time& runTime,
                 const labelList& globalToMasterPatch,
                 const labelList& globalToSlavePatch,
-                const point& keepPoint
+                const refinementParameters::cellSelectionPoints& selectionPoints
             );
 
             //- Split off (with optional buffer layers) unreachable areas
             //  of mesh. Does not introduce baffles.
-            autoPtr<mapPolyMesh> splitMesh
+            autoPtr<polyTopoChangeMap> splitMesh
             (
                 const label nBufferLayers,
                 const labelList& globalToMasterPatch,
                 const labelList& globalToSlavePatch,
-                const point& keepPoint
+                const refinementParameters::cellSelectionPoints& selectionPoints
             );
 
             //- Find boundary points that connect to more than one cell
             //  region and split them.
-            autoPtr<mapPolyMesh> dupNonManifoldPoints(const localPointRegion&);
+            autoPtr<polyTopoChangeMap> dupNonManifoldPoints
+            (
+                const localPointRegion&
+            );
 
             //- Find boundary points that connect to more than one cell
             //  region and split them.
-            autoPtr<mapPolyMesh> dupNonManifoldPoints();
+            autoPtr<polyTopoChangeMap> dupNonManifoldPoints();
 
             //- Create baffle for every internal face where ownPatch != -1.
-            //  External faces get repatched according to ownPatch (neiPatch
+            //  External faces get repatched according to ownPatch (nbrPatch
             //  should be -1 for these)
-            autoPtr<mapPolyMesh> createBaffles
+            autoPtr<polyTopoChangeMap> createBaffles
             (
                 const labelList& ownPatch,
-                const labelList& neiPatch
+                const labelList& nbrPatch
             );
 
             //- Debug helper: check faceZones are not on processor patches
@@ -867,7 +879,7 @@ public:
 
             //- Create baffles for faces straddling zoned surfaces. Return
             //  baffles.
-            autoPtr<mapPolyMesh> createZoneBaffles
+            autoPtr<polyTopoChangeMap> createZoneBaffles
             (
                 const labelList& globalToMasterPatch,
                 const labelList& globalToSlavePatch,
@@ -875,14 +887,14 @@ public:
             );
 
             //- Merge baffles. Gets pairs of faces.
-            autoPtr<mapPolyMesh> mergeBaffles(const List<labelPair>&);
+            autoPtr<polyTopoChangeMap> mergeBaffles(const List<labelPair>&);
 
             //- Put faces/cells into zones according to surface specification.
             //  Returns null if no zone surfaces present. Region containing
-            //  the keepPoint will not be put into a cellZone.
-            autoPtr<mapPolyMesh> zonify
+            //  the insidePoint will not be put into a cellZone.
+            autoPtr<polyTopoChangeMap> zonify
             (
-                const point& keepPoint,
+                const List<point>& insidePoints,
                 const bool allowFreeStandingZoneFaces
             );
 
@@ -891,6 +903,9 @@ public:
 
             //- Add patch originating from meshing. Update meshedPatches_.
             label addMeshedPatch(const word& name, const dictionary&);
+
+            //- Complete adding patches originating from meshing
+            void addedMeshedPatches();
 
             //- Get patchIDs for patches added in addMeshedPatch.
             labelList meshedPatches() const;
@@ -904,32 +919,42 @@ public:
                 const polyMesh&,
                 const labelList& cellRegion,
                 const vector& perturbVec,
-                const point& p
+                const point& location
             );
 
-            //- Split mesh. Keep part containing point.
-            autoPtr<mapPolyMesh> splitMeshRegions
+            //- Find regions points are in and update cellRegion
+            //  Uses optional perturbation to re-test.
+            static void findRegions
+            (
+                const polyMesh&,
+                labelList& cellRegion,
+                const vector& perturbVec,
+                const refinementParameters::cellSelectionPoints& selectionPoints
+            );
+
+            //- Split mesh according to selectionPoints
+            autoPtr<polyTopoChangeMap> splitMeshRegions
             (
                 const labelList& globalToMasterPatch,
                 const labelList& globalToSlavePatch,
-                const point& keepPoint
+                const refinementParameters::cellSelectionPoints& selectionPoints
             );
 
             //- Split faces into two
-            autoPtr<mapPolyMesh> splitFaces
+            autoPtr<polyTopoChangeMap> splitFaces
             (
                 const labelList& splitFaces,
                 const labelPairList& splits
             );
 
             //- Update local numbering for mesh redistribution
-            void distribute(const mapDistributePolyMesh&);
+            void distribute(const polyDistributionMap&);
 
             //- Update for external change to mesh. changedFaces are in new mesh
             //  face labels.
-            void updateMesh
+            void topoChange
             (
-                const mapPolyMesh&,
+                const polyTopoChangeMap&,
                 const labelList& changedFaces
             );
 
@@ -956,9 +981,9 @@ public:
                 //- Update local numbering + undo
                 //  Data to restore given as new pointlabel + stored pointlabel
                 //  (i.e. what was in pointsToStore)
-                void updateMesh
+                void topoChange
                 (
-                    const mapPolyMesh&,
+                    const polyTopoChangeMap&,
                     const labelList& changedFaces,
                     const Map<label>& pointsToRestore,
                     const Map<label>& facesToRestore,
@@ -978,13 +1003,13 @@ public:
                     const labelList& preserveFaces
                 );
 
-                autoPtr<mapPolyMesh> doRemovePoints
+                autoPtr<polyTopoChangeMap> doRemovePoints
                 (
                     removePoints& pointRemover,
                     const boolList& pointCanBeDeleted
                 );
 
-                autoPtr<mapPolyMesh> doRestorePoints
+                autoPtr<polyTopoChangeMap> doRestorePoints
                 (
                     removePoints& pointRemover,
                     const labelList& facesToRestore
@@ -1067,9 +1092,9 @@ public:
             //- Print some mesh stats.
             void printMeshInfo(const bool, const string&) const;
 
-            //- Replacement for Time::timeName() : return oldInstance (if
+            //- Replacement for Time::name() : return oldInstance (if
             //  overwrite_)
-            word timeName() const;
+            word name() const;
 
             //- Set instance of all local IOobjects
             void setInstance(const fileName&);

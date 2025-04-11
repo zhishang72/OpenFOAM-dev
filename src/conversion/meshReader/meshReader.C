@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -30,6 +30,7 @@ License
 #include "emptyPolyPatch.H"
 #include "cellModeller.H"
 #include "demandDrivenData.H"
+#include "polyMeshUnMergeCyclics.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -69,7 +70,7 @@ lookup
 void Foam::meshReader::addCellZones(polyMesh& mesh) const
 {
     cellTable_.addCellZones(mesh, cellTableId_);
-    warnDuplicates("cellZones", mesh.cellZones().names());
+    warnDuplicates("cellZones", mesh.cellZones().toc());
 }
 
 
@@ -104,7 +105,6 @@ void Foam::meshReader::addFaceZones(polyMesh& mesh) const
                 iter.key(),
                 iter(),
                 List<bool>(iter().size(), false),
-                nZone,
                 mesh.faceZones()
             )
         );
@@ -112,7 +112,7 @@ void Foam::meshReader::addFaceZones(polyMesh& mesh) const
         nZone++;
     }
     mesh.faceZones().writeOpt() = IOobject::AUTO_WRITE;
-    warnDuplicates("faceZones", mesh.faceZones().names());
+    warnDuplicates("faceZones", mesh.faceZones().toc());
 }
 
 
@@ -149,6 +149,9 @@ Foam::autoPtr<Foam::polyMesh> Foam::meshReader::mesh
 
     // adding patches also checks the mesh
     mesh().addPatches(polyBoundaryPatches(mesh));
+
+    // Un-merge any merged cyclics
+    polyMeshUnMergeCyclics(mesh());
 
     warnDuplicates("boundaries", mesh().boundaryMesh().names());
 

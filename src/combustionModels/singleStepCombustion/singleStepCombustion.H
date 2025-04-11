@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ Class
     Foam::combustionModels::singleStepCombustion
 
 Description
-    Base class for combustion models using multiComponentMixture.
+    Base class for single-step combustion models
 
 SourceFiles
     singleStepCombustion.C
@@ -35,9 +35,8 @@ SourceFiles
 #ifndef singleStepCombustion_H
 #define singleStepCombustion_H
 
-#include "multiComponentMixture.H"
-#include "ThermoCombustion.H"
-#include "ReactionList.H"
+#include "combustionModel.H"
+#include "reaction.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -50,19 +49,16 @@ namespace combustionModels
                     Class singleStepCombustion Declaration
 \*---------------------------------------------------------------------------*/
 
-template<class ReactionThermo, class ThermoType>
 class singleStepCombustion
 :
-    public ThermoCombustion<ReactionThermo>
+    public combustionModel
 {
 protected:
 
     // Protected data
 
-        const multiComponentMixture<ThermoType>& mixture_;
-
         //- The single-step reaction
-        autoPtr<Reaction<ThermoType>> reaction_;
+        reaction reaction_;
 
         //- Stoichiometric air-fuel mass ratio
         dimensionedScalar stoicRatio_;
@@ -81,9 +77,6 @@ protected:
 
         //- List of components residual
         PtrList<volScalarField> fres_;
-
-        //- Inert specie index
-        label inertIndex_;
 
         //- Fuel specie index
         label fuelIndex_;
@@ -118,13 +111,13 @@ public:
         singleStepCombustion
         (
             const word& modelType,
-            const ReactionThermo& thermo,
-            const compressibleTurbulenceModel& turb,
+            const fluidMulticomponentThermo& thermo,
+            const compressibleMomentumTransportModel& turb,
             const word& combustionProperties
         );
 
         //- Disallow default bitwise copy construction
-        singleStepCombustion(const singleStepCombustion&);
+        singleStepCombustion(const singleStepCombustion&) = delete;
 
 
     //- Destructor
@@ -135,31 +128,23 @@ public:
 
         // Access functions
 
-    const multiComponentMixture<ThermoType>& mixture() const
-    {
-        return mixture_;
-    }
-
             //- Return the single step reaction
-            inline const Reaction<ThermoType>& reaction() const;
+            inline const reaction& singleReaction() const;
 
             //- Return the stoichiometric air-fuel mass ratio
-            inline const dimensionedScalar stoicRatio() const;
+            inline const dimensionedScalar& stoicRatio() const;
 
             //- Return the Stoichiometric oxygen-fuel mass ratio
-            inline const dimensionedScalar s() const;
+            inline const dimensionedScalar& s() const;
 
             //- Return the heat of combustion [J/Kg]
-            inline const dimensionedScalar qFuel() const;
+            inline const dimensionedScalar& qFuel() const;
 
             //- Return the stoichiometric coefficient for the reaction
             inline const List<scalar>& specieStoichCoeffs() const;
 
             //- Return the list of components residual
             inline tmp<volScalarField> fres(const label index) const;
-
-            //- Return the inert specie index
-            inline label inertIndex() const;
 
             //- Return the fuel specie index
             inline label fuelIndex() const;
@@ -171,7 +156,10 @@ public:
             inline const scalarList& Yprod0() const;
 
 
-        //- Fuel consumption rate matrix
+        //- Specie consumption rate field
+        virtual tmp<volScalarField::Internal> R(const label speciei) const;
+
+        //- Specie consumption rate matrix
         virtual tmp<fvScalarMatrix> R(volScalarField& Y) const;
 
         //- Heat release rate [kg/m/s^3]
@@ -199,12 +187,6 @@ public:
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 #include "singleStepCombustionI.H"
-
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-#ifdef NoRepository
-    #include "singleStepCombustion.C"
-#endif
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

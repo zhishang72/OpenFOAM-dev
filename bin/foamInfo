@@ -3,7 +3,7 @@
 # =========                 |
 # \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
 #  \\    /   O peration     | Website:  https://openfoam.org
-#   \\  /    A nd           | Copyright (C) 2018 OpenFOAM Foundation
+#   \\  /    A nd           | Copyright (C) 2018-2024 OpenFOAM Foundation
 #    \\/     M anipulation  |
 #------------------------------------------------------------------------------
 # License
@@ -27,7 +27,7 @@
 #
 # Description
 #     Prints description and usage of an application, a script, or a model
-#     (including boundary conditions, function objects and fvOptions).
+#     (including boundary conditions, function objects and fvModels).
 #
 #------------------------------------------------------------------------------
 usage() {
@@ -36,6 +36,7 @@ usage() {
 Usage: ${0##*/} [OPTIONS] <name>
 options:
   -all     | -a        list all tutorials that use <name> (otherwise maximum 10)
+                       and all models of the same family (otherwise maximum 25)
   -browser | -b <name> output C++ source guide web page with specified browser,
                        e.g. foamInfo -browser "firefox"
   -help    | -h        print the usage
@@ -44,28 +45,35 @@ options:
                        specified in the global controlDict file
 
 Prints the following for an application, a script, or a model
-(including boundary conditions, function objects and fvOptions).
-- File: the location of the relevant source code header file;
-- Description details from the header file;
-- Usage details from the header file;
+(including boundary conditions, function objects and fvModels).
+- File: the location of the relevant source code header file.
+- Description details from the header file.
+- Usage details from the header file.
+- Models: lists other models belonging to the same family, where applicable.
 - Examples: a list of relevant cases from the tutorials directory.
 
-By default, finds a case-sensitive match to <name>; otherwise, a
-case-insensitive match; otherwise, looks for a broader keyword match
-with "-keyword | -k" option.
+By default, finds an exact match with <name> or something beginning with <name>,
+which is case-insensitive on the first character.
 
-Examples:
-  foamInfo simpleFoam
-  foamInfo turbulentIntensityKineticEnergyInlet
-  foamInfo fixedTemperatureConstraint
-  foamInfo surfaces
-  foamInfo foamNewBC
-  foamInfo wallFunction
-  foamInfo kEpsilon
-  foamInfo -k kEpsilon
+Otherwise the user can try a broader keyword match with "-keyword | -k" option.
+
+Examples
+  foamInfo incompressibleFluid
+  foamInfo interFoam
   foamInfo fixedValue
   foamInfo -k fixedValue
+  foamInfo -a turbulentIntensityKineticEnergyInlet
+  foamInfo symmetry
+  foamInfo -k wallFunction
+  foamInfo kEpsilon
+  foamInfo -k kEpsilon
+  foamInfo RAS
+  foamInfo hPolynomial
   foamInfo -k contactAngle
+  foamInfo Function1
+  foamInfo square
+  foamInfo fixedTemperatureConstraint
+  foamInfo foamNewBC
 
 USAGE
 }
@@ -77,9 +85,13 @@ error() {
     exit 1
 }
 
+capitaliseWord () {
+    echo "$1" | awk '{$1=toupper(substr($1,0,1))substr($1,2)}1'
+}
+
 # (1) case-sensitive match; (2) case-insensitive match; (3) keyword match
 findModelFiles() {
-    find "$FOAM_SRC" \
+    find "$FOAM_SRC" "$FOAM_APP" \
         -name "$1" \
         -iname "$2" \
         ! -iname "$3" \
@@ -93,20 +105,25 @@ findFiles() {
 
     # Application
     _out="$(find "$FOAM_APP" -name "${_pre}.C" -type f)"
+    # If same file with .H extension exists, then .C is not an application
+    [ "$_out" ] && \
+        [ "$(find "$FOAM_APP" -name "${_pre}.H" -type f | wc -c)" -ne 0 ] && unset _out
 
     # Script
-    _out="$(find "$FOAM_SRC/../bin" -name "${_pre}" -type f) $_out"
+    _out="$(find "$FOAM_APP/../bin" -name "${_pre}" -type f | \
+            sed 's@applications/../@@g' ) $_out"
 
     # Model
     # case-sensitive match
-    _models="$(findModelFiles "${_pre}*.H" "*" "")"
+    _models="$(findModelFiles "${_pre}*.H" "*" "") \
+             $(findModelFiles "$(capitaliseWord "$_pre")*.H" "*" "")"
 
     # case-insensitive match
     [ "$_models" ] || \
         _models="$(findModelFiles "*" "${_pre}*.H" "")"
 
     # keyword match
-    [ "$_models" -a ! "$KEYWORD" ] || \
+    [ "$_models" ] && ! [ "$KEYWORD" ] || \
           _models="$_models $(findModelFiles "*" "*${_pre}*.H" "${_pre}*.H")"
 
     _out="$_models $_out"
@@ -122,11 +139,14 @@ findFiles() {
     _out="$(find "$FOAM_ETC" -name "${_pre}" -type f) $_out"
 
     # Remove whitespace
-    echo "$_out" | xargs -n 1 | awk 'NF'
+    echo "$_out" | xargs -n 1 | sort -u | awk 'NF'
 }
 
 nArgs() {
+    ! [ "$1" ] && echo 0 && return 0
     echo "$1" | xargs -n 1 | wc -l
+
+    return 0
 }
 
 listArgs() {
@@ -143,7 +163,7 @@ listArgs() {
         _tests="\
             fields/fvPatchFields/ \
             fvMesh/fvPatches/ \
-            caseDicts/postProcessing/"
+            caseDicts/functions/"
 
         _n=0
         for _t in $_tests
@@ -163,8 +183,104 @@ setFile() {
     echo "$_files" | xargs -n 1 | awk -v n="${_n}" 'NR==n'
 }
 
+# (1) model family directory (2) depth (optional, default 1)
+findModelDirs () {
+    _familyDir="$1"
+    _depth=1
+    [ "$2" ] && _depth="$2"
+    _dirs=""
+
+    while [ "$_depth" -ge 1 ]
+    do
+        _dirs="$(find "$1" -maxdepth "$_depth" -mindepth "$_depth" -type d | \
+               sed 's/\/Make//g' | sed 's/\/lnInclude//g')"
+
+        [ "$_dirs" ] && break
+        _depth=$((_depth - 1))
+    done
+
+    echo "$_dirs" | sort -u
+}
+
+fvModelDirs () {
+    for d in \
+        $(find "$FOAM_APP" -name fvModels) \
+        $(find "$FOAM_SRC" -name fvModels)
+    do
+        findModelDirs "$d" 2
+    done
+}
+
+modelsInFamily () {
+    _familyDir="$1"
+    _family="${_familyDir##*/}"
+
+    ! [ -d "$_familyDir" ] && return 0
+
+    _modelDirs="$(findModelDirs "$_familyDir")"
+
+    ### special handling of fvModels
+    [ "$_family" = fvModels ] && _modelDirs="$(fvModelDirs)"
+
+    [ "$_modelDirs" ] || return 0
+
+    _hasTypeName=""
+    grep -rqw TypeName "$_familyDir" && _hasTypeName="yes"
+
+    for _mDir in $_modelDirs
+    do
+        # Exclude base class
+        _mName="${_mDir##*/}"
+        echo "$_family" | grep -q "$_mName" && continue
+
+        # Model family with TypeName defined
+        [ "$_hasTypeName" ] && \
+            _files="$(find "$_mDir" -maxdepth 1 -name "*.H" -exec \
+                      grep -l TypeName {} \;)" && \
+            for _f in $_files ; do TypeName "$_f" ; done
+
+        [ "$_hasTypeName" ] && continue
+
+        # Model family without TypeName defined
+        # Exclusions
+        echo "Make lnInclude" | \
+            grep -w "$_mName" && continue
+
+        echo "$_mName"
+
+        # Remove model names ending "Base" as they are base classes
+    done | sort -u | sed '/Base$/d'
+}
+
+# Argument: .H file
+TypeName () {
+    # First sed captures FvPatch, PolyPatch, PointPatch
+    _model="$(grep -Es "TypeName\(\"*[[:alnum:]:_()]*\"*\);" "$1" | \
+            sed 's@[FP][[:lower:]]*Patch::typeName_()@@g' | \
+            sed 's@[\t ]*TypeName("*\([[:alnum:]:]*\)"*);@\1@')"
+
+    [ "$_model" ] && echo "$_model" && return 0
+
+    return 1
+}
+
+modelName () {
+    _file="$1"
+
+    # Get model from TypeName in file
+    TypeName "$_file" && return 0
+
+    # Otherwise use the directory name
+    _modelDir="${_file%/*}"
+    echo "${_modelDir##*/}"
+
+    return 0
+}
+
 printInfo() {
     _file="$1"
+    _all="$2"
+
     echo "File"
     printf "    %s\n\n" "$_file"
 
@@ -174,6 +290,46 @@ printInfo() {
 
     # Usage
     sed -n '/^Usage/,/^[^ ]/p' "$_file" | sed \$d
+
+    # Model
+    echo "$_file" | grep -q "$FOAM_SRC" || return 0
+
+    _model="$(modelName "$_file")" || return 0
+    _familyDir="$(dirname "$(dirname "$_file")")"
+
+    ### special handling of fvModels
+    echo "$_familyDir" | grep -q fvModels && \
+        _familyDir="$FOAM_SRC/fvModels"
+
+    ### special handling of fvConstraints
+    echo "$_familyDir" | grep -q fvConstraints && \
+        _familyDir="$FOAM_SRC/fvConstraints"
+
+    _family="${_familyDir##*/}"
+
+    _models="$(modelsInFamily "$_familyDir")"
+    _nMo="$(nArgs "$_models")"
+
+    [ "$_nMo" -eq 0 ] && return 0
+
+    printf "Model\n"
+    echo "$_family" | grep -q "$_model" && \
+        printf "    This appears to be the '%s' family of models.\n" \
+               "$_family" || \
+        printf "    This appears to be the '%s' model of the '%s' family.\n" \
+               "$_model" "$_family"
+
+    printf "    The models in the '%s' family are:\n" "$_family"
+
+    _nMoD=25
+    [ "$_all" = "yes" ] && _nMoD=1000
+
+    [ "$_nMo" -gt "$_nMoD" ] && [ "$_all" = "no" ] && \
+        echo "    *** Listing $_nMoD out of $_nMo;" \
+             "run with \"-a\" option to list all ***"
+    echo "$_models" | awk -v nMoD="$_nMoD" 'FNR <= nMoD {print "    + " $1}'
+
+    printf "\n"
 
     return 0
 }
@@ -196,11 +352,12 @@ webInfo() {
 
 showInfo() {
     _file="$1"
-    _web="$2"
+    _all="$2"
+    _web="$3"
 
     # Return 1 for web so examples are not printed
     [ -n "$_web" ] && webInfo "$_file" && return 1
-    printInfo "$_file"
+    printInfo "$_file" "$_all"
 }
 
 findSolverExamples() {
@@ -271,7 +428,7 @@ showTypeExamples() {
     [ -z "$_pre" ] && echo "Examples: none found" && return 1
 
     _nExD=10
-    [ -n "$_all" ] && _nExD=1000
+    [ "$_all" = "yes" ] && _nExD=1000
 
     _examples="$(findAllExamples "$_pre" "$_type")"
 
@@ -282,8 +439,8 @@ showTypeExamples() {
     _nEx="$(nArgs "$_examples")"
 
     echo "Examples using \"$_pre\""
-    [ "$_nEx" -gt "$_nExD" -a -n "_all" ] && \
-        echo "    *** Listing 10 out of $_nEx;" \
+    [ "$_nEx" -gt "$_nExD" ] && ! [ "$_all" = "yes" ] && \
+        echo "    *** Listing $_nExD out of $_nEx;" \
              "run with \"-a\" option to list all ***"
     echo "$_examples" | awk -v nExD="$_nExD" 'FNR <= nExD {print "    " $1}'
 }
@@ -296,16 +453,16 @@ showExamples() {
     echo "$_file" | grep -q ".H" && _type=model && \
         _pre="$(basename "${file%/*}")" && \
         echo "$_pre" | grep -iq include && _pre=""
-    echo "$_file" | grep -q "$FOAM_SRC/../bin" && _type=script
-    echo "$_file" | grep -q "$FOAM_UTILITIES" && _type=utility
-    echo "$_file" | grep -q "$FOAM_SOLVERS" && _type=solver
+    ! [ "$_type" ] && echo "$_file" | grep -q "$FOAM_SRC/../bin" && _type=script
+    ! [ "$_type" ] && echo "$_file" | grep -q "$FOAM_UTILITIES" && _type=utility
+    ! [ "$_type" ] && echo "$_file" | grep -q "$FOAM_SOLVERS" && _type=solver
 
     [ -n "$_type" ] && showTypeExamples "$_pre" "$_type" "$_all" && return 0
     return 0
 }
 
 web=""
-all=""
+all="no"
 # Global controlDict file
 controlDict="$(foamEtcFile controlDict 2> /dev/null)"
 BROWSER="$(grep docBrowser "$controlDict" 2> /dev/null | cut -d "\"" -f2)"
@@ -375,15 +532,15 @@ else
     [ -n "$suggest" ] && printf "%s" "(suggest $suggest) "
     printf "%s" ": "
 
-    read nFile
-    [ -z "$nFile" -a -n "$suggest" ] && nFile="$suggest"
+    read -r nFile
+    [ -z "$nFile" ] && [ -n "$suggest" ] && nFile="$suggest"
     [ -z "$nFile" ] && \
         echo "Cannot specify nothing; re-run and enter a file number" && exit 1
     ! [ "$nFile" -eq "$nFile" ] 2>/dev/null && \
         echo "\"$nFile\" is not a number between 1 and $nFiles" && exit 1
-    [ "$nFile" -lt 1 -o "$nFile" -gt "$nFiles" ] && \
+    { [ "$nFile" -lt 1 ] || [ "$nFile" -gt "$nFiles" ] ; } && \
         echo "\"$nFile\" is not a number between 1 and $nFiles" && exit 1
 fi
 
 file="$(setFile "$files" "$nFile")"
-showInfo "$file" "$web" && showExamples "$prefix" "$file" "$all"
+showInfo "$file" "$all" "$web" && showExamples "$prefix" "$file" "$all"

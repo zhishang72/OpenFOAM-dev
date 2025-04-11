@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,7 +24,7 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "calculatedFvsPatchField.H"
-#include "fvPatchFieldMapper.H"
+#include "fieldMapper.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -33,6 +33,7 @@ const Foam::word& Foam::fvsPatchField<Type>::calculatedType()
 {
     return calculatedFvsPatchField<Type>::typeName;
 }
+
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
@@ -55,7 +56,12 @@ Foam::calculatedFvsPatchField<Type>::calculatedFvsPatchField
     const dictionary& dict
 )
 :
-    fvsPatchField<Type>(p, iF, Field<Type>("value", dict, p.size()))
+    fvsPatchField<Type>
+    (
+        p,
+        iF,
+        Field<Type>("value", iF.dimensions(), dict, p.size())
+    )
 {}
 
 
@@ -65,20 +71,10 @@ Foam::calculatedFvsPatchField<Type>::calculatedFvsPatchField
     const calculatedFvsPatchField<Type>& ptf,
     const fvPatch& p,
     const DimensionedField<Type, surfaceMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     fvsPatchField<Type>(ptf, p, iF, mapper)
-{}
-
-
-template<class Type>
-Foam::calculatedFvsPatchField<Type>::calculatedFvsPatchField
-(
-    const calculatedFvsPatchField<Type>& ptf
-)
-:
-    fvsPatchField<Type>(ptf)
 {}
 
 
@@ -134,6 +130,16 @@ Foam::fvsPatchField<Type>::NewCalculatedType
 )
 {
     return NewCalculatedType(pf.patch());
+}
+
+
+// * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+
+template<class Type>
+void Foam::calculatedFvsPatchField<Type>::write(Ostream& os) const
+{
+    fvsPatchField<Type>::write(os);
+    writeEntry(os, "value", *this);
 }
 
 

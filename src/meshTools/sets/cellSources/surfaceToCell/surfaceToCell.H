@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -55,24 +55,20 @@ class triSurfaceSearch;
 class triSurface;
 
 /*---------------------------------------------------------------------------*\
-                           Class surfaceToCell Declaration
+                        Class surfaceToCell Declaration
 \*---------------------------------------------------------------------------*/
 
 class surfaceToCell
 :
     public topoSetSource
 {
-
     // Private Data
-
-        //- Add usage string
-        static addToUsageTable usage_;
 
         //- Name of surface file
         const fileName surfName_;
 
         //- Points which are outside
-        const pointField outsidePoints_;
+        const List<point> outsidePoints_;
 
         //- Include cut cells
         const bool includeCut_;
@@ -150,6 +146,7 @@ public:
     //- Runtime type information
     TypeName("surfaceToCell");
 
+
     // Constructors
 
         //- Construct from components
@@ -189,13 +186,6 @@ public:
             const dictionary& dict
         );
 
-        //- Construct from Istream
-        surfaceToCell
-        (
-            const polyMesh& mesh,
-            Istream&
-        );
-
 
     //- Destructor
     virtual ~surfaceToCell();
@@ -213,7 +203,6 @@ public:
             const topoSetSource::setAction action,
             topoSet&
         ) const;
-
 };
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -136,11 +136,6 @@ void fieldInterpolator::interpolate()
                         UIndirectList<word>(timeNames_, indices)()
                     );
 
-                    // Info<< "For time " << runTime_.value()
-                    //    << " need times " << selectedTimeNames
-                    //    << " need weights " << weights << endl;
-
-
                     // Read on the objectRegistry all the required fields
                     ReadFields<GeoFieldType>
                     (
@@ -156,7 +151,7 @@ void fieldInterpolator::interpolate()
                             IOobject
                             (
                                 fieldIter()->name(),
-                                runTime_.timeName(),
+                                runTime_.name(),
                                 fieldIter()->db(),
                                 IOobject::NO_READ,
                                 IOobject::NO_WRITE,
@@ -207,8 +202,7 @@ int main(int argc, char *argv[])
     );
 
     #include "setRootCase.H"
-    #include "createTime.H"
-    runTime.functionObjects().off();
+    #include "createTimeNoFunctionObjects.H"
 
     HashSet<word> selectedFields;
     if (args.optionFound("fields"))
@@ -241,7 +235,7 @@ int main(int argc, char *argv[])
     Info<< "Using interpolation " << interpolationType << nl << endl;
 
 
-    instantList timeDirs = timeSelector::select0(runTime, args);
+    const instantList timeDirs = timeSelector::select0(runTime, args);
 
     scalarField timeVals(timeDirs.size());
     wordList timeNames(timeDirs.size());
@@ -260,7 +254,7 @@ int main(int argc, char *argv[])
     );
 
 
-    #include "createNamedMesh.H"
+    #include "createRegionMeshNoChangers.H"
 
     Info<< "Interpolating fields for times:" << endl;
 
@@ -269,7 +263,7 @@ int main(int argc, char *argv[])
         runTime.setTime(timeDirs[timei], timei);
 
         // Read objects in time directory
-        IOobjectList objects(mesh, runTime.timeName());
+        IOobjectList objects(mesh, runTime.name());
 
         fieldInterpolator interpolator
         (

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -27,18 +27,20 @@ Class
 Description
     Performs a file copy/replacement once a specified time has been reached.
 
-    Example usage to update the fvSolution dictionary at various times
-    throughout the calculation:
-
+Usage
+    Example usage to update the fvSolution dictionary at 0.1, 0.2 and 0.3s
+    during the run:
     \verbatim
     fileUpdate1
     {
-        type              timeActivatedFileUpdate;
-        libs              ("libutilityFunctionObjects.so");
-        writeControl      timeStep;
-        writeInterval     1;
-        fileToUpdate      "$FOAM_CASE/system/fvSolution";
-        timeVsFile
+        type            timeActivatedFileUpdate;
+
+        libs            ("libutilityFunctionObjects.so");
+
+        writeControl    timeStep;
+        writeInterval   1;
+        fileToUpdate    "$FOAM_CASE/system/fvSolution";
+        fileVsTime
         (
             (-1 "$FOAM_CASE/system/fvSolution.0")
             (0.10 "$FOAM_CASE/system/fvSolution.10")
@@ -71,7 +73,7 @@ namespace functionObjects
 {
 
 /*---------------------------------------------------------------------------*\
-                  Class timeActivatedFileUpdate Declaration
+                   Class timeActivatedFileUpdate Declaration
 \*---------------------------------------------------------------------------*/
 
 class timeActivatedFileUpdate
@@ -80,14 +82,11 @@ class timeActivatedFileUpdate
 {
     // Private Data
 
-        //- Reference to Time
-        const Time& time_;
-
         //- Name of file to update
         fileName fileToUpdate_;
 
-        //- List of times vs filenames
-        List<Tuple2<scalar, fileName>> timeVsFile_;
+        //- List of filenames vs time
+        List<Tuple2<scalar, fileName>> fileVsTime_;
 
         //- Index of last file copied
         label lastIndex_;
@@ -130,6 +129,12 @@ public:
 
         //- Read the timeActivatedFileUpdate data
         virtual bool read(const dictionary&);
+
+        //- Return the list of fields required
+        virtual wordList fields() const
+        {
+            return wordList::null();
+        }
 
         //- Execute file updates
         virtual bool execute();

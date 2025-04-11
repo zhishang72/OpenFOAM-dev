@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -47,7 +47,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                     Namespace fvc functions Declaration
+                      Namespace fvc functions Declaration
 \*---------------------------------------------------------------------------*/
 
 namespace fvc
@@ -56,33 +56,47 @@ namespace fvc
     void surfaceIntegrate
     (
         Field<Type>&,
-        const GeometricField<Type, fvsPatchField, surfaceMesh>&
+        const SurfaceField<Type>&
     );
 
     template<class Type>
-    tmp<GeometricField<Type, fvPatchField, volMesh>>
+    tmp<VolInternalField<Type>>
     surfaceIntegrate
     (
-        const GeometricField<Type, fvsPatchField, surfaceMesh>&
+        const SurfaceField<Type>&
     );
 
     template<class Type>
-    tmp<GeometricField<Type, fvPatchField, volMesh>>
+    tmp<VolInternalField<Type>>
     surfaceIntegrate
     (
-        const tmp<GeometricField<Type, fvsPatchField, surfaceMesh>>&
+        const tmp<SurfaceField<Type>>&
     );
 
     template<class Type>
-    tmp<GeometricField<Type, fvPatchField, volMesh>> surfaceSum
+    tmp<VolField<Type>>
+    surfaceIntegrateExtrapolate
     (
-        const GeometricField<Type, fvsPatchField, surfaceMesh>&
+        const SurfaceField<Type>&
     );
 
     template<class Type>
-    tmp<GeometricField<Type, fvPatchField, volMesh>> surfaceSum
+    tmp<VolField<Type>>
+    surfaceIntegrateExtrapolate
     (
-        const tmp<GeometricField<Type, fvsPatchField, surfaceMesh>>&
+        const tmp<SurfaceField<Type>>&
+    );
+
+    template<class Type>
+    tmp<VolInternalField<Type>> surfaceSum
+    (
+        const SurfaceField<Type>&
+    );
+
+    template<class Type>
+    tmp<VolInternalField<Type>> surfaceSum
+    (
+        const tmp<SurfaceField<Type>>&
     );
 }
 

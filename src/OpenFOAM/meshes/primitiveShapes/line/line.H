@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2020 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -64,7 +64,7 @@ inline Ostream& operator<<(Ostream&, const line<Point, PointRef>&);
 
 
 /*---------------------------------------------------------------------------*\
-                           Class line Declaration
+                            Class line Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Point, class PointRef>
@@ -129,8 +129,6 @@ public:
                 Point& thisPoint,
                 Point& edgePoint
             ) const;
-
-            bool insideBoundBox(const Point&) const;
 
 
     // Ostream operator

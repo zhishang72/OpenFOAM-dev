@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -27,7 +27,6 @@ License
 #include "HashTable.H"
 #include "surfaceInterpolate.H"
 #include "fvMatrix.H"
-#include "cyclicAMIFvPatch.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -94,18 +93,18 @@ ddtScheme<Type>::~ddtScheme()
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 template<class Type>
-tmp<GeometricField<Type, fvPatchField, volMesh>> ddtScheme<Type>::fvcDdt
+tmp<VolField<Type>> ddtScheme<Type>::fvcDdt
 (
     const volScalarField& alpha,
     const volScalarField& rho,
-    const GeometricField<Type, fvPatchField, volMesh>& vf
+    const VolField<Type>& vf
 )
 {
     NotImplemented;
 
-    return tmp<GeometricField<Type, fvPatchField, volMesh>>
+    return tmp<VolField<Type>>
     (
-        GeometricField<Type, fvPatchField, volMesh>::null()
+        VolField<Type>::null()
     );
 }
 
@@ -115,7 +114,7 @@ tmp<fvMatrix<Type>> ddtScheme<Type>::fvmDdt
 (
     const volScalarField& alpha,
     const volScalarField& rho,
-    const GeometricField<Type, fvPatchField, volMesh>& vf
+    const VolField<Type>& vf
 )
 {
     NotImplemented;
@@ -126,23 +125,23 @@ tmp<fvMatrix<Type>> ddtScheme<Type>::fvmDdt
         (
             vf,
             alpha.dimensions()*rho.dimensions()
-            *vf.dimensions()*dimVol/dimTime
+            *vf.dimensions()*dimVolume/dimTime
         )
     );
 }
 
 
 template<class Type>
-tmp<GeometricField<Type, fvsPatchField, surfaceMesh>> ddtScheme<Type>::fvcDdt
+tmp<SurfaceField<Type>> ddtScheme<Type>::fvcDdt
 (
-    const GeometricField<Type, fvsPatchField, surfaceMesh>& sf
+    const SurfaceField<Type>& sf
 )
 {
     NotImplemented;
 
-    return tmp<GeometricField<Type, fvsPatchField, surfaceMesh>>
+    return tmp<SurfaceField<Type>>
     (
-        GeometricField<Type, fvsPatchField, surfaceMesh>::null()
+        SurfaceField<Type>::null()
     );
 }
 
@@ -151,7 +150,7 @@ tmp<GeometricField<Type, fvsPatchField, surfaceMesh>> ddtScheme<Type>::fvcDdt
 template<class Type>
 tmp<surfaceScalarField> ddtScheme<Type>::fvcDdtPhiCoeff
 (
-    const GeometricField<Type, fvPatchField, volMesh>& U,
+    const VolField<Type>& U,
     const fluxFieldType& phi,
     const fluxFieldType& phiCorr
 )
@@ -182,13 +181,9 @@ tmp<surfaceScalarField> ddtScheme<Type>::fvcDdtPhiCoeff
 
     forAll(U.boundaryField(), patchi)
     {
-        if
-        (
-            U.boundaryField()[patchi].fixesValue()
-         || isA<cyclicAMIFvPatch>(mesh().boundary()[patchi])
-        )
+        if (!U.boundaryField()[patchi].coupled())
         {
-            ccbf[patchi] = 0.0;
+            ccbf[patchi] = 0;
         }
     }
 
@@ -209,7 +204,7 @@ tmp<surfaceScalarField> ddtScheme<Type>::fvcDdtPhiCoeff
 template<class Type>
 tmp<surfaceScalarField> ddtScheme<Type>::fvcDdtPhiCoeff
 (
-    const GeometricField<Type, fvPatchField, volMesh>& U,
+    const VolField<Type>& U,
     const fluxFieldType& phi,
     const fluxFieldType& phiCorr,
     const volScalarField& rho
@@ -222,7 +217,7 @@ tmp<surfaceScalarField> ddtScheme<Type>::fvcDdtPhiCoeff
 template<class Type>
 tmp<surfaceScalarField> ddtScheme<Type>::fvcDdtPhiCoeff
 (
-    const GeometricField<Type, fvPatchField, volMesh>& U,
+    const VolField<Type>& U,
     const fluxFieldType& phi
 )
 {
@@ -233,7 +228,7 @@ tmp<surfaceScalarField> ddtScheme<Type>::fvcDdtPhiCoeff
 template<class Type>
 tmp<surfaceScalarField> ddtScheme<Type>::fvcDdtPhiCoeff
 (
-    const GeometricField<Type, fvPatchField, volMesh>& U,
+    const VolField<Type>& U,
     const fluxFieldType& phi,
     const volScalarField& rho
 )

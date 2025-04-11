@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -31,14 +31,15 @@ inline Foam::ISstream::ISstream
 (
     istream& is,
     const string& name,
-    streamFormat format,
-    versionNumber version,
-    compressionType compression
+    const streamFormat format,
+    const versionNumber version,
+    const compressionType compression
 )
 :
     Istream(format, version, compression),
     name_(name),
-    is_(is)
+    is_(is),
+    buf_(bufInitialCapacity)
 {
     if (is_.good())
     {
@@ -71,42 +72,6 @@ inline Foam::ISstream& Foam::ISstream::get(char& c)
 inline int Foam::ISstream::peek()
 {
     return is_.peek();
-}
-
-
-inline Foam::ISstream& Foam::ISstream::getLine(string& s)
-{
-    getline(is_, s);
-    setState(is_.rdstate());
-    lineNumber_++;
-
-    while (s.back() == '\\')
-    {
-        string contLine;
-        getline(is_, contLine);
-        setState(is_.rdstate());
-        lineNumber_++;
-        s.pop_back();
-        s += contLine;
-    }
-
-    return *this;
-}
-
-
-inline Foam::ISstream& Foam::ISstream::getMultiLines(string& s)
-{
-    getLine(s);
-
-    while (s.back() == '\\')
-    {
-        s.pop_back();
-        string contLine;
-        getLine(contLine);
-        s += contLine;
-    }
-
-    return *this;
 }
 
 

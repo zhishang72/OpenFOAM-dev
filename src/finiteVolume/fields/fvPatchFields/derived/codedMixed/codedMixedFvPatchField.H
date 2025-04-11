@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -52,7 +52,7 @@ Usage
 
         // codeInclude
         //#{
-        //    #include "fvCFD.H"
+        //    #include ".H"
         //#};
 
         // codeOptions
@@ -98,11 +98,6 @@ SourceFiles
 namespace Foam
 {
 
-// Forward declaration of classes
-class dynamicCode;
-class dynamicCodeContext;
-class IOdictionary;
-
 /*---------------------------------------------------------------------------*\
                    Class codedMixedFvPatchField Declaration
 \*---------------------------------------------------------------------------*/
@@ -113,71 +108,30 @@ class codedMixedFvPatchField
     public mixedFvPatchField<Type>,
     public codedBase
 {
-    // Private static data
-
-        //- The keywords associated with source code
-        static const wordList codeKeys_;
-
-
     // Private Data
 
-        //- Dictionary contents for the boundary condition
-        mutable dictionary dict_;
+        //- Keywords associated with source code
+        static const wordList codeKeys;
 
-        const word name_;
+        //- Name of the dictionary variables in the source code
+        static const wordList codeDictVars;
 
         mutable autoPtr<mixedFvPatchField<Type>> redirectPatchFieldPtr_;
 
 
     // Private Member Functions
 
-        const IOdictionary& dict() const;
-
-        //- Set the rewrite vars controlling the Type
-        static void setFieldTemplates(dynamicCode& dynCode);
-
-        //- Get the loaded dynamic libraries
-        virtual dlLibraryTable& libs() const;
-
         //- Adapt the context for the current object
         virtual void prepare(dynamicCode&, const dynamicCodeContext&) const;
 
-        //- Return a description (type + name) for the output
-        virtual string description() const;
-
-        //- Clear the ptr to the redirected object
-        virtual void clearRedirect() const;
-
-        //- Get the dictionary to initialize the codeContext
-        virtual const dictionary& codeDict() const;
-
-        //- Get the keywords associated with source code
-        virtual const wordList& codeKeys() const;
-
 
 public:
-
-    // Static Data Members
-
-        //- Name of the C code template to be used
-        static const word codeTemplateC;
-
-        //- Name of the H code template to be used
-        static const word codeTemplateH;
-
 
     //- Runtime type information
     TypeName("codedMixed");
 
 
     // Constructors
-
-        //- Construct from patch and internal field
-        codedMixedFvPatchField
-        (
-            const fvPatch&,
-            const DimensionedField<Type, volMesh>&
-        );
 
         //- Construct from patch, internal field and dictionary
         codedMixedFvPatchField
@@ -194,23 +148,12 @@ public:
             const codedMixedFvPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
-        codedMixedFvPatchField
-        (
-            const codedMixedFvPatchField<Type>&
-        );
 
-        //- Construct and return a clone
-        virtual tmp<fvPatchField<Type>> clone() const
-        {
-            return tmp<fvPatchField<Type>>
-            (
-                new codedMixedFvPatchField<Type>(*this)
-            );
-        }
+        //- Disallow copy without setting internal field reference
+        codedMixedFvPatchField(const codedMixedFvPatchField<Type>&) = delete;
 
         //- Copy constructor setting internal field reference
         codedMixedFvPatchField

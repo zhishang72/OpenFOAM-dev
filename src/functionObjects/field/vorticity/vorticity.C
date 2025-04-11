@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2014-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2014-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -51,14 +51,18 @@ bool Foam::functionObjects::vorticity::calc()
 {
     if (foundObject<volVectorField>(fieldName_))
     {
-        return store
+        store
         (
             resultName_,
             fvc::curl(lookupObject<volVectorField>(fieldName_))
         );
+
+        return true;
     }
     else
     {
+        cannotFindObject<volVectorField>(fieldName_);
+
         return false;
     }
 

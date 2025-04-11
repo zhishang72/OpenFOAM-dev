@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -32,143 +32,11 @@ Description
 
 \*---------------------------------------------------------------------------*/
 
-#include "fvCFD.H"
-#include "meshToMesh0.H"
-#include "processorFvPatch.H"
-#include "MapMeshes.H"
+#include "argList.H"
+#include "mapMeshes.H"
+#include "decompositionMethod.H"
 
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-void mapConsistentMesh
-(
-    const fvMesh& meshSource,
-    const fvMesh& meshTarget,
-    const meshToMesh0::order& mapOrder,
-    const bool subtract
-)
-{
-    if (subtract)
-    {
-        MapConsistentMesh<minusEqOp>
-        (
-            meshSource,
-            meshTarget,
-            mapOrder
-        );
-    }
-    else
-    {
-        MapConsistentMesh<eqOp>
-        (
-            meshSource,
-            meshTarget,
-            mapOrder
-        );
-    }
-}
-
-
-void mapSubMesh
-(
-    const fvMesh& meshSource,
-    const fvMesh& meshTarget,
-    const HashTable<word>& patchMap,
-    const wordList& cuttingPatches,
-    const meshToMesh0::order& mapOrder,
-    const bool subtract
-)
-{
-    if (subtract)
-    {
-        MapSubMesh<minusEqOp>
-        (
-            meshSource,
-            meshTarget,
-            patchMap,
-            cuttingPatches,
-            mapOrder
-        );
-    }
-    else
-    {
-        MapSubMesh<eqOp>
-        (
-            meshSource,
-            meshTarget,
-            patchMap,
-            cuttingPatches,
-            mapOrder
-        );
-    }
-}
-
-
-void mapConsistentSubMesh
-(
-    const fvMesh& meshSource,
-    const fvMesh& meshTarget,
-    const meshToMesh0::order& mapOrder,
-    const bool subtract
-)
-{
-    if (subtract)
-    {
-        MapConsistentSubMesh<minusEqOp>
-        (
-            meshSource,
-            meshTarget,
-            mapOrder
-        );
-    }
-    else
-    {
-        MapConsistentSubMesh<eqOp>
-        (
-            meshSource,
-            meshTarget,
-            mapOrder
-        );
-    }
-}
-
-
-wordList addProcessorPatches
-(
-    const fvMesh& meshTarget,
-    const wordList& cuttingPatches
-)
-{
-    // Add the processor patches to the cutting list
-    HashTable<label> cuttingPatchTable;
-    forAll(cuttingPatches, i)
-    {
-        cuttingPatchTable.insert(cuttingPatches[i], i);
-    }
-
-    forAll(meshTarget.boundary(), patchi)
-    {
-        if (isA<processorFvPatch>(meshTarget.boundary()[patchi]))
-        {
-            if
-            (
-               !cuttingPatchTable.found
-                (
-                    meshTarget.boundaryMesh()[patchi].name()
-                )
-            )
-            {
-                cuttingPatchTable.insert
-                (
-                    meshTarget.boundaryMesh()[patchi].name(),
-                    -1
-                );
-            }
-        }
-    }
-
-    return cuttingPatchTable.toc();
-}
-
+using namespace Foam;
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -219,11 +87,6 @@ int main(int argc, char *argv[])
         "mapMethod",
         "word",
         "specify the mapping method"
-    );
-    argList::addBoolOption
-    (
-        "subtract",
-        "subtract mapped source from target"
     );
 
     argList args(argc, argv);
@@ -287,12 +150,6 @@ int main(int argc, char *argv[])
         Info<< "Mapping method: " << mapMethod << endl;
     }
 
-    const bool subtract = args.optionFound("subtract");
-    if (subtract)
-    {
-        Info<< "Subtracting mapped source field from target" << endl;
-    }
-
 
     #include "createTimes.H"
 
@@ -320,19 +177,13 @@ int main(int argc, char *argv[])
 
     if (parallelSource && !parallelTarget)
     {
-        IOdictionary decompositionDict
+        const int nProcs
         (
-            IOobject
+            decompositionMethod::decomposeParDict(runTimeSource).lookup<int>
             (
-                "decomposeParDict",
-                runTimeSource.system(),
-                runTimeSource,
-                IOobject::MUST_READ_IF_MODIFIED,
-                IOobject::NO_WRITE
+                "numberOfSubdomains"
             )
         );
-
-        const int nProcs(decompositionDict.lookup<int>("numberOfSubdomains"));
 
         Info<< "Create target mesh\n" << endl;
 
@@ -341,9 +192,16 @@ int main(int argc, char *argv[])
             IOobject
             (
                 targetRegion,
-                runTimeTarget.timeName(),
+                runTimeTarget.name(),
                 runTimeTarget
-            )
+            ),
+            false
+        );
+
+        meshTarget.postConstruct
+        (
+            false,
+            fvMesh::stitchType::nonGeometric
         );
 
         Info<< "Target mesh size: " << meshTarget.nCells() << endl;
@@ -366,9 +224,16 @@ int main(int argc, char *argv[])
                 IOobject
                 (
                     sourceRegion,
-                    runTimeSource.timeName(),
+                    runTimeSource.name(),
                     runTimeSource
-                )
+                ),
+                false
+            );
+
+            meshSource.postConstruct
+            (
+                false,
+                fvMesh::stitchType::nonGeometric
             );
 
             Info<< "mesh size: " << meshSource.nCells() << endl;
@@ -379,8 +244,7 @@ int main(int argc, char *argv[])
                 (
                     meshSource,
                     meshTarget,
-                    mapOrder,
-                    subtract
+                    mapOrder
                 );
             }
             else
@@ -391,27 +255,20 @@ int main(int argc, char *argv[])
                     meshTarget,
                     patchMap,
                     cuttingPatches,
-                    mapOrder,
-                    subtract
+                    mapOrder
                 );
             }
         }
     }
     else if (!parallelSource && parallelTarget)
     {
-        IOdictionary decompositionDict
+        const int nProcs
         (
-            IOobject
+            decompositionMethod::decomposeParDict(runTimeSource).lookup<int>
             (
-                "decomposeParDict",
-                runTimeTarget.system(),
-                runTimeTarget,
-                IOobject::MUST_READ_IF_MODIFIED,
-                IOobject::NO_WRITE
+                "numberOfSubdomains"
             )
         );
-
-        const int nProcs(decompositionDict.lookup<int>("numberOfSubdomains"));
 
         Info<< "Create source mesh\n" << endl;
 
@@ -422,9 +279,16 @@ int main(int argc, char *argv[])
             IOobject
             (
                 sourceRegion,
-                runTimeSource.timeName(),
+                runTimeSource.name(),
                 runTimeSource
-            )
+            ),
+            false
+        );
+
+        meshSource.postConstruct
+        (
+            false,
+            fvMesh::stitchType::nonGeometric
         );
 
         Info<< "Source mesh size: " << meshSource.nCells() << endl;
@@ -445,9 +309,16 @@ int main(int argc, char *argv[])
                 IOobject
                 (
                     targetRegion,
-                    runTimeTarget.timeName(),
+                    runTimeTarget.name(),
                     runTimeTarget
-                )
+                ),
+                false
+            );
+
+            meshTarget.postConstruct
+            (
+                false,
+                fvMesh::stitchType::nonGeometric
             );
 
             Info<< "mesh size: " << meshTarget.nCells() << endl;
@@ -458,8 +329,7 @@ int main(int argc, char *argv[])
                 (
                     meshSource,
                     meshTarget,
-                    mapOrder,
-                    subtract
+                    mapOrder
                 );
             }
             else
@@ -470,47 +340,27 @@ int main(int argc, char *argv[])
                     meshTarget,
                     patchMap,
                     addProcessorPatches(meshTarget, cuttingPatches),
-                    mapOrder,
-                    subtract
+                    mapOrder
                 );
             }
         }
     }
     else if (parallelSource && parallelTarget)
     {
-        IOdictionary decompositionDictSource
-        (
-            IOobject
-            (
-                "decomposeParDict",
-                runTimeSource.system(),
-                runTimeSource,
-                IOobject::MUST_READ_IF_MODIFIED,
-                IOobject::NO_WRITE
-            )
-        );
-
         const int nProcsSource
         (
-            decompositionDictSource.lookup<int>("numberOfSubdomains")
-        );
-
-
-        IOdictionary decompositionDictTarget
-        (
-            IOobject
+            decompositionMethod::decomposeParDict(runTimeSource).lookup<int>
             (
-                "decomposeParDict",
-                runTimeTarget.system(),
-                runTimeTarget,
-                IOobject::MUST_READ_IF_MODIFIED,
-                IOobject::NO_WRITE
+                "numberOfSubdomains"
             )
         );
 
         const int nProcsTarget
         (
-            decompositionDictTarget.lookup<int>("numberOfSubdomains")
+            decompositionMethod::decomposeParDict(runTimeTarget).lookup<int>
+            (
+                "numberOfSubdomains"
+            )
         );
 
         List<boundBox> bbsTarget(nProcsTarget);
@@ -534,9 +384,16 @@ int main(int argc, char *argv[])
                 IOobject
                 (
                     sourceRegion,
-                    runTimeSource.timeName(),
+                    runTimeSource.name(),
                     runTimeSource
-                )
+                ),
+                false
+            );
+
+            meshSource.postConstruct
+            (
+                false,
+                fvMesh::stitchType::nonGeometric
             );
 
             Info<< "mesh size: " << meshSource.nCells() << endl;
@@ -569,9 +426,16 @@ int main(int argc, char *argv[])
                         IOobject
                         (
                             targetRegion,
-                            runTimeTarget.timeName(),
+                            runTimeTarget.name(),
                             runTimeTarget
-                        )
+                        ),
+                        false
+                    );
+
+                    meshTarget.postConstruct
+                    (
+                        false,
+                        fvMesh::stitchType::nonGeometric
                     );
 
                     Info<< "mesh size: " << meshTarget.nCells() << endl;
@@ -587,8 +451,7 @@ int main(int argc, char *argv[])
                             (
                                 meshSource,
                                 meshTarget,
-                                mapOrder,
-                                subtract
+                                mapOrder
                             );
                         }
                         else
@@ -599,8 +462,7 @@ int main(int argc, char *argv[])
                                 meshTarget,
                                 patchMap,
                                 addProcessorPatches(meshTarget, cuttingPatches),
-                                mapOrder,
-                                subtract
+                                mapOrder
                             );
                         }
                     }
@@ -619,9 +481,16 @@ int main(int argc, char *argv[])
             IOobject
             (
                 sourceRegion,
-                runTimeSource.timeName(),
+                runTimeSource.name(),
                 runTimeSource
-            )
+            ),
+            false
+        );
+
+        meshSource.postConstruct
+        (
+            false,
+            fvMesh::stitchType::nonGeometric
         );
 
         fvMesh meshTarget
@@ -629,9 +498,16 @@ int main(int argc, char *argv[])
             IOobject
             (
                 targetRegion,
-                runTimeTarget.timeName(),
+                runTimeTarget.name(),
                 runTimeTarget
-            )
+            ),
+            false
+        );
+
+        meshTarget.postConstruct
+        (
+            false,
+            fvMesh::stitchType::nonGeometric
         );
 
         Info<< "Source mesh size: " << meshSource.nCells() << tab
@@ -639,7 +515,7 @@ int main(int argc, char *argv[])
 
         if (consistent)
         {
-            mapConsistentMesh(meshSource, meshTarget, mapOrder, subtract);
+            mapConsistentMesh(meshSource, meshTarget, mapOrder);
         }
         else
         {
@@ -649,8 +525,7 @@ int main(int argc, char *argv[])
                 meshTarget,
                 patchMap,
                 cuttingPatches,
-                mapOrder,
-                subtract
+                mapOrder
             );
         }
     }

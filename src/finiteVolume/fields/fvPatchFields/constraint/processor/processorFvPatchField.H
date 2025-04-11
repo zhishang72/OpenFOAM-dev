@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -125,20 +125,11 @@ public:
             const processorFvPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
-        processorFvPatchField(const processorFvPatchField<Type>&);
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchField<Type>> clone() const
-        {
-            return tmp<fvPatchField<Type>>
-            (
-                new processorFvPatchField<Type>(*this)
-            );
-        }
+        //- Disallow copy without setting internal field reference
+        processorFvPatchField(const processorFvPatchField<Type>&) = delete;
 
         //- Copy constructor setting internal field reference
         processorFvPatchField
@@ -156,6 +147,20 @@ public:
             return tmp<fvPatchField<Type>>
             (
                 new processorFvPatchField<Type>(*this, iF)
+            );
+        }
+
+        //- Construct and return a clone onto a new patch
+        //  setting internal field reference
+        virtual tmp<fvPatchField<Type>> clone
+        (
+            const fvPatch& patch,
+            const DimensionedField<Type, volMesh>& iF
+        ) const
+        {
+            return tmp<fvPatchField<Type>>
+            (
+                new processorFvPatchField<Type>(patch, iF, *this)
             );
         }
 
@@ -182,7 +187,10 @@ public:
             }
 
             //- Return neighbour field given internal field
-            virtual tmp<Field<Type>> patchNeighbourField() const;
+            virtual tmp<Field<Type>> patchNeighbourField
+            (
+                const Pstream::commsTypes
+            ) const;
 
 
         // Evaluation functions
@@ -261,16 +269,10 @@ public:
                 return procPatch_.neighbProcNo();
             }
 
-            //- Does the patch field perform the transformation
-            virtual bool doTransform() const
+            //- Return transformation between the coupled patches
+            virtual const transformer& transform() const
             {
-                return !(procPatch_.parallel() || pTraits<Type>::rank == 0);
-            }
-
-            //- Return face transformation tensor
-            virtual const tensorField& forwardT() const
-            {
-                return procPatch_.forwardT();
+                return procPatch_.transform();
             }
 
             //- Return rank of component for transform
@@ -278,7 +280,6 @@ public:
             {
                 return pTraits<Type>::rank;
             }
-
 };
 
 

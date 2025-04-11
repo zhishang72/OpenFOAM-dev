@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ License
 
 #include "psiThermo.H"
 
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+// * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
 namespace Foam
 {
@@ -33,40 +33,17 @@ namespace Foam
     defineRunTimeSelectionTable(psiThermo, fvMesh);
 }
 
+const Foam::word Foam::psiThermo::derivedThermoName("hePsiThermo");
+
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
-Foam::psiThermo::psiThermo(const fvMesh& mesh, const word& phaseName)
-:
-    fluidThermo(mesh, phaseName),
-
-    psi_
-    (
-        IOobject
-        (
-            phasePropertyName("thermo:psi"),
-            mesh.time().timeName(),
-            mesh,
-            IOobject::NO_READ,
-            IOobject::NO_WRITE
-        ),
-        mesh,
-        dimensionSet(0, -2, 2, 0, 0)
-    ),
-
-    mu_
-    (
-        IOobject
-        (
-            phasePropertyName("thermo:mu"),
-            mesh.time().timeName(),
-            mesh,
-            IOobject::NO_READ,
-            IOobject::NO_WRITE
-        ),
-        mesh,
-        dimensionSet(1, -1, -1, 0, 0)
-    )
+Foam::psiThermo::implementation::implementation
+(
+    const dictionary& dict,
+    const fvMesh& mesh,
+    const word& phaseName
+)
 {}
 
 
@@ -88,17 +65,15 @@ Foam::psiThermo::~psiThermo()
 {}
 
 
+Foam::psiThermo::implementation::~implementation()
+{}
+
+
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-Foam::tmp<Foam::volScalarField> Foam::psiThermo::rho() const
+Foam::tmp<Foam::volScalarField> Foam::psiThermo::renameRho()
 {
-    return p_*psi_;
-}
-
-
-Foam::tmp<Foam::scalarField> Foam::psiThermo::rho(const label patchi) const
-{
-    return p_.boundaryField()[patchi]*psi_.boundaryField()[patchi];
+    return rho();
 }
 
 
@@ -106,21 +81,18 @@ void Foam::psiThermo::correctRho(const Foam::volScalarField& deltaRho)
 {}
 
 
-const Foam::volScalarField& Foam::psiThermo::psi() const
+Foam::tmp<Foam::volScalarField> Foam::psiThermo::implementation::rho() const
 {
-    return psi_;
+    return p()*psi();
 }
 
 
-Foam::tmp<Foam::volScalarField> Foam::psiThermo::mu() const
+Foam::tmp<Foam::scalarField> Foam::psiThermo::implementation::rho
+(
+    const label patchi
+) const
 {
-    return mu_;
-}
-
-
-Foam::tmp<Foam::scalarField> Foam::psiThermo::mu(const label patchi) const
-{
-    return mu_.boundaryField()[patchi];
+    return p().boundaryField()[patchi]*psi().boundaryField()[patchi];
 }
 
 

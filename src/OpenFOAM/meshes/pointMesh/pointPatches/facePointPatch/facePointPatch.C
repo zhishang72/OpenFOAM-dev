@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -50,7 +50,7 @@ addToRunTimeSelectionTable
 
 // * * * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * //
 
-void facePointPatch::initGeometry(PstreamBuffers&)
+void facePointPatch::initCalcGeometry(PstreamBuffers&)
 {}
 
 
@@ -66,13 +66,13 @@ void facePointPatch::movePoints(PstreamBuffers&, const pointField&)
 {}
 
 
-void facePointPatch::initUpdateMesh(PstreamBuffers& pBufs)
+void facePointPatch::initTopoChange(PstreamBuffers& pBufs)
 {
-    facePointPatch::initGeometry(pBufs);
+    facePointPatch::initCalcGeometry(pBufs);
 }
 
 
-void facePointPatch::updateMesh(PstreamBuffers&)
+void facePointPatch::topoChange(PstreamBuffers&)
 {}
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -58,7 +58,7 @@ Description
         type            regionSizeDistribution;
         libs            ("libfieldFunctionObjects.so");
         ...
-        field           alpha;
+        alpha           alpha;
         patches         (inlet);
         threshold       0.4;
         fields          (p U);
@@ -66,13 +66,6 @@ Description
         maxDiameter     0.5e-4;
         minDiameter     0;
         setFormat       gnuplot;
-        coordinateSystem
-        {
-            type            cartesian;
-            origin          (0 0 0);
-            e3              (0 1 1);
-            e1              (1 0 0);
-        }
     }
     \endverbatim
 
@@ -80,7 +73,7 @@ Usage
     \table
         Property     | Description             | Required    | Default value
         type         | type name: regionSizeDistribution |yes|
-        field        | phase field to interrogate | yes      |
+        alpha        | phase field to interrogate | yes      |
         patches      | patches from which the liquid core is identified | yes|
         threshold    | phase fraction applied to delimit regions | yes |
         fields       | fields to sample        | yes         |
@@ -88,7 +81,6 @@ Usage
         maxDiameter  | maximum region equivalent diameter | yes |
         minDiameter  | minimum region equivalent diameter | no  | 0
         setFormat    | writing format          | yes         |
-        coordinateSystem | transformation for vector fields | no         |
     \endtable
 
 See also
@@ -106,7 +98,7 @@ SourceFiles
 
 #include "fvMeshFunctionObject.H"
 #include "writeFile.H"
-#include "writer.H"
+#include "setWriter.H"
 #include "Map.H"
 #include "volFieldsFwd.H"
 #include "wordReList.H"
@@ -154,13 +146,10 @@ class regionSizeDistribution
         label nBins_;
 
         //- Names of fields to sample on regions
-        wordReList fields_;
+        wordList fields_;
 
         //- Output formatter to write
-        autoPtr<writer<scalar>> formatterPtr_;
-
-        //- Optional coordinate system
-        autoPtr<coordinateSystem> coordSysPtr_;
+        autoPtr<setWriter> formatterPtr_;
 
 
     // Private Member Functions
@@ -172,13 +161,6 @@ class regionSizeDistribution
         template<class Type>
         List<Type> extractData(const UList<label>& keys, const Map<Type>&)
         const;
-
-        void writeGraph
-        (
-            const coordSet& coords,
-            const word& valueName,
-            const scalarField& values
-        ) const;
 
         //- Write volfields with the parts of alpha which are not
         //  droplets (liquidCore, backGround)
@@ -194,31 +176,46 @@ class regionSizeDistribution
         Map<label> findPatchRegions(const regionSplit&) const;
 
         //- Helper: divide if denom != 0
-        static tmp<scalarField> divide(const scalarField&, const scalarField&);
+        template<class Type>
+        static tmp<Field<Type>> divide(const Field<Type>&, const scalarField&);
 
-        //- Given per-region data calculate per-bin average/deviation and graph
-        void writeGraphs
+        //- Generate fields for writing
+        template<class Type>
+        void generateFields
+        (
+            const word& fieldName,              // name of field
+            const labelList& indices,           // index of bin for each region
+            const Field<Type>& sortedField,     // per region field data
+            const scalarField& binCount,        // per bin number of regions
+            wordList& fieldNames,
+            PtrList<Field<Type>>& fields
+        ) const;
+
+        //- Generate fields for writing. Scalar overload. It is possible to
+        //  generate more fields for scalar input.
+        void generateFields
         (
             const word& fieldName,              // name of field
             const labelList& indices,           // index of bin for each region
             const scalarField& sortedField,     // per region field data
             const scalarField& binCount,        // per bin number of regions
-            const coordSet& coords              // graph data for bins
+            wordList& fieldNames,
+            PtrList<scalarField>& fields
         ) const;
 
-        //- Given per-cell data calculate per-bin average/deviation and graph
-        void writeGraphs
+        //- Generate fields for writing
+        template<class Type>
+        void generateFields
         (
             const word& fieldName,              // name of field
-            const scalarField& cellField,       // per cell field data
-
+            const Field<Type>& cellField,       // per cell field data
             const regionSplit& regions,         // per cell the region(=droplet)
             const labelList& sortedRegions,     // valid regions in sorted order
             const scalarField& sortedNormalisation,
-
             const labelList& indices,           // index of bin for each region
             const scalarField& binCount,        // per bin number of regions
-            const coordSet& coords              // graph data for bins
+            wordList& fieldNames,
+            PtrList<Field<Type>>& fields
         ) const;
 
 
@@ -252,6 +249,9 @@ public:
 
         //- Read the regionSizeDistribution data
         virtual bool read(const dictionary&);
+
+        //- Return the list of fields required
+        virtual wordList fields() const;
 
         //- Do nothing
         virtual bool execute();

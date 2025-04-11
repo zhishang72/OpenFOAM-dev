@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -87,7 +87,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-             Class syringePressureFvPatchScalarField Declaration
+              Class syringePressureFvPatchScalarField Declaration
 \*---------------------------------------------------------------------------*/
 
 class syringePressureFvPatchScalarField
@@ -150,13 +150,6 @@ public:
 
     // Constructors
 
-        //- Construct from patch and internal field
-        syringePressureFvPatchScalarField
-        (
-            const fvPatch&,
-            const DimensionedField<scalar, volMesh>&
-        );
-
         //- Construct from patch, internal field and dictionary
         syringePressureFvPatchScalarField
         (
@@ -172,23 +165,14 @@ public:
             const syringePressureFvPatchScalarField&,
             const fvPatch&,
             const DimensionedField<scalar, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Construct and return a clone
-        virtual tmp<fvPatchScalarField> clone() const
-        {
-            return tmp<fvPatchScalarField>
-            (
-                new syringePressureFvPatchScalarField(*this)
-            );
-        }
-
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         syringePressureFvPatchScalarField
         (
             const syringePressureFvPatchScalarField&
-        );
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         syringePressureFvPatchScalarField

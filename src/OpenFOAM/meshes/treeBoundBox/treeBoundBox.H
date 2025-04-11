@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -67,7 +67,7 @@ SourceFiles
 namespace Foam
 {
 
-class Random;
+class randomGenerator;
 
 
 // Forward declaration of friend functions and operators
@@ -211,6 +211,8 @@ public:
             const FixedList<label, Size>& indices
         );
 
+        //- Construct from dictionary
+        inline treeBoundBox(const dictionary&);
 
         //- Construct from Istream
         inline treeBoundBox(Istream&);
@@ -353,7 +355,7 @@ public:
             //   0 : none of the above.
             label distanceCmp(const point&, const treeBoundBox& other) const;
 
-            //- Return asymetrically extended bounding box, with guaranteed
+            //- Return asymmetrically extended bounding box, with guaranteed
             //  minimum width of s*mag(span) in any direction
             inline treeBoundBox extend(const scalar s) const;
 

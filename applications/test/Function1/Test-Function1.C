@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -29,11 +29,10 @@ Description
 
 \*---------------------------------------------------------------------------*/
 
+#include "argList.H"
 #include "Function1.H"
 #include "IFstream.H"
 #include "OFstream.H"
-#include "ListOps.H"
-#include "argList.H"
 
 using namespace Foam;
 
@@ -49,38 +48,56 @@ int main(int argc, char *argv[])
 
     Info<< "Constructing the function\n" << endl;
     const autoPtr<Function1<scalar>> functionPtr =
-        Function1<scalar>::New("function", dict);
+        Function1<scalar>::New("function", unitNone, unitNone, dict);
     const Function1<scalar>& function = functionPtr();
 
+    const bool integral = dict.lookupOrDefault<bool>("integral", true);
     const scalar x0 = dict.lookup<scalar>("x0");
     const scalar x1 = dict.lookup<scalar>("x1");
     const label nX = dict.lookup<label>("nX");
     const scalar dx = (x1 - x0)/(nX - 1);
-    const scalarField xs
-    (
-        x0 + dx*List<scalar>(identity(nX))
-    );
+    const scalarField xs(x0 + dx*List<scalar>(identityMap(nX)));
 
     Info<< "Calculating values\n" << endl;
+
     const scalarField ys(function.value(xs));
-    const scalarField integralYs(function.integrate(scalarField(nX, x0), xs));
-    scalarField trapezoidIntegralYs(nX, 0);
-    for (label i = 1; i < nX; ++ i)
+
+    tmp<scalarField> integralYs
+    (
+        integral
+      ? function.integral(scalarField(nX, x0), xs)
+      : tmp<scalarField>()
+    );
+
+    tmp<scalarField> trapezoidIntegralYs;
+    if (integral)
     {
-        trapezoidIntegralYs[i] =
-            trapezoidIntegralYs[i-1] + (ys[i] + ys[i-1])/2*dx;
+        trapezoidIntegralYs = tmp<scalarField>(new scalarField(nX, 0));
+        for (label i = 1; i < nX; ++ i)
+        {
+            trapezoidIntegralYs.ref()[i] =
+                trapezoidIntegralYs.ref()[i-1] + (ys[i] + ys[i-1])/2*dx;
+        }
     }
 
-    OFstream dataFile(dictName + ".dat");
-    Info<< "Writing to " << dataFile.name() << "\n" << endl;
-    dataFile<< "# x y integralY trapezoidIntegralY" << endl;
+    OFstream ofs(dictName + ".dat");
+    Info<< "Writing to " << ofs.name() << "\n" << endl;
+
+    ofs << "# x y";
+    if (integral)
+    {
+        ofs << " integralY trapezoidIntegralY";
+    }
+    ofs << nl;
+
     forAll(xs, i)
     {
-        dataFile
-            << xs[i] << ' '
-            << ys[i] << ' '
-            << integralYs[i] << ' '
-            << trapezoidIntegralYs[i] << endl;
+        ofs << xs[i] << ' ' << ys[i];
+        if (integral)
+        {
+            ofs << ' ' << integralYs()[i] << ' ' << trapezoidIntegralYs()[i];
+        }
+        ofs << nl;
     }
 
     Info<< "End\n" << endl;

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ License
 
 #include "randomRenumber.H"
 #include "addToRunTimeSelectionTable.H"
-#include "Random.H"
+#include "randomGenerator.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -57,9 +57,9 @@ Foam::labelList Foam::randomRenumber::renumber
     const pointField& points
 ) const
 {
-    Random rndGen(0);
+    randomGenerator rndGen(0);
 
-    labelList newToOld(identity(points.size()));
+    labelList newToOld(identityMap(points.size()));
 
     for (label iter = 0; iter < 10; iter++)
     {

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -31,6 +31,7 @@ License
 #include "Time.H"
 #include "patchZones.H"
 #include "OStringStream.H"
+#include "OSspecific.H"
 
 // VTK includes
 #include "vtkDataArraySelection.h"
@@ -232,11 +233,10 @@ Foam::vtkPVblockMesh::vtkPVblockMesh
         (
             Time::controlDictName,
             fileName(fullCasePath.path()),
-            fileName(fullCasePath.name())
+            fileName(fullCasePath.name()),
+            false
         )
     );
-
-    dbPtr_().functionObjects().off();
 
     updateInfo();
 }
@@ -328,7 +328,7 @@ void Foam::vtkPVblockMesh::updateFoamMesh()
         if (debug)
         {
             InfoInFunction
-                << "Creating blockMesh at time=" << dbPtr_().timeName() << endl;
+                << "Creating blockMesh at time=" << dbPtr_().name() << endl;
         }
 
         // Set path for the blockMeshDict
@@ -363,7 +363,12 @@ void Foam::vtkPVblockMesh::updateFoamMesh()
         );
         meshDictPtr->store();
 
-        meshPtr_ = new blockMesh(*meshDictPtr, meshRegion_);
+        meshPtr_ = new blockMesh
+        (
+            *meshDictPtr,
+            dbPtr_().constant(),
+            meshRegion_
+        );
     }
 }
 

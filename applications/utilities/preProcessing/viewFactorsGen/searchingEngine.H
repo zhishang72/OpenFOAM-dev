@@ -1,4 +1,4 @@
-Random rndGen(653213);
+randomGenerator rndGen(653213);
 
 // Determine mesh bounding boxes:
 List<treeBoundBox> meshBb
@@ -27,12 +27,7 @@ labelHashSet includePatches;
 forAll(patches, patchi)
 {
     const polyPatch& pp = patches[patchi];
-    if
-    (
-        !pp.coupled()
-     && !isA<cyclicAMIPolyPatch>(pp)
-     && !isA<emptyPolyPatch>(pp)
-    )
+    if (!pp.coupled() && !isA<emptyPolyPatch>(pp))
     {
         includePatches.insert(patchi);
     }
@@ -56,9 +51,9 @@ distributedTriSurfaceMesh surfacesMesh
     IOobject
     (
         "wallSurface.stl",
-        runTime.constant(),     // directory
-        "triSurface",           // instance
-        runTime,                // registry
+        runTime.constant(),
+        searchableSurface::geometryDir(runTime),
+        runTime,
         IOobject::NO_READ,
         IOobject::NO_WRITE
     ),

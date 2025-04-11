@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -48,7 +48,7 @@ namespace Foam
 template<class Form, class Type> class Matrix;
 
 /*---------------------------------------------------------------------------*\
-                           Class DiagonalMatrix Declaration
+                       Class DiagonalMatrix Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -61,20 +61,32 @@ public:
     // Constructors
 
         //- Null constructor.
-        DiagonalMatrix<Type>();
+        DiagonalMatrix();
 
         //- Construct from diagonal component of a Matrix
         template<class Form>
-        DiagonalMatrix<Type>(const Matrix<Form, Type>&);
+        DiagonalMatrix(const Matrix<Form, Type>&);
 
         //- Construct empty from size
-        DiagonalMatrix<Type>(const label size);
+        DiagonalMatrix(const label size);
 
         //- Construct from size and a value
-        DiagonalMatrix<Type>(const label, const Type&);
+        DiagonalMatrix(const label, const Type&);
+
+        //- Construct from an initialiser list
+        DiagonalMatrix(std::initializer_list<Type>);
+
+        //- Construct from Istream.
+        DiagonalMatrix(Istream&);
 
 
     // Member Functions
+
+        //- Return the instantiated type name
+        static word typeName()
+        {
+            return word("DiagonalMatrix<") + pTraits<Type>::typeName + '>';
+        }
 
         //- Invert the diagonal matrix and return itself
         DiagonalMatrix<Type>& invert();

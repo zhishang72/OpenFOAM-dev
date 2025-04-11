@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -45,10 +45,6 @@ SourceFiles
 namespace Foam
 {
 
-// Forward declaration of friend functions and operators
-class porosityModelList;
-Ostream& operator<<(Ostream& os, const porosityModelList& models);
-
 /*---------------------------------------------------------------------------*\
                       Class porosityModelList Declaration
 \*---------------------------------------------------------------------------*/
@@ -81,22 +77,11 @@ public:
 
     // Member Functions
 
-        //- Return active status
-        bool active(const bool active = false) const;
-
         //- Reset the source list
         void reset(const dictionary& dict);
 
         //- Add resistance
         void addResistance(fvVectorMatrix& UEqn);
-
-        //- Add resistance
-        void addResistance
-        (
-            fvVectorMatrix& UEqn,
-            const volScalarField& rho,
-            const volScalarField& mu
-        );
 
         //- Add resistance
         void addResistance
@@ -107,20 +92,25 @@ public:
         );
 
 
+        // Mesh changes
+
+            //- Update for mesh motion
+            bool movePoints();
+
+            //- Update topology using the given map
+            void topoChange(const polyTopoChangeMap&);
+
+            //- Update from another mesh using the given map
+            void mapMesh(const polyMeshMap&);
+
+            //- Redistribute or update using the given distribution map
+            void distribute(const polyDistributionMap&);
+
+
         // I-O
 
             //- Read dictionary
             bool read(const dictionary& dict);
-
-            //- Write data to Ostream
-            bool writeData(Ostream& os) const;
-
-            //- Ostream operator
-            friend Ostream& operator<<
-            (
-                Ostream& os,
-                const porosityModelList& models
-            );
 
 
     // Member Operators

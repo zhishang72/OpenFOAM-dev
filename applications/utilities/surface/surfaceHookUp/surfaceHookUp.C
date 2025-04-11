@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2014-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2014-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -39,9 +39,8 @@ Usage
 #include "indexedOctree.H"
 #include "treeBoundBox.H"
 #include "PackedBoolList.H"
-#include "unitConversion.H"
 #include "searchableSurfaces.H"
-#include "IOdictionary.H"
+#include "systemDict.H"
 
 using namespace Foam;
 
@@ -114,41 +113,6 @@ void greenRefine
 }
 
 
-//scalar checkEdgeAngle
-//(
-//    const triSurface& surf,
-//    const label edgeIndex,
-//    const label pointIndex,
-//    const scalar& angle
-//)
-//{
-//    const edge& e = surf.edges()[edgeIndex];
-
-//    vector eVec = e.vec(surf.localPoints());
-//    eVec /= mag(eVec) + small;
-
-//    const labelList& pEdges = surf.pointEdges()[pointIndex];
-//
-//    forAll(pEdges, eI)
-//    {
-//        const edge& nearE = surf.edges()[pEdges[eI]];
-
-//        vector nearEVec = nearE.vec(surf.localPoints());
-//        nearEVec /= mag(nearEVec) + small;
-
-//        const scalar dot = eVec & nearEVec;
-//        const scalar minCos = degToRad(angle);
-
-//        if (mag(dot) > minCos)
-//        {
-//            return false;
-//        }
-//    }
-
-//    return true;
-//}
-
-
 void createBoundaryEdgeTrees
 (
     const PtrList<triSurfaceMesh>& surfs,
@@ -164,11 +128,11 @@ void createBoundaryEdgeTrees
         treeBoundaryEdges[surfI] =
             labelList
             (
-                identity(surf.nEdges() - surf.nInternalEdges())
+                identityMap(surf.nEdges() - surf.nInternalEdges())
               + surf.nInternalEdges()
             );
 
-        Random rndGen(17301893);
+        randomGenerator rndGen(17301893);
 
         // Slightly extended bb. Slightly off-centred just so on symmetric
         // geometry there are less face/edge aligned items.
@@ -281,12 +245,7 @@ int main(int argc, char *argv[])
     #include "setRootCase.H"
     #include "createTime.H"
 
-    const word dictName("surfaceHookUpDict");
-    #include "setSystemRunTimeDictionaryIO.H"
-
-    Info<< "Reading " << dictName << nl << endl;
-
-    const IOdictionary dict(dictIO);
+    const dictionary dict(systemDict("surfaceHookUpDict", args, runTime));
 
     const scalar dist(args.argRead<scalar>(1));
     const scalar matchTolerance(max(1e-6*dist, small));
@@ -300,7 +259,7 @@ int main(int argc, char *argv[])
         (
             "surfacesToHook",
             runTime.constant(),
-            "triSurface",
+            searchableSurface::geometryDir(runTime),
             runTime
         ),
         dict,
@@ -345,7 +304,7 @@ int main(int argc, char *argv[])
                 (
                     "hookedSurface_" + surfs.names()[surfI],
                     runTime.constant(),
-                    "triSurface",
+                    searchableSurface::geometryDir(runTime),
                     runTime
                 ),
                 surf
@@ -434,15 +393,6 @@ int main(int argc, char *argv[])
 
                 if (nearestHit.hit())
                 {
-    //                bool rejectEdge =
-    //                    checkEdgeAngle
-    //                    (
-    //                        surf,
-    //                        nearestHit.index(),
-    //                        pointi,
-    //                        30
-    //                    );
-
                     if (dist2 > Foam::sqr(dist))
                     {
                         nearestHit.setMiss();
@@ -559,7 +509,7 @@ int main(int argc, char *argv[])
                     (
                         "hookedSurface_" + surfs.names()[surfI],
                         runTime.constant(),
-                        "triSurface",
+                        searchableSurface::geometryDir(runTime),
                         runTime
                     ),
                     triSurface

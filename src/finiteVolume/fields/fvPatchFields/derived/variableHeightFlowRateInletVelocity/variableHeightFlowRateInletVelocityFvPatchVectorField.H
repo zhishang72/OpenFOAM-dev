@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -51,11 +51,11 @@ Usage
 
     The \c flowRate entry is a \c Function1 of time, see Foam::Function1s.
 
-Note
-    - the value is positive into the domain
-    - may not work correctly for transonic inlets
-    - strange behaviour with potentialFoam since the momentum equation is
-      not solved
+    Note:
+      - the value is positive into the domain
+      - may not work correctly for transonic inlets
+      - strange behaviour with potentialFoam since the momentum equation is
+        not solved
 
 See also
     Foam::fixedValueFvPatchField
@@ -101,13 +101,6 @@ public:
 
    // Constructors
 
-        //- Construct from patch and internal field
-        variableHeightFlowRateInletVelocityFvPatchVectorField
-        (
-            const fvPatch&,
-            const DimensionedField<vector, volMesh>&
-        );
-
         //- Construct from patch, internal field and dictionary
         variableHeightFlowRateInletVelocityFvPatchVectorField
         (
@@ -124,23 +117,14 @@ public:
             const variableHeightFlowRateInletVelocityFvPatchVectorField&,
             const fvPatch&,
             const DimensionedField<vector, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         variableHeightFlowRateInletVelocityFvPatchVectorField
         (
             const variableHeightFlowRateInletVelocityFvPatchVectorField&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchVectorField> clone() const
-        {
-            return tmp<fvPatchVectorField>
-            (
-                new variableHeightFlowRateInletVelocityFvPatchVectorField(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         variableHeightFlowRateInletVelocityFvPatchVectorField

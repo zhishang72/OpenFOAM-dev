@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -26,7 +26,6 @@ License
 #include "regIOobject.H"
 #include "Time.H"
 #include "polyMesh.H"
-#include "registerSwitch.H"
 #include "fileOperation.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
@@ -69,6 +68,22 @@ Foam::regIOobject::regIOobject(const regIOobject& rio)
     eventNo_(db().getEvent())
 {
     // Do not register copy with objectRegistry
+}
+
+
+Foam::regIOobject::regIOobject(const regIOobject&& rio)
+:
+    IOobject(rio),
+    registered_(false),
+    ownedByRegistry_(false),
+    watchIndices_(),
+    eventNo_(db().getEvent())
+{
+    if (rio.registered_)
+    {
+        const_cast<regIOobject&>(rio).checkOut();
+        checkIn();
+    }
 }
 
 
@@ -139,7 +154,8 @@ Foam::regIOobject::~regIOobject()
         if (this == &db())
         {
             Pout<< "Destroying objectRegistry " << name()
-                << " in directory " << rootPath()/caseName()/instance()
+                << " in directory "
+                << rootPath()/caseName()/instance()
                 << endl;
         }
         else
@@ -161,6 +177,30 @@ Foam::regIOobject::~regIOobject()
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+
+bool Foam::regIOobject::global() const
+{
+    return false;
+}
+
+
+bool Foam::regIOobject::globalFile() const
+{
+    return global();
+}
+
+
+const Foam::fileName& Foam::regIOobject::caseName() const
+{
+    return IOobject::caseName(globalFile());
+}
+
+
+Foam::fileName Foam::regIOobject::path() const
+{
+    return IOobject::path(globalFile());
+}
+
 
 bool Foam::regIOobject::checkIn()
 {
@@ -213,29 +253,6 @@ bool Foam::regIOobject::checkOut()
     }
 
     return false;
-}
-
-
-Foam::label Foam::regIOobject::addWatch(const fileName& f)
-{
-    label index = -1;
-
-    if
-    (
-        registered_
-     && readOpt() == MUST_READ_IF_MODIFIED
-     && time().runTimeModifiable()
-    )
-    {
-        index = fileHandler().findWatch(watchIndices_, f);
-
-        if (index == -1)
-        {
-            index = watchIndices_.size();
-            watchIndices_.append(fileHandler().addWatch(f));
-        }
-    }
-    return index;
 }
 
 
@@ -399,36 +416,51 @@ void Foam::regIOobject::setUpToDate()
 
 void Foam::regIOobject::rename(const word& newName)
 {
-    // Check out of objectRegistry
-    checkOut();
-
-    IOobject::rename(newName);
-
-    if (registerObject())
+    // Only rename the object if the name is different
+    // avoiding the checkOut/checkIn
+    if (newName != name())
     {
-        // Re-register object with objectRegistry
-        checkIn();
+        const bool ownedByRegistry0 = ownedByRegistry();
+        release();
+
+        // Check out of objectRegistry
+        checkOut();
+
+        IOobject::rename(newName);
+
+        if (registerObject())
+        {
+            // Re-register object with objectRegistry
+            if (ownedByRegistry0)
+            {
+                store();
+            }
+            else
+            {
+                checkIn();
+            }
+        }
     }
 }
 
 
 Foam::fileName Foam::regIOobject::filePath() const
 {
-    return localFilePath(type());
+    return IOobject::filePath(globalFile());
 }
 
 
 bool Foam::regIOobject::headerOk()
 {
-    // Note: Should be consistent with IOobject::typeHeaderOk(false)
+    // Note: Should be consistent with typeIOobject<Type>::headerOk()
 
     bool ok = true;
 
-    fileName fName(filePath());
+    const fileName fName(filePath());
 
     ok = Foam::fileHandler().readHeader(*this, fName, type());
 
-    if (!ok && IOobject::debug)
+    if (IOobject::debug && (!ok || headerClassName() != type()))
     {
         IOWarningInFunction(fName)
             << "failed to read header of file " << objectPath()
@@ -436,30 +468,6 @@ bool Foam::regIOobject::headerOk()
     }
 
     return ok;
-}
-
-
-bool Foam::regIOobject::global() const
-{
-    return false;
-}
-
-
-void Foam::regIOobject::operator=(const IOobject& io)
-{
-    // Close any file
-    isPtr_.clear();
-
-    // Check out of objectRegistry
-    checkOut();
-
-    IOobject::operator=(io);
-
-    if (registerObject())
-    {
-        // Re-register object with objectRegistry
-        checkIn();
-    }
 }
 
 

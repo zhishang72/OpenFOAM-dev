@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2019-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -62,11 +62,11 @@ Foam::specieCoeffs::specieCoeffs
                 i + 1,
                 specieName.size() - i - 1
             );
-            exponent = atof(exponentStr.c_str());
+            exponent = scalar(atof(exponentStr.c_str()));
             specieName = specieName(0, i);
         }
 
-        if (species.contains(specieName))
+        if (species.found(specieName))
         {
             index = species[specieName];
         }
@@ -191,7 +191,7 @@ void Foam::specieCoeffs::reactionStr
             reaction << scs[i].stoichCoeff;
         }
         reaction << species[scs[i].index];
-        if (mag(scs[i].exponent - scs[i].stoichCoeff) > small)
+        if (mag(scs[i].exponent.operator scalar() - scs[i].stoichCoeff) > small)
         {
             reaction << "^" << scs[i].exponent;
         }

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ License
 
 #include "linear.H"
 
-// * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
+// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class Specie>
 inline Foam::linear<Specie>::linear
@@ -40,8 +40,6 @@ inline Foam::linear<Specie>::linear
     rho0_(rho0)
 {}
 
-
-// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class Specie>
 inline Foam::linear<Specie>::linear
@@ -64,17 +62,6 @@ Foam::linear<Specie>::clone() const
 }
 
 
-template<class Specie>
-inline Foam::autoPtr<Foam::linear<Specie>>
-Foam::linear<Specie>::New
-(
-    const dictionary& dict
-)
-{
-    return autoPtr<linear<Specie>>(new linear<Specie>(dict));
-}
-
-
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class Specie>
@@ -85,7 +72,7 @@ inline Foam::scalar Foam::linear<Specie>::rho(scalar p, scalar T) const
 
 
 template<class Specie>
-inline Foam::scalar Foam::linear<Specie>::H(scalar p, scalar T) const
+inline Foam::scalar Foam::linear<Specie>::h(scalar p, scalar T) const
 {
     return log(rho(p, T))/psi_;
 }
@@ -99,7 +86,7 @@ inline Foam::scalar Foam::linear<Specie>::Cp(scalar p, scalar T) const
 
 
 template<class Specie>
-inline Foam::scalar Foam::linear<Specie>::E(scalar p, scalar T) const
+inline Foam::scalar Foam::linear<Specie>::e(scalar p, scalar T) const
 {
     const scalar rho = this->rho(p, T);
 
@@ -115,9 +102,17 @@ inline Foam::scalar Foam::linear<Specie>::Cv(scalar p, scalar T) const
 
 
 template<class Specie>
-inline Foam::scalar Foam::linear<Specie>::S(scalar p, scalar T) const
+inline Foam::scalar Foam::linear<Specie>::sp(scalar p, scalar T) const
 {
     return -log((rho0_ + psi_*p)/(rho0_ + psi_*Pstd))/(T*psi_);
+}
+
+
+template<class Specie>
+inline Foam::scalar Foam::linear<Specie>::sv(scalar p, scalar T) const
+{
+    NotImplemented;
+    return 0;
 }
 
 
@@ -131,12 +126,19 @@ inline Foam::scalar Foam::linear<Specie>::psi(scalar p, scalar T) const
 template<class Specie>
 inline Foam::scalar Foam::linear<Specie>::Z(scalar p, scalar T) const
 {
-    return 1;
+    return p/(rho(p, T)*this->R()*T);
 }
 
 
 template<class Specie>
 inline Foam::scalar Foam::linear<Specie>::CpMCv(scalar p, scalar T) const
+{
+    return 0;
+}
+
+
+template<class Specie>
+inline Foam::scalar Foam::linear<Specie>::alphav(scalar p, scalar T) const
 {
     return 0;
 }
@@ -150,7 +152,7 @@ inline void Foam::linear<Specie>::operator+=
     const linear<Specie>& pf
 )
 {
-    NotImplemented;
+    noCoefficientMixing(linear);
 }
 
 
@@ -170,7 +172,7 @@ inline Foam::linear<Specie> Foam::operator+
     const linear<Specie>& pf2
 )
 {
-    NotImplemented;
+    noCoefficientMixing(linear);
     return pf1;
 }
 
@@ -198,7 +200,7 @@ inline Foam::linear<Specie> Foam::operator==
     const linear<Specie>& pf2
 )
 {
-    NotImplemented;
+    noCoefficientMixing(linear);
     return pf1;
 }
 

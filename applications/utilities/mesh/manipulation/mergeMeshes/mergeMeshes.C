@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,130 +25,319 @@ Application
     mergeMeshes
 
 Description
-    Merges two meshes.
+    Merges meshes without stitching.
+
+Usage
+    \b mergeMeshes [OPTION]
+
+    Options:
+      - \par -doc
+        Display the documentation in browser
+
+      - \par -srcDoc
+        Display the source documentation in browser
+
+      - \par -help
+        Print the usage
+
+      - \par -case \<dir\>
+        Select a case directory instead of the current working directory
+
+      - \par -region \<name\>
+        Specify an alternative mesh region.
+
+      - \par -addMeshes "'(mesh1 mesh2 ... meshN)'"
+        Specify list of meshes to merge.
+
+      - \par -addRegions "'(region1 region2 ... regionN)'"
+        Specify list of region meshes to merge.
+
+      - \par -addCases "'(\"casePath1\" \"casePath2\" ... \"casePathN\")'"
+        Specify list of case meshes to merge.
+
+      - \par -addCaseMeshes "'((\"casePath1\" mesh1) (\"casePath2\" mesh2) ... \
+        (\"casePathN\" meshN))'"
+        Specify list of case meshes to merge.
+
+      - \par -addCaseRegions "'((\"casePath1\" region1) (\"casePath2\" region2)"
+        Specify list of case region meshes to merge.
+
+      - \par -addCaseMeshRegions  "'((\"casePath1\" mesh1 region1) \
+        (\"casePath2\" mesh2 region2) ... (\"casePathN\" meshN regionN))'"
+        Specify list of case mesh regions to merge.
 
 \*---------------------------------------------------------------------------*/
 
 #include "argList.H"
 #include "Time.H"
+#include "Tuple3.H"
+#include "timeSelector.H"
 #include "mergePolyMesh.H"
 
 using namespace Foam;
-
-void getRootCase(fileName& casePath)
-{
-    casePath.clean();
-
-    if (casePath.empty() || casePath == ".")
-    {
-        // handle degenerate form and '.'
-        casePath = cwd();
-    }
-    else if (casePath[0] != '/' && casePath.name() == "..")
-    {
-        // avoid relative cases ending in '..' - makes for very ugly names
-        casePath = cwd()/casePath;
-        casePath.clean();
-    }
-}
-
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 int main(int argc, char *argv[])
 {
-    argList::addNote
-    (
-        "merge two meshes"
-    );
+    argList::addNote("Merge meshes without stitching");
 
     argList::noParallel();
+
+    #include "addMeshOption.H"
+    #include "addRegionOption.H"
     #include "addOverwriteOption.H"
 
-    argList::validArgs.append("masterCase");
+    timeSelector::addOptions();
+
     argList::addOption
     (
-        "masterRegion",
-        "name",
-        "specify alternative mesh region for the master mesh"
+        "addMeshes",
+        "'(mesh1 mesh2 ... meshN)'",
+        "list of meshes to merge"
     );
 
-    argList::validArgs.append("addCase");
     argList::addOption
     (
-        "addRegion",
-        "name",
-        "specify alternative mesh region for the additional mesh"
+        "addRegions",
+        "'(region1 region2 ... regionN)'",
+        "list of regions to merge"
     );
 
-    argList args(argc, argv);
-    if (!args.check())
+    argList::addOption
+    (
+        "addMeshRegions",
+        "'((mesh1 region1) (mesh2 region2) ... (mesh3 regionN))'",
+        "list of mesh regions to merge"
+    );
+
+    argList::addOption
+    (
+        "addCases",
+        "'(\"casePath1\" \"casePath2\" ... \"casePathN\")'",
+        "list of cases to merge"
+    );
+
+    argList::addOption
+    (
+        "addCaseMeshes",
+        "'((\"casePath1\" mesh1) (\"casePath2\" mesh2)"
+        "... (\"casePathN\" meshN))'",
+        "list of case meshes to merge"
+    );
+
+    argList::addOption
+    (
+        "addCaseRegions",
+        "'((\"casePath1\" region1) (\"casePath2\" region2)"
+        "... (\"casePathN\" regionN))'",
+        "list of case regions to merge"
+    );
+
+    argList::addOption
+    (
+        "addCaseMeshRegions",
+        "'((\"casePath1\" mesh1 region1) (\"casePath2\" mesh2 region2)"
+        "... (\"casePathN\" meshN regionN))'",
+        "list of case mesh regions to merge"
+    );
+
+    #include "setRootCase.H"
+
+    const wordList meshes
+    (
+        args.optionLookupOrDefault<wordList>
+        (
+            "addMeshes",
+            wordList::null()
+        )
+    );
+
+    const wordList regions
+    (
+        args.optionLookupOrDefault<wordList>
+        (
+            "addRegions",
+            wordList::null()
+        )
+    );
+
+    List<Tuple2<word, word>> meshRegions
+    (
+        args.optionLookupOrDefault<List<Tuple2<word, word>>>
+        (
+            "addMeshRegions",
+            List<Tuple2<word, word>>::null()
+        )
+    );
+
+    const fileNameList cases
+    (
+        args.optionLookupOrDefault<fileNameList>
+        (
+            "addCases",
+            fileNameList::null()
+        )
+    );
+
+    const List<Tuple2<fileName, word>> caseMeshes
+    (
+        args.optionLookupOrDefault<List<Tuple2<fileName, word>>>
+        (
+            "addCaseMeshes",
+            List<Tuple2<fileName, word>>::null()
+        )
+    );
+
+    const List<Tuple2<fileName, word>> caseRegions
+    (
+        args.optionLookupOrDefault<List<Tuple2<fileName, word>>>
+        (
+            "addCaseRegions",
+            List<Tuple2<fileName, word>>::null()
+        )
+    );
+
+    List<Tuple3<fileName, word, word>> caseMeshRegions
+    (
+        args.optionLookupOrDefault<List<Tuple3<fileName, word, word>>>
+        (
+            "addCaseMeshRegions",
+            List<Tuple3<fileName, word, word>>::null()
+        )
+    );
+
+    forAll(meshes, i)
     {
-         FatalError.exit();
+        meshRegions.append({meshes[i], polyMesh::defaultRegion});
     }
 
+    forAll(regions, i)
+    {
+        meshRegions.append({word::null, regions[i]});
+    }
+
+    forAll(cases, i)
+    {
+        caseMeshRegions.append({cases[i], word::null, polyMesh::defaultRegion});
+    }
+
+    forAll(caseMeshes, i)
+    {
+        caseMeshRegions.append
+        (
+            {
+                caseMeshes[i].first(),
+                caseMeshes[i].second(),
+                polyMesh::defaultRegion
+            }
+        );
+    }
+
+    forAll(caseRegions, i)
+    {
+        caseMeshRegions.append
+        (
+            {
+                caseRegions[i].first(),
+                word::null,
+                caseRegions[i].second()
+            }
+        );
+    }
+
+    #include "createTimeNoFunctionObjects.H"
+
+    // Select time if specified
+    timeSelector::selectIfPresent(runTime, args);
+
+    #include "createSpecifiedPolyMesh.H"
+
     const bool overwrite = args.optionFound("overwrite");
-
-    fileName masterCase = args[1];
-    word masterRegion = polyMesh::defaultRegion;
-    args.optionReadIfPresent("masterRegion", masterRegion);
-
-    fileName addCase = args[2];
-    word addRegion = polyMesh::defaultRegion;
-    args.optionReadIfPresent("addRegion", addRegion);
-
-    getRootCase(masterCase);
-    getRootCase(addCase);
-
-    Info<< "Master:      " << masterCase << "  region " << masterRegion << nl
-        << "mesh to add: " << addCase    << "  region " << addRegion << endl;
-
-    #include "createTimes.H"
-
-    Info<< "Reading master mesh for time = " << runTimeMaster.timeName() << nl;
-
-    Info<< "Create mesh\n" << endl;
-    mergePolyMesh masterMesh
-    (
-        IOobject
-        (
-            masterRegion,
-            runTimeMaster.timeName(),
-            runTimeMaster
-        )
-    );
-    const word oldInstance = masterMesh.pointsInstance();
-
-
-    Info<< "Reading mesh to add for time = " << runTimeToAdd.timeName() << nl;
-
-    Info<< "Create mesh\n" << endl;
-    polyMesh meshToAdd
-    (
-        IOobject
-        (
-            addRegion,
-            runTimeToAdd.timeName(),
-            runTimeToAdd
-        )
-    );
+    const word oldInstance = mesh.pointsInstance();
 
     if (!overwrite)
     {
-        runTimeMaster++;
+        runTime++;
     }
 
-    Info<< "Writing combined mesh to " << runTimeMaster.timeName() << endl;
+    // Construct the mergePolyMesh class for the current mesh
+    mergePolyMesh mergeMeshes(mesh);
 
-    masterMesh.addMesh(meshToAdd);
-    masterMesh.merge();
+    // Add all the specified mesh regions
+    forAll(meshRegions, i)
+    {
+        const fileName addLocal =
+            meshRegions[i].first() != word::null
+          ? "meshes"/meshRegions[i].first()
+          : fileName::null;
+        const word& addRegion = meshRegions[i].second();
+
+        Info<< "Reading polyMesh " << addLocal/addRegion << endl;
+        polyMesh meshToAdd
+        (
+            IOobject
+            (
+                addRegion,
+                runTime.name(),
+                addLocal,
+                runTime
+            )
+        );
+
+        Info<< "Adding mesh " << meshToAdd.objectPath() << endl;
+        mergeMeshes.addMesh(meshToAdd);
+    }
+
+    // Add all the specified case meshes
+    forAll(caseMeshRegions, i)
+    {
+        const fileName& addCase = caseMeshRegions[i].first();
+        const fileName addLocal =
+        caseMeshRegions[i].second() != word::null
+          ? "meshes"/caseMeshRegions[i].second()
+          : fileName::null;
+        const word& addRegion = caseMeshRegions[i].third();
+
+        const fileName addCasePath(addCase.path());
+        const fileName addCaseName(addCase.name());
+
+        // Construct the time for the new case without reading the controlDict
+        Time runTimeToAdd
+        (
+            Time::controlDictName,
+            addCasePath,
+            addCaseName,
+            false
+        );
+
+        Info<< "Reading polyMesh for case "
+            << runTimeToAdd.path()/"constant"/addLocal/addRegion << endl;
+        polyMesh meshToAdd
+        (
+            IOobject
+            (
+                addRegion,
+                runTimeToAdd.name(),
+                addLocal,
+                runTimeToAdd
+            )
+        );
+
+        Info<< "Adding mesh " << meshToAdd.objectPath() << endl;
+        mergeMeshes.addMesh(meshToAdd);
+    }
+
+    Info << nl << "Merging all meshes" << endl;
+    mergeMeshes.merge();
 
     if (overwrite)
     {
-        masterMesh.setInstance(oldInstance);
+        mesh.setInstance(oldInstance);
     }
 
-    masterMesh.write();
+    Info<< "Writing mesh to " << mesh.facesInstance() << endl;
+    mesh.write();
 
     Info<< "End\n" << endl;
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -36,7 +36,6 @@ Description
 #include "OBJstream.H"
 #include "meshTools.H"
 #include "PatchTools.H"
-#include "unitConversion.H"
 
 // * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
 
@@ -54,12 +53,12 @@ void Foam::snappyLayerDriver::sumWeights
 
     invSumWeight = 0;
 
-    forAll(edges, edgeI)
+    forAll(edges, edgei)
     {
-        if (isMasterEdge.get(meshEdges[edgeI]) == 1)
+        if (isMasterEdge.get(meshEdges[edgei]) == 1)
         {
-            const edge& e = edges[edgeI];
-            // scalar eWeight = edgeWeights[edgeI];
+            const edge& e = edges[edgei];
+            // scalar eWeight = edgeWeights[edgei];
             // scalar eWeight = 1.0;
 
             scalar eMag = max
@@ -368,8 +367,8 @@ void Foam::snappyLayerDriver::smoothNormals
 
 
     // Correspondence between local edges/points and mesh edges/points
-    const labelList meshEdges(identity(mesh.nEdges()));
-    const labelList meshPoints(identity(mesh.nPoints()));
+    const labelList meshEdges(identityMap(mesh.nEdges()));
+    const labelList meshPoints(identityMap(mesh.nPoints()));
 
     // Calculate inverse sum of weights
 
@@ -431,7 +430,7 @@ void Foam::snappyLayerDriver::smoothNormals
 bool Foam::snappyLayerDriver::isMaxEdge
 (
     const List<pointData>& pointWallDist,
-    const label edgeI,
+    const label edgei,
     const scalar minCos
 ) const
 {
@@ -440,7 +439,7 @@ bool Foam::snappyLayerDriver::isMaxEdge
 
     // Do not mark edges with one side on moving wall.
 
-    const edge& e = mesh.edges()[edgeI];
+    const edge& e = mesh.edges()[edgei];
 
     vector v0(points[e[0]] - pointWallDist[e[0]].origin());
     scalar magV0(mag(v0));
@@ -538,17 +537,17 @@ void Foam::snappyLayerDriver::handleFeatureAngleLayerTerminations
     const vectorField& faceNormals = pp.faceNormals();
     const labelList& meshPoints = pp.meshPoints();
 
-    forAll(edgeFaces, edgeI)
+    forAll(edgeFaces, edgei)
     {
-        const labelList& eFaces = edgeFaces[edgeI];
+        const labelList& eFaces = edgeFaces[edgei];
 
-        edgeFaceNormals[edgeI].setSize(eFaces.size());
-        edgeFaceExtrude[edgeI].setSize(eFaces.size());
+        edgeFaceNormals[edgei].setSize(eFaces.size());
+        edgeFaceExtrude[edgei].setSize(eFaces.size());
         forAll(eFaces, i)
         {
             label facei = eFaces[i];
-            edgeFaceNormals[edgeI][i] = faceNormals[facei];
-            edgeFaceExtrude[edgeI][i] = extrudedFaces[facei];
+            edgeFaceNormals[edgei][i] = faceNormals[facei];
+            edgeFaceExtrude[edgei][i] = extrudedFaces[facei];
         }
     }
 
@@ -571,14 +570,14 @@ void Foam::snappyLayerDriver::handleFeatureAngleLayerTerminations
     );
 
 
-    forAll(edgeFaceNormals, edgeI)
+    forAll(edgeFaceNormals, edgei)
     {
-        const List<point>& eFaceNormals = edgeFaceNormals[edgeI];
-        const List<bool>& eFaceExtrude = edgeFaceExtrude[edgeI];
+        const List<point>& eFaceNormals = edgeFaceNormals[edgei];
+        const List<bool>& eFaceExtrude = edgeFaceExtrude[edgei];
 
         if (eFaceNormals.size() == 2)
         {
-            const edge& e = pp.edges()[edgeI];
+            const edge& e = pp.edges()[edgei];
             label v0 = e[0];
             label v1 = e[1];
 
@@ -770,11 +769,11 @@ void Foam::snappyLayerDriver::findIsolatedRegions
 
     labelList isolatedPoint(pp.nPoints(),0);
 
-    forAll(edges, edgeI)
+    forAll(edges, edgei)
     {
-        if (isMasterEdge.get(meshEdges[edgeI]) == 1)
+        if (isMasterEdge.get(meshEdges[edgei]) == 1)
         {
-            const edge& e = edges[edgeI];
+            const edge& e = edges[edgei];
 
             label v0 = e[0];
             label v1 = e[1];
@@ -1037,9 +1036,9 @@ void Foam::snappyLayerDriver::medialAxisSmoothingInfo
 
         const edgeList& edges = mesh.edges();
 
-        forAll(edges, edgeI)
+        forAll(edges, edgei)
         {
-            const edge& e = edges[edgeI];
+            const edge& e = edges[edgei];
 
             if
             (
@@ -1049,7 +1048,7 @@ void Foam::snappyLayerDriver::medialAxisSmoothingInfo
             {
                 // Unvisited point. See above about nUnvisit warning
             }
-            else if (isMaxEdge(pointWallDist, edgeI, minMedialAxisAngleCos))
+            else if (isMaxEdge(pointWallDist, edgei, minMedialAxisAngleCos))
             {
                 // Both end points of edge have very different nearest wall
                 // point. Mark both points as medial axis points.
@@ -1111,7 +1110,7 @@ void Foam::snappyLayerDriver::medialAxisSmoothingInfo
         // 2. Seed non-adapt patches
         const polyBoundaryMesh& patches = mesh.boundaryMesh();
 
-        labelHashSet adaptPatches(meshMover.adaptPatchIDs());
+        labelHashSet adaptPatches(meshMover.adaptPatchIndices());
 
 
         forAll(patches, patchi)
@@ -1169,9 +1168,9 @@ void Foam::snappyLayerDriver::medialAxisSmoothingInfo
                     // on this patch.
                     Info<< "Inserting points on patch " << pp.name()
                         << " if angle to nearest layer patch > "
-                        << featureAngle << " degrees." << endl;
+                        << radToDeg(featureAngle) << " degrees." << endl;
 
-                    scalar featureAngleCos = Foam::cos(degToRad(featureAngle));
+                    scalar featureAngleCos = Foam::cos(featureAngle);
                     pointField pointNormals(PatchTools::pointNormals(mesh, pp));
 
                     forAll(meshPoints, i)
@@ -1327,7 +1326,7 @@ void Foam::snappyLayerDriver::medialAxisSmoothingInfo
             << "    " << medialRatio.name()
             << " : ratio of medial distance to wall distance" << nl
             << endl;
-        meshRefiner_.mesh().setInstance(meshRefiner_.timeName());
+        meshRefiner_.mesh().setInstance(meshRefiner_.name());
         meshRefiner_.write
         (
             meshRefinement::debugType(debug),
@@ -1336,7 +1335,7 @@ void Foam::snappyLayerDriver::medialAxisSmoothingInfo
                 meshRefinement::writeLevel()
               | meshRefinement::WRITEMESH
             ),
-            mesh.time().path()/meshRefiner_.timeName()
+            mesh.time().path()/meshRefiner_.name()
         );
         dispVec.write();
         medialDist.write();
@@ -1418,7 +1417,7 @@ void Foam::snappyLayerDriver::shrinkMeshMedialDistance
             (
                 mesh.time().path()
               / "thicknessRatioExcludePoints_"
-              + meshRefiner_.timeName()
+              + meshRefiner_.name()
               + ".obj"
             )
         );
@@ -1435,7 +1434,7 @@ void Foam::snappyLayerDriver::shrinkMeshMedialDistance
             (
                 mesh.time().path()
               / "thicknessRatioExcludeMedialVec_"
-              + meshRefiner_.timeName()
+              + meshRefiner_.name()
               + ".obj"
             )
         );
@@ -1633,8 +1632,8 @@ void Foam::snappyLayerDriver::shrinkMeshMedialDistance
         sumWeights
         (
             isMasterEdge,
-            identity(mesh.nEdges()),
-            identity(mesh.nPoints()),
+            identityMap(mesh.nEdges()),
+            identityMap(mesh.nPoints()),
             mesh.edges(),
             invSumWeight
         );
@@ -1654,8 +1653,8 @@ void Foam::snappyLayerDriver::shrinkMeshMedialDistance
             (
                 mesh,
                 isMasterEdge,
-                identity(mesh.nEdges()),    // meshEdges,
-                identity(mesh.nPoints()),   // meshPoints,
+                identityMap(mesh.nEdges()),    // meshEdges,
+                identityMap(mesh.nPoints()),   // meshPoints,
                 mesh.edges(),               // edges,
                 invSumWeight,
                 displacement,
@@ -1678,8 +1677,8 @@ void Foam::snappyLayerDriver::shrinkMeshMedialDistance
             (
                 mesh,
                 isMasterEdge,
-                identity(mesh.nEdges()),    // meshEdges,
-                identity(mesh.nPoints()),   // meshPoints,
+                identityMap(mesh.nEdges()),    // meshEdges,
+                identityMap(mesh.nPoints()),   // meshPoints,
                 mesh.edges(),               // edges,
                 invSumWeight,
                 displacement,
@@ -1710,7 +1709,7 @@ void Foam::snappyLayerDriver::shrinkMeshMedialDistance
         }
     }
 
-    // Make sure displacement boundary conditions is uptodate with
+    // Make sure displacement boundary conditions is up-to-date with
     // internal field
     meshMover.setDisplacementPatchFields();
 
@@ -1754,7 +1753,7 @@ void Foam::snappyLayerDriver::shrinkMeshMedialDistance
     {
         const_cast<Time&>(mesh.time())++;
         Info<< "Writing wanted-displacement mesh (possibly illegal) to "
-            << meshRefiner_.timeName() << endl;
+            << meshRefiner_.name() << endl;
         pointField oldPoints(mesh.points());
 
         meshRefiner_.mesh().movePoints(meshMover.curPoints());
@@ -1767,7 +1766,7 @@ void Foam::snappyLayerDriver::shrinkMeshMedialDistance
         // (see snappyLayerDriver.C) so we now have to force writing all files
         // so we can easily step through time steps. Note that if you
         // don't write the mesh with layers this is not necessary.
-        meshRefiner_.mesh().setInstance(meshRefiner_.timeName());
+        meshRefiner_.mesh().setInstance(meshRefiner_.name());
 
         meshRefiner_.write
         (
@@ -1777,7 +1776,7 @@ void Foam::snappyLayerDriver::shrinkMeshMedialDistance
                 meshRefinement::writeLevel()
               | meshRefinement::WRITEMESH
             ),
-            mesh.time().path()/meshRefiner_.timeName()
+            mesh.time().path()/meshRefiner_.name()
         );
         dispVec.write();
         medialDist.write();
@@ -1791,7 +1790,7 @@ void Foam::snappyLayerDriver::shrinkMeshMedialDistance
 
 
     // Current faces to check. Gets modified in meshMover.scaleMesh
-    labelList checkFaces(identity(mesh.nFaces()));
+    labelList checkFaces(identityMap(mesh.nFaces()));
 
     Info<< "shrinkMeshMedialDistance : Moving mesh ..." << endl;
     scalar oldErrorReduction = -1;

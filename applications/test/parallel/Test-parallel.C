@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -30,14 +30,14 @@ Description
 \*---------------------------------------------------------------------------*/
 
 #include "List.H"
-#include "mapDistribute.H"
+#include "distributionMap.H"
 #include "argList.H"
 #include "Time.H"
 #include "IPstream.H"
 #include "OPstream.H"
 #include "vector.H"
 #include "IOstreams.H"
-#include "Random.H"
+#include "randomGenerator.H"
 #include "Tuple2.H"
 
 using namespace Foam;
@@ -51,12 +51,12 @@ int main(int argc, char *argv[])
     #include "createTime.H"
 
 
-    // Test mapDistribute
+    // Test distributionMap
     // ~~~~~~~~~~~~~~~~~~
 
     if (true)
     {
-        Random rndGen(43544*Pstream::myProcNo());
+        randomGenerator rndGen(43544);
 
         // Generate random data.
         List<Tuple2<label, List<scalar>>> complexData(100);
@@ -126,7 +126,7 @@ int main(int argc, char *argv[])
 
 
         // Construct distribute map (destructively)
-        mapDistribute map(constructSize, move(sendMap), move(recvMap));
+        distributionMap map(constructSize, move(sendMap), move(recvMap));
 
         // Distribute complexData
         map.distribute(complexData);

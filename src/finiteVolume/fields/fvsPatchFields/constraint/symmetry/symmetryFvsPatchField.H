@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,7 +44,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                         Class symmetryFvsPatch Declaration
+                      Class symmetryFvsPatch Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -82,23 +82,11 @@ public:
             const symmetryFvsPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, surfaceMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
-        symmetryFvsPatchField
-        (
-            const symmetryFvsPatchField<Type>&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvsPatchField<Type>> clone() const
-        {
-            return tmp<fvsPatchField<Type>>
-            (
-                new symmetryFvsPatchField<Type>(*this)
-            );
-        }
+        //- Disallow copy without setting internal field reference
+        symmetryFvsPatchField(const symmetryFvsPatchField<Type>&) = delete;
 
         //- Copy constructor setting internal field reference
         symmetryFvsPatchField
@@ -118,6 +106,12 @@ public:
                 new symmetryFvsPatchField<Type>(*this, iF)
             );
         }
+
+
+    // Member Functions
+
+        //- Write
+        virtual void write(Ostream&) const;
 };
 
 

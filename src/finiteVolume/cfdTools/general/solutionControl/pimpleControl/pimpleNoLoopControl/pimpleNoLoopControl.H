@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2018-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2018-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -38,7 +38,6 @@ SourceFiles
 #ifndef pimpleNoLoopControl_H
 #define pimpleNoLoopControl_H
 
-#include "pimpleLoop.H"
 #include "pisoControl.H"
 #include "singleRegionConvergenceControl.H"
 #include "singleRegionCorrectorConvergenceControl.H"
@@ -51,8 +50,10 @@ SourceFiles
 namespace Foam
 {
 
+class pimpleLoop;
+
 /*---------------------------------------------------------------------------*\
-                         Class pimpleNoLoopControl Declaration
+                     Class pimpleNoLoopControl Declaration
 \*---------------------------------------------------------------------------*/
 
 class pimpleNoLoopControl
@@ -61,20 +62,39 @@ class pimpleNoLoopControl
     public singleRegionConvergenceControl,
     public singleRegionCorrectorConvergenceControl
 {
+    friend class pimpleSingleRegionControl;
+    friend class pimpleMultiRegionControl;
+
+    // Private data
+
+        pimpleLoop* pimpleLoopPtr_;
+
+
 protected:
 
     // Protected data
 
-        //- The pimple loop
-        const pimpleLoop& loop_;
+        //- Switch to move the mesh at the start of every PIMPLE outer corrector
+        //  rather than the first corrector only which is the default
+        bool moveMeshOuterCorrectors_;
 
-        //- Flag to indicate whether to update the density in SIMPLE mode rather
-        //  than PISO mode
+        //- Switch to indicate whether to update the density in SIMPLE mode
+        //  rather than PISO mode
         bool simpleRho_;
 
-        //- Flag to control whether turbulence is solved just on the final
-        //  pimple iteration, or on every pimple iteration
-        bool turbOnFinalIterOnly_;
+        //- Switch to control whether transport models are predicted
+        //  just on the first pimple iteration, or on every pimple iteration
+        bool transportPredictionFirst_;
+
+        //- Switch to control whether transport models are corrected
+        //  just on the final pimple iteration, or on every pimple iteration
+        bool transportCorrectionFinal_;
+
+
+    // Protected Member Functions
+
+        //- Read controls
+        virtual bool read();
 
 
 public:
@@ -89,12 +109,7 @@ public:
 
         //- Construct from a mesh, the name of the algorithm, and a reference
         //  to the pimple loop
-        pimpleNoLoopControl
-        (
-            fvMesh& mesh,
-            const word& algorithmName,
-            const pimpleLoop& loop
-        );
+        pimpleNoLoopControl(fvMesh& mesh, const word& algorithmName="PIMPLE");
 
 
     //- Destructor
@@ -103,22 +118,39 @@ public:
 
     // Member Functions
 
-        // IO
-
-            //- Read controls
-            virtual bool read();
-
         // Access
 
-            //- Flag to indicate whether in final state
-            virtual bool isFinal() const;
+            //- Switch to move the mesh at the start of every PIMPLE
+            //  outer corrected rather than the first corrector only
+            //  which is the default
+            inline bool moveMeshOuterCorrectors() const;
 
-            //- Flag to indicate whether to update the density in simple mode
+            //- Switch to indicate whether to update the density in simple mode
             inline bool simpleRho() const;
 
-            //- Flag to indicate whether to solve the turbulence on the final
-            //  pimple iteration only
-            inline bool turbOnFinalIterOnly() const;
+            //- Flag to indicate whether to predict the transport models
+            inline bool predictTransport() const;
+
+            //- Flag to indicate whether to correct the transport models
+            inline bool correctTransport() const;
+
+            //- Maximum number of correctors
+            inline label nCorr() const;
+
+            //- Flag to indicate the first iteration
+            inline bool firstIter() const;
+
+            //- Flag to indicate the final iteration
+            inline bool finalIter() const;
+
+
+        // Evolution
+
+            //- Piso loop within outer loop
+            bool correct();
+
+            //- Non-orthogonal corrector loop
+            bool correctNonOrthogonal();
 };
 
 

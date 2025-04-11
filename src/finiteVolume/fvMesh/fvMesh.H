@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -54,8 +54,8 @@ SourceFiles
 #include "surfaceInterpolation.H"
 #include "fvSchemes.H"
 #include "fvSolution.H"
-#include "data.H"
 #include "DimensionedField.H"
+#include "SlicedDimensionedField.H"
 #include "volFieldsFwd.H"
 #include "surfaceFieldsFwd.H"
 #include "pointFieldsFwd.H"
@@ -69,7 +69,20 @@ namespace Foam
 {
 
 class fvMeshLduAddressing;
+class fvMeshStitcher;
+class fvMeshTopoChanger;
+class fvMeshDistributor;
+class fvMeshMover;
 class volMesh;
+class polyDistributionMap;
+
+template<class Type>
+class UCompactListList;
+
+namespace fvMeshTopoChangers
+{
+    class list;
+}
 
 
 /*---------------------------------------------------------------------------*\
@@ -80,20 +93,86 @@ class fvMesh
 :
     public polyMesh,
     public lduMesh,
-    public surfaceInterpolation,
-    public fvSchemes,
-    public fvSolution,
-    public data
+    public surfaceInterpolation
 {
+public:
+
+    // Public data types
+
+        //- Enumeration defining the state of the mesh after a read update.
+        //  Used for post-processing applications, where the mesh
+        //  needs to update based on the files written in time directories.
+        enum readUpdateState
+        {
+            UNCHANGED,
+            POINTS_MOVED,
+            STITCHED,
+            TOPO_CHANGE,
+            TOPO_PATCH_CHANGE
+        };
+
+        //- Extent to which to stitch on read and readUpdate. By default, a
+        //  full geometric stitch is performed. A non-geometric stitch can be
+        //  done as an optimisation in situations when finite volume geometry
+        //  is not needed (e.g., decomposition). Stitching can also be
+        //  prevented altogether if that is appropriate (e.g., if the mesh is
+        //  loaded for mapping in an un-stitched state).
+        enum class stitchType
+        {
+            none,
+            nonGeometric,
+            geometric
+        };
+
+
+private:
+
     // Private Data
 
         //- Boundary mesh
         fvBoundaryMesh boundary_;
 
+        //- The stitcher function class
+        autoPtr<fvMeshStitcher> stitcher_;
+
+        //- The topo-changer function class
+        autoPtr<fvMeshTopoChanger> topoChanger_;
+
+        //- The distributor function class
+        autoPtr<fvMeshDistributor> distributor_;
+
+        //- The mover function class
+        autoPtr<fvMeshMover> mover_;
+
 
     // Demand-driven data
 
+        //- Matrix addressing
         mutable fvMeshLduAddressing* lduPtr_;
+
+        //- Face-poly-face IO
+        mutable IOobject* polyFacesBfIOPtr_;
+
+        //- Face-poly-face addressing
+        mutable GeometricBoundaryField<label, surfaceMesh>* polyFacesBfPtr_;
+
+        //- Offsets for poly-bFace-patch and patch-face addressing
+        mutable labelList* polyBFaceOffsetsPtr_;
+
+        //- Poly-bFace-patch addressing
+        mutable labelList* polyBFaceOffsetPatchesPtr_;
+
+        //- Poly-bFace-patch-face addressing
+        mutable labelList* polyBFaceOffsetPatchFacesPtr_;
+
+        //- Poly-bFace-patch addressing
+        mutable UCompactListList<label>* polyBFacePatchesPtr_;
+
+        //- Poly-bFace-patch-face addressing
+        mutable UCompactListList<label>* polyBFacePatchFacesPtr_;
+
+        //- Face-owner addressing
+        mutable GeometricBoundaryField<label, surfaceMesh>* ownerBfPtr_;
 
         //- Current time index for cell volumes
         //  Note.  The whole mechanism will be replaced once the
@@ -101,8 +180,8 @@ class fvMesh
         //  will take care of the old-time levels.
         mutable label curTimeIndex_;
 
-        //- Cell volumes old time level
-        mutable void* VPtr_;
+        //- Cell volumes
+        mutable SlicedDimensionedField<scalar, volMesh>* VPtr_;
 
         //- Cell volumes old time level
         mutable DimensionedField<scalar, volMesh>* V0Ptr_;
@@ -111,19 +190,37 @@ class fvMesh
         mutable DimensionedField<scalar, volMesh>* V00Ptr_;
 
         //- Face area vectors
-        mutable slicedSurfaceVectorField* SfPtr_;
+        mutable slicedSurfaceVectorField* SfSlicePtr_;
+
+        //- Face area vectors
+        mutable surfaceVectorField* SfPtr_;
+
+        //- Mag face area vectors
+        mutable slicedSurfaceScalarField* magSfSlicePtr_;
 
         //- Mag face area vectors
         mutable surfaceScalarField* magSfPtr_;
 
         //- Cell centres
-        mutable slicedVolVectorField* CPtr_;
+        mutable slicedVolVectorField* CSlicePtr_;
+
+        //- Cell centres
+        mutable volVectorField* CPtr_;
 
         //- Face centres
-        mutable slicedSurfaceVectorField* CfPtr_;
+        mutable slicedSurfaceVectorField* CfSlicePtr_;
+
+        //- Face centres
+        mutable surfaceVectorField* CfPtr_;
 
         //- Face motion fluxes
         mutable surfaceScalarField* phiPtr_;
+
+        //- fvSchemes created on demand
+        mutable autoPtr<fvSchemes> fvSchemes_;
+
+        //- fvSolution created on demand
+        mutable autoPtr<fvSolution> fvSolution_;
 
 
     // Private Member Functions
@@ -143,17 +240,69 @@ class fvMesh
             //- Clear addressing
             void clearAddressing(const bool isMeshUpdate = false);
 
-            //- Preserve old volume(s)
-            void storeOldVol(const scalarField&);
+            //- Store old times fields for all fields of a given type and class
+            template<class Type, template<class> class GeoField>
+            void storeOldTimeFields();
+
+            //- Store old times fields for all fields of a given class
+            template<template<class> class GeoField>
+            void storeOldTimeFields();
+
+            //- Store old times fields for all fields
+            //  Used prior to field mapping following mesh-motion
+            //  and NCC stitching
+            void storeOldTimeFields();
+
+            //- Null oldest time field for all fields of a given type and class
+            template<class Type, template<class> class GeoField>
+            void nullOldestTimeFields();
+
+            //- Null oldest time field for all fields of a given class
+            template<template<class> class GeoField>
+            void nullOldestTimeFields();
+
+            //- Null oldest time field for all fields
+            //  Used prior to field mapping following mesh topology change
+            void nullOldestTimeFields();
+
+
+       // Make topological data
+
+            //- Get the patch types for the poly faces field
+            wordList polyFacesPatchTypes() const;
+
+            //- Modify face-poly-face addressing
+            GeometricBoundaryField<label, surfaceMesh>& polyFacesBfRef();
 
 
        // Make geometric data
 
+            //- Make the face area vectors
             void makeSf() const;
+
+            //- Make the mag face area vectors
             void makeMagSf() const;
 
+            //- Make the cell centres
             void makeC() const;
+
+            //- Make the face centres
             void makeCf() const;
+
+            //- Modify cell face area vectors
+            surfaceVectorField& SfRef();
+
+            //- Modify cell face area magnitudes
+            surfaceScalarField& magSfRef();
+
+            //- Modify cell centres
+            volVectorField& CRef();
+
+            //- Modify face centres
+            surfaceVectorField& CfRef();
+
+            //- Modify cell face motion fluxes
+            surfaceScalarField& phiRef();
 
 
 public:
@@ -163,15 +312,30 @@ public:
         typedef fvMesh Mesh;
         typedef fvBoundaryMesh BoundaryMesh;
 
+        friend fvMeshTopoChangers::list;
+
 
     // Declare name of the class and its debug switch
     ClassName("fvMesh");
 
 
+    // Static data
+
+        //- Set of names of registered geometric fields
+        //  Vc, Vc0, Vc00, Sf, magSf, C, Cf, meshPhi, meshPhi_0
+        const static HashSet<word> geometryFields;
+
+        //- Set of names of registered current-time geometric fields
+        //  Vc, Sf, magSf, C, Cf
+        const static HashSet<word> curGeometryFields;
+
+
     // Constructors
 
-        //- Construct from IOobject
-        explicit fvMesh(const IOobject& io);
+        //- Construct from IOobject. Optionally prevent post-construction, so
+        //  that postConstruct may be called manually for finer control of
+        //  construction of mesh changes and the level of stitching.
+        explicit fvMesh(const IOobject& io, const bool doPost = true);
 
         //- Construct from cellShapes with boundary.
         fvMesh
@@ -200,7 +364,7 @@ public:
         );
 
         //- Construct without boundary from cells rather than owner/neighbour.
-        //  Boundary is added using addPatches() member function
+        //  Boundary is added using addFvPatches() member function
         fvMesh
         (
             const IOobject& io,
@@ -210,8 +374,11 @@ public:
             const bool syncPar = true
         );
 
+        //- Move constructor
+        fvMesh(fvMesh&&);
+
         //- Disallow default bitwise copy construction
-        fvMesh(const fvMesh&);
+        fvMesh(const fvMesh&) = delete;
 
 
     //- Destructor
@@ -222,6 +389,13 @@ public:
 
         // Helpers
 
+            //- Complete construction of the mesh
+            void postConstruct
+            (
+                const bool changers,
+                const stitchType stitch
+            );
+
             //- Add boundary patches. Constructor helper
             void addFvPatches
             (
@@ -231,7 +405,10 @@ public:
 
             //- Update the mesh based on the mesh files saved in time
             //  directories
-            virtual readUpdateState readUpdate();
+            readUpdateState readUpdate
+            (
+                const stitchType stitch = stitchType::geometric
+            );
 
 
         // Access
@@ -258,6 +435,18 @@ public:
 
             //- Return reference to boundary mesh
             const fvBoundaryMesh& boundary() const;
+
+            //- Return reference to polyMesh
+            const polyMesh& mesh() const
+            {
+                return *this;
+            }
+
+            //- Return reference to polyMesh
+            const polyMesh& operator()() const
+            {
+                return *this;
+            }
 
             //- Return ldu addressing
             virtual const lduAddressing& lduAddr() const;
@@ -287,6 +476,37 @@ public:
                 return lduAddr().upperAddr();
             }
 
+            //- Return whether the fvMesh is conformal with the polyMesh
+            bool conformal() const;
+
+            //- Return face-poly-face addressing
+            const GeometricBoundaryField<label, surfaceMesh>&
+                polyFacesBf() const;
+
+            //- Return poly-bFace-patch addressing
+            const UCompactListList<label>& polyBFacePatches() const;
+
+            //- Return poly-bFace-patch-face addressing
+            const UCompactListList<label>& polyBFacePatchFaces() const;
+
+            //- Return face-owner addressing
+            const GeometricBoundaryField<label, surfaceMesh>& ownerBf() const;
+
+            //- Return the stitcher function class
+            const fvMeshStitcher& stitcher() const;
+
+            //- Return the stitcher function class
+            fvMeshStitcher& stitcher();
+
+            //- Return the topo-changer function class
+            const fvMeshTopoChanger& topoChanger() const;
+
+            //- Return the distributor function class
+            const fvMeshDistributor& distributor() const;
+
+            //- Return the mover function class
+            const fvMeshMover& mover() const;
+
             //- Return cell volumes
             const DimensionedField<scalar, volMesh>& V() const;
 
@@ -299,7 +519,7 @@ public:
             //- Return sub-cycle cell volumes
             tmp<DimensionedField<scalar, volMesh>> Vsc() const;
 
-            //- Return sub-cycl old-time cell volumes
+            //- Return sub-cycle old-time cell volumes
             tmp<DimensionedField<scalar, volMesh>> Vsc0() const;
 
             //- Return cell face area vectors
@@ -308,17 +528,46 @@ public:
             //- Return cell face area magnitudes
             const surfaceScalarField& magSf() const;
 
-            //- Return cell face motion fluxes
-            const surfaceScalarField& phi() const;
+            //- Return cell face normal vectors
+            tmp<surfaceVectorField> nf() const;
 
-            //- Return cell centres as volVectorField
+            //- Return cell centres
             const volVectorField& C() const;
 
-            //- Return face centres as surfaceVectorField
+            //- Return face centres
             const surfaceVectorField& Cf() const;
 
             //- Return face deltas as surfaceVectorField
             tmp<surfaceVectorField> delta() const;
+
+            //- Return cell face motion fluxes
+            const surfaceScalarField& phi() const;
+
+            //- Return the list of fields of type GeoField
+            //  i.e. fields that are not geometry
+            template<class GeoField>
+            UPtrList<GeoField> fields
+            (
+                bool strict = false,
+                const HashSet<word>& geometryFields = fvMesh::geometryFields
+            ) const;
+
+            //- Return the list of current fields of type GeoField
+            //  i.e. fields that are not old-times or geometry
+            template<class GeoField>
+            UPtrList<GeoField> curFields
+            (
+                const bool strict = false,
+                const HashSet<word>& geometryFields = fvMesh::geometryFields
+            ) const;
+
+            //- Return the list of fields and old-time-geometry of type GeoField
+            //  i.e. fields that are not current-time geometry
+            template<class GeoField>
+            UPtrList<GeoField> fieldsAndOldTimeGeometry
+            (
+                const bool strict = false
+            ) const;
 
             //- Return a labelType of valid component indicators
             //  1 : valid (solved)
@@ -326,30 +575,85 @@ public:
             template<class Type>
             typename pTraits<Type>::labelType validComponents() const;
 
+            //- Return the fvSchemes
+            const fvSchemes& schemes() const;
+
+            //- Return the fvSolution
+            const fvSolution& solution() const;
+
 
         // Edit
+
+            //- Does the mesh topology change?
+            bool topoChanging() const;
+
+            //- Does the mesh get redistributed?
+            bool distributing() const;
+
+            //- Is this mesh dynamic?
+            bool dynamic() const;
+
+            //- Update the mesh for topology change, mesh to mesh mapping
+            //  or redistribution
+            bool update();
+
+            //- Move the mesh
+            bool move();
 
             //- Clear all geometry and addressing
             void clearOut();
 
+            //- Prepare for a mesh change
+            void preChange();
+
             //- Update mesh corresponding to the given map
-            virtual void updateMesh(const mapPolyMesh& mpm);
+            virtual void topoChange(const polyTopoChangeMap& map);
+
+            //- Update from another mesh using the given map
+            virtual void mapMesh(const polyMeshMap&);
+
+            //- Redistribute or update using the given distribution map
+            virtual void distribute(const polyDistributionMap& map);
+
+            //- Reset the points
+            //  without storing old points or returning swept volumes
+            virtual void setPoints(const pointField&);
 
             //- Move points, returns volumes swept by faces in motion
             virtual tmp<scalarField> movePoints(const pointField&);
 
-            //- Map all fields in time using given map.
-            virtual void mapFields(const mapPolyMesh& mpm);
+            //- Get the current instance for the poly faces boundary field
+            const fileName& polyFacesBfInstance() const;
 
-            //- Add/insert single patch. If validBoundary the new situation
-            //  is consistent across processors.
+            //- Set the instance for the poly faces boundary field
+            void setPolyFacesBfInstance(const fileName&);
+
+            //- Conform the fvMesh to the polyMesh
+            void conform
+            (
+                const surfaceScalarField& phi =
+                    NullObjectRef<surfaceScalarField>()
+            );
+
+            //- Unconform the fvMesh from the polyMesh
+            void unconform
+            (
+                const GeometricBoundaryField<label, surfaceMesh>& polyFacesBf,
+                const surfaceVectorField& Sf,
+                const surfaceVectorField& Cf,
+                const surfaceScalarField& phi =
+                    NullObjectRef<surfaceScalarField>(),
+                const bool sync = true
+            );
+
+            //- Map all fields in time using given map.
+            void mapFields(const polyTopoChangeMap& map);
+
+            //- Add/insert single patch
             virtual void addPatch
             (
                 const label insertPatchi,
-                const polyPatch& patch,
-                const dictionary& patchFieldDict,
-                const word& defaultPatchFieldType,
-                const bool validBoundary
+                const polyPatch& patch
             );
 
             //- Reorder and trim existing patches. If validBoundary the new
@@ -364,11 +668,9 @@ public:
             //  these fvPatches.
             void removeFvBoundary();
 
-            //- Return cell face motion fluxes
-            surfaceScalarField& setPhi();
-
-            //- Return old-time cell volumes
-            DimensionedField<scalar, volMesh>& setV0();
+            //- Swap mesh
+            //  For run-time mesh replacement and mesh to mesh mapping
+            void swap(fvMesh&);
 
 
         // Write
@@ -389,9 +691,10 @@ public:
     // Member Operators
 
         //- Disallow default bitwise assignment
-        void operator=(const fvMesh&);
+        void operator=(const fvMesh&) = delete;
 
         bool operator!=(const fvMesh&) const;
+
         bool operator==(const fvMesh&) const;
 };
 
@@ -409,7 +712,6 @@ fvMesh::validComponents<sphericalTensor>() const;
 
 #ifdef NoRepository
     #include "fvMeshTemplates.C"
-    #include "fvPatchFvMeshTemplates.C"
 #endif
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

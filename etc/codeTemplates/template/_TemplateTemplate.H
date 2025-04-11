@@ -33,8 +33,8 @@ SourceFiles
 
 \*---------------------------------------------------------------------------*/
 
-#ifndef _TemplateTemplate_H
-#define _TemplateTemplate_H
+#ifndef CLASSNAME_H
+#define CLASSNAME_H
 
 #include ".H"
 
@@ -60,7 +60,7 @@ Ostream& operator<<(Ostream&, const CLASSNAME<TemplateArgument>&);
 
 
 /*---------------------------------------------------------------------------*\
-                         Class CLASSNAME Declaration
+                          Class CLASSNAME Declaration
 \*---------------------------------------------------------------------------*/
 
 template<TemplateClassArgument>

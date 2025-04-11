@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -43,7 +43,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                      Class wedgePolyPatch Declaration
+                       Class wedgePolyPatch Declaration
 \*---------------------------------------------------------------------------*/
 
 class wedgePolyPatch
@@ -69,6 +69,21 @@ class wedgePolyPatch
 
         //- Neighbour-cell transformation tensor
         tensor cellT_;
+
+        //- Index of the opposite wedge patch
+        mutable label oppositePatchIndex_;
+
+
+    // Private Member Functions
+
+        //- Return whether the given face is a (non-degenerate) quad
+        bool isQuadFace(const label) const;
+
+        //- Return whether the given face is part of a wedge patch
+        bool isWedgeFace(const label) const;
+
+        //- Return the wedge face opposite the given wedge face
+        label oppositeWedgeFace(const label) const;
 
 
 protected:
@@ -122,16 +137,6 @@ public:
             const label newStart
         );
 
-        //- Construct given the original patch and a map
-        wedgePolyPatch
-        (
-            const wedgePolyPatch& pp,
-            const polyBoundaryMesh& bm,
-            const label index,
-            const labelUList& mapAddressing,
-            const label newStart
-        );
-
         //- Construct and return a clone, resetting the boundary mesh
         virtual autoPtr<polyPatch> clone(const polyBoundaryMesh& bm) const
         {
@@ -151,22 +156,6 @@ public:
             return autoPtr<polyPatch>
             (
                 new wedgePolyPatch(*this, bm, index, newSize, newStart)
-            );
-        }
-
-        //- Construct and return a clone, resetting the face list
-        //  and boundary mesh
-        virtual autoPtr<polyPatch> clone
-        (
-            const polyBoundaryMesh& bm,
-            const label index,
-            const labelUList& mapAddressing,
-            const label newStart
-        ) const
-        {
-            return autoPtr<polyPatch>
-            (
-                new wedgePolyPatch(*this, bm, index, mapAddressing, newStart)
             );
         }
 
@@ -210,6 +199,12 @@ public:
             {
                 return cellT_;
             }
+
+            //- Return the index of the opposite wedge patch
+            label oppositePatchIndex() const;
+
+            //- Return a reference to the opposite wedge patch
+            const wedgePolyPatch& oppositePatch() const;
 };
 
 

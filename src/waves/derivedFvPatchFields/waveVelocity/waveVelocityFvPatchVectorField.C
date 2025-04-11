@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,7 +24,6 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "waveVelocityFvPatchVectorField.H"
-#include "wavePressureFvPatchScalarField.H"
 #include "addToRunTimeSelectionTable.H"
 #include "levelSet.H"
 #include "volFields.H"
@@ -35,48 +34,26 @@ License
 Foam::waveVelocityFvPatchVectorField::waveVelocityFvPatchVectorField
 (
     const fvPatch& p,
-    const DimensionedField<vector, volMesh>& iF
-)
-:
-    directionMixedFvPatchVectorField(p, iF),
-    phiName_("phi"),
-    pName_("p"),
-    inletOutlet_(true),
-    faceCellSubset_(nullptr),
-    faceCellSubsetTimeIndex_(-1)
-{
-    refValue() = Zero;
-    refGrad() = Zero;
-    valueFraction() = Zero;
-}
-
-
-Foam::waveVelocityFvPatchVectorField::waveVelocityFvPatchVectorField
-(
-    const fvPatch& p,
     const DimensionedField<vector, volMesh>& iF,
     const dictionary& dict
 )
 :
-    directionMixedFvPatchVectorField(p, iF),
-    phiName_(dict.lookupOrDefault<word>("phi", "phi")),
-    pName_(dict.lookupOrDefault<word>("p", "p")),
-    inletOutlet_(dict.lookupOrDefault<Switch>("inletOutlet", true)),
-    faceCellSubset_(nullptr),
-    faceCellSubsetTimeIndex_(-1)
+    fixedValueInletOutletFvPatchField<vector>(p, iF, dict, false)
 {
     if (dict.found("value"))
     {
-        fvPatchVectorField::operator=(vectorField("value", dict, p.size()));
+        fixedValueInletOutletFvPatchField<vector>::operator==
+        (
+            vectorField("value", iF.dimensions(), dict, p.size())
+        );
     }
     else
     {
-        fvPatchVectorField::operator=(patchInternalField());
+        fixedValueInletOutletFvPatchField<vector>::operator==
+        (
+            patchInternalField()
+        );
     }
-
-    refValue() = *this;
-    refGrad() = Zero;
-    valueFraction() = Zero;
 }
 
 
@@ -85,29 +62,10 @@ Foam::waveVelocityFvPatchVectorField::waveVelocityFvPatchVectorField
     const waveVelocityFvPatchVectorField& ptf,
     const fvPatch& p,
     const DimensionedField<vector, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
-    directionMixedFvPatchVectorField(ptf, p, iF, mapper),
-    phiName_(ptf.phiName_),
-    pName_(ptf.pName_),
-    inletOutlet_(ptf.inletOutlet_),
-    faceCellSubset_(nullptr),
-    faceCellSubsetTimeIndex_(-1)
-{}
-
-
-Foam::waveVelocityFvPatchVectorField::waveVelocityFvPatchVectorField
-(
-    const waveVelocityFvPatchVectorField& ptf
-)
-:
-    directionMixedFvPatchVectorField(ptf),
-    phiName_(ptf.phiName_),
-    pName_(ptf.pName_),
-    inletOutlet_(ptf.inletOutlet_),
-    faceCellSubset_(nullptr),
-    faceCellSubsetTimeIndex_(-1)
+    fixedValueInletOutletFvPatchField<vector>(ptf, p, iF, mapper)
 {}
 
 
@@ -117,12 +75,7 @@ Foam::waveVelocityFvPatchVectorField::waveVelocityFvPatchVectorField
     const DimensionedField<vector, volMesh>& iF
 )
 :
-    directionMixedFvPatchVectorField(ptf, iF),
-    phiName_(ptf.phiName_),
-    pName_(ptf.pName_),
-    inletOutlet_(ptf.inletOutlet_),
-    faceCellSubset_(nullptr),
-    faceCellSubsetTimeIndex_(-1)
+    fixedValueInletOutletFvPatchField<vector>(ptf, iF)
 {}
 
 
@@ -154,9 +107,9 @@ Foam::waveVelocityFvPatchVectorField::faceCellSubset() const
 }
 
 
-Foam::tmp<Foam::vectorField> Foam::waveVelocityFvPatchVectorField::U() const
+Foam::tmp<Foam::vectorField>
+Foam::waveVelocityFvPatchVectorField::U(const scalar t) const
 {
-    const scalar t = db().time().timeOutputValue();
     const waveSuperposition& waves = waveSuperposition::New(db());
 
     return
@@ -173,9 +126,9 @@ Foam::tmp<Foam::vectorField> Foam::waveVelocityFvPatchVectorField::U() const
 }
 
 
-Foam::tmp<Foam::vectorField> Foam::waveVelocityFvPatchVectorField::Un() const
+Foam::tmp<Foam::vectorField>
+Foam::waveVelocityFvPatchVectorField::Un(const scalar t) const
 {
-    const scalar t = db().time().timeOutputValue();
     const waveSuperposition& waves = waveSuperposition::New(db());
 
     const fvMeshSubset& subset = faceCellSubset();
@@ -222,74 +175,9 @@ void Foam::waveVelocityFvPatchVectorField::updateCoeffs()
         return;
     }
 
-    const fvPatchScalarField& pp =
-        patch().lookupPatchField<volScalarField, scalar>(pName_);
+    operator==(U(db().time().value()));
 
-    if (isA<wavePressureFvPatchScalarField>(pp))
-    {
-        const vectorField U(this->U()), Un(this->Un());
-        const scalarField out(pos0(U & patch().Sf()));
-
-        // Where inflow, set all velocity components to values specified by the
-        // wave model. Where outflow, set the tangential values and the normal
-        // gradient.
-        valueFraction() = symmTensor::I - out*sqr(patch().nf());
-        refValue() = U;
-        refGrad() = (U - Un)*patch().deltaCoeffs();
-    }
-    else
-    {
-        const vectorField U(this->U());
-
-        if (inletOutlet_)
-        {
-            const scalarField& phip =
-                patch().lookupPatchField<surfaceScalarField, scalar>(phiName_);
-            const scalarField out(pos0(phip));
-
-            // Where inflow, fix all velocity components to values specified by
-            // the wave model.
-            refValue() = (1 - out)*U;
-            valueFraction() = (1 - out)*symmTensor::I;
-
-            // Where outflow, set the normal component of the velocity to a
-            // value consistent with phi, but scale it to get the volumetric
-            // flow rate specified by the wave model. Tangential components are
-            // extrapolated.
-            const scalar QPhip = gSum(out*phip);
-            const scalar QWave = gSum(out*(U & patch().Sf()));
-            const vectorField nBySf(patch().Sf()/sqr(patch().magSf()));
-            if (QPhip > vSmall)
-            {
-                refValue() += out*(QWave/QPhip)*phip*nBySf;
-            }
-            else
-            {
-                refValue() += out*QWave*nBySf;
-            }
-            valueFraction() += out*sqr(patch().nf());
-        }
-        else
-        {
-            refValue() = U;
-            valueFraction() = symmTensor::I;
-        }
-    }
-
-    directionMixedFvPatchVectorField::updateCoeffs();
-    directionMixedFvPatchVectorField::evaluate();
-}
-
-
-void Foam::waveVelocityFvPatchVectorField::write
-(
-    Ostream& os
-) const
-{
-    directionMixedFvPatchVectorField::write(os);
-    writeEntryIfDifferent<word>(os, "phi", "phi", phiName_);
-    writeEntryIfDifferent<word>(os, "p", "p", pName_);
-    writeEntryIfDifferent<Switch>(os, "inletOutlet", true, inletOutlet_);
+    fixedValueInletOutletFvPatchField<vector>::updateCoeffs();
 }
 
 

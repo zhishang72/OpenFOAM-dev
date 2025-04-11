@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2018-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -33,29 +33,7 @@ namespace Foam
 }
 
 
-// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
-
-Foam::fluidSolutionControl::fluidSolutionControl
-(
-    fvMesh& mesh,
-    const word& algorithmName
-)
-:
-    nonOrthogonalSolutionControl(mesh, algorithmName),
-    frozenFlow_(false),
-    momentumPredictor_(true),
-    transonic_(false),
-    consistent_(false)
-{}
-
-
-// * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
-
-Foam::fluidSolutionControl::~fluidSolutionControl()
-{}
-
-
-// * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * * //
+// * * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * * //
 
 bool Foam::fluidSolutionControl::read()
 {
@@ -66,10 +44,9 @@ bool Foam::fluidSolutionControl::read()
 
     const dictionary& solutionDict = dict();
 
-    // The solveFluid keyword is maintained here for backwards compatibility
-    frozenFlow_ = !solutionDict.lookupOrDefault<bool>("solveFluid", true);
-    frozenFlow_ = solutionDict.lookupOrDefault<bool>("frozenFlow", frozenFlow_);
-
+    models_ = solutionDict.lookupOrDefault<bool>("models", true);
+    thermophysics_ = solutionDict.lookupOrDefault<bool>("thermophysics", true);
+    flow_ = solutionDict.lookupOrDefault<bool>("flow", true);
     momentumPredictor_ =
         solutionDict.lookupOrDefault<bool>("momentumPredictor", true);
     transonic_ = solutionDict.lookupOrDefault<bool>("transonic", false);
@@ -77,6 +54,32 @@ bool Foam::fluidSolutionControl::read()
 
     return true;
 }
+
+
+// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
+
+Foam::fluidSolutionControl::fluidSolutionControl
+(
+    fvMesh& mesh,
+    const word& algorithmName
+)
+:
+    nonOrthogonalSolutionControl(mesh, algorithmName),
+    models_(false),
+    thermophysics_(false),
+    flow_(false),
+    momentumPredictor_(true),
+    transonic_(false),
+    consistent_(false)
+{
+    read();
+}
+
+
+// * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
+
+Foam::fluidSolutionControl::~fluidSolutionControl()
+{}
 
 
 // ************************************************************************* //

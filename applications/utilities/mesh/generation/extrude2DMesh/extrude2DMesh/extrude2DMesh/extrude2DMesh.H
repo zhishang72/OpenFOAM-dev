@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -51,12 +51,12 @@ namespace Foam
 // Forward declaration of classes
 class polyMesh;
 class polyTopoChange;
-class mapPolyMesh;
-class mapDistributePolyMesh;
+class polyTopoChangeMap;
+class polyDistributionMap;
 class polyBoundaryMesh;
 
 /*---------------------------------------------------------------------------*\
-                           Class extrude2DMesh Declaration
+                        Class extrude2DMesh Declaration
 \*---------------------------------------------------------------------------*/
 
 class extrude2DMesh
@@ -66,10 +66,6 @@ class extrude2DMesh
         //- Reference to 2D mesh
         polyMesh& mesh_;
 
-        const dictionary dict_;
-
-        // const dictionary patchDict_;
-
         const extrudeModel& model_;
 
         const word modelType_;
@@ -77,15 +73,17 @@ class extrude2DMesh
         const word patchType_;
 
         label frontPatchi_;
+
         label backPatchi_;
+
+        //- Zones of the added cells
+        List<labelHashSet> cellZonesAddedCells_;
+
 
     // Private Member Functions
 
         //- Check the mesh is 2D
         void check2D() const;
-
-        //- Find extrusion direction
-        // void findExtrudeDirection();
 
 
 public:
@@ -115,17 +113,6 @@ public:
         //- Add front and back patches
         void addFrontBackPatches();
 
-        //- Play commands into polyTopoChange to extrude mesh.
-        void setRefinement(polyTopoChange&);
-
-        //- Force recalculation of locally stored data on topological change
-        void updateMesh(const mapPolyMesh&)
-        {}
-
-        //- Force recalculation of locally stored data for mesh distribution
-        void distribute(const mapDistributePolyMesh&)
-        {}
-
         label frontPatchi() const
         {
             return frontPatchi_;
@@ -135,6 +122,13 @@ public:
         {
             return backPatchi_;
         }
+
+        //- Play commands into polyTopoChange to extrude mesh.
+        void setRefinement(polyTopoChange&);
+
+        //- Update the mesh zones
+        //  adding the point and cell zones for the added layer
+        void updateZones();
 
 
     // Member Operators

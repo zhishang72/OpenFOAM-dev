@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,16 +25,14 @@ Class
     Foam::fanPressureJumpFvPatchScalarField
 
 Description
-    This boundary condition provides a pressure jump condition, using
-    the \c cyclic condition as a base.
+    This boundary condition provides a fan pressure jump condition, using the
+    \c cyclic condition as a base. The jump is specified as a \c Function1,
+    which returns the pressure jump as a function of the total volumetric flow
+    rate through the patch.
 
-    The jump is specified as a \c Function1 type, to enable the use of, e.g.
-    constant, polynomial, table values. This boundary condition can operate
-    in two modes - standard and backward compatibility.
-    In standard mode, jump is specified as a function of total volumetric
-    flow rate through the patch. In backward compatibility mode, the boundary
-    conditions serves as a direct replacement for the fanFvPatchField, where
-    jump is defined as a function of local velocity.
+    A backwards-compatibility option is also provided to specify the pressure
+    jump as a function of local velocity. In this mode the boundary condition
+    serves as a direct replacement for the old fanFvPatchField.
 
 Usage
     \table
@@ -53,28 +51,20 @@ Usage
     {
         type            fanPressureJump;
         patchType       cyclic;
-        fanCurve        tableFile;
-        tableFileCoeffs
-        {
-            file            "$FOAM_CASE/constant/pressureVsQ";
-            format          csv;
-            nHeaderLine     1;
-            refColumn       0;
-            componentColumns 1(1);
-            separator       ",";
-            mergeSeparators no;
-            outOfBounds     clamp;
-            interpolationScheme linear;
-        }
+
+        fanCurve        table;
+        file            "$FOAM_CASE/constant/pressureVsQ";
+        format          csv;
+        nHeaderLine     1;
+        columns         (0 1);
+        separator       ",";
+        mergeSeparators no;
+        outOfBounds     clamp;
+        interpolationScheme linear;
+
         value           uniform 0;
     }
     \endverbatim
-
-    The above example shows the use of a comma separated (CSV) file to specify
-    the jump condition.
-
-Note
-     The underlying \c patchType should be set to \c cyclic
 
 See also
     Foam::Function1s
@@ -105,6 +95,13 @@ class fanPressureJumpFvPatchScalarField
 {
     // Private Data
 
+        //- Name of the flux transporting the field
+        const word phiName_;
+
+        //- Name of the density field used to normalise the mass flux
+        //  if necessary
+        const word rhoName_;
+
         //- Fan curve
         autoPtr<Function1<scalar>> fanCurve_;
 
@@ -112,20 +109,7 @@ class fanPressureJumpFvPatchScalarField
         autoPtr<Function1<scalar>> jumpTable_;
 
         //- Set true to reverse jump direction
-        Switch reverse_;
-
-        //- Name of the flux transporting the field
-        word phiName_;
-
-        //- Name of the density field used to normalise the mass flux
-        //  if necessary
-        word rhoName_;
-
-
-    // Private Member Functions
-
-        //- Calculate the fan pressure jump
-        void calcFanJump();
+        const Switch reverse_;
 
 
 public:
@@ -135,13 +119,6 @@ public:
 
 
     // Constructors
-
-        //- Construct from patch and internal field
-        fanPressureJumpFvPatchScalarField
-        (
-            const fvPatch&,
-            const DimensionedField<scalar, volMesh>&
-        );
 
         //- Construct from patch, internal field and dictionary
         fanPressureJumpFvPatchScalarField
@@ -157,23 +134,14 @@ public:
             const fanPressureJumpFvPatchScalarField&,
             const fvPatch&,
             const DimensionedField<scalar, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         fanPressureJumpFvPatchScalarField
         (
             const fanPressureJumpFvPatchScalarField&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchScalarField> clone() const
-        {
-            return tmp<fvPatchScalarField>
-            (
-                new fanPressureJumpFvPatchScalarField(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         fanPressureJumpFvPatchScalarField

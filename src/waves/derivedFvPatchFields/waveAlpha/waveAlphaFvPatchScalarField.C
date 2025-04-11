@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,11 +24,8 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "waveAlphaFvPatchScalarField.H"
-#include "wavePressureFvPatchScalarField.H"
-#include "waveVelocityFvPatchVectorField.H"
 #include "addToRunTimeSelectionTable.H"
 #include "levelSet.H"
-#include "surfaceFields.H"
 #include "volFields.H"
 #include "fvMeshSubset.H"
 
@@ -37,44 +34,27 @@ License
 Foam::waveAlphaFvPatchScalarField::waveAlphaFvPatchScalarField
 (
     const fvPatch& p,
-    const DimensionedField<scalar, volMesh>& iF
-)
-:
-    mixedFvPatchScalarField(p, iF),
-    UName_("U"),
-    liquid_(true),
-    inletOutlet_(true)
-{
-    refValue() = Zero;
-    refGrad() = Zero;
-    valueFraction() = 0;
-}
-
-
-Foam::waveAlphaFvPatchScalarField::waveAlphaFvPatchScalarField
-(
-    const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF,
     const dictionary& dict
 )
 :
-    mixedFvPatchScalarField(p, iF),
-    UName_(dict.lookupOrDefault<word>("U", "U")),
-    liquid_(dict.lookupOrDefault<Switch>("liquid", true)),
-    inletOutlet_(dict.lookupOrDefault<Switch>("inletOutlet", true))
+    fixedValueInletOutletFvPatchField<scalar>(p, iF, dict, false),
+    liquid_(dict.lookupOrDefault<Switch>("liquid", true))
 {
     if (dict.found("value"))
     {
-        fvPatchScalarField::operator=(scalarField("value", dict, p.size()));
+        fixedValueInletOutletFvPatchField<scalar>::operator==
+        (
+            scalarField("value", iF.dimensions(), dict, p.size())
+        );
     }
     else
     {
-        fvPatchScalarField::operator=(patchInternalField());
+        fixedValueInletOutletFvPatchField<scalar>::operator==
+        (
+            patchInternalField()
+        );
     }
-
-    refValue() = *this;
-    refGrad() = Zero;
-    valueFraction() = 0;
 }
 
 
@@ -83,26 +63,13 @@ Foam::waveAlphaFvPatchScalarField::waveAlphaFvPatchScalarField
     const waveAlphaFvPatchScalarField& ptf,
     const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
-    mixedFvPatchScalarField(ptf, p, iF, mapper),
-    UName_(ptf.UName_),
-    liquid_(ptf.liquid_),
-    inletOutlet_(ptf.inletOutlet_)
+    fixedValueInletOutletFvPatchField<scalar>(ptf, p, iF, mapper),
+    liquid_(ptf.liquid_)
 {}
 
-
-Foam::waveAlphaFvPatchScalarField::waveAlphaFvPatchScalarField
-(
-    const waveAlphaFvPatchScalarField& ptf
-)
-:
-    mixedFvPatchScalarField(ptf),
-    UName_(ptf.UName_),
-    liquid_(ptf.liquid_),
-    inletOutlet_(ptf.inletOutlet_)
-{}
 
 Foam::waveAlphaFvPatchScalarField::waveAlphaFvPatchScalarField
 (
@@ -110,18 +77,42 @@ Foam::waveAlphaFvPatchScalarField::waveAlphaFvPatchScalarField
     const DimensionedField<scalar, volMesh>& iF
 )
 :
-    mixedFvPatchScalarField(ptf, iF),
-    UName_(ptf.UName_),
-    liquid_(ptf.liquid_),
-    inletOutlet_(ptf.inletOutlet_)
+    fixedValueInletOutletFvPatchField<scalar>(ptf, iF),
+    liquid_(ptf.liquid_)
 {}
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-Foam::tmp<Foam::scalarField> Foam::waveAlphaFvPatchScalarField::alpha() const
+const Foam::fvMeshSubset&
+Foam::waveAlphaFvPatchScalarField::faceCellSubset() const
 {
-    const scalar t = db().time().timeOutputValue();
+    const fvMesh& mesh = patch().boundaryMesh().mesh();
+    const label timeIndex = mesh.time().timeIndex();
+
+    if
+    (
+        !faceCellSubset_.valid()
+     || (mesh.changing() && faceCellSubsetTimeIndex_ != timeIndex)
+    )
+    {
+        faceCellSubset_.reset(new fvMeshSubset(mesh));
+        faceCellSubset_->setCellSubset(patch().faceCells());
+        faceCellSubsetTimeIndex_ = timeIndex;
+
+        // Ask for the tetBasePtIs to trigger all processors to build them.
+        // Without this, processors that do not contain this patch will
+        // generate a comms mismatch.
+        faceCellSubset_->subMesh().tetBasePtIs();
+    }
+
+    return faceCellSubset_();
+}
+
+
+Foam::tmp<Foam::scalarField>
+Foam::waveAlphaFvPatchScalarField::alpha(const scalar t) const
+{
     const waveSuperposition& waves = waveSuperposition::New(db());
 
     return
@@ -135,17 +126,12 @@ Foam::tmp<Foam::scalarField> Foam::waveAlphaFvPatchScalarField::alpha() const
 }
 
 
-Foam::tmp<Foam::scalarField> Foam::waveAlphaFvPatchScalarField::alphan() const
+Foam::tmp<Foam::scalarField>
+Foam::waveAlphaFvPatchScalarField::alphan(const scalar t) const
 {
-    const scalar t = db().time().timeOutputValue();
     const waveSuperposition& waves = waveSuperposition::New(db());
-    const waveVelocityFvPatchVectorField& Up =
-        refCast<const waveVelocityFvPatchVectorField>
-        (
-            patch().lookupPatchField<volVectorField, scalar>(UName_)
-        );
 
-    const fvMeshSubset& subset = Up.faceCellSubset();
+    const fvMeshSubset& subset = faceCellSubset();
     const fvMesh& meshs = subset.subMesh();
     const label patchis = findIndex(subset.patchMap(), patch().index());
 
@@ -186,52 +172,9 @@ void Foam::waveAlphaFvPatchScalarField::updateCoeffs()
         return;
     }
 
-    const fvPatchVectorField& Up =
-        patch().lookupPatchField<volVectorField, scalar>(UName_);
+    operator==(alpha(db().time().value()));
 
-    if (!isA<waveVelocityFvPatchVectorField>(Up))
-    {
-        FatalErrorInFunction
-            << "The corresponding condition for the velocity "
-            << "field " << UName_ << " on patch " << patch().name()
-            << " is not of type " << waveVelocityFvPatchVectorField::typeName
-            << exit(FatalError);
-    }
-
-    const waveVelocityFvPatchVectorField& Uwp =
-        refCast<const waveVelocityFvPatchVectorField>(Up);
-
-    const fvPatchScalarField& pp =
-        patch().lookupPatchField<volScalarField, scalar>(Uwp.pName());
-
-    if (isA<wavePressureFvPatchScalarField>(pp))
-    {
-        const scalarField alpha(this->alpha()), alphan(this->alphan());
-        const scalarField out(pos0(Uwp.U() & patch().Sf()));
-
-        valueFraction() = out;
-        refValue() = alpha;
-        refGrad() = (alpha - alphan)*patch().deltaCoeffs();
-    }
-    else
-    {
-        refValue() = alpha();
-
-        if (inletOutlet_)
-        {
-            const scalarField& phip =
-                patch().lookupPatchField<surfaceScalarField, scalar>("phi");
-            const scalarField out(pos0(phip));
-
-            valueFraction() = 1 - out;
-        }
-        else
-        {
-            valueFraction() = 1;
-        }
-    }
-
-    mixedFvPatchScalarField::updateCoeffs();
+    fixedValueInletOutletFvPatchField<scalar>::updateCoeffs();
 }
 
 
@@ -240,9 +183,7 @@ void Foam::waveAlphaFvPatchScalarField::write
     Ostream& os
 ) const
 {
-    mixedFvPatchScalarField::write(os);
-    writeEntryIfDifferent<word>(os, "U", "U", UName_);
-    writeEntryIfDifferent<Switch>(os, "inletOutlet", true, inletOutlet_);
+    fixedValueInletOutletFvPatchField<scalar>::write(os);
     writeEntryIfDifferent<Switch>(os, "liquid", true, liquid_);
 }
 
@@ -251,7 +192,11 @@ void Foam::waveAlphaFvPatchScalarField::write
 
 namespace Foam
 {
-    makePatchTypeField(fvPatchScalarField, waveAlphaFvPatchScalarField);
+    makePatchTypeField
+    (
+        fvPatchScalarField,
+        waveAlphaFvPatchScalarField
+    );
 }
 
 // ************************************************************************* //

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,82 +25,95 @@ License
 
 #include "mixtureFraction.H"
 #include "singleStepCombustion.H"
+#include "addToRunTimeSelectionTable.H"
+
+
+// * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
+
+namespace Foam
+{
+namespace radiationModels
+{
+namespace sootModels
+{
+    defineTypeNameAndDebug(mixtureFraction, 0);
+
+    addToRunTimeSelectionTable
+    (
+        sootModel,
+        mixtureFraction,
+        dictionary
+    );
+}
+}
+}
+
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
-template<class ReactionThermo, class ThermoType>
-Foam::radiationModels::sootModels::mixtureFraction<ReactionThermo, ThermoType>::
-mixtureFraction
+Foam::radiationModels::sootModels::mixtureFraction::mixtureFraction
 (
     const dictionary& dict,
     const fvMesh& mesh,
     const word& modelType
 )
 :
-    sootModel(dict, mesh, modelType),
+    sootModel(mesh, modelType),
     soot_
     (
         IOobject
         (
             "soot",
-            mesh_.time().timeName(),
+            mesh_.time().name(),
             mesh_,
             IOobject::MUST_READ,
             IOobject::AUTO_WRITE
         ),
         mesh_
     ),
-    coeffsDict_(dict.subOrEmptyDict(modelType + "Coeffs")),
-    nuSoot_(coeffsDict_.lookup<scalar>("nuSoot")),
-    Wsoot_(coeffsDict_.lookup<scalar>("Wsoot")),
+    nuSoot_(dict.lookup<scalar>("nuSoot")),
+    Wsoot_(dict.lookup<scalar>("Wsoot")),
     sootMax_(-1),
     mappingFieldName_
     (
-        coeffsDict_.lookupOrDefault<word>("mappingField", "none")
+        dict.lookupOrDefault<word>("mappingField", "none")
     ),
     mapFieldMax_(1)
 {
-    const combustionModels::singleStepCombustion<ReactionThermo, ThermoType>&
-    combustion
-    (
-        mesh.lookupObject
-        <
-            combustionModels::singleStepCombustion<ReactionThermo, ThermoType>
-        >
+    const combustionModels::singleStepCombustion& combustion =
+        mesh.lookupObject<combustionModels::singleStepCombustion>
         (
             combustionModel::combustionPropertiesName
-        )
-    );
+        );
 
-    const multiComponentMixture<ThermoType>& mixture(combustion.mixture());
-    const Reaction<ThermoType>& reaction = combustion.reaction();
+    const reaction& singleReaction = combustion.singleReaction();
 
     scalar totalMol = 0;
-    forAll(reaction.rhs(), i)
+    forAll(singleReaction.rhs(), i)
     {
-        const scalar stoichCoeff = reaction.rhs()[i].stoichCoeff;
+        const scalar stoichCoeff = singleReaction.rhs()[i].stoichCoeff;
         totalMol += mag(stoichCoeff);
     }
 
     totalMol += nuSoot_;
 
-    scalarList Xi(reaction.rhs().size());
+    scalarList Xi(singleReaction.rhs().size());
 
     scalar Wm = 0;
-    forAll(reaction.rhs(), i)
+    forAll(singleReaction.rhs(), i)
     {
-        const label speciei = reaction.rhs()[i].index;
-        const scalar stoichCoeff = reaction.rhs()[i].stoichCoeff;
+        const label speciei = singleReaction.rhs()[i].index;
+        const scalar stoichCoeff = singleReaction.rhs()[i].stoichCoeff;
         Xi[i] = mag(stoichCoeff)/totalMol;
-        Wm += Xi[i]*mixture.speciesData()[speciei].W();
+        Wm += Xi[i]*combustion.thermo().WiValue(speciei);
     }
 
-    scalarList Yprod0(mixture.species().size(), 0.0);
+    scalarList Yprod0(combustion.thermo().species().size(), 0.0);
 
-    forAll(reaction.rhs(), i)
+    forAll(singleReaction.rhs(), i)
     {
-        const label speciei = reaction.rhs()[i].index;
-        Yprod0[speciei] = mixture.speciesData()[speciei].W()/Wm*Xi[i];
+        const label speciei = singleReaction.rhs()[i].index;
+        Yprod0[speciei] = combustion.thermo().WiValue(speciei)/Wm*Xi[i];
     }
 
     const scalar XSoot = nuSoot_/totalMol;
@@ -112,11 +125,12 @@ mixtureFraction
 
     if (mappingFieldName_ == "none")
     {
-        const label index = reaction.rhs()[0].index;
-        mappingFieldName_ = mixture.Y(index).name();
+        const label index = singleReaction.rhs()[0].index;
+        mappingFieldName_ = combustion.thermo().Y(index).name();
     }
 
-    const label mapFieldIndex = mixture.species()[mappingFieldName_];
+    const label mapFieldIndex =
+        combustion.thermo().species()[mappingFieldName_];
 
     mapFieldMax_ = Yprod0[mapFieldIndex];
 }
@@ -124,18 +138,13 @@ mixtureFraction
 
 // * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
 
-template<class ReactionThermo, class ThermoType>
-Foam::radiationModels::sootModels::mixtureFraction<ReactionThermo, ThermoType>::
-~mixtureFraction()
+Foam::radiationModels::sootModels::mixtureFraction::~mixtureFraction()
 {}
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-template<class ReactionThermo, class ThermoType>
-void
-Foam::radiationModels::sootModels::mixtureFraction<ReactionThermo, ThermoType>::
-correct()
+void Foam::radiationModels::sootModels::mixtureFraction::correct()
 {
     const volScalarField& mapField =
         mesh_.lookupObject<volScalarField>(mappingFieldName_);
@@ -144,4 +153,4 @@ correct()
 }
 
 
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+// ************************************************************************* //

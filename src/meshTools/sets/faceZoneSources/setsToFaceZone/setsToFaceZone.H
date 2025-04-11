@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,7 +44,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                        Class setsToFaceZone Declaration
+                       Class setsToFaceZone Declaration
 \*---------------------------------------------------------------------------*/
 
 class setsToFaceZone
@@ -52,9 +52,6 @@ class setsToFaceZone
     public topoSetSource
 {
     // Private Data
-
-        //- Add usage string
-        static addToUsageTable usage_;
 
         //- Name of set to use
         const word faceSetName_;
@@ -65,10 +62,12 @@ class setsToFaceZone
         //- Whether cellSet is slave cells or master cells
         const Switch flip_;
 
+
 public:
 
     //- Runtime type information
     TypeName("setsToFaceZone");
+
 
     // Constructors
 
@@ -88,13 +87,6 @@ public:
             const dictionary& dict
         );
 
-        //- Construct from Istream
-        setsToFaceZone
-        (
-            const polyMesh& mesh,
-            Istream&
-        );
-
 
     //- Destructor
     virtual ~setsToFaceZone();
@@ -112,7 +104,6 @@ public:
             const topoSetSource::setAction action,
             topoSet&
         ) const;
-
 };
 
 

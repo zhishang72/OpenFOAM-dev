@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,7 +44,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class cyclicFvsPatch Declaration
+                       Class cyclicFvsPatch Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -87,23 +87,11 @@ public:
             const cyclicFvsPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, surfaceMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
-        cyclicFvsPatchField
-        (
-            const cyclicFvsPatchField<Type>&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvsPatchField<Type>> clone() const
-        {
-            return tmp<fvsPatchField<Type>>
-            (
-                new cyclicFvsPatchField<Type>(*this)
-            );
-        }
+        //- Disallow copy without setting internal field reference
+        cyclicFvsPatchField(const cyclicFvsPatchField<Type>&) = delete;
 
         //- Copy constructor setting internal field reference
         cyclicFvsPatchField
@@ -123,6 +111,17 @@ public:
                 new cyclicFvsPatchField<Type>(*this, iF)
             );
         }
+
+
+    // Member Functions
+
+        // Evaluation functions
+
+            //- Return patchField on the opposite patch of a coupled patch
+            virtual tmp<Field<Type>> patchNeighbourField
+            (
+                const Pstream::commsTypes commsType
+            ) const;
 };
 
 

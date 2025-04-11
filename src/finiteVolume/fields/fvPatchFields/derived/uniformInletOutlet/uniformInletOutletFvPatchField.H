@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -48,10 +48,10 @@ Usage
     The mode of operation is determined by the sign of the flux across the
     patch faces.
 
-Note
-    Sign conventions:
-    - positive flux (out of domain): apply zero-gradient condition
-    - negative flux (into of domain): apply the user-specified fixed value
+    Note:
+        Sign conventions:
+      - positive flux (out of domain): apply zero-gradient condition
+      - negative flux (into of domain): apply the user-specified fixed value
 
 See also
     Foam::inletOutletFvPatchField
@@ -74,7 +74,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                   Class uniformInletOutletFvPatchField Declaration
+               Class uniformInletOutletFvPatchField Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -102,13 +102,6 @@ public:
 
     // Constructors
 
-        //- Construct from patch and internal field
-        uniformInletOutletFvPatchField
-        (
-            const fvPatch&,
-            const DimensionedField<Type, volMesh>&
-        );
-
         //- Construct from patch, internal field and dictionary
         uniformInletOutletFvPatchField
         (
@@ -124,23 +117,14 @@ public:
             const uniformInletOutletFvPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         uniformInletOutletFvPatchField
         (
             const uniformInletOutletFvPatchField<Type>&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchField<Type>> clone() const
-        {
-            return tmp<fvPatchField<Type>>
-            (
-                new uniformInletOutletFvPatchField<Type>(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         uniformInletOutletFvPatchField
@@ -175,13 +159,12 @@ public:
 
         // Mapping functions
 
-            //- Map (and resize as needed) from self given a mapping object
-            //  Used to update fields following mesh topology change
-            virtual void autoMap(const fvPatchFieldMapper&);
+            //- Map the given fvPatchField onto this fvPatchField
+            virtual void map(const fvPatchField<Type>&, const fieldMapper&);
 
-            //- Reverse map the given fvPatchField onto this fvPatchField
-            //  Used to reconstruct fields
-            virtual void rmap(const fvPatchField<Type>&, const labelList&);
+            //- Reset the fvPatchField to the given fvPatchField
+            //  Used for mesh to mesh mapping
+            virtual void reset(const fvPatchField<Type>&);
 
 
         //- Update the coefficients associated with the patch field

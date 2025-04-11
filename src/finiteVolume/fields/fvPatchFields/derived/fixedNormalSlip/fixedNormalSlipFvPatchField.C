@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,27 +44,13 @@ Foam::fixedNormalSlipFvPatchField<Type>::fixedNormalSlipFvPatchField
 template<class Type>
 Foam::fixedNormalSlipFvPatchField<Type>::fixedNormalSlipFvPatchField
 (
-    const fixedNormalSlipFvPatchField<Type>& ptf,
-    const fvPatch& p,
-    const DimensionedField<Type, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
-)
-:
-    transformFvPatchField<Type>(ptf, p, iF, mapper),
-    fixedValue_(mapper(ptf.fixedValue_))
-{}
-
-
-template<class Type>
-Foam::fixedNormalSlipFvPatchField<Type>::fixedNormalSlipFvPatchField
-(
     const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
     const dictionary& dict
 )
 :
     transformFvPatchField<Type>(p, iF),
-    fixedValue_("fixedValue", dict, p.size())
+    fixedValue_("fixedValue", iF.dimensions(), dict, p.size())
 {
     evaluate();
 }
@@ -73,11 +59,14 @@ Foam::fixedNormalSlipFvPatchField<Type>::fixedNormalSlipFvPatchField
 template<class Type>
 Foam::fixedNormalSlipFvPatchField<Type>::fixedNormalSlipFvPatchField
 (
-    const fixedNormalSlipFvPatchField<Type>& ptf
+    const fixedNormalSlipFvPatchField<Type>& ptf,
+    const fvPatch& p,
+    const DimensionedField<Type, volMesh>& iF,
+    const fieldMapper& mapper
 )
 :
-    transformFvPatchField<Type>(ptf),
-    fixedValue_(ptf.fixedValue_)
+    transformFvPatchField<Type>(ptf, p, iF, mapper),
+    fixedValue_(mapper(ptf.fixedValue_))
 {}
 
 
@@ -96,29 +85,33 @@ Foam::fixedNormalSlipFvPatchField<Type>::fixedNormalSlipFvPatchField
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class Type>
-void Foam::fixedNormalSlipFvPatchField<Type>::autoMap
-(
-    const fvPatchFieldMapper& m
-)
-{
-    transformFvPatchField<Type>::autoMap(m);
-    m(fixedValue_, fixedValue_);
-}
-
-
-template<class Type>
-void Foam::fixedNormalSlipFvPatchField<Type>::rmap
+void Foam::fixedNormalSlipFvPatchField<Type>::map
 (
     const fvPatchField<Type>& ptf,
-    const labelList& addr
+    const fieldMapper& mapper
 )
 {
-    transformFvPatchField<Type>::rmap(ptf, addr);
+    transformFvPatchField<Type>::map(ptf, mapper);
 
     const fixedNormalSlipFvPatchField<Type>& dmptf =
         refCast<const fixedNormalSlipFvPatchField<Type>>(ptf);
 
-    fixedValue_.rmap(dmptf.fixedValue_, addr);
+    mapper(fixedValue_, dmptf.fixedValue_);
+}
+
+
+template<class Type>
+void Foam::fixedNormalSlipFvPatchField<Type>::reset
+(
+    const fvPatchField<Type>& ptf
+)
+{
+    transformFvPatchField<Type>::reset(ptf);
+
+    const fixedNormalSlipFvPatchField<Type>& dmptf =
+        refCast<const fixedNormalSlipFvPatchField<Type>>(ptf);
+
+    fixedValue_.reset(dmptf.fixedValue_);
 }
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -55,14 +55,12 @@ class regionToFace
 {
     // Private Data
 
-        //- Add usage string
-        static addToUsageTable usage_;
-
         //- Name of set to use
         word setName_;
 
         //- Coordinate that is nearest/on connected region
         point nearPoint_;
+
 
     // Private Member Functions
 
@@ -78,10 +76,12 @@ class regionToFace
 
         void combine(topoSet& set, const bool add) const;
 
+
 public:
 
     //- Runtime type information
     TypeName("regionToFace");
+
 
     // Constructors
 
@@ -98,13 +98,6 @@ public:
         (
             const polyMesh& mesh,
             const dictionary& dict
-        );
-
-        //- Construct from Istream
-        regionToFace
-        (
-            const polyMesh& mesh,
-            Istream&
         );
 
 
@@ -124,7 +117,6 @@ public:
             const topoSetSource::setAction action,
             topoSet&
         ) const;
-
 };
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -31,7 +31,7 @@ namespace Foam
 {
 namespace Function1s
 {
-    makeScalarFunction1(halfCosineRamp);
+    addScalarFunction1(halfCosineRamp);
 }
 }
 
@@ -40,11 +40,12 @@ namespace Function1s
 
 Foam::Function1s::halfCosineRamp::halfCosineRamp
 (
-    const word& entryName,
+    const word& name,
+    const unitConversions& units,
     const dictionary& dict
 )
 :
-    Ramp<halfCosineRamp>(entryName, dict)
+    Ramp<halfCosineRamp>(name, units, dict)
 {}
 
 

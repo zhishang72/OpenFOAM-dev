@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -225,7 +225,7 @@ Foam::surfMesh::surfMesh
 {
     if (debug)
     {
-        Info<<"IOobject: " << io.path() << nl
+        Info<<"IOobject: " << io.path(false) << nl
             <<" name: " << io.name()
             <<" instance: " << io.instance()
             <<" local: " << io.local()
@@ -234,7 +234,7 @@ Foam::surfMesh::surfMesh
         Info<<"timeName: " << instance() << endl;
     }
 
-    // We can also send null just to initialize without allocating
+    // We can also send null just to initialise without allocating
     if (notNull(surf))
     {
         transfer(surf);
@@ -394,7 +394,7 @@ void Foam::surfMesh::addZones
 // Remove all files and some subdirs (eg, sets)
 void Foam::surfMesh::removeFiles(const fileName& instanceDir) const
 {
-    fileName meshFilesPath = db().path()/instanceDir/meshSubDir;
+    fileName meshFilesPath = db().path(instanceDir, meshSubDir);
 
     rm(meshFilesPath/"points");
     rm(meshFilesPath/"faces");

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2015-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2015-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -42,14 +42,13 @@ Usage
     <patchName>
     {
         type            fixedProfile;
-        profile         tableFile;
+        profile         table;
         profileCoeffs
         {
             file                "UProfile";
             format              csv;
             nHeaderLine         0;
-            refColumn           0;
-            componentColumns    (1 2 3);
+            columns             (0 (1 2 3));
             separator           ",";
             mergeSeparators     no;
             outOfBounds         clamp;
@@ -95,7 +94,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                Class fixedProfileFvPatchField Declaration
+                  Class fixedProfileFvPatchField Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -123,21 +122,6 @@ public:
 
     // Constructors
 
-        //- Construct from patch and internal field
-        fixedProfileFvPatchField
-        (
-            const fvPatch&,
-            const DimensionedField<Type, volMesh>&
-        );
-
-        //- Construct from patch and internal field and patch field
-        fixedProfileFvPatchField
-        (
-            const fvPatch&,
-            const DimensionedField<Type, volMesh>&,
-            const Field<Type>& fld
-        );
-
         //- Construct from patch, internal field and dictionary
         fixedProfileFvPatchField
         (
@@ -153,23 +137,14 @@ public:
             const fixedProfileFvPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         fixedProfileFvPatchField
         (
             const fixedProfileFvPatchField<Type>&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchField<Type>> clone() const
-        {
-            return tmp<fvPatchField<Type>>
-            (
-                new fixedProfileFvPatchField<Type>(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         fixedProfileFvPatchField

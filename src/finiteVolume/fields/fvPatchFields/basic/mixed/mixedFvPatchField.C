@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ License
 
 #include "mixedFvPatchField.H"
 
-// * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class Type>
 Foam::mixedFvPatchField<Type>::mixedFvPatchField
@@ -46,15 +46,67 @@ Foam::mixedFvPatchField<Type>::mixedFvPatchField
 (
     const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
-    const dictionary& dict
+    const dictionary& dict,
+    const bool valuesRequired
 )
 :
     fvPatchField<Type>(p, iF, dict, false),
-    refValue_("refValue", dict, p.size()),
-    refGrad_("refGradient", dict, p.size()),
-    valueFraction_("valueFraction", dict, p.size())
+    refValue_(p.size()),
+    refGrad_(p.size()),
+    valueFraction_(p.size())
 {
-    evaluate();
+    if (valuesRequired)
+    {
+        if (dict.found("refValue"))
+        {
+            refValue_ =
+                Field<Type>
+                (
+                    "refValue",
+                    iF.dimensions(),
+                    dict,
+                    p.size()
+                );
+        }
+        else
+        {
+            FatalIOErrorInFunction(dict)
+                << "Essential entry 'refValue' missing"
+                << exit(FatalIOError);
+        }
+
+        if (dict.found("refGradient"))
+        {
+            refGrad_ =
+                Field<Type>
+                (
+                    "refGradient",
+                    iF.dimensions()/dimLength,
+                    dict,
+                    p.size()
+                );
+        }
+        else
+        {
+            FatalIOErrorInFunction(dict)
+                << "Essential entry 'refGradient' missing"
+                << exit(FatalIOError);
+        }
+
+        if (dict.found("valueFraction"))
+        {
+            valueFraction_ =
+                Field<scalar>("valueFraction", unitFraction, dict, p.size());
+        }
+        else
+        {
+            FatalIOErrorInFunction(dict)
+                << "Essential entry 'valueFraction' missing"
+                << exit(FatalIOError);
+        }
+
+        evaluate();
+    }
 }
 
 
@@ -64,38 +116,22 @@ Foam::mixedFvPatchField<Type>::mixedFvPatchField
     const mixedFvPatchField<Type>& ptf,
     const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
-    const fvPatchFieldMapper& mapper,
+    const fieldMapper& mapper,
     const bool mappingRequired
 )
 :
     fvPatchField<Type>(ptf, p, iF, mapper, mappingRequired),
-    refValue_(mapper(ptf.refValue_)),
-    refGrad_(mapper(ptf.refGrad_)),
-    valueFraction_(mapper(ptf.valueFraction_))
+    refValue_(p.size()),
+    refGrad_(p.size()),
+    valueFraction_(p.size())
 {
-    if (mappingRequired && notNull(iF) && mapper.hasUnmapped())
+    if (mappingRequired)
     {
-        WarningInFunction
-            << "On field " << iF.name() << " patch " << p.name()
-            << " patchField " << this->type()
-            << " : mapper does not map all values." << nl
-            << "    To avoid this warning fully specify the mapping in derived"
-            << " patch fields." << endl;
+        mapper(refValue_, ptf.refValue_);
+        mapper(refGrad_, ptf.refGrad_);
+        mapper(valueFraction_, ptf.valueFraction_);
     }
 }
-
-
-template<class Type>
-Foam::mixedFvPatchField<Type>::mixedFvPatchField
-(
-    const mixedFvPatchField<Type>& ptf
-)
-:
-    fvPatchField<Type>(ptf),
-    refValue_(ptf.refValue_),
-    refGrad_(ptf.refGrad_),
-    valueFraction_(ptf.valueFraction_)
-{}
 
 
 template<class Type>
@@ -115,33 +151,34 @@ Foam::mixedFvPatchField<Type>::mixedFvPatchField
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class Type>
-void Foam::mixedFvPatchField<Type>::autoMap
-(
-    const fvPatchFieldMapper& m
-)
-{
-    fvPatchField<Type>::autoMap(m);
-    m(refValue_, refValue_);
-    m(refGrad_, refGrad_);
-    m(valueFraction_, valueFraction_);
-}
-
-
-template<class Type>
-void Foam::mixedFvPatchField<Type>::rmap
+void Foam::mixedFvPatchField<Type>::map
 (
     const fvPatchField<Type>& ptf,
-    const labelList& addr
+    const fieldMapper& mapper
 )
 {
-    fvPatchField<Type>::rmap(ptf, addr);
+    fvPatchField<Type>::map(ptf, mapper);
 
     const mixedFvPatchField<Type>& mptf =
         refCast<const mixedFvPatchField<Type>>(ptf);
 
-    refValue_.rmap(mptf.refValue_, addr);
-    refGrad_.rmap(mptf.refGrad_, addr);
-    valueFraction_.rmap(mptf.valueFraction_, addr);
+    mapper(refValue_, mptf.refValue_);
+    mapper(refGrad_, mptf.refGrad_);
+    mapper(valueFraction_, mptf.valueFraction_);
+}
+
+
+template<class Type>
+void Foam::mixedFvPatchField<Type>::reset(const fvPatchField<Type>& ptf)
+{
+    fvPatchField<Type>::reset(ptf);
+
+    const mixedFvPatchField<Type>& mptf =
+        refCast<const mixedFvPatchField<Type>>(ptf);
+
+    refValue_.reset(mptf.refValue_);
+    refGrad_.reset(mptf.refGrad_);
+    valueFraction_.reset(mptf.valueFraction_);
 }
 
 
@@ -188,7 +225,6 @@ Foam::mixedFvPatchField<Type>::valueInternalCoeffs
 ) const
 {
     return Type(pTraits<Type>::one)*(1.0 - valueFraction_);
-
 }
 
 

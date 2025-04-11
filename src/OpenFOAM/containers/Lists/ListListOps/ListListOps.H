@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -34,7 +34,7 @@ Description
         similar and also adds offset.
 
     The access of data is through an AccessOp so that data can be 'gather'ed
-    in one go, minimizing communication, and then picked apart and recombined.
+    in one go, minimising communication, and then picked apart and recombined.
 
     Example:
     \code
@@ -119,7 +119,7 @@ public:
 };
 
 /*---------------------------------------------------------------------------*\
-                           Class ListListOps Declaration
+                         Class ListListOps Declaration
 \*---------------------------------------------------------------------------*/
 
 namespace ListListOps

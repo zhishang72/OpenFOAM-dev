@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -31,32 +31,9 @@ License
 Foam::trackedParticle::trackedParticle
 (
     const polyMesh& mesh,
-    const barycentric& coordinates,
-    const label celli,
-    const label tetFacei,
-    const label tetPtI,
-    const point& end,
-    const label level,
-    const label i,
-    const label j,
-    const label k
-)
-:
-    particle(mesh, coordinates, celli, tetFacei, tetPtI),
-    start_(position()),
-    end_(end),
-    level_(level),
-    i_(i),
-    j_(j),
-    k_(k)
-{}
-
-
-Foam::trackedParticle::trackedParticle
-(
-    const polyMesh& mesh,
     const vector& position,
     const label celli,
+    label& nLocateBoundaryHits,
     const point& end,
     const label level,
     const label i,
@@ -64,8 +41,8 @@ Foam::trackedParticle::trackedParticle
     const label k
 )
 :
-    particle(mesh, position, celli),
-    start_(this->position()),
+    particle(mesh, position, celli, nLocateBoundaryHits),
+    start_(this->position(mesh)),
     end_(end),
     level_(level),
     i_(i),
@@ -74,14 +51,9 @@ Foam::trackedParticle::trackedParticle
 {}
 
 
-Foam::trackedParticle::trackedParticle
-(
-    const polyMesh& mesh,
-    Istream& is,
-    bool readFields
-)
+Foam::trackedParticle::trackedParticle(Istream& is, bool readFields)
 :
-    particle(mesh, is, readFields)
+    particle(is, readFields)
 {
     if (readFields)
     {
@@ -117,29 +89,26 @@ Foam::trackedParticle::trackedParticle
 
 bool Foam::trackedParticle::move
 (
-    Cloud<trackedParticle>& cloud,
-    trackingData& td,
-    const scalar trackTime
+    lagrangian::Cloud<trackedParticle>& cloud,
+    trackingData& td
 )
 {
-    td.switchProcessor = false;
+    const scalar tEnd = (1.0 - stepFraction())*td.maxTrackLen_;
 
-    scalar tEnd = (1.0 - stepFraction())*trackTime;
-
-    if (tEnd <= small && onBoundaryFace())
+    if (tEnd <= small && onBoundaryFace(td.mesh))
     {
-        // This is a hack to handle particles reaching their endpoint
-        // on a processor boundary. If the endpoint is on a processor face
-        // it currently gets transferred backwards and forwards infinitely.
-
-        // Remove the particle
+        // This is a hack to handle particles reaching their endpoint on a
+        // processor boundary. This prevents a particle being endlessly
+        // transferred backwards and forwards across the interface.
         td.keepParticle = false;
+        td.sendToProc = -1;
     }
     else
     {
         td.keepParticle = true;
+        td.sendToProc = -1;
 
-        while (td.keepParticle && !td.switchProcessor && stepFraction() < 1)
+        while (td.keepParticle && td.sendToProc == -1 && stepFraction() < 1)
         {
             // mark visited cell with max level.
             td.maxLevel_[cell()] = max(td.maxLevel_[cell()], level_);
@@ -154,15 +123,9 @@ bool Foam::trackedParticle::move
 }
 
 
-bool Foam::trackedParticle::hitPatch(Cloud<trackedParticle>&, trackingData&)
-{
-    return false;
-}
-
-
 void Foam::trackedParticle::hitWedgePatch
 (
-    Cloud<trackedParticle>&,
+    lagrangian::Cloud<trackedParticle>&,
     trackingData& td
 )
 {
@@ -173,7 +136,7 @@ void Foam::trackedParticle::hitWedgePatch
 
 void Foam::trackedParticle::hitSymmetryPlanePatch
 (
-    Cloud<trackedParticle>&,
+    lagrangian::Cloud<trackedParticle>&,
     trackingData& td
 )
 {
@@ -184,7 +147,7 @@ void Foam::trackedParticle::hitSymmetryPlanePatch
 
 void Foam::trackedParticle::hitSymmetryPatch
 (
-    Cloud<trackedParticle>&,
+    lagrangian::Cloud<trackedParticle>&,
     trackingData& td
 )
 {
@@ -195,68 +158,18 @@ void Foam::trackedParticle::hitSymmetryPatch
 
 void Foam::trackedParticle::hitCyclicPatch
 (
-    Cloud<trackedParticle>&,
+    lagrangian::Cloud<trackedParticle>&,
     trackingData& td
 )
 {
     // Remove particle
     td.keepParticle = false;
-}
-
-
-void Foam::trackedParticle::hitCyclicAMIPatch
-(
-    const vector&,
-    const scalar,
-    Cloud<trackedParticle>&,
-    trackingData& td
-)
-{
-    // Remove particle
-    td.keepParticle = false;
-}
-
-
-void Foam::trackedParticle::hitCyclicACMIPatch
-(
-    const vector&,
-    const scalar,
-    Cloud<trackedParticle>&,
-    trackingData& td
-)
-{
-    // Remove particle
-    td.keepParticle = false;
-}
-
-
-void Foam::trackedParticle::hitCyclicRepeatAMIPatch
-(
-    const vector&,
-    const scalar,
-    Cloud<trackedParticle>&,
-    trackingData& td
-)
-{
-    // Remove particle
-    td.keepParticle = false;
-}
-
-
-void Foam::trackedParticle::hitProcessorPatch
-(
-    Cloud<trackedParticle>&,
-    trackingData& td
-)
-{
-    // Move to different processor
-    td.switchProcessor = true;
 }
 
 
 void Foam::trackedParticle::hitWallPatch
 (
-    Cloud<trackedParticle>&,
+    lagrangian::Cloud<trackedParticle>&,
     trackingData& td
 )
 {
@@ -267,20 +180,18 @@ void Foam::trackedParticle::hitWallPatch
 
 void Foam::trackedParticle::correctAfterParallelTransfer
 (
-    const label patchi,
+    lagrangian::Cloud<trackedParticle>& cloud,
     trackingData& td
 )
 {
-    particle::correctAfterParallelTransfer(patchi, td);
+    particle::correctAfterParallelTransfer(cloud, td);
 
-    label edgeI = k();
-    if (edgeI != -1)
+    // Mark edge we are currently on (if any). This was set on the sending
+    // processor but has not yet been set on the receiving side.
+    const label feati = i(), edgei = k();
+    if (edgei != -1)
     {
-        label featI = i();
-
-        // Mark edge we're currently on (was set on sending processor but not
-        // receiving sender)
-        td.featureEdgeVisited_[featI].set(edgeI, 1u);
+        td.featureEdgeVisited_[feati].set(edgei, 1u);
     }
 }
 

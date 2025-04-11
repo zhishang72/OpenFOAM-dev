@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2018-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2018-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -33,6 +33,24 @@ namespace Foam
 }
 
 
+// * * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * * //
+
+bool Foam::nonOrthogonalSolutionControl::read()
+{
+    if (!singleRegionSolutionControl::read())
+    {
+        return false;
+    }
+
+    const dictionary& solutionDict = dict();
+
+    nCorrNonOrth_ =
+        solutionDict.lookupOrDefault<label>("nNonOrthogonalCorrectors", 0);
+
+    return true;
+}
+
+
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 Foam::nonOrthogonalSolutionControl::nonOrthogonalSolutionControl
@@ -57,38 +75,29 @@ Foam::nonOrthogonalSolutionControl::~nonOrthogonalSolutionControl()
 
 // * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * * //
 
-bool Foam::nonOrthogonalSolutionControl::read()
+bool Foam::nonOrthogonalSolutionControl::isFinal(const bool finalIter) const
 {
-    if (!singleRegionSolutionControl::read())
-    {
-        return false;
-    }
-
-    const dictionary& solutionDict = dict();
-
-    nCorrNonOrth_ =
-        solutionDict.lookupOrDefault<label>("nNonOrthogonalCorrectors", 0);
-
-    return true;
+    return finalIter && (finalNonOrthogonalIter() || !anyNonOrthogonalIter());
 }
 
 
-bool Foam::nonOrthogonalSolutionControl::correctNonOrthogonal()
+bool Foam::nonOrthogonalSolutionControl::correctNonOrthogonal
+(
+    const bool finalIter
+)
 {
-    read();
-
     if (finalNonOrthogonalIter())
     {
         corrNonOrth_ = 0;
 
-        updateFinal();
+        updateFinal(isFinal(finalIter));
 
         return false;
     }
 
-    ++ corrNonOrth_;
+    corrNonOrth_++;
 
-    updateFinal();
+    updateFinal(isFinal(finalIter));
 
     return true;
 }

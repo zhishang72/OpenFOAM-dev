@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -42,6 +42,14 @@ namespace Foam
 Foam::LUscalarMatrix::LUscalarMatrix()
 :
     comm_(Pstream::worldComm)
+{}
+
+
+Foam::LUscalarMatrix::LUscalarMatrix(const label n)
+:
+    scalarSquareMatrix(n),
+    comm_(Pstream::worldComm),
+    pivotIndices_(n)
 {}
 
 
@@ -237,7 +245,7 @@ void Foam::LUscalarMatrix::convert
 
             const cyclicLduInterface& cycInterface =
                 refCast<const cyclicLduInterface>(interface);
-            label nbrInt = cycInterface.neighbPatchID();
+            label nbrInt = cycInterface.nbrPatchIndex();
             const label* __restrict__ uPtr =
                 interfaces[nbrInt].interface().faceCells().begin();
 
@@ -401,6 +409,13 @@ void Foam::LUscalarMatrix::printDiagonalDominance() const
         }
         Info<< mag(sum)/mag(operator[](i)[i]) << endl;
     }
+}
+
+
+void Foam::LUscalarMatrix::decompose()
+{
+    pivotIndices_.setSize(m());
+    LUDecompose(*this, pivotIndices_);
 }
 
 

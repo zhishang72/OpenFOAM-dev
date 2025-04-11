@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -153,23 +153,10 @@ public:
     //- Runtime type information
     TypeName("DSMCParcel");
 
-    friend class Cloud<ParcelType>;
+    friend class lagrangian::Cloud<ParcelType>;
 
 
     // Constructors
-
-        //- Construct from components
-        inline DSMCParcel
-        (
-            const polyMesh& mesh,
-            const barycentric& coordinates,
-            const label celli,
-            const label tetFacei,
-            const label tetPti,
-            const vector& U,
-            const scalar Ei,
-            const label typeId
-        );
 
         //- Construct from a position and a cell, searching for the rest of the
         //  required topology
@@ -178,18 +165,14 @@ public:
             const polyMesh& mesh,
             const vector& position,
             const label celli,
+            label& nLocateBoundaryHits,
             const vector& U,
             const scalar Ei,
             const label typeId
         );
 
         //- Construct from Istream
-        DSMCParcel
-        (
-            const polyMesh& mesh,
-            Istream& is,
-            bool readFields = true
-        );
+        DSMCParcel(Istream& is, bool readFields = true);
 
         //- Construct and return a clone
         virtual autoPtr<particle> clone() const
@@ -197,27 +180,11 @@ public:
             return autoPtr<particle>(new DSMCParcel<ParcelType>(*this));
         }
 
-        //- Factory class to read-construct particles used for
-        //  parallel transfer
-        class iNew
+        //- Construct from Istream and return
+        static autoPtr<DSMCParcel> New(Istream& is)
         {
-            const polyMesh& mesh_;
-
-        public:
-
-            iNew(const polyMesh& mesh)
-            :
-                mesh_(mesh)
-            {}
-
-            autoPtr<DSMCParcel<ParcelType>> operator()(Istream& is) const
-            {
-                return autoPtr<DSMCParcel<ParcelType>>
-                (
-                    new DSMCParcel<ParcelType>(mesh_, is, true)
-                );
-            }
-        };
+            return autoPtr<DSMCParcel>(new DSMCParcel(is));
+        }
 
 
     // Member Functions
@@ -249,25 +216,10 @@ public:
 
                 //- Move the parcel
                 template<class TrackCloudType>
-                bool move
-                (
-                    TrackCloudType& cloud,
-                    trackingData& td,
-                    const scalar trackTime
-                );
+                bool move(TrackCloudType& cloud, trackingData& td);
 
 
         // Patch interactions
-
-            //- Overridable function to handle the particle hitting a patch
-            //  Executed before other patch-hitting functions
-            template<class TrackCloudType>
-            bool hitPatch(TrackCloudType&, trackingData&);
-
-            //- Overridable function to handle the particle hitting a
-            //  processorPatch
-            template<class TrackCloudType>
-            void hitProcessorPatch(TrackCloudType&, trackingData&);
 
             //- Overridable function to handle the particle hitting a wallPatch
             template<class TrackCloudType>
@@ -275,18 +227,20 @@ public:
 
             //- Transform the physical properties of the particle
             //  according to the given transformation tensor
-            virtual void transformProperties(const tensor& T);
-
-            //- Transform the physical properties of the particle
-            //  according to the given separation vector
-            virtual void transformProperties(const vector& separation);
+            virtual void transformProperties(const transformer&);
 
 
         // I-O
 
-            static void readFields(Cloud<DSMCParcel<ParcelType>>& c);
+            static void readFields
+            (
+                lagrangian::Cloud<DSMCParcel<ParcelType>>& c
+            );
 
-            static void writeFields(const Cloud<DSMCParcel<ParcelType>>& c);
+            static void writeFields
+            (
+                const lagrangian::Cloud<DSMCParcel<ParcelType>>& c
+            );
 
 
     // Ostream Operator

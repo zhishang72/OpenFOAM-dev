@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,14 +25,14 @@ Class
     Foam::functionObjects::fieldValues::surfaceFieldValue
 
 Description
-    Provides a 'face regionType' variant of the fieldValues function object.
+    Surface (face) region selection class.
 
     Given a list of user-specified fields and a selection of mesh (or general
     surface) faces, a number of operations can be performed, such as sums,
     averages and integrations.
 
     For example, to calculate the volumetric or mass flux across a patch,
-    apply the 'sum' operator to the flux field (typically \c phi)
+    apply the 'orientedSum' operator to the flux field (typically \c phi)
 
     Examples of function object specification:
     \verbatim
@@ -45,7 +45,7 @@ Description
         writeControl    writeTime;
         writeFields     true;
 
-        regionType      patch;
+        select          patch;
         name            movingWall;
 
         operation       areaAverage;
@@ -68,7 +68,8 @@ Description
         writeFields     true;
 
         surfaceFormat   none;
-        regionType      faceZone;
+
+        select          faceZone;
         name            f0;
 
         operation       sum;
@@ -89,20 +90,18 @@ Usage
         Property     | Description             | Required    | Default value
         type         | type name: surfaceFieldValue   | yes         |
         log          | write data to standard output | no    | no
-        writeFields  | Write the region field values  | yes     |
+        writeFields  | Write the field values  | yes     |
         writeArea    | Write the area of the surfaceFieldValue | no |
         surfaceFormat | output value format    | no          |
-        regionType   | face regionType: see below  | yes         |
-        name         | name of face regionType if required  | no |
+        select       | face selection: see below | yes         |
+        name         | name of face select if required  | no |
         operation    | operation to perform    | yes         |
         weightField  | name of field to apply weighting | no |
-        orientedWeightField  | name of oriented field to apply weighting | no |
-        scaleFactor  | scale factor            | no          | 1
+        weightFields | Names of fields to apply weighting | no |
         fields       | list of fields to operate on | yes    |
-        orientedFields | list of oriented fields to operate on | no |
     \endtable
 
-    Where \c regionType is defined by
+    Where the supported \c select options are:
     \plaintable
         faceZone     | requires a 'name' entry to specify the faceZone
         patch        | requires a 'name' entry to specify the patch
@@ -113,41 +112,36 @@ Usage
     \plaintable
        none          | no operation
        sum           | sum
-       weightedSum   | weighted sum
        sumMag        | sum of component magnitudes
-       sumDirection  | sum values which are positive in given direction
-       sumDirectionBalance | sum of balance of values in given direction
+       orientedSum   | sum with face orientations
        average       | ensemble average
-       weightedAverage | weighted average
        areaAverage   | area weighted average
-       weightedAreaAverage | weighted area average
        areaIntegrate | area integral
-       weightedAreaIntegrate | weighted area integral
        min           | minimum
        max           | maximum
+       minMag        | minimum magnitude
+       maxMag        | maximum magnitude
        CoV           | coefficient of variation: standard deviation/mean
-       areaNormalAverage| area weighted average in face normal direction
-       areaNormalIntegrate | area weighted integral in face normal directon
+       areaNormalAverage | area weighted average in face normal direction
+       areaNormalIntegrate | area weighted integral in face normal direction
     \endplaintable
 
-Note
-    - The values reported by the areaNormalAverage and areaNormalIntegrate
-      operations are written as the first component of a field with the same
-      rank as the input field.
-    - faces on empty patches get ignored
-    - if the field is a volField the \c faceZone can only consist of boundary
-      faces
-    - the `oriented' entries relate to mesh-oriented fields, such as the
-      flux, phi.  These fields will be oriented according to the face normals.
-    - using \c sampledSurface:
-        - not available for surface fields
-        - if interpolate=true they use \c interpolationCellPoint
-          otherwise they use cell values
-        - each triangle in \c sampledSurface is logically only in one cell
-          so interpolation will be wrong when triangles are larger than
-          cells.  This can only happen for sampling on a \c triSurfaceMesh
-        - take care when using isoSurfaces - these might have duplicate
-          triangles and so integration might be wrong
+    Note:
+      - Faces on empty patches get ignored.
+      - The `oriented' operations will flip the sign of the field so that all
+        the normals point in a consistent direction. This is only of relevance
+        when summing mesh-oriented fields, such as the flux, on faceZones.
+      - If the field is a volField then a \c faceZone can only consist of
+        boundary faces, because only these faces have a value associated with
+        them. No cell-to-face interpolation is performed.
+      - If the field is a surfaceField then the selection cannot be a \c
+        sampledSurface
+      - If a sampledSurface has interpolation set to false then the surface
+        face values will be taken directly from the cell that contains the
+        surface face centre
+      - If a \c sampledSurface has interpolation set to true then the field
+        will be interpolated to the vertices, then averaged onto the surface
+        faces
 
 See also
     Foam::fieldValues
@@ -179,7 +173,7 @@ namespace fieldValues
 {
 
 /*---------------------------------------------------------------------------*\
-                         Class surfaceFieldValue Declaration
+                      Class surfaceFieldValue Declaration
 \*---------------------------------------------------------------------------*/
 
 class surfaceFieldValue
@@ -191,16 +185,17 @@ public:
 
     // Public data types
 
-        //- region type enumeration
-        enum class regionTypes
+        //- Selection type enumeration
+        enum class selectionTypes
         {
             faceZone,
             patch,
+            patches,
             sampledSurface
         };
 
-        //- region type names
-        static const NamedEnum<regionTypes, 3> regionTypeNames_;
+        //- Selection type names
+        static const NamedEnum<selectionTypes, 4> selectionTypeNames;
 
 
         //- Operation type enumeration
@@ -208,25 +203,22 @@ public:
         {
             none,
             sum,
-            weightedSum,
             sumMag,
-            sumDirection,
-            sumDirectionBalance,
+            orientedSum,
             average,
-            weightedAverage,
             areaAverage,
-            weightedAreaAverage,
             areaIntegrate,
-            weightedAreaIntegrate,
             min,
             max,
+            minMag,
+            maxMag,
             CoV,
             areaNormalAverage,
             areaNormalIntegrate
         };
 
         //- Operation type names
-        static const NamedEnum<operationType, 17> operationTypeNames_;
+        static const NamedEnum<operationType, 14> operationTypeNames_;
 
 
 private:
@@ -234,13 +226,19 @@ private:
     // Private Member Functions
 
         //- Set faces to evaluate based on a face zone
-        void setFaceZoneFaces();
+        void setFaceZoneFaces(const word&);
 
-        //- Set faces to evaluate based on a patch
-        void setPatchFaces();
+        //- Set faces to evaluate based on a list of patch indices
+        void setPatchesFaces(const labelList&);
+
+        //- Set faces to evaluate based on a list of patch names
+        void setPatchesFaces(const wordReList&);
+
+        //- Set faces to evaluate based on a patch name
+        void setPatchFaces(const wordRe&);
 
         //- Set faces according to sampledSurface
-        void sampledSurfaceFaces(const dictionary&);
+        void setSampledSurfaceFaces(const dictionary&);
 
         //- Combine mesh faces and points from multiple processors
         void combineMeshGeometry
@@ -264,26 +262,24 @@ protected:
 
     // Protected data
 
+        //- Input dictionary
+        //  Cached for mesh changes
+        dictionary dict_;
+
         //- Surface writer
         autoPtr<surfaceWriter> surfaceWriterPtr_;
 
-        //- region type
-        regionTypes regionType_;
+        //- Selection type
+        selectionTypes selectionType_;
+
+        //- Name of face selection (patch, faceZone, etc.)
+        string selectionName_;
 
         //- Operation to apply to values
         operationType operation_;
 
-        //- Weight field name - optional
-        word weightFieldName_;
-
-        //- Flag to indicate if flipMap should be applied to the weight field
-        bool orientWeightField_;
-
-        //- Start index of fields that require application of flipMap
-        label orientedFieldsStart_;
-
-        //- Scale factor - optional
-        scalar scaleFactor_;
+        //- Weight field names - optional
+        wordList weightFieldNames_;
 
         //- Total area of the surfaceFieldValue
         scalar totalArea_;
@@ -325,31 +321,76 @@ protected:
 
         //- Return field values by looking up field name
         template<class Type>
-        tmp<Field<Type>> getFieldValues
-        (
-            const word& fieldName,
-            const bool mustGet = false,
-            const bool applyOrientation = false
-        ) const;
+        tmp<Field<Type>> getFieldValues(const word& fieldName) const;
 
-        //- Apply the 'operation' to the values. Operation has to
-        //  preserve Type.
-        template<class Type>
-        Type processSameTypeValues
+        //- Apply the operation to the values, and return true if successful.
+        //  Does nothing unless overloaded below.
+        template<class Type, class ResultType>
+        bool processValues
         (
             const Field<Type>& values,
+            const scalarField& signs,
+            const scalarField& weights,
             const vectorField& Sf,
-            const scalarField& weightField
+            ResultType& result
         ) const;
 
-        //- Apply the 'operation' to the values. Wrapper around
-        //  processSameTypeValues. See also template specialisation below.
+        //- Apply Type -> Type operation to the values. Calls
+        //  processValuesTypeType.
         template<class Type>
-        Type processValues
+        bool processValues
         (
             const Field<Type>& values,
+            const scalarField& signs,
+            const scalarField& weights,
             const vectorField& Sf,
-            const scalarField& weightField
+            Type& result
+        ) const;
+
+        //- Apply Type -> scalar operation to the values. Tries to apply
+        //  Type -> scalar specific operations, otherwise does nothing.
+        template<class Type>
+        bool processValues
+        (
+            const Field<Type>& values,
+            const scalarField& signs,
+            const scalarField& weights,
+            const vectorField& Sf,
+            scalar& result
+        ) const;
+
+        //- Apply scalar -> scalar operation to the values. Tries to apply
+        //  scalar -> scalar specific operations, otherwise calls
+        //  processValuesTypeType.
+        bool processValues
+        (
+            const Field<scalar>& values,
+            const scalarField& signs,
+            const scalarField& weights,
+            const vectorField& Sf,
+            scalar& result
+        ) const;
+
+        //- Apply vector -> scalar operation to the values. Tries to apply
+        //  vector -> scalar specific operations, otherwise does nothing.
+        bool processValues
+        (
+            const Field<vector>& values,
+            const scalarField& signs,
+            const scalarField& weights,
+            const vectorField& Sf,
+            scalar& result
+        ) const;
+
+        //- Apply a Type -> Type operation to the values
+        template<class Type>
+        bool processValuesTypeType
+        (
+            const Field<Type>& values,
+            const scalarField& signs,
+            const scalarField& weights,
+            const vectorField& Sf,
+            Type& result
         ) const;
 
         //- Output file header information
@@ -387,44 +428,29 @@ public:
 
     // Public Member Functions
 
-        //- Return the region type
-        inline const regionTypes& regionType() const;
-
-        //- Return the local list of face IDs
-        inline const labelList& faceId() const;
-
-        //- Return the local list of patch ID per face
-        inline const labelList& facePatch() const;
-
-        //- Return the list of +1/-1 representing face flip map
-        inline const labelList& faceSign() const;
-
-        //- Return the output directory
-        inline fileName outputDir() const;
-
         //- Templated helper function to output field values
         template<class Type>
-        bool writeValues
+        void writeValues
         (
             const word& fieldName,
-            const scalarField& weightField,
-            const bool orient
+            const Field<Type>& values,
+            const scalarField& signs,
+            const scalarField& weights,
+            const vectorField& Sf
         );
 
         //- Filter a surface field according to faceIds
         template<class Type>
         tmp<Field<Type>> filterField
         (
-            const GeometricField<Type, fvsPatchField, surfaceMesh>& field,
-            const bool applyOrientation
+            const SurfaceField<Type>& field
         ) const;
 
         //- Filter a volume field according to faceIds
         template<class Type>
         tmp<Field<Type>> filterField
         (
-            const GeometricField<Type, fvPatchField, volMesh>& field,
-            const bool applyOrientation
+            const VolField<Type>& field
         ) const;
 
         //- Read from dictionary
@@ -432,27 +458,19 @@ public:
 
         //- Calculate and write
         virtual bool write();
+
+        //- Update for mesh point-motion
+        virtual void movePoints(const polyMesh&);
+
+        //- Update topology using the given map
+        virtual void topoChange(const polyTopoChangeMap&);
+
+        //- Update from another mesh using the given map
+        virtual void mapMesh(const polyMeshMap&);
+
+        //- Redistribute or update using the given distribution map
+        virtual void distribute(const polyDistributionMap&);
 };
-
-
-//- Specialisation for scalar
-template<>
-scalar surfaceFieldValue::processValues
-(
-    const Field<scalar>& values,
-    const vectorField& Sf,
-    const scalarField& weightField
-) const;
-
-
-//- Specialisation for vector
-template<>
-vector surfaceFieldValue::processValues
-(
-    const Field<vector>& values,
-    const vectorField& Sf,
-    const scalarField& weightField
-) const;
 
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -460,10 +478,6 @@ vector surfaceFieldValue::processValues
 } // End namespace fieldValues
 } // End namespace functionObjects
 } // End namespace Foam
-
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-#include "surfaceFieldValueI.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

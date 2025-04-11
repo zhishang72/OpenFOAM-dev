@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -33,9 +33,8 @@ License
 #include "indirectPrimitivePatch.H"
 #include "cellSet.H"
 #include "searchableSurfaces.H"
-#include "polyMeshGeometry.H"
+#include "meshCheck.H"
 #include "IOmanip.H"
-#include "unitConversion.H"
 #include "snappySnapDriver.H"
 
 #include "snapParameters.H"
@@ -86,7 +85,7 @@ void Foam::meshRefinement::findNearest
         fc[i] = mesh_.faceCentres()[meshFaces[i]];
     }
 
-    const labelList allSurfaces(identity(surfaces_.surfaces().size()));
+    const labelList allSurfaces(identityMap(surfaces_.surfaces().size()));
 
     surfaces_.findNearest
     (
@@ -101,30 +100,30 @@ void Foam::meshRefinement::findNearest
     nearestNormal.setSize(nearestInfo.size());
     nearestRegion.setSize(nearestInfo.size());
 
-    forAll(allSurfaces, surfI)
+    forAll(allSurfaces, surfi)
     {
         DynamicList<pointIndexHit> localHits;
 
         forAll(nearestSurface, i)
         {
-            if (nearestSurface[i] == surfI)
+            if (nearestSurface[i] == surfi)
             {
                 localHits.append(nearestInfo[i]);
             }
         }
 
-        label geomI = surfaces_.surfaces()[surfI];
+        const label geomi = surfaces_.surfaces()[surfi];
 
         pointField localNormals;
-        surfaces_.geometry()[geomI].getNormal(localHits, localNormals);
+        surfaces_.geometry()[geomi].getNormal(localHits, localNormals);
 
         labelList localRegion;
-        surfaces_.geometry()[geomI].getRegion(localHits, localRegion);
+        surfaces_.geometry()[geomi].getRegion(localHits, localRegion);
 
         label localI = 0;
         forAll(nearestSurface, i)
         {
-            if (nearestSurface[i] == surfI)
+            if (nearestSurface[i] == surfi)
             {
                 nearestNormal[i] = localNormals[localI];
                 nearestRegion[i] = localRegion[localI];
@@ -162,17 +161,17 @@ Foam::Map<Foam::label> Foam::meshRefinement::findEdgeConnectedProblemCells
 
     const labelList& cellLevel = meshCutter_.cellLevel();
 
-    forAll(edgeFaces, edgeI)
+    forAll(edgeFaces, edgei)
     {
-        const labelList& eFaces = edgeFaces[edgeI];
+        const labelList& eFaces = edgeFaces[edgei];
 
         if (eFaces.size() == 2)
         {
-            label face0 = pp.addressing()[eFaces[0]];
-            label face1 = pp.addressing()[eFaces[1]];
+            const label face0 = pp.addressing()[eFaces[0]];
+            const label face1 = pp.addressing()[eFaces[1]];
 
-            label cell0 = mesh_.faceOwner()[face0];
-            label cell1 = mesh_.faceOwner()[face1];
+            const label cell0 = mesh_.faceOwner()[face0];
+            const label cell1 = mesh_.faceOwner()[face1];
 
             if (cellLevel[cell0] > cellLevel[cell1])
             {
@@ -207,7 +206,7 @@ Foam::Map<Foam::label> Foam::meshRefinement::findEdgeConnectedProblemCells
     if (debug&meshRefinement::MESH)
     {
         faceSet fSet(mesh_, "edgeConnectedFaces", candidateFaces);
-        fSet.instance() = timeName();
+        fSet.instance() = name();
         Pout<< "Writing " << fSet.size()
             << " with problematic topology to faceSet "
             << fSet.objectPath() << endl;
@@ -241,18 +240,16 @@ Foam::Map<Foam::label> Foam::meshRefinement::findEdgeConnectedProblemCells
 
     forAll(candidateFaces, i)
     {
-        label facei = candidateFaces[i];
+        const label facei = candidateFaces[i];
+        const vector n = mesh_.faceAreas()[facei]/mag(mesh_.faceAreas()[facei]);
 
-        vector n = mesh_.faceAreas()[facei];
-        n /= mag(n);
-
-        label region = surfaces_.globalRegion
+        const label region = surfaces_.globalRegion
         (
             nearestSurface[i],
             nearestRegion[i]
         );
 
-        scalar angle = degToRad(perpendicularAngle[region]);
+        const scalar angle = perpendicularAngle[region];
 
         if (angle >= 0)
         {
@@ -270,7 +267,7 @@ Foam::Map<Foam::label> Foam::meshRefinement::findEdgeConnectedProblemCells
 
     if (debug&meshRefinement::MESH)
     {
-        perpFaces.instance() = timeName();
+        perpFaces.instance() = name();
         Pout<< "Writing " << perpFaces.size()
             << " faces that are perpendicular to the surface to set "
             << perpFaces.objectPath() << endl;
@@ -280,9 +277,6 @@ Foam::Map<Foam::label> Foam::meshRefinement::findEdgeConnectedProblemCells
 }
 
 
-// Check if moving face to new points causes a 'collapsed' face.
-// Uses new point position only for the face, not the neighbouring
-// cell centres
 bool Foam::meshRefinement::isCollapsedFace
 (
     const pointField& points,
@@ -293,8 +287,7 @@ bool Foam::meshRefinement::isCollapsedFace
 ) const
 {
     // Severe nonorthogonality threshold
-    const scalar severeNonorthogonalityThreshold =
-        ::cos(degToRad(maxNonOrtho));
+    const scalar severeNonorthogonalityThreshold = ::cos(maxNonOrtho);
 
     const vector s = mesh_.faces()[facei].area(points);
     const scalar magS = mag(s);
@@ -310,10 +303,10 @@ bool Foam::meshRefinement::isCollapsedFace
 
     if (mesh_.isInternalFace(facei))
     {
-        label nei = mesh_.faceNeighbour()[facei];
-        vector d = mesh_.cellCentres()[nei] - ownCc;
+        const label nei = mesh_.faceNeighbour()[facei];
+        const vector d = mesh_.cellCentres()[nei] - ownCc;
 
-        scalar dDotS = (d & s)/(mag(d)*magS + vSmall);
+        const scalar dDotS = (d & s)/(mag(d)*magS + vSmall);
 
         if (dDotS < severeNonorthogonalityThreshold)
         {
@@ -326,13 +319,13 @@ bool Foam::meshRefinement::isCollapsedFace
     }
     else
     {
-        label patchi = mesh_.boundaryMesh().whichPatch(facei);
+        const label patchi = mesh_.boundaryMesh().whichPatch(facei);
 
         if (mesh_.boundaryMesh()[patchi].coupled())
         {
-            vector d = neiCc[facei-mesh_.nInternalFaces()] - ownCc;
+            const vector d = neiCc[facei-mesh_.nInternalFaces()] - ownCc;
 
-            scalar dDotS = (d & s)/(mag(d)*magS + vSmall);
+            const scalar dDotS = (d & s)/(mag(d)*magS + vSmall);
 
             if (dDotS < severeNonorthogonalityThreshold)
             {
@@ -353,7 +346,6 @@ bool Foam::meshRefinement::isCollapsedFace
 }
 
 
-// Check if moving cell to new points causes it to collapse.
 bool Foam::meshRefinement::isCollapsedCell
 (
     const pointField& points,
@@ -361,7 +353,7 @@ bool Foam::meshRefinement::isCollapsedCell
     const label celli
 ) const
 {
-    scalar vol = mesh_.cells()[celli].mag(points, mesh_.faces());
+    const scalar vol = mesh_.cells()[celli].mag(points, mesh_.faces());
 
     if (vol/mesh_.cellVolumes()[celli] < volFraction)
     {
@@ -406,7 +398,7 @@ Foam::labelList Foam::meshRefinement::nearestPatch
         nFaces = 0;
         forAll(adaptPatchIDs, i)
         {
-            label patchi = adaptPatchIDs[i];
+            const label patchi = adaptPatchIDs[i];
             const polyPatch& pp = patches[patchi];
 
             forAll(pp, i)
@@ -462,12 +454,6 @@ Foam::labelList Foam::meshRefinement::nearestPatch
 }
 
 
-// Returns list with for every internal face -1 or the patch they should
-// be baffled into. Gets run after createBaffles so all the unzoned surface
-// intersections have already been turned into baffles. (Note: zoned surfaces
-// are not baffled at this stage)
-// Used to remove cells by baffling all their faces and have the
-// splitMeshRegions chuck away non used regions.
 Foam::labelList Foam::meshRefinement::markFacesOnProblemCells
 (
     const dictionary& motionDict,
@@ -557,7 +543,7 @@ Foam::labelList Foam::meshRefinement::markFacesOnProblemCells
 
             forAll(cFaces, i)
             {
-                label facei = cFaces[i];
+                const label facei = cFaces[i];
 
                 if (facePatch[facei] == -1 && mesh_.isInternalFace(facei))
                 {
@@ -585,7 +571,7 @@ Foam::labelList Foam::meshRefinement::markFacesOnProblemCells
         if (debug&meshRefinement::MESH)
         {
             cellSet problemCellSet(mesh_, "problemCells", problemCells.toc());
-            problemCellSet.instance() = timeName();
+            problemCellSet.instance() = name();
             Pout<< "Writing " << problemCellSet.size()
                 << " cells that are edge connected to coarser cell to set "
                 << problemCellSet.objectPath() << endl;
@@ -635,15 +621,15 @@ Foam::labelList Foam::meshRefinement::markFacesOnProblemCells
     if (checkCollapse)
     {
         minArea = motionDict.lookup<scalar>("minArea");
-        maxNonOrtho = motionDict.lookup<scalar>("maxNonOrtho");
+        maxNonOrtho = motionDict.lookup<scalar>("maxNonOrtho", unitDegrees);
 
         Info<< "markFacesOnProblemCells :"
             << " Deleting all-anchor surface cells only if"
             << " snapping them violates mesh quality constraints:" << nl
             << "    snapped/original cell volume < " << volFraction << nl
             << "    face area                    < " << minArea << nl
-            << "    non-orthogonality            > " << maxNonOrtho << nl
-            << endl;
+            << "    non-orthogonality            > " << radToDeg(maxNonOrtho)
+            << nl << endl;
 
         // Construct addressing engine.
         autoPtr<indirectPrimitivePatch> ppPtr
@@ -658,7 +644,7 @@ Foam::labelList Foam::meshRefinement::markFacesOnProblemCells
         const pointField& localPoints = pp.localPoints();
         const labelList& meshPoints = pp.meshPoints();
 
-        List<pointIndexHit> hitInfo;
+        List<pointIndexHit> hitinfo;
         labelList hitSurface;
         surfaces_.findNearest
         (
@@ -666,17 +652,17 @@ Foam::labelList Foam::meshRefinement::markFacesOnProblemCells
             localPoints,
             scalarField(localPoints.size(), sqr(great)),    // sqr of attraction
             hitSurface,
-            hitInfo
+            hitinfo
         );
 
         // Start off from current points
         newPoints = mesh_.points();
 
-        forAll(hitInfo, i)
+        forAll(hitinfo, i)
         {
-            if (hitInfo[i].hit())
+            if (hitinfo[i].hit())
             {
-                newPoints[meshPoints[i]] = hitInfo[i].hitPoint();
+                newPoints[meshPoints[i]] = hitinfo[i].hitPoint();
             }
         }
 
@@ -684,8 +670,8 @@ Foam::labelList Foam::meshRefinement::markFacesOnProblemCells
         {
             const_cast<Time&>(mesh_.time())++;
             pointField oldPoints(mesh_.points());
-            mesh_.movePoints(newPoints);
-            Pout<< "Writing newPoints mesh to time " << timeName()
+            mesh_.setPoints(newPoints);
+            Pout<< "Writing newPoints mesh to time " << name()
                 << endl;
             write
             (
@@ -693,7 +679,7 @@ Foam::labelList Foam::meshRefinement::markFacesOnProblemCells
                 writeType(writeLevel() | WRITEMESH),
                 mesh_.time().path()/"newPoints"
             );
-            mesh_.movePoints(oldPoints);
+            mesh_.setPoints(oldPoints);
         }
     }
 
@@ -726,12 +712,11 @@ Foam::labelList Foam::meshRefinement::markFacesOnProblemCells
         // Get number of anchor points (pointLevel <= cellLevel)
 
         label nBoundaryAnchors = 0;
-        label nNonAnchorBoundary = 0;
         label nonBoundaryAnchor = -1;
 
         forAll(cPoints, i)
         {
-            label pointi = cPoints[i];
+            const label pointi = cPoints[i];
 
             if (pointLevel[pointi] <= cellLevel[celli])
             {
@@ -746,74 +731,52 @@ Foam::labelList Foam::meshRefinement::markFacesOnProblemCells
                     nonBoundaryAnchor = pointi;
                 }
             }
-            else if (isBoundaryPoint[pointi])
-            {
-                nNonAnchorBoundary++;
-            }
         }
 
         if (nBoundaryAnchors == 8)
         {
             const cell& cFaces = mesh_.cells()[celli];
 
-            // Count boundary faces.
-            label nBfaces = 0;
-
-            forAll(cFaces, cFacei)
+            if
+            (
+                checkCollapse
+            && !isCollapsedCell(newPoints, volFraction, celli)
+            )
             {
-                if (isBoundaryFace[cFaces[cFacei]])
-                {
-                    nBfaces++;
-                }
+                nPrevented++;
+
+                // Pout<< "Preventing baffling/removal of 8 anchor point"
+                //    << " cell "
+                //    << celli << " at " << mesh_.cellCentres()[celli]
+                //    << " since new volume "
+                //    << mesh_.cells()[celli].mag(newPoints, mesh_.faces())
+                //    << " old volume " << mesh_.cellVolumes()[celli]
+                //    << endl;
             }
-
-            // If nBfaces > 1 make all non-boundary non-baffle faces baffles.
-            // We assume that this situation is where there is a single
-            // cell sticking out which would get flattened.
-
-            // Eugene: delete cell no matter what.
-            // if (nBfaces > 1)
+            else
             {
-                if
-                (
-                    checkCollapse
-                && !isCollapsedCell(newPoints, volFraction, celli)
-                )
+                // Block all faces of cell
+                forAll(cFaces, cf)
                 {
-                    nPrevented++;
-                    // Pout<< "Preventing baffling/removal of 8 anchor point"
-                    //    << " cell "
-                    //    << celli << " at " << mesh_.cellCentres()[celli]
-                    //    << " since new volume "
-                    //    << mesh_.cells()[celli].mag(newPoints, mesh_.faces())
-                    //    << " old volume " << mesh_.cellVolumes()[celli]
-                    //    << endl;
-                }
-                else
-                {
-                    // Block all faces of cell
-                    forAll(cFaces, cf)
+                    const label facei = cFaces[cf];
+
+                    if
+                    (
+                        facePatch[facei] == -1
+                     && mesh_.isInternalFace(facei)
+                    )
                     {
-                        label facei = cFaces[cf];
+                        facePatch[facei] = nearestAdaptPatch[facei];
+                        nBaffleFaces++;
 
-                        if
+                        // Mark face as a 'boundary'
+                        markBoundaryFace
                         (
-                            facePatch[facei] == -1
-                         && mesh_.isInternalFace(facei)
-                        )
-                        {
-                            facePatch[facei] = nearestAdaptPatch[facei];
-                            nBaffleFaces++;
-
-                            // Mark face as a 'boundary'
-                            markBoundaryFace
-                            (
-                                facei,
-                                isBoundaryFace,
-                                isBoundaryEdge,
-                                isBoundaryPoint
-                            );
-                        }
+                            facei,
+                            isBoundaryFace,
+                            isBoundaryEdge,
+                            isBoundaryPoint
+                        );
                     }
                 }
             }
@@ -881,7 +844,7 @@ Foam::labelList Foam::meshRefinement::markFacesOnProblemCells
 
                         forAll(cFaces, cf)
                         {
-                            label facei = cFaces[cf];
+                            const label facei = cFaces[cf];
 
                             if
                             (
@@ -1131,7 +1094,7 @@ Foam::labelList Foam::meshRefinement::markFacesOnProblemCellsGeometric
         // Check initial mesh
         Info<< "Checking initial mesh ..." << endl;
         labelHashSet wrongFaces(mesh_.nFaces()/100);
-        motionSmoother::checkMesh(false, mesh_, motionDict, wrongFaces);
+        meshCheck::checkMesh(false, mesh_, motionDict, wrongFaces);
         const label nInitErrors = returnReduce
         (
             wrongFaces.size(),
@@ -1186,7 +1149,7 @@ Foam::labelList Foam::meshRefinement::markFacesOnProblemCellsGeometric
             vector(great, great, great) // null value (note: cannot use vGreat)
         );
 
-        mesh_.movePoints(newPoints);
+        mesh_.setPoints(newPoints);
     }
 
 
@@ -1202,18 +1165,18 @@ Foam::labelList Foam::meshRefinement::markFacesOnProblemCellsGeometric
     {
         faceSet wrongFaces(mesh_, "wrongFaces", 100);
         {
-            // motionSmoother::checkMesh(false, mesh_, motionDict, wrongFaces);
+            // meshCheck::checkMesh(false, mesh_, motionDict, wrongFaces);
 
             // Just check the errors from squashing
             // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-            const labelList allFaces(identity(mesh_.nFaces()));
+            const labelList allFaces(identityMap(mesh_.nFaces()));
             label nWrongFaces = 0;
 
             // const scalar minV(motionDict.lookup<scalar>("minVol", true));
             // if (minV > -great)
             //{
-            //    polyMeshGeometry::checkFacePyramids
+            //    meshCheck::checkFacePyramids
             //    (
             //        false,
             //        minV,
@@ -1242,7 +1205,7 @@ Foam::labelList Foam::meshRefinement::markFacesOnProblemCellsGeometric
             scalar minArea(motionDict.lookup<scalar>("minArea"));
             if (minArea > -small)
             {
-                polyMeshGeometry::checkFaceArea
+                meshCheck::checkFaceArea
                 (
                     false,
                     minArea,
@@ -1269,14 +1232,13 @@ Foam::labelList Foam::meshRefinement::markFacesOnProblemCellsGeometric
             scalar minDet(motionDict.lookup<scalar>("minDeterminant"));
             if (minDet > -1)
             {
-                polyMeshGeometry::checkCellDeterminant
+                meshCheck::checkCellDeterminant
                 (
                     false,
                     minDet,
                     mesh_,
                     mesh_.faceAreas(),
                     allFaces,
-                    polyMeshGeometry::affectedCells(mesh_, allFaces),
                     &wrongFaces
                 );
 
@@ -1314,7 +1276,7 @@ Foam::labelList Foam::meshRefinement::markFacesOnProblemCellsGeometric
 
 
     // Restore points.
-    mesh_.movePoints(oldPoints);
+    mesh_.setPoints(oldPoints);
 
 
     Info<< "markFacesOnProblemCellsGeometric : marked "

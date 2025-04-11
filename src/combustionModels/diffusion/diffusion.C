@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,24 +25,32 @@ License
 
 #include "diffusion.H"
 #include "fvcGrad.H"
+#include "addToRunTimeSelectionTable.H"
+
+
+// * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
 namespace Foam
 {
 namespace combustionModels
 {
+    defineTypeNameAndDebug(diffusion, 0);
+    addToRunTimeSelectionTable(combustionModel, diffusion, dictionary);
+}
+}
+
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
-template<class ReactionThermo, class ThermoType>
-diffusion<ReactionThermo, ThermoType>::diffusion
+Foam::combustionModels::diffusion::diffusion
 (
     const word& modelType,
-    const ReactionThermo& thermo,
-    const compressibleTurbulenceModel& turb,
+    const fluidMulticomponentThermo& thermo,
+    const compressibleMomentumTransportModel& turb,
     const word& combustionProperties
 )
 :
-    singleStepCombustion<ReactionThermo, ThermoType>
+    singleStepCombustion
     (
         modelType,
         thermo,
@@ -56,15 +64,13 @@ diffusion<ReactionThermo, ThermoType>::diffusion
 
 // * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
 
-template<class ReactionThermo, class ThermoType>
-diffusion<ReactionThermo, ThermoType>::~diffusion()
+Foam::combustionModels::diffusion::~diffusion()
 {}
 
 
 // * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * * //
 
-template<class ReactionThermo, class ThermoType>
-void diffusion<ReactionThermo, ThermoType>::correct()
+void Foam::combustionModels::diffusion::correct()
 {
     this->wFuel_ ==
         dimensionedScalar(dimMass/pow3(dimLength)/dimTime, 0);
@@ -73,25 +79,23 @@ void diffusion<ReactionThermo, ThermoType>::correct()
 
     const label fuelI = this->fuelIndex();
 
-    const volScalarField& YFuel = this->thermo().composition().Y()[fuelI];
+    const volScalarField& YFuel = this->thermo().Y()[fuelI];
 
-    if (this->thermo().composition().contains(oxidantName_))
+    if (this->thermo().containsSpecie(oxidantName_))
     {
-        const volScalarField& YO2 =
-            this->thermo().composition().Y(oxidantName_);
+        const volScalarField& YO2 = this->thermo().Y(oxidantName_);
 
         this->wFuel_ ==
-            C_*this->turbulence().muEff()
+            C_*this->thermo().rho()*this->turbulence().nuEff()
            *mag(fvc::grad(YFuel) & fvc::grad(YO2))
            *pos0(YFuel)*pos0(YO2);
     }
 }
 
 
-template<class ReactionThermo, class ThermoType>
-bool diffusion<ReactionThermo, ThermoType>::read()
+bool Foam::combustionModels::diffusion::read()
 {
-    if (singleStepCombustion<ReactionThermo, ThermoType>::read())
+    if (singleStepCombustion::read())
     {
         this->coeffs().lookup("C") >> C_ ;
         this->coeffs().readIfPresent("oxidant", oxidantName_);
@@ -104,9 +108,4 @@ bool diffusion<ReactionThermo, ThermoType>::read()
 }
 
 
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-} // End namespace combustionModels
-} // End namespace Foam
-
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+// ************************************************************************* //

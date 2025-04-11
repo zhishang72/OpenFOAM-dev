@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -45,17 +45,14 @@ Usage
       - \par -scaleOut \<scale\>
         Specify a scaling factor when writing files.
 
-      - \par -dict \<dictionary\>
-        Specify an alternative dictionary for constant/coordinateSystems.
-
       - \par -from \<coordinateSystem\>
         Specify a coordinate system when reading files.
 
       - \par -to \<coordinateSystem\>
         Specify a coordinate system when writing files.
 
-Note
-    The filename extensions are used to determine the file format type.
+    Note:
+        The filename extensions are used to determine the file format type.
 
 \*---------------------------------------------------------------------------*/
 
@@ -103,7 +100,6 @@ int main(int argc, char *argv[])
         "factor",
         "geometry scaling factor on output - default is 1"
     );
-    #include "addDictOption.H"
     argList::addOption
     (
         "from",
@@ -130,98 +126,27 @@ int main(int argc, char *argv[])
     }
 
 
-    // get the coordinate transformations
+    // Get the coordinate transformations
     autoPtr<coordinateSystem> fromCsys;
     autoPtr<coordinateSystem> toCsys;
 
     if (args.optionFound("from") || args.optionFound("to"))
     {
-        autoPtr<IOobject> ioPtr;
-
-        if (args.optionFound("dict"))
-        {
-            const fileName dictPath = args["dict"];
-
-            ioPtr.set
-            (
-                new IOobject
-                (
-                    (
-                        isDir(dictPath)
-                      ? dictPath/coordinateSystems::typeName
-                      : dictPath
-                    ),
-                    runTime,
-                    IOobject::MUST_READ,
-                    IOobject::NO_WRITE,
-                    false
-                )
-            );
-        }
-        else
-        {
-            ioPtr.set
-            (
-                new IOobject
-                (
-                    coordinateSystems::typeName,
-                    runTime.constant(),
-                    runTime,
-                    IOobject::MUST_READ,
-                    IOobject::NO_WRITE,
-                    false
-                )
-            );
-        }
-
-
-        if (!ioPtr->typeHeaderOk<coordinateSystems>(false))
-        {
-            FatalErrorInFunction
-                << ioPtr->objectPath() << nl
-                << exit(FatalError);
-        }
-
-        coordinateSystems csLst(ioPtr());
+        const coordinateSystems::coordinateSystems& csLst
+        (
+            coordinateSystems::coordinateSystems::New(runTime)
+        );
 
         if (args.optionFound("from"))
         {
             const word csName = args["from"];
-
-            const label csIndex = csLst.findIndex(csName);
-            if (csIndex < 0)
-            {
-                FatalErrorInFunction
-                    << "Cannot find -from " << csName << nl
-                    << "available coordinateSystems: " << csLst.toc() << nl
-                    << exit(FatalError);
-            }
-
-            fromCsys.reset(new coordinateSystem(csLst[csIndex]));
+            fromCsys = csLst[csName].clone();
         }
 
         if (args.optionFound("to"))
         {
             const word csName = args["to"];
-
-            const label csIndex = csLst.findIndex(csName);
-            if (csIndex < 0)
-            {
-                FatalErrorInFunction
-                    << "Cannot find -to " << csName << nl
-                    << "available coordinateSystems: " << csLst.toc() << nl
-                    << exit(FatalError);
-            }
-
-            toCsys.reset(new coordinateSystem(csLst[csIndex]));
-        }
-
-
-        // maybe fix this later
-        if (fromCsys.valid() && toCsys.valid())
-        {
-            FatalErrorInFunction
-                << exit(FatalError);
+            toCsys = csLst[csName].clone();
         }
     }
 
@@ -238,7 +163,7 @@ int main(int argc, char *argv[])
         )
     );
 
-    Info<< "read surfMesh:\n  " << smesh.objectPath() << endl;
+    Info<< "read surfMesh:\n  " << smesh.relativeObjectPath() << endl;
 
 
     // Simply copy for now, but really should have a separate write method
@@ -261,14 +186,14 @@ int main(int argc, char *argv[])
     {
         Info<< " -from " << fromCsys().name() << endl;
         tmp<pointField> tpf = fromCsys().localPosition(surf.points());
-        surf.movePoints(tpf());
+        surf.setPoints(tpf());
     }
 
     if (toCsys.valid())
     {
         Info<< " -to " << toCsys().name() << endl;
         tmp<pointField> tpf = toCsys().globalPosition(surf.points());
-        surf.movePoints(tpf());
+        surf.setPoints(tpf());
     }
 
     scalar scaleOut = 0;

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -30,50 +30,48 @@ License
 template<class Type>
 void Foam::functionObjects::nearWallFields::createFields
 (
-    PtrList<GeometricField<Type, fvPatchField, volMesh>>& sflds
+    PtrList<VolField<Type>>& sfields
 ) const
 {
-    typedef GeometricField<Type, fvPatchField, volMesh> VolFieldType;
+    const UPtrList<VolField<Type>> fields(mesh_.fields<VolField<Type>>());
 
-    HashTable<const VolFieldType*> flds(obr_.lookupClass<VolFieldType>());
-
-    forAllConstIter(typename HashTable<const VolFieldType*>, flds, iter)
+    forAll(fields, i)
     {
-        const VolFieldType& fld = *iter();
+        const VolField<Type>& field = fields[i];
 
-        if (fieldMap_.found(fld.name()))
+        if (fieldMap_.found(field.name()))
         {
-            const word& sampleFldName = fieldMap_[fld.name()];
+            const word& sampleFieldName = fieldMap_[field.name()];
 
-            if (obr_.found(sampleFldName))
+            if (obr_.found(sampleFieldName))
             {
-                Log << "    a field " << sampleFldName
+                Log << "    a field " << sampleFieldName
                     << " already exists on the mesh."
                     << endl;
             }
             else
             {
-                label sz = sflds.size();
-                sflds.setSize(sz+1);
+                label sz = sfields.size();
+                sfields.setSize(sz+1);
 
-                sflds.set
+                sfields.set
                 (
                     sz,
-                    new VolFieldType
+                    new VolField<Type>
                     (
                         IOobject
                         (
-                            sampleFldName,
-                            time_.timeName(),
+                            sampleFieldName,
+                            time_.name(),
                             mesh_
                         ),
-                        fld,
+                        field,
                         calculatedFvPatchScalarField::typeName
                     )
                 );
 
-                Log << "    created " << sflds[sz].name()
-                    << " to sample " << fld.name() << endl;
+                Log << "    created " << sfields[sz].name()
+                    << " to sample " << field.name() << endl;
             }
         }
     }
@@ -84,7 +82,7 @@ template<class Type>
 void Foam::functionObjects::nearWallFields::sampleBoundaryField
 (
     const interpolationCellPoint<Type>& interpolator,
-    GeometricField<Type, fvPatchField, volMesh>& fld
+    VolField<Type>& field
 ) const
 {
     // Construct flat fields for all patch faces to be sampled
@@ -108,8 +106,8 @@ void Foam::functionObjects::nearWallFields::sampleBoundaryField
         sampledValues
     );
 
-    typename GeometricField<Type, fvPatchField, volMesh>::
-        Boundary& fldBf = fld.boundaryFieldRef();
+    typename VolField<Type>::
+        Boundary& fieldBf = field.boundaryFieldRef();
 
     // Pick up data
     label nPatchFaces = 0;
@@ -117,15 +115,15 @@ void Foam::functionObjects::nearWallFields::sampleBoundaryField
     {
         label patchi = iter.key();
 
-        fvPatchField<Type>& pfld = fldBf[patchi];
+        fvPatchField<Type>& pfield = fieldBf[patchi];
 
-        Field<Type> newFld(pfld.size());
-        forAll(pfld, i)
+        Field<Type> newField(pfield.size());
+        forAll(pfield, i)
         {
-            newFld[i] = sampledValues[nPatchFaces++];
+            newField[i] = sampledValues[nPatchFaces++];
         }
 
-        pfld == newFld;
+        pfield == newField;
     }
 }
 
@@ -133,24 +131,23 @@ void Foam::functionObjects::nearWallFields::sampleBoundaryField
 template<class Type>
 void Foam::functionObjects::nearWallFields::sampleFields
 (
-    PtrList<GeometricField<Type, fvPatchField, volMesh>>& sflds
+    PtrList<VolField<Type>>& sfields
 ) const
 {
-    typedef GeometricField<Type, fvPatchField, volMesh> VolFieldType;
-
-    forAll(sflds, i)
+    forAll(sfields, i)
     {
-        const word& fldName = reverseFieldMap_[sflds[i].name()];
-        const VolFieldType& fld = obr_.lookupObject<VolFieldType>(fldName);
+        const word& fieldName = reverseFieldMap_[sfields[i].name()];
+        const VolField<Type>& field =
+            obr_.lookupObject<VolField<Type>>(fieldName);
 
         // Take over internal and boundary values
-        sflds[i] == fld;
+        sfields[i] == field;
 
         // Construct interpolation method
-        interpolationCellPoint<Type> interpolator(fld);
+        interpolationCellPoint<Type> interpolator(field);
 
         // Override sampled values
-        sampleBoundaryField(interpolator, sflds[i]);
+        sampleBoundaryField(interpolator, sfields[i]);
     }
 }
 

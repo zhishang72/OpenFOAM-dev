@@ -7,7 +7,6 @@
 \*---------------------------------------------------------------------------*/
 FoamFile
 {
-    version     2.0;
     format      ascii;
     class       dictionary;
     location    "system";
@@ -23,8 +22,6 @@ DebugSwitches
 //    searchableExtrudedCircle 1;
 //    projectCurve 1;
 }
-
-application     blockMesh;
 
 startFrom       startTime;
 
@@ -53,6 +50,5 @@ timeFormat      general;
 timePrecision   6;
 
 runTimeModifiable true;
-
 
 // ************************************************************************* //

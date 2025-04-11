@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -172,14 +172,14 @@ void Foam::chemkinReader::addReactionType
         {
             reactions_.append
             (
-                new IrreversibleReaction<gasHThermoPhysics, ReactionRateType>
+                new IrreversibleReaction<thermoPhysics, ReactionRateType>
                 (
-                    ReactionProxy<gasHThermoPhysics>
+                    ReactionProxy<thermoPhysics>
                     (
                         speciesTable_,
+                        speciesThermoList(),
                         lhs.shrink(),
-                        rhs.shrink(),
-                        speciesThermo_
+                        rhs.shrink()
                     ),
                     rr
                 )
@@ -191,14 +191,14 @@ void Foam::chemkinReader::addReactionType
         {
             reactions_.append
             (
-                new ReversibleReaction<gasHThermoPhysics, ReactionRateType>
+                new ReversibleReaction<thermoPhysics, ReactionRateType>
                 (
-                    ReactionProxy<gasHThermoPhysics>
+                    ReactionProxy<thermoPhysics>
                     (
                         speciesTable_,
+                        speciesThermoList(),
                         lhs.shrink(),
-                        rhs.shrink(),
-                        speciesThermo_
+                        rhs.shrink()
                     ),
                     rr
                 )
@@ -480,16 +480,16 @@ void Foam::chemkinReader::addReaction
                 (
                     new NonEquilibriumReversibleReaction
                     <
-                        gasHThermoPhysics,
+                        thermoPhysics,
                         ArrheniusReactionRate
                     >
                     (
-                        ReactionProxy<gasHThermoPhysics>
+                        ReactionProxy<thermoPhysics>
                         (
                             speciesTable_,
+                            speciesThermoList(),
                             lhs.shrink(),
-                            rhs.shrink(),
-                            speciesThermo_
+                            rhs.shrink()
                         ),
                         ArrheniusReactionRate
                         (
@@ -535,16 +535,16 @@ void Foam::chemkinReader::addReaction
                 (
                     new NonEquilibriumReversibleReaction
                     <
-                        gasHThermoPhysics,
+                        thermoPhysics,
                         thirdBodyArrheniusReactionRate
                     >
                     (
-                        ReactionProxy<gasHThermoPhysics>
+                        ReactionProxy<thermoPhysics>
                         (
                             speciesTable_,
+                            speciesThermoList(),
                             lhs.shrink(),
-                            rhs.shrink(),
-                            speciesThermo_
+                            rhs.shrink()
                         ),
                         thirdBodyArrheniusReactionRate
                         (
@@ -640,16 +640,16 @@ void Foam::chemkinReader::addReaction
                 (
                     new NonEquilibriumReversibleReaction
                     <
-                        gasHThermoPhysics,
+                        thermoPhysics,
                         LandauTellerReactionRate
                     >
                     (
-                        ReactionProxy<gasHThermoPhysics>
+                        ReactionProxy<thermoPhysics>
                         (
                             speciesTable_,
+                            speciesThermoList(),
                             lhs.shrink(),
-                            rhs.shrink(),
-                            speciesThermo_
+                            rhs.shrink()
                         ),
                         LandauTellerReactionRate
                         (
@@ -724,7 +724,6 @@ void Foam::chemkinReader::addReaction
                 (
                     Afactor*ArrheniusCoeffs[0],
                     ArrheniusCoeffs[1],
-                    ArrheniusCoeffs[2]/RR,
                     FixedList<scalar, 4>(powerSeriesCoeffs)
                 )
             );
@@ -741,9 +740,9 @@ void Foam::chemkinReader::addReaction
         default:
         {
             FatalErrorInFunction
-                << "Reaction rate type " << reactionRateTypeNames[rrType]
+                << "Reaction rate type index " << rrType
                 << " on line " << lineNo_-1
-                << " not implemented"
+                << " unknown"
                 << exit(FatalError);
         }
     }
@@ -776,8 +775,8 @@ void Foam::chemkinReader::read
     const fileName& transportFileName
 )
 {
-    Reaction<gasHThermoPhysics>::TlowDefault = 0;
-    Reaction<gasHThermoPhysics>::ThighDefault = great;
+    Reaction<thermoPhysics>::TlowDefault = 0;
+    Reaction<thermoPhysics>::ThighDefault = great;
 
     transportDict_.read(IFstream(transportFileName)());
 
@@ -828,7 +827,6 @@ void Foam::chemkinReader::read
 
 Foam::chemkinReader::chemkinReader
 (
-    speciesTable& species,
     const fileName& CHEMKINFileName,
     const fileName& transportFileName,
     const fileName& thermoFileName,
@@ -837,7 +835,7 @@ Foam::chemkinReader::chemkinReader
 :
     lineNo_(1),
     specieNames_(10),
-    speciesTable_(species),
+    speciesTable_(),
     newFormat_(newFormat),
     imbalanceTol_(rootSmall)
 {
@@ -845,59 +843,4 @@ Foam::chemkinReader::chemkinReader
 }
 
 
-Foam::chemkinReader::chemkinReader
-(
-    const dictionary& thermoDict,
-    speciesTable& species
-)
-:
-    lineNo_(1),
-    specieNames_(10),
-    speciesTable_(species),
-    newFormat_(thermoDict.lookupOrDefault("newFormat", false)),
-    imbalanceTol_(thermoDict.lookupOrDefault("imbalanceTolerance", rootSmall))
-{
-    if (newFormat_)
-    {
-        Info<< "Reading CHEMKIN thermo data in new file format" << endl;
-    }
-
-    fileName chemkinFile(fileName(thermoDict.lookup("CHEMKINFile")).expand());
-
-    fileName thermoFile = fileName::null;
-
-    if (thermoDict.found("CHEMKINThermoFile"))
-    {
-        thermoFile = fileName(thermoDict.lookup("CHEMKINThermoFile")).expand();
-    }
-
-    fileName transportFile
-    (
-        fileName(thermoDict.lookup("CHEMKINTransportFile")).expand()
-    );
-
-    // allow relative file names
-    fileName relPath = thermoDict.name().path();
-    if (relPath.size())
-    {
-        if (!chemkinFile.isAbsolute())
-        {
-            chemkinFile = relPath/chemkinFile;
-        }
-
-        if (thermoFile != fileName::null && !thermoFile.isAbsolute())
-        {
-            thermoFile = relPath/thermoFile;
-        }
-
-        if (!transportFile.isAbsolute())
-        {
-            transportFile = relPath/transportFile;
-        }
-    }
-
-    read(chemkinFile, thermoFile, transportFile);
-}
-
-
-// * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+// ************************************************************************* //

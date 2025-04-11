@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -67,7 +67,7 @@ typedef UList<label> labelUList;
 
 
 /*---------------------------------------------------------------------------*\
-                           Class UList Declaration
+                            Class UList Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class T>
@@ -159,6 +159,9 @@ public:
         //- Construct from components
         inline UList(T* __restrict__ v, label size);
 
+        //- Copy construct
+        inline UList(const UList<T>&) = default;
+
 
     // Member Functions
 
@@ -177,7 +180,6 @@ public:
             //  i.e. contiguous<T>() == true.
             //  Note that is of type streamsize since used in stream ops
             std::streamsize byteSize() const;
-
 
             //- Return a const pointer to the first data element,
             //  similar to the STL front() method and the string::data() method
@@ -229,7 +231,7 @@ public:
         inline T& operator[](const label);
 
         //- Return element of constant UList
-        //  Note that the bool specialization adds lazy evaluation so reading
+        //  Note that the bool specialisation adds lazy evaluation so reading
         //  an out-of-range element returns false without any ill-effects
         inline const T& operator[](const label) const;
 
@@ -297,7 +299,7 @@ public:
     // STL reverse_iterator
 
         //- Reverse iterator for reverse traversal of UList
-        typedef T* reverse_iterator;
+        typedef std::reverse_iterator<iterator> reverse_iterator;
 
         //- Return reverse_iterator to begin reverse traversing the UList
         inline reverse_iterator rbegin();
@@ -309,7 +311,7 @@ public:
     // STL const_reverse_iterator
 
         //- Reverse iterator for reverse traversal of constant UList
-        typedef const T* const_reverse_iterator;
+        typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
 
         //- Return const_reverse_iterator to begin reverse traversing the UList
         inline const_reverse_iterator crbegin() const;
@@ -391,9 +393,6 @@ void stableSort(UList<T>&);
 
 template<class T, class Cmp>
 void stableSort(UList<T>&, const Cmp&);
-
-template<class T>
-void shuffle(UList<T>&);
 
 // Reverse the first n elements of the list
 template<class T>

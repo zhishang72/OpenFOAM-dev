@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -30,15 +30,57 @@ Description
     - To specify the field name set the \c field entry
     - To employ the same numerical schemes as another field set
       the \c schemesField entry,
-    - A constant diffusivity may be specified with the \c D entry,
-
-    - Alternatively if a turbulence model is available a turbulent diffusivity
-      may be constructed from the laminar and turbulent viscosities using the
-      optional diffusivity coefficients \c alphaD and \c alphaDt (which default
-      to 1):
+    - The \c diffusivity entry can be set to \c none, \c constant, \c viscosity
+    - A constant diffusivity is specified with the \c D entry,
+    - If a momentum transport model is available and the \c viscosity
+      diffusivity option specified an effective diffusivity may be constructed
+      from the laminar and turbulent viscosities using the diffusivity
+      coefficients \c alphal and \c alphat:
       \verbatim
-          D = alphaD*nu + alphaDt*nut
+          D = alphal*nu + alphat*nut
       \endverbatim
+
+    Example:
+    \verbatim
+        #includeFunc scalarTransport(T, alphal=1, alphat=1)
+    \endverbatim
+
+    For incompressible flow the passive scalar may optionally be solved with the
+    MULES limiter and sub-cycling or semi-implicit in order to maintain
+    boundedness, particularly if a compressive, PLIC or MPLIC convection
+    scheme is used.
+
+    Example:
+    \verbatim
+        #includeFunc scalarTransport(tracer, diffusivity=none)
+
+    with scheme specification:
+        div(phi,tracer)     Gauss interfaceCompression vanLeer 1;
+
+    and solver specification:
+        tracer
+        {
+            nCorr      1;
+            nSubCycles 3;
+
+            MULESCorr       no;
+            nLimiterIter    5;
+            applyPrevCorr   yes;
+
+            solver          smoothSolver;
+            smoother        symGaussSeidel;
+            tolerance       1e-8;
+            relTol          0;
+
+            diffusivity
+            {
+                solver          smoothSolver;
+                smoother        symGaussSeidel;
+                tolerance       1e-8;
+                relTol          0;
+            }
+        }
+    \endverbatim
 
 See also
     Foam::functionObjects::fvMeshFunctionObject
@@ -53,7 +95,6 @@ SourceFiles
 
 #include "fvMeshFunctionObject.H"
 #include "volFields.H"
-#include "fvOptionList.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -70,6 +111,22 @@ class scalarTransport
 :
     public fvMeshFunctionObject
 {
+public:
+
+        //- Enumeration defining the type of the diffusivity
+        enum class diffusivityType
+        {
+            none,
+            constant,
+            viscosity
+        };
+
+        //- Diffusivity type names
+        static const NamedEnum<diffusivityType, 3> diffusivityTypeNames_;
+
+
+private:
+
     // Private Data
 
         //- Name of field to process
@@ -81,17 +138,17 @@ class scalarTransport
         //- Name of density field (optional)
         word rhoName_;
 
-        //- Diffusion coefficient (optional)
+        //- The type of diffusivity
+        diffusivityType diffusivity_;
+
+        //- Constant diffusivity coefficient (optional)
         scalar D_;
 
-        //- Flag to indicate whether a constant, uniform D_ is specified
-        bool constantD_;
+        //- Laminar diffusivity coefficient (optional)
+        scalar alphal_;
 
-        //- Laminar diffusion coefficient (optional)
-        scalar alphaD_;
-
-        //- Turbulent diffusion coefficient (optional)
-        scalar alphaDt_;
+        //- Turbulent diffusivity coefficient (optional)
+        scalar alphat_;
 
         //- Number of corrector iterations (optional)
         int nCorr_;
@@ -99,17 +156,27 @@ class scalarTransport
         //- Name of field whose schemes are used (optional)
         word schemesField_;
 
-        //- Run-time selectable finite volume options, e.g. sources, constraints
-        fv::optionList fvOptions_;
-
         //- The scalar field
         volScalarField s_;
+
+        //- Switch for MULES limited solution
+        bool MULES_;
+
+        //- Stabilisation for normalisation of the interface normal
+        //  needed if a compressive convection scheme is used
+        const dimensionedScalar deltaN_;
+
+        //- MULES Correction
+        tmp<surfaceScalarField> tsPhiCorr0_;
 
 
     // Private Member Functions
 
         //- Return the diffusivity field
-        tmp<volScalarField> D(const surfaceScalarField& phi) const;
+        tmp<volScalarField> D() const;
+
+        void subCycleMULES();
+        void solveMULES();
 
 
 public:
@@ -141,11 +208,19 @@ public:
         //- Read the scalarTransport data
         virtual bool read(const dictionary&);
 
+        //- Return the list of fields required
+        virtual wordList fields() const;
+
+        //- Do not execute at the start of the run
+        virtual bool executeAtStart() const
+        {
+            return false;
+        }
+
         //- Calculate the scalarTransport
         virtual bool execute();
 
-        //- Do nothing.
-        //  The volScalarField is registered and written automatically
+        //- Write the updated scalar field
         virtual bool write();
 
 

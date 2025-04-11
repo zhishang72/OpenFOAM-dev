@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -22,27 +22,65 @@ License
     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
 
 Class
-    Foam::sampledSurfaces
+    Foam::functionObjects::sampledSurfaces
 
 Description
-    Set of surfaces to sample.
+    Set of surfaces to sample
 
-    The write() method is used to sample and write files.
+    Example of function object specification:
+    \verbatim
+    surfaces1
+    {
+        type            surfaces;
+        libs            ("libsampling.so");
+
+        writeControl    writeTime;
+
+        fields          (p U);
+
+        surfaceFormat   vtk;
+        interpolationScheme cellPoint;
+
+        surfaces
+        (
+            p1e5
+            {
+                type            isoSurface;
+                isoField        p;
+                isoValue        1e5;
+                interpolate     yes;
+            }
+        );
+    }
+    \endverbatim
+
+Usage
+    \table
+        Property     | Description             | Required    | Default value
+        type         | type name: surfaces     | yes         |
+        surfaceFormat | the format in which to write the surface file | yes   |
+        interpolationScheme | the method by which values are interpolated \\
+                              from the mesh to the surface | yes
+        writeEmpty   | write out files for empty surfaces | no | no
+        surfaces     | the list of surfaces    | yes         |
+    \endtable
+
+See also
+    Foam::sampledSurfaces
 
 SourceFiles
     sampledSurfaces.C
 
 \*---------------------------------------------------------------------------*/
 
-#ifndef sampledSurfaces_H
-#define sampledSurfaces_H
+#ifndef functionObjects_sampledSurfaces_H
+#define functionObjects_sampledSurfaces_H
 
-#include "functionObject.H"
+#include "fvMeshFunctionObject.H"
 #include "sampledSurface.H"
 #include "surfaceWriter.H"
 #include "volFieldsFwd.H"
 #include "surfaceFieldsFwd.H"
-#include "wordReList.H"
 #include "IOobjectList.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -55,13 +93,16 @@ class Time;
 class fvMesh;
 class dictionary;
 
+namespace functionObjects
+{
+
 /*---------------------------------------------------------------------------*\
                        Class sampledSurfaces Declaration
 \*---------------------------------------------------------------------------*/
 
 class sampledSurfaces
 :
-    public functionObject,
+    public fvMeshFunctionObject,
     public PtrList<sampledSurface>
 {
     // Private classes
@@ -86,35 +127,29 @@ class sampledSurfaces
 
     // Static Data Members
 
-        //- Output verbosity
-        static bool verbose_;
-
         //- Tolerance for merging points (fraction of mesh bounding box)
         static scalar mergeTol_;
 
 
     // Private Data
 
-        //- Const reference to fvMesh
-        const fvMesh& mesh_;
-
-        //- Load fields from files (not from objectRegistry)
-        const bool loadFromFiles_;
-
         //- Output path
         fileName outputPath_;
 
 
-        // Read from dictonary
+        // Read from dictionary
 
             //- Names of fields to sample
-            wordReList fieldSelection_;
+            wordList fields_;
 
             //- Interpolation scheme to use
             word interpolationScheme_;
 
+            //- Should we create files for empty surfaces?
+            Switch writeEmpty_;
 
-        // surfaces
+
+        // Surfaces
 
             //- Information for merging surfaces
             List<mergeInfo> mergeList_;
@@ -128,39 +163,36 @@ class sampledSurfaces
 
     // Private Member Functions
 
+        //- Does any of the surfaces need an update?
+        bool needsUpdate() const;
 
-        //- Return number of fields
-        label classifyFields();
+        //- Mark the surfaces as needing an update.
+        //  May also free up unneeded data.
+        //  Return false if all surfaces were already marked as expired.
+        bool expire();
 
-        //- Write geometry only
-        void writeGeometry() const;
+        //- Update the surfaces as required and merge surface points (parallel).
+        //  Return false if no surfaces required an update.
+        bool update();
 
-        //- Write sampled fieldName on surface and on outputDir path
+        //- Sample all fields of a type on a given surface
         template<class Type>
-        void writeSurface
+        PtrList<Field<Type>> sampleLocalType
         (
-            const Field<Type>& values,
-            const label surfI,
-            const word& fieldName,
-            const fileName& outputDir
+            const label surfi,
+            const wordList& fieldNames,
+            HashPtrTable<interpolation<Type>>& interpolations
         );
 
-        //- Sample and write a particular volume field
+        //- Sample all fields of a type on a given surface and combine on the
+        //  master for writing
         template<class Type>
-        void sampleAndWrite
+        PtrList<Field<Type>> sampleType
         (
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const label surfi,
+            const wordList& fieldNames,
+            HashPtrTable<interpolation<Type>>& interpolations
         );
-
-        //- Sample and write a particular surface field
-        template<class Type>
-        void sampleAndWrite
-        (
-            const GeometricField<Type, fvsPatchField, surfaceMesh>&
-        );
-
-        //- Sample and write all sampled fields
-        template<class Type> void sampleAndWrite(const IOobjectList& objects);
 
 
 public:
@@ -179,16 +211,6 @@ public:
             const dictionary& dict
         );
 
-        //- Construct for given objectRegistry and dictionary
-        //  allow the possibility to load fields from files
-        sampledSurfaces
-        (
-            const word& name,
-            const objectRegistry&,
-            const dictionary&,
-            const bool loadFromFiles = false
-        );
-
         //- Disallow default bitwise copy construction
         sampledSurfaces(const sampledSurfaces&) = delete;
 
@@ -199,23 +221,11 @@ public:
 
     // Member Functions
 
-        //- Does any of the surfaces need an update?
-        virtual bool needsUpdate() const;
-
-        //- Mark the surfaces as needing an update.
-        //  May also free up unneeded data.
-        //  Return false if all surfaces were already marked as expired.
-        virtual bool expire();
-
-        //- Update the surfaces as required and merge surface points (parallel).
-        //  Return false if no surfaces required an update.
-        virtual bool update();
-
-        //- Set verbosity level
-        void verbose(const bool verbosity = true);
-
         //- Read the sampledSurfaces dictionary
         virtual bool read(const dictionary&);
+
+        //- Return the list of fields required
+        virtual wordList fields() const;
 
         //- Execute, currently does nothing
         virtual bool execute();
@@ -223,14 +233,17 @@ public:
         //- Sample and write
         virtual bool write();
 
-        //- Update for changes of mesh - expires the surfaces
-        virtual void updateMesh(const mapPolyMesh&);
-
         //- Update for mesh point-motion - expires the surfaces
         virtual void movePoints(const polyMesh&);
 
-        //- Update for changes of mesh due to readUpdate - expires the surfaces
-        virtual void readUpdate(const polyMesh::readUpdateState state);
+        //- Update topology using the given map - expires the surfaces
+        virtual void topoChange(const polyTopoChangeMap&);
+
+        //- Update from another mesh using the given map
+        virtual void mapMesh(const polyMeshMap&);
+
+        //- Redistribute or update using the given distribution map
+        virtual void distribute(const polyDistributionMap&);
 
 
     // Member Operators
@@ -242,6 +255,7 @@ public:
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
+} // End namespace functionObjects
 } // End namespace Foam
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

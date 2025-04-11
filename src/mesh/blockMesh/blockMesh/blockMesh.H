@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -27,8 +27,9 @@ Class
 Description
     A multi-block mesh generator
 
-Note
-    The vertices, cells and patches for filling the blocks are demand-driven.
+    Note:
+        The vertices, cells and patches for filling the blocks are
+        demand-driven.
 
 SourceFiles
     blockMesh.C
@@ -56,7 +57,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class blockMesh Declaration
+                          Class blockMesh Declaration
 \*---------------------------------------------------------------------------*/
 
 class blockMesh
@@ -143,7 +144,18 @@ class blockMesh
 
         void createCellShapes(cellShapeList& tmpBlockCells);
 
-        polyMesh* createTopology(const IOdictionary&, const word& regionName);
+        void defaultPatchError
+        (
+            const word& defaultPatchName,
+            const dictionary& meshDescription
+        ) const;
+
+        polyMesh* createTopology
+        (
+            const IOdictionary&,
+            const fileName& meshPath,
+            const word& regionName
+        );
 
         void check(const polyMesh&, const dictionary&) const;
 
@@ -191,9 +203,6 @@ class blockMesh
         void createCells() const;
         void createPatches() const;
 
-        //- As copy (not implemented)
-        blockMesh(const blockMesh&);
-
 
 public:
 
@@ -210,8 +219,16 @@ public:
 
     // Constructors
 
-        //- Construct from IOdictionary
-        blockMesh(const IOdictionary&, const word& regionName);
+        //- Construct from IOdictionary, path and region name
+        blockMesh
+        (
+            const IOdictionary&,
+            const fileName& meshPath,
+            const word& regionName
+        );
+
+        //- Disallow default bitwise copy construction
+        blockMesh(const blockMesh&) = delete;
 
 
     //- Destructor
@@ -286,6 +303,12 @@ public:
 
             //- Writes edges of blockMesh in OBJ format.
             void writeTopology(Ostream&) const;
+
+
+    // Member Operators
+
+        //- Disallow default bitwise assignment
+        void operator=(const blockMesh&) = delete;
 };
 
 

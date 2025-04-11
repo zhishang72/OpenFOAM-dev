@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -48,6 +48,7 @@ SourceFiles
 #include "edgeList.H"
 #include "vectorField.H"
 #include "faceListFwd.H"
+#include "DynamicListFwd.H"
 #include "intersection.H"
 #include "pointHit.H"
 #include "ListListOps.H"
@@ -62,73 +63,18 @@ namespace Foam
 class face;
 class triFace;
 
-template<class T, unsigned SizeInc, unsigned SizeMult, unsigned SizeDiv>
-class DynamicList;
-
 inline bool operator==(const face& a, const face& b);
 inline bool operator!=(const face& a, const face& b);
 inline Istream& operator>>(Istream&, face&);
 
 /*---------------------------------------------------------------------------*\
-                           Class face Declaration
+                            Class face Declaration
 \*---------------------------------------------------------------------------*/
 
 class face
 :
     public labelList
 {
-    // Private Member Functions
-
-        //- Edge to the right of face vertex i
-        inline label right(const label i) const;
-
-        //- Edge to the left of face vertex i
-        inline label left(const label i) const;
-
-        //- Construct list of edge vectors for face
-        tmp<vectorField> calcEdges
-        (
-            const pointField& points
-        ) const;
-
-        //- Cos between neighbouring edges
-        scalar edgeCos
-        (
-            const vectorField& edges,
-            const label index
-        ) const;
-
-        //- Find index of largest internal angle on face
-        label mostConcaveAngle
-        (
-            const pointField& points,
-            const vectorField& edges,
-            scalar& edgeCos
-        ) const;
-
-        //- Enumeration listing the modes for split()
-        enum splitMode
-        {
-            COUNTTRIANGLE,  // count if split into triangles
-            COUNTQUAD,      // count if split into triangles&quads
-            SPLITTRIANGLE,  // split into triangles
-            SPLITQUAD       // split into triangles&quads
-        };
-
-        //- Split face into triangles or triangles&quads.
-        //  Stores results quadFaces[quadI], triFaces[triI]
-        //  Returns number of new faces created
-        label split
-        (
-            const splitMode mode,
-            const pointField& points,
-            label& triI,
-            label& quadI,
-            faceList& triFaces,
-            faceList& quadFaces
-        ) const;
-
-
 public:
 
     //- Return types for classify
@@ -142,6 +88,27 @@ public:
     // Static Data Members
 
         static const char* const typeName;
+
+
+    // Static Functions
+
+        //- Return vector area given face points
+        template<class PointField>
+        static vector area(const PointField& ps);
+
+        //- Return centre point given face points
+        template<class PointField>
+        static vector centre(const PointField& ps);
+
+        //- Return vector area and centre point given face points
+        template<class PointField>
+        static Tuple2<vector, point> areaAndCentre(const PointField&);
+
+        //- Return vector area and centre point given face points. Stabilised
+        //  version. More expensive, but less likely to generate wildly
+        //  inaccurate face-centres on degenerate faces.
+        template<class PointField>
+        static Tuple2<vector, point> areaAndCentreStabilised(const PointField&);
 
 
     // Constructors
@@ -223,7 +190,7 @@ public:
 
         //- Return the inertia tensor, with optional reference
         //  point and density specification
-        tensor inertia
+        symmTensor inertia
         (
             const pointField&,
             const point& refPt = vector::zero,
@@ -231,7 +198,7 @@ public:
         ) const;
 
         //- Return potential intersection with face with a ray starting
-        //  at p, direction n (does not need to be normalized)
+        //  at p, direction n (does not need to be normalised)
         //  Does face-centre decomposition and returns triangle intersection
         //  point closest to p. Face-centre is calculated from point average.
         //  For a hit, the distance is signed.  Positive number
@@ -319,56 +286,8 @@ public:
         //  - -1: reverse (clockwise) on the face
         int edgeDirection(const edge&) const;
 
-        // Face splitting utilities
-
-            //- Number of triangles after splitting
-            inline label nTriangles() const;
-
-            //- Number of triangles after splitting
-            label nTriangles(const pointField& points) const;
-
-            //- Split into triangles using existing points.
-            //  Result in triFaces[triI..triI+nTri].
-            //  Splits intelligently to maximize triangle quality.
-            //  Returns number of faces created.
-            label triangles
-            (
-                const pointField& points,
-                label& triI,
-                faceList& triFaces
-            ) const;
-
-            //- Split into triangles using existing points.
-            //  Append to DynamicList.
-            //  Returns number of faces created.
-            template<unsigned SizeInc, unsigned SizeMult, unsigned SizeDiv>
-            label triangles
-            (
-                const pointField& points,
-                DynamicList<face, SizeInc, SizeMult, SizeDiv>& triFaces
-            ) const;
-
-            //- Number of triangles and quads after splitting
-            //  Returns the sum of both
-            label nTrianglesQuads
-            (
-                const pointField& points,
-                label& nTris,
-                label& nQuads
-            ) const;
-
-            //- Split into triangles and quads.
-            //  Results in triFaces (starting at triI) and quadFaces
-            //  (starting at quadI).
-            //  Returns number of new faces created.
-            label trianglesQuads
-            (
-                const pointField& points,
-                label& triI,
-                label& quadI,
-                faceList& triFaces,
-                faceList& quadFaces
-            ) const;
+        //- Size of the face's triangulation
+        inline label nTriangles() const;
 
         //- Compare faces
         //   0: different
@@ -398,7 +317,7 @@ public:
 };
 
 
-//- Hash specialization to offset faces in ListListOps::combineOffset
+//- Hash specialisation to offset faces in ListListOps::combineOffset
 template<>
 class offsetOp<face>
 {

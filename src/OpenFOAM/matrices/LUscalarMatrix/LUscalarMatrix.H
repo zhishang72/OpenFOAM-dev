@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -49,7 +49,7 @@ class lduMatrix;
 class procLduMatrix;
 
 /*---------------------------------------------------------------------------*\
-                           Class LUscalarMatrix Declaration
+                       Class LUscalarMatrix Declaration
 \*---------------------------------------------------------------------------*/
 
 class LUscalarMatrix
@@ -99,6 +99,9 @@ public:
         //- Construct null
         LUscalarMatrix();
 
+        //- Construct given number of rows/columns
+        LUscalarMatrix(const label n);
+
         //- Construct from and perform LU decomposition of the matrix M
         LUscalarMatrix(const scalarSquareMatrix& M);
 
@@ -112,6 +115,9 @@ public:
 
 
     // Member Functions
+
+        //- Perform the LU decomposition of the matrix
+        void decompose();
 
         //- Perform the LU decomposition of the matrix M
         void decompose(const scalarSquareMatrix& M);

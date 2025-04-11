@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -46,7 +46,7 @@ namespace Foam
 class GAMGAgglomeration;
 
 /*---------------------------------------------------------------------------*\
-              Class masterCoarsestGAMGProcAgglomeration Declaration
+             Class masterCoarsestGAMGProcAgglomeration Declaration
 \*---------------------------------------------------------------------------*/
 
 class masterCoarsestGAMGProcAgglomeration
@@ -77,7 +77,7 @@ public:
         masterCoarsestGAMGProcAgglomeration
         (
             const masterCoarsestGAMGProcAgglomeration&
-        );
+        ) = delete;
 
 
     //- Destructor
@@ -86,14 +86,13 @@ public:
 
     // Member Functions
 
-       //- Modify agglomeration. Return true if modified
+        //- Modify agglomeration. Return true if modified
         virtual bool agglomerate();
-
-        //- Disallow default bitwise assignment
 
 
     // Member Operators
 
+        //- Disallow default bitwise assignment
         void operator=(const masterCoarsestGAMGProcAgglomeration&) = delete;
 };
 

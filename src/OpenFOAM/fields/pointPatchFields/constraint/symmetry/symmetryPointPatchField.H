@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,7 +44,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                  Class symmetryPointPatchField Declaration
+                   Class symmetryPointPatchField Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -82,20 +82,8 @@ public:
             const symmetryPointPatchField<Type>&,
             const pointPatch&,
             const DimensionedField<Type, pointMesh>&,
-            const pointPatchFieldMapper&
+            const fieldMapper&
         );
-
-        //- Construct and return a clone
-        virtual autoPtr<pointPatchField<Type>> clone() const
-        {
-            return autoPtr<pointPatchField<Type>>
-            (
-                new symmetryPointPatchField<Type>
-                (
-                    *this
-                )
-            );
-        }
 
         //- Construct as copy setting internal field reference
         symmetryPointPatchField
@@ -119,16 +107,6 @@ public:
                 )
             );
         }
-
-
-    // Member Functions
-
-        //- Return the constraint type this pointPatchField implements
-        virtual const word& constraintType() const
-        {
-            return symmetryPointPatch::typeName;
-        }
-
 };
 
 

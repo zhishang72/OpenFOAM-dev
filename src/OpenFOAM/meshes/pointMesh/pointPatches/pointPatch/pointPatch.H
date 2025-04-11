@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -51,7 +51,7 @@ class pointConstraint;
 class PstreamBuffers;
 
 /*---------------------------------------------------------------------------*\
-                      Class pointPatch Declaration
+                         Class pointPatch Declaration
 \*---------------------------------------------------------------------------*/
 
 class pointPatch
@@ -70,7 +70,7 @@ protected:
         friend class pointBoundaryMesh;
 
         //- Initialise the calculation of the patch geometry
-        virtual void initGeometry(PstreamBuffers&)
+        virtual void initCalcGeometry(PstreamBuffers&)
         {}
 
         //- Calculate the patch geometry
@@ -86,11 +86,11 @@ protected:
         {}
 
         //- Initialise the update of the patch topology
-        virtual void initUpdateMesh(PstreamBuffers&)
+        virtual void initTopoChange(PstreamBuffers&)
         {}
 
         //- Update of the patch topology
-        virtual void updateMesh(PstreamBuffers&)
+        virtual void topoChange(PstreamBuffers&)
         {}
 
 
@@ -150,12 +150,6 @@ public:
 
         //- Return  point normals
         virtual const vectorField& pointNormals() const = 0;
-
-        //- Return the constraint type this pointPatch implements.
-        virtual const word& constraintType() const
-        {
-            return word::null;
-        }
 
         //- Accumulate the effect of constraint direction of this patch
         virtual void applyConstraint

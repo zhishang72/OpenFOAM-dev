@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -32,9 +32,8 @@ License
 #include "refinementParameters.H"
 #include "refinementSurfaces.H"
 #include "refinementFeatures.H"
-#include "shellSurfaces.H"
-#include "mapDistributePolyMesh.H"
-#include "unitConversion.H"
+#include "refinementRegions.H"
+#include "polyDistributionMap.H"
 #include "snapParameters.H"
 #include "localPointRegion.H"
 
@@ -94,7 +93,7 @@ Foam::label Foam::snappyRefineDriver::featureEdgeRefine
             (
                 meshRefiner_.refineCandidates
                 (
-                    refineParams.keepPoints(),
+                    refineParams.selectionPoints().inside(),
                     refineParams.curvature(),
                     refineParams.planarAngle(),
 
@@ -207,7 +206,7 @@ Foam::label Foam::snappyRefineDriver::surfaceOnlyRefine
         (
             meshRefiner_.refineCandidates
             (
-                refineParams.keepPoints(),
+                refineParams.selectionPoints().inside(),
                 refineParams.curvature(),
                 refineParams.planarAngle(),
 
@@ -341,7 +340,7 @@ Foam::label Foam::snappyRefineDriver::gapOnlyRefine
         (
             meshRefiner_.refineCandidates
             (
-                refineParams.keepPoints(),
+                refineParams.selectionPoints().inside(),
                 refineParams.curvature(),
                 refineParams.planarAngle(),
 
@@ -361,7 +360,7 @@ Foam::label Foam::snappyRefineDriver::gapOnlyRefine
             Pout<< "Dumping " << candidateCells.size()
                 << " cells to cellSet candidateCellsFromGap." << endl;
             cellSet c(mesh, "candidateCellsFromGap", candidateCells);
-            c.instance() = meshRefiner_.timeName();
+            c.instance() = meshRefiner_.name();
             c.write();
         }
 
@@ -391,12 +390,12 @@ Foam::label Foam::snappyRefineDriver::gapOnlyRefine
                 }
 
                 // Get coupled boundary condition values
-                boolList neiIsCandidateCell;
+                boolList neiisCandidateCell;
                 syncTools::swapBoundaryCellList
                 (
                     mesh,
                     isCandidateCell,
-                    neiIsCandidateCell
+                    neiisCandidateCell
                 );
 
                 // Boundary faces
@@ -410,7 +409,7 @@ Foam::label Foam::snappyRefineDriver::gapOnlyRefine
                     label own = mesh.faceOwner()[facei];
                     label bFacei = facei-mesh.nInternalFaces();
 
-                    if (isCandidateCell[own] != neiIsCandidateCell[bFacei])
+                    if (isCandidateCell[own] != neiisCandidateCell[bFacei])
                     {
                         newIsCandidateCell[own] = true;
                     }
@@ -444,7 +443,7 @@ Foam::label Foam::snappyRefineDriver::gapOnlyRefine
             Pout<< "Dumping " << candidateCells.size()
                 << " cells to cellSet candidateCellsFromGapPlusBuffer." << endl;
             cellSet c(mesh, "candidateCellsFromGapPlusBuffer", candidateCells);
-            c.instance() = meshRefiner_.timeName();
+            c.instance() = meshRefiner_.name();
             c.write();
         }
 
@@ -567,7 +566,7 @@ Foam::label Foam::snappyRefineDriver::danglingCellRefine
                     }
                     else
                     {
-                        label patchi = pbm.patchID()[bFacei];
+                        label patchi = pbm.patchIndices()[bFacei];
                         if (pbm[patchi].coupled())
                         {
                             nIntFaces++;
@@ -585,7 +584,7 @@ Foam::label Foam::snappyRefineDriver::danglingCellRefine
             {
                 Pout<< "Dumping " << candidateCellSet.size()
                     << " cells to cellSet candidateCellSet." << endl;
-                candidateCellSet.instance() = meshRefiner_.timeName();
+                candidateCellSet.instance() = meshRefiner_.name();
                 candidateCellSet.write();
             }
             candidateCells = candidateCellSet.toc();
@@ -692,13 +691,13 @@ void Foam::snappyRefineDriver::removeInsideCells
         nBufferLayers,                  // nBufferLayers
         globalToMasterPatch_,
         globalToSlavePatch_,
-        refineParams.keepPoints()[0]
+        refineParams.selectionPoints()
     );
 
     if (debug&meshRefinement::MESH)
     {
         Pout<< "Writing subsetted mesh to time "
-            << meshRefiner_.timeName() << '.' << endl;
+            << meshRefiner_.name() << '.' << endl;
         meshRefiner_.write
         (
             meshRefinement::debugType(debug),
@@ -707,7 +706,7 @@ void Foam::snappyRefineDriver::removeInsideCells
                 meshRefinement::writeLevel()
               | meshRefinement::WRITEMESH
             ),
-            mesh.time().path()/meshRefiner_.timeName()
+            mesh.time().path()/meshRefiner_.name()
         );
         Pout<< "Dumped mesh in = "
             << mesh.time().cpuTimeIncrement() << " s\n" << nl << endl;
@@ -753,7 +752,7 @@ Foam::label Foam::snappyRefineDriver::shellRefine
         (
             meshRefiner_.refineCandidates
             (
-                refineParams.keepPoints(),
+                refineParams.selectionPoints().inside(),
                 refineParams.curvature(),
                 refineParams.planarAngle(),
 
@@ -774,7 +773,7 @@ Foam::label Foam::snappyRefineDriver::shellRefine
                 << " cells to cellSet candidateCellsFromShells." << endl;
 
             cellSet c(mesh, "candidateCellsFromShells", candidateCells);
-            c.instance() = meshRefiner_.timeName();
+            c.instance() = meshRefiner_.name();
             c.write();
         }
 
@@ -921,7 +920,7 @@ void Foam::snappyRefineDriver::baffleAndSplitMesh
         const_cast<Time&>(mesh.time()),
         globalToMasterPatch_,
         globalToSlavePatch_,
-        refineParams.keepPoints()[0]
+        refineParams.selectionPoints()
     );
 }
 
@@ -956,14 +955,14 @@ void Foam::snappyRefineDriver::zonify
 
         meshRefiner_.zonify
         (
-            refineParams.keepPoints()[0],
+            refineParams.selectionPoints().inside(),
             refineParams.allowFreeStandingZoneFaces()
         );
 
         if (debug&meshRefinement::MESH)
         {
             Pout<< "Writing zoned mesh to time "
-                << meshRefiner_.timeName() << '.' << endl;
+                << meshRefiner_.name() << '.' << endl;
             meshRefiner_.write
             (
                 meshRefinement::debugType(debug),
@@ -972,7 +971,7 @@ void Foam::snappyRefineDriver::zonify
                     meshRefinement::writeLevel()
                   | meshRefinement::WRITEMESH
                 ),
-                mesh.time().path()/meshRefiner_.timeName()
+                mesh.time().path()/meshRefiner_.name()
             );
         }
 
@@ -1023,7 +1022,7 @@ void Foam::snappyRefineDriver::splitAndMergeBaffles
         const_cast<Time&>(mesh.time()),
         globalToMasterPatch_,
         globalToSlavePatch_,
-        refineParams.keepPoints()[0]
+        refineParams.selectionPoints()
     );
 
     if (debug)
@@ -1045,7 +1044,7 @@ void Foam::snappyRefineDriver::splitAndMergeBaffles
 
     if (nCouples > 0)
     {
-        // Actually merge baffles. Note: not exactly parallellized. Should
+        // Actually merge baffles. Note: not exactly parallelised. Should
         // convert baffle faces into processor faces if they resulted
         // from them.
         meshRefiner_.mergeBaffles(couples);
@@ -1061,7 +1060,7 @@ void Foam::snappyRefineDriver::splitAndMergeBaffles
         (
             globalToMasterPatch_,
             globalToSlavePatch_,
-            refineParams.keepPoints()[0]
+            refineParams.selectionPoints()
         );
 
         if (debug)
@@ -1077,7 +1076,7 @@ void Foam::snappyRefineDriver::splitAndMergeBaffles
     if (debug&meshRefinement::MESH)
     {
         Pout<< "Writing handleProblemCells mesh to time "
-            << meshRefiner_.timeName() << '.' << endl;
+            << meshRefiner_.name() << '.' << endl;
         meshRefiner_.write
         (
             meshRefinement::debugType(debug),
@@ -1086,7 +1085,7 @@ void Foam::snappyRefineDriver::splitAndMergeBaffles
                 meshRefinement::writeLevel()
               | meshRefinement::WRITEMESH
             ),
-            mesh.time().path()/meshRefiner_.timeName()
+            mesh.time().path()/meshRefiner_.name()
         );
     }
 }
@@ -1197,7 +1196,7 @@ void Foam::snappyRefineDriver::doRefine
     );
 
     // Introduce baffles at surface intersections. Remove sections unreachable
-    // from keepPoint.
+    // from insidePoints.
     baffleAndSplitMesh
     (
         refineParams,

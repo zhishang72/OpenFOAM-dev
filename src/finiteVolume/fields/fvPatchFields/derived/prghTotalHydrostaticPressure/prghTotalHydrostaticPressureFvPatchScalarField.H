@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -34,11 +34,11 @@ Description
 
     where
     \vartable
-        p_rgh   | Pressure - \rho g.(h - hRef) [Pa]
-        ph_rgh  | Hydrostatic pressure - \rho g.(h - hRef) [Pa]
+        p_rgh   | Pressure - rho g.(h - hRef) [Pa]
+        ph_rgh  | Hydrostatic pressure - rho g.(h - hRef) [Pa]
         h       | Height in the opposite direction to gravity
         hRef    | Reference height in the opposite direction to gravity
-        \rho    | Density
+        rho     | Density
         g       | Acceleration due to gravity [m/s^2]
     \endtable
 
@@ -81,7 +81,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-         Class prghTotalHydrostaticPressureFvPatchScalarField Declaration
+       Class prghTotalHydrostaticPressureFvPatchScalarField Declaration
 \*---------------------------------------------------------------------------*/
 
 class prghTotalHydrostaticPressureFvPatchScalarField
@@ -114,13 +114,6 @@ public:
 
     // Constructors
 
-        //- Construct from patch and internal field
-        prghTotalHydrostaticPressureFvPatchScalarField
-        (
-            const fvPatch&,
-            const DimensionedField<scalar, volMesh>&
-        );
-
         //- Construct from patch, internal field and dictionary
         prghTotalHydrostaticPressureFvPatchScalarField
         (
@@ -136,23 +129,14 @@ public:
             const prghTotalHydrostaticPressureFvPatchScalarField&,
             const fvPatch&,
             const DimensionedField<scalar, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         prghTotalHydrostaticPressureFvPatchScalarField
         (
             const prghTotalHydrostaticPressureFvPatchScalarField&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchScalarField> clone() const
-        {
-            return tmp<fvPatchScalarField >
-            (
-                new prghTotalHydrostaticPressureFvPatchScalarField(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         prghTotalHydrostaticPressureFvPatchScalarField

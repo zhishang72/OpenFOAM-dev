@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2020-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,45 +25,69 @@ Class
     Foam::functionObjects::wallHeatTransferCoeff
 
 Description
-    Calculates and write the estimated incompressible flow heat transfer
-    coefficient at wall patches as the volScalarField field
-    'wallHeatTransferCoeff'.
+    Calculates and writes the estimated heat transfer coefficient at wall
+    patches as the volScalarField field.
 
     All wall patches are included by default; to restrict the calculation to
     certain patches, use the optional 'patches' entry.
 
+    The models are selected run time by model entry. For detailed description
+    look at the header file for specific model under
+    wallHeatTransferCoeffModels.
+
     Example of function object specification:
     \verbatim
-    wallHeatTransferCoeff1
+    kappaEff1
     {
         type        wallHeatTransferCoeff;
         libs        ("libfieldFunctionObjects.so");
+        model       kappaEff;
         ...
         region      fluid;
         patches     (".*Wall");
         rho         1.225;
         Cp          1005;
-        Prl         0.707;
+        Pr          0.707;
         Prt         0.9;
     }
     \endverbatim
 
-Usage
-    \table
-        Property | Description                   | Required | Default value
-        type     | Type name: wallHeatTransferCoeff | yes   |
-        patches  | List of patches to process    | no       | all wall patches
-        region   | Region to be evaluated        | no       | default region
-        rho      | Fluid density                 | yes      |
-        Cp       | Fluid heat capacity           | yes      |
-        Prl      | Fluid laminar Prandtl number  | yes      |
-        Prt      | Fluid turbulent Prandtl number| yes      |
-    \endtable
+    \verbatim
+    kappaEff2
+    {
+        type        wallHeatTransferCoeff;
+        libs        ("libfieldFunctionObjects.so");
+        model       kappaEff;
+        ...
+        region      fluid;
+        patches     (".*Wall");
+        rho         1.225;
+        Cp          1005;
+        Pr          0.707;
+        Prt         0.9;
+        Lchar       0.001;
+    }
+    \endverbatim
 
-Note
-    Writing field 'wallHeatTransferCoeff' is done by default, but it can be
-    overridden by defining an empty \c objects list. For details see
-    writeLocalObjects.
+    \verbatim
+    ReynoldsAnalogy1
+    {
+        type       wallHeatTransferCoeff;
+        libs       ("libfieldFunctionObjects.so");
+        model      ReynoldsAnalogy;
+        ...
+        region     fluid;
+        patches    (".*Wall");
+        rho        1.225;
+        Cp         1005;
+        Uref       1.0;
+    }
+    \endverbatim
+
+    Note:
+        Writing field 'wallHeatTransferCoeff' is done by default, but it can be
+        overridden by defining an empty \c objects list. For details see
+        writeLocalObjects.
 
 See also
     Foam::functionObject
@@ -83,8 +107,7 @@ SourceFiles
 #include "fvMeshFunctionObject.H"
 #include "logFiles.H"
 #include "writeLocalObjects.H"
-#include "HashSet.H"
-#include "volFieldsFwd.H"
+#include "wallHeatTransferCoeffModel.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -94,7 +117,7 @@ namespace functionObjects
 {
 
 /*---------------------------------------------------------------------------*\
-                       Class wallHeatTransferCoeff Declaration
+                    Class wallHeatTransferCoeff Declaration
 \*---------------------------------------------------------------------------*/
 
 class wallHeatTransferCoeff
@@ -104,37 +127,38 @@ class wallHeatTransferCoeff
     public writeLocalObjects
 {
 
+private:
+
+    // Protected data
+
+        // Pointer to the model
+        autoPtr<wallHeatTransferCoeffModel> coeffModel_;
+
+        // Return wall shear stress
+        tmp<volSymmTensorField> devSigma();
+
+
+    // Private data
+
+        //- Density [kg/m^3]
+        dimensionedScalar rho_;
+
+        //- Specific capacity [J/K/kg]
+        dimensionedScalar Cp_;
+
+
 protected:
 
     // Protected data
 
+        //- Reference to Time
+        const Time& runTime_;
+
         //- Optional list of patches to process
         labelHashSet patchSet_;
 
-        //- Fluid density
-        scalar rho_;
-
-        //- Fluid heat capacity
-        scalar Cp_;
-
-        //- Fluid laminar Prandtl number
-        scalar Prl_;
-
-        //- Fluid turbulent Prandtl number
-        scalar Prt_;
-
-
-    // Protected Member Functions
-
         //- File header information
         virtual void writeFileHeader(const label i);
-
-        //- Calculate the heat transfer coefficient
-        tmp<volScalarField> calcHeatTransferCoeff
-        (
-            const volScalarField& nu,
-            const volScalarField& nut
-        );
 
 
 public:
@@ -145,16 +169,13 @@ public:
 
     // Constructors
 
-        //- Construct from Time and dictionary
+        //- Construct from name, mesh and dict
         wallHeatTransferCoeff
         (
             const word& name,
             const Time& runTime,
-            const dictionary&
+            const dictionary& dict
         );
-
-        //- Disallow default bitwise copy construction
-        wallHeatTransferCoeff(const wallHeatTransferCoeff&) = delete;
 
 
     //- Destructor
@@ -163,8 +184,14 @@ public:
 
     // Member Functions
 
-        //- Read the wallHeatTransferCoeff data
+        //- Read the wallHeatTransferCoeffs data
         virtual bool read(const dictionary&);
+
+        //- Return the list of fields required
+        virtual wordList fields() const
+        {
+            return wordList::null();
+        }
 
         //- Calculate the wall heat transfer coefficient
         virtual bool execute();

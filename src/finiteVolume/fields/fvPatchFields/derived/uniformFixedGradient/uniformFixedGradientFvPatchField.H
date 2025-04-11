@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -42,10 +42,10 @@ Usage
     }
     \endverbatim
 
-Note
-    The uniformGradient entry is a Function1 type, able to describe time
-    varying functions.  The example above gives the usage for supplying a
-    constant value.
+    Note:
+        The uniformGradient entry is a Function1 type, able to describe time
+        varying functions.  The example above gives the usage for supplying a
+        constant value.
 
 See also
     Foam::Function1s
@@ -90,21 +90,6 @@ public:
 
     // Constructors
 
-        //- Construct from patch and internal field
-        uniformFixedGradientFvPatchField
-        (
-            const fvPatch&,
-            const DimensionedField<Type, volMesh>&
-        );
-
-        //- Construct from patch and internal field and patch field
-        uniformFixedGradientFvPatchField
-        (
-            const fvPatch&,
-            const DimensionedField<Type, volMesh>&,
-            const Field<Type>& fld
-        );
-
         //- Construct from patch, internal field and dictionary
         uniformFixedGradientFvPatchField
         (
@@ -120,23 +105,14 @@ public:
             const uniformFixedGradientFvPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         uniformFixedGradientFvPatchField
         (
             const uniformFixedGradientFvPatchField<Type>&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchField<Type>> clone() const
-        {
-            return tmp<fvPatchField<Type>>
-            (
-                new uniformFixedGradientFvPatchField<Type>(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         uniformFixedGradientFvPatchField

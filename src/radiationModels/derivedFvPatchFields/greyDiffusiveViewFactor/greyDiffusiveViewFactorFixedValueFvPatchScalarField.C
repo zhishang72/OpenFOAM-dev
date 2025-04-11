@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,45 +25,10 @@ License
 
 #include "greyDiffusiveViewFactorFixedValueFvPatchScalarField.H"
 #include "addToRunTimeSelectionTable.H"
-#include "fvPatchFieldMapper.H"
+#include "fieldMapper.H"
 #include "volFields.H"
 
-
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
-
-Foam::greyDiffusiveViewFactorFixedValueFvPatchScalarField::
-greyDiffusiveViewFactorFixedValueFvPatchScalarField
-(
-    const fvPatch& p,
-    const DimensionedField<scalar, volMesh>& iF
-)
-:
-    fixedValueFvPatchScalarField(p, iF),
-    radiationCoupledBase(patch(), "undefined", scalarField::null()),
-    qro_(p.size(), 0.0)
-{}
-
-
-Foam::greyDiffusiveViewFactorFixedValueFvPatchScalarField::
-greyDiffusiveViewFactorFixedValueFvPatchScalarField
-(
-    const greyDiffusiveViewFactorFixedValueFvPatchScalarField& ptf,
-    const fvPatch& p,
-    const DimensionedField<scalar, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
-)
-:
-    fixedValueFvPatchScalarField(ptf, p, iF, mapper),
-    radiationCoupledBase
-    (
-        patch(),
-        ptf.emissivityMethod(),
-        ptf.emissivity_,
-        mapper
-    ),
-    qro_(mapper(ptf.qro_))
-{}
-
 
 Foam::greyDiffusiveViewFactorFixedValueFvPatchScalarField::
 greyDiffusiveViewFactorFixedValueFvPatchScalarField
@@ -75,15 +40,14 @@ greyDiffusiveViewFactorFixedValueFvPatchScalarField
 :
     fixedValueFvPatchScalarField(p, iF, dict, false),
     radiationCoupledBase(p, dict),
-    qro_("qro", dict, p.size())
+    qro_("qro", dimPower/dimArea, dict, p.size())
 {
     if (dict.found("value"))
     {
         fvPatchScalarField::operator=
         (
-            scalarField("value", dict, p.size())
+            scalarField("value", iF.dimensions(), dict, p.size())
         );
-
     }
     else
     {
@@ -95,17 +59,21 @@ greyDiffusiveViewFactorFixedValueFvPatchScalarField
 Foam::greyDiffusiveViewFactorFixedValueFvPatchScalarField::
 greyDiffusiveViewFactorFixedValueFvPatchScalarField
 (
-    const greyDiffusiveViewFactorFixedValueFvPatchScalarField& ptf
+    const greyDiffusiveViewFactorFixedValueFvPatchScalarField& ptf,
+    const fvPatch& p,
+    const DimensionedField<scalar, volMesh>& iF,
+    const fieldMapper& mapper
 )
 :
-    fixedValueFvPatchScalarField(ptf),
+    fixedValueFvPatchScalarField(ptf, p, iF, mapper),
     radiationCoupledBase
     (
-        ptf.patch(),
+        patch(),
         ptf.emissivityMethod(),
-        ptf.emissivity_
+        ptf.emissivity_,
+        mapper
     ),
-    qro_(ptf.qro_)
+    qro_(mapper(ptf.qro_))
 {}
 
 
@@ -129,30 +97,34 @@ greyDiffusiveViewFactorFixedValueFvPatchScalarField
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-void Foam::greyDiffusiveViewFactorFixedValueFvPatchScalarField::autoMap
-(
-    const fvPatchFieldMapper& m
-)
-{
-    fixedValueFvPatchScalarField::autoMap(m);
-    radiationCoupledBase::autoMap(m);
-    m(qro_, qro_);
-}
-
-
-void Foam::greyDiffusiveViewFactorFixedValueFvPatchScalarField::rmap
+void Foam::greyDiffusiveViewFactorFixedValueFvPatchScalarField::map
 (
     const fvPatchScalarField& ptf,
-    const labelList& addr
+    const fieldMapper& mapper
 )
 {
-    fixedValueFvPatchScalarField::rmap(ptf, addr);
-    radiationCoupledBase::rmap(ptf, addr);
+    fixedValueFvPatchScalarField::map(ptf, mapper);
+    radiationCoupledBase::map(ptf, mapper);
     const greyDiffusiveViewFactorFixedValueFvPatchScalarField& mrptf =
         refCast<const greyDiffusiveViewFactorFixedValueFvPatchScalarField>(ptf);
 
-    qro_.rmap(mrptf.qro_, addr);
+    mapper(qro_, mrptf.qro_);
 }
+
+
+void Foam::greyDiffusiveViewFactorFixedValueFvPatchScalarField::reset
+(
+    const fvPatchScalarField& ptf
+)
+{
+    fixedValueFvPatchScalarField::reset(ptf);
+    radiationCoupledBase::reset(ptf);
+    const greyDiffusiveViewFactorFixedValueFvPatchScalarField& mrptf =
+        refCast<const greyDiffusiveViewFactorFixedValueFvPatchScalarField>(ptf);
+
+    qro_.reset(mrptf.qro_);
+}
+
 
 void Foam::greyDiffusiveViewFactorFixedValueFvPatchScalarField::updateCoeffs()
 {

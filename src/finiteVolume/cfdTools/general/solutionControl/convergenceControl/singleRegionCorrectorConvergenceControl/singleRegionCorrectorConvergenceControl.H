@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2018-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2018-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -45,7 +45,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-            Class singleRegionCorrectorConvergenceControl Declaration
+           Class singleRegionCorrectorConvergenceControl Declaration
 \*---------------------------------------------------------------------------*/
 
 class singleRegionCorrectorConvergenceControl
@@ -66,6 +66,12 @@ protected:
         //  each field. If the field name is not in the table then the index is
         //  assumed to be zero; i.e, the first solution.
         HashTable<label> solveIndex_;
+
+
+    // Protected Member Functions
+
+        //- Read controls
+        virtual bool read();
 
 
 public:
@@ -93,9 +99,6 @@ public:
     // Member Functions
 
         // IO
-
-            //- Read residual controls
-            bool readCorrResidualControls();
 
             //- Print the residual controls
             void printCorrResidualControls(const label n) const;

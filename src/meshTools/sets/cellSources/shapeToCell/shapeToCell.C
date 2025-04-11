@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -36,20 +36,8 @@ namespace Foam
 {
     defineTypeNameAndDebug(shapeToCell, 0);
     addToRunTimeSelectionTable(topoSetSource, shapeToCell, word);
-    addToRunTimeSelectionTable(topoSetSource, shapeToCell, istream);
 }
 
-
-Foam::topoSetSource::addToUsageTable Foam::shapeToCell::usage_
-(
-    shapeToCell::typeName,
-    "\n    Usage: shapeToCell tet|pyr|prism|hex|tetWedge|wedge|splitHex\n\n"
-    "    Select all cells of given cellShape.\n"
-    "    (splitHex hardcoded with internal angle < 10 degrees)\n"
-);
-
-
-// Angle for polys to be considered splitHexes.
 Foam::scalar Foam::shapeToCell::featureCos = Foam::cos(degToRad(10.0));
 
 
@@ -57,11 +45,11 @@ Foam::scalar Foam::shapeToCell::featureCos = Foam::cos(degToRad(10.0));
 
 void Foam::shapeToCell::combine(topoSet& set, const bool add) const
 {
-    if (type_ == "splitHex")
+    if (shape_ == "splitHex")
     {
         for (label celli = 0; celli < mesh_.nCells(); celli++)
         {
-            cellFeatures superCell(mesh_, featureCos, celli);
+            const cellFeatures superCell(mesh_, featureCos, celli);
 
             if (hexMatcher().isA(superCell.faces()))
             {
@@ -71,7 +59,7 @@ void Foam::shapeToCell::combine(topoSet& set, const bool add) const
     }
     else
     {
-        const cellModel& wantedModel = *(cellModeller::lookup(type_));
+        const cellModel& wantedModel = *(cellModeller::lookup(shape_));
 
         const cellShapeList& cellShapes = mesh_.cellShapes();
 
@@ -91,16 +79,16 @@ void Foam::shapeToCell::combine(topoSet& set, const bool add) const
 Foam::shapeToCell::shapeToCell
 (
     const polyMesh& mesh,
-    const word& type
+    const word& shape
 )
 :
     topoSetSource(mesh),
-    type_(type)
+    shape_(shape)
 {
-    if (!cellModeller::lookup(type_) && (type_ != "splitHex"))
+    if (!cellModeller::lookup(shape_) && (shape_ != "splitHex"))
     {
         FatalErrorInFunction
-            << "Illegal cell type " << type_ << exit(FatalError);
+            << "Illegal cell shape " << shape_ << exit(FatalError);
     }
 }
 
@@ -112,31 +100,15 @@ Foam::shapeToCell::shapeToCell
 )
 :
     topoSetSource(mesh),
-    type_(dict.lookup("type"))
+    shape_(dict.lookup("shape"))
 {
-    if (!cellModeller::lookup(type_) && (type_ != "splitHex"))
+    if (!cellModeller::lookup(shape_) && (shape_ != "splitHex"))
     {
         FatalErrorInFunction
-            << "Illegal cell type " << type_ << exit(FatalError);
+            << "Illegal cell shape " << shape_ << exit(FatalError);
     }
 }
 
-
-Foam::shapeToCell::shapeToCell
-(
-    const polyMesh& mesh,
-    Istream& is
-)
-:
-    topoSetSource(mesh),
-    type_(checkIs(is))
-{
-    if (!cellModeller::lookup(type_) && (type_ != "splitHex"))
-    {
-        FatalErrorInFunction
-            << "Illegal cell type " << type_ << exit(FatalError);
-    }
-}
 
 // * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
 
@@ -154,13 +126,13 @@ void Foam::shapeToCell::applyToSet
 {
     if ((action == topoSetSource::NEW) || (action == topoSetSource::ADD))
     {
-        Info<< "    Adding all cells of type " << type_ << " ..." << endl;
+        Info<< "    Adding all cells of shape " << shape_ << " ..." << endl;
 
         combine(set, true);
     }
     else if (action == topoSetSource::DELETE)
     {
-        Info<< "    Removing all cells of type " << type_ << " ..." << endl;
+        Info<< "    Removing all cells of shape " << shape_ << " ..." << endl;
 
         combine(set, false);
     }

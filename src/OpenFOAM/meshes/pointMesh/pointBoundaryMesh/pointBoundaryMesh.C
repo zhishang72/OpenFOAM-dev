@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,6 +25,7 @@ License
 
 #include "pointBoundaryMesh.H"
 #include "polyBoundaryMesh.H"
+#include "processorPolyPatch.H"
 #include "facePointPatch.H"
 #include "pointMesh.H"
 #include "PstreamBuffers.H"
@@ -36,27 +37,38 @@ License
 Foam::pointBoundaryMesh::pointBoundaryMesh
 (
     const pointMesh& m,
-    const polyBoundaryMesh& basicBdry
+    const polyBoundaryMesh& pbm
 )
 :
-    pointPatchList(basicBdry.size()),
+    pointPatchList(pbm.size()),
     mesh_(m)
 {
-    reset(basicBdry);
+    // Set boundary patches
+    pointPatchList& Patches = *this;
+
+    forAll(Patches, patchi)
+    {
+        Patches.set
+        (
+            patchi,
+            facePointPatch::New(pbm[patchi], *this).ptr()
+        );
+    }
+    // reset(pbm);
 }
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-Foam::label Foam::pointBoundaryMesh::findPatchID(const word& patchName) const
+Foam::label Foam::pointBoundaryMesh::findIndex(const word& patchName) const
 {
-    return mesh()().boundaryMesh().findPatchID(patchName);
+    return mesh()().boundaryMesh().findIndex(patchName);
 }
 
 
 Foam::labelList Foam::pointBoundaryMesh::findIndices
 (
-    const keyType& key,
+    const wordRe& key,
     const bool usePatchGroups
 ) const
 {
@@ -76,7 +88,7 @@ void Foam::pointBoundaryMesh::calcGeometry()
     {
         forAll(*this, patchi)
         {
-            operator[](patchi).initGeometry(pBufs);
+            operator[](patchi).initCalcGeometry(pBufs);
         }
 
         pBufs.finishedSends();
@@ -99,7 +111,7 @@ void Foam::pointBoundaryMesh::calcGeometry()
 
             if (patchSchedule[patchEvali].init)
             {
-                operator[](patchi).initGeometry(pBufs);
+                operator[](patchi).initCalcGeometry(pBufs);
             }
             else
             {
@@ -156,7 +168,7 @@ void Foam::pointBoundaryMesh::movePoints(const pointField& p)
 }
 
 
-void Foam::pointBoundaryMesh::updateMesh()
+void Foam::pointBoundaryMesh::topoChange()
 {
     PstreamBuffers pBufs(Pstream::defaultCommsType);
 
@@ -168,14 +180,14 @@ void Foam::pointBoundaryMesh::updateMesh()
     {
         forAll(*this, patchi)
         {
-            operator[](patchi).initUpdateMesh(pBufs);
+            operator[](patchi).initTopoChange(pBufs);
         }
 
         pBufs.finishedSends();
 
         forAll(*this, patchi)
         {
-            operator[](patchi).updateMesh(pBufs);
+            operator[](patchi).topoChange(pBufs);
         }
     }
     else if (Pstream::defaultCommsType == Pstream::commsTypes::scheduled)
@@ -191,29 +203,36 @@ void Foam::pointBoundaryMesh::updateMesh()
 
             if (patchSchedule[patchEvali].init)
             {
-                operator[](patchi).initUpdateMesh(pBufs);
+                operator[](patchi).initTopoChange(pBufs);
             }
             else
             {
-                operator[](patchi).updateMesh(pBufs);
+                operator[](patchi).topoChange(pBufs);
             }
         }
     }
 }
 
 
-void Foam::pointBoundaryMesh::reset(const polyBoundaryMesh& basicBdry)
+void Foam::pointBoundaryMesh::reset()
 {
-    // Set boundary patches
+    const polyBoundaryMesh& boundaryMesh = mesh()().boundaryMesh();
     pointPatchList& Patches = *this;
 
-    forAll(Patches, patchi)
+    // Reset the number of patches in case the decomposition changed
+    Patches.setSize(boundaryMesh.size());
+
+    forAll(boundaryMesh, patchi)
     {
-        Patches.set
-        (
-            patchi,
-            facePointPatch::New(basicBdry[patchi], *this).ptr()
-        );
+        // Construct new processor patches in case the decomposition changed
+        if (isA<processorPolyPatch>(boundaryMesh[patchi]))
+        {
+            Patches.set
+            (
+                patchi,
+                facePointPatch::New(boundaryMesh[patchi], *this).ptr()
+            );
+        }
     }
 }
 
@@ -227,7 +246,7 @@ void Foam::pointBoundaryMesh::shuffle
     pointPatchList::shuffle(newToOld);
     if (validBoundary)
     {
-        updateMesh();
+        topoChange();
     }
 }
 

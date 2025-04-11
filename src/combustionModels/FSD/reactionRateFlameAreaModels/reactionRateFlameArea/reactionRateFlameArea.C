@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,7 +44,6 @@ Foam::reactionRateFlameArea::reactionRateFlameArea
     const combustionModel& combModel
 )
 :
-    coeffDict_(dict.optionalSubDict(modelType + "Coeffs")),
     mesh_(mesh),
     combModel_(combModel),
     fuel_(dict.lookup("fuel")),
@@ -53,7 +52,7 @@ Foam::reactionRateFlameArea::reactionRateFlameArea
         IOobject
         (
             "FSDomega",
-            mesh_.time().timeName(),
+            mesh_.time().name(),
             mesh_,
             IOobject::MUST_READ,
             IOobject::AUTO_WRITE

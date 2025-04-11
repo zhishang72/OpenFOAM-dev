@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -69,10 +69,11 @@ Ostream& operator<<(Ostream&, const Field<Type>&);
 template<class Type>
 Ostream& operator<<(Ostream&, const tmp<Field<Type>>&);
 
+class unitConversion;
 class dictionary;
 
 /*---------------------------------------------------------------------------*\
-                           Class Field Declaration
+                            Class Field Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -128,7 +129,7 @@ public:
         //- Construct given size and initial value
         Field(const label, const Type&);
 
-        //- Construct given size and initialed to zero
+        //- Construct given size and initialised to zero
         Field(const label, const zero);
 
         //- Copy constructor of a UList\<Type\>
@@ -143,7 +144,7 @@ public:
         //- Copy constructor
         Field(const Field<Type>&);
 
-        //- Copy constructor or re-use as specified.
+        //- Copy constructor or reuse as specified.
         Field(Field<Type>&, bool reuse);
 
         //- Move constructor transferring the Field contents
@@ -187,6 +188,15 @@ public:
 
         //- Construct from a dictionary entry
         Field(const word& keyword, const dictionary&, const label size);
+
+        //- Construct from a dictionary entry with unit conversion
+        Field
+        (
+            const word& keyword,
+            const unitConversion&,
+            const dictionary&,
+            const label size
+        );
 
         //- Clone
         tmp<Field<Type>> clone() const;
@@ -262,6 +272,14 @@ public:
             const UList<scalar>& weights
         );
 
+        //- Reset the field values to the given field
+        //  Equivalent to operator=
+        void reset(const Field<Type>&);
+
+        //- Reset the field values to the given field
+        //  Equivalent to operator=
+        void reset(const UList<Type>&);
+
         //- Negate this field
         void negate();
 
@@ -290,7 +308,6 @@ public:
         void operator=(Field<Type>&&);
         void operator=(const UList<Type>&);
         void operator=(List<Type>&&);
-        void operator=(const SubField<Type>&);
         void operator=(const tmp<Field<Type>>&);
         void operator=(const Type&);
         void operator=(const zero);

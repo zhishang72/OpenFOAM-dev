@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -36,6 +36,7 @@ SourceFiles
 #ifndef nearWallDist_H
 #define nearWallDist_H
 
+#include "DemandDrivenMeshObject.H"
 #include "volFields.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -43,34 +44,47 @@ SourceFiles
 namespace Foam
 {
 
-class fvMesh;
-
 /*---------------------------------------------------------------------------*\
                         Class nearWallDist Declaration
 \*---------------------------------------------------------------------------*/
 
 class nearWallDist
 :
-    public volScalarField::Boundary
+    public DemandDrivenMeshObject
+    <
+        fvMesh,
+        DeletableMeshObject,
+        nearWallDist
+    >
 {
     // Private Data
 
-        //- Reference to mesh
-        const fvMesh& mesh_;
+        //- Near-well distance-to-wall boundary field
+        volScalarField::Boundary y_;
 
 
-    // Private Member Functions
+protected:
 
-        //- Do all calculations
-        void calculate();
+    friend class DemandDrivenMeshObject
+    <
+        fvMesh,
+        DeletableMeshObject,
+        nearWallDist
+    >;
+
+    // Protected Constructors
+
+        //- Construct from mesh
+        explicit nearWallDist(const fvMesh& mesh);
 
 
 public:
 
-    // Constructors
+    // Declare name of the class and its debug switch
+    ClassName("nearWallDist");
 
-        //- Construct from components
-        nearWallDist(const fvMesh& mesh);
+
+    // Constructors
 
         //- Disallow default bitwise copy construction
         nearWallDist(const nearWallDist&) = delete;
@@ -82,13 +96,11 @@ public:
 
     // Member Functions
 
+        //- Access to the near-wall distances
         const volScalarField::Boundary& y() const
         {
-            return *this;
+            return y_;
         }
-
-        //- Correct for mesh geom/topo changes
-        virtual void correct();
 
 
     // Member Operators

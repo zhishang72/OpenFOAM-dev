@@ -7,7 +7,6 @@
 \*---------------------------------------------------------------------------*/
 FoamFile
 {
-    version     2.0;
     format      ascii;
     class       dictionary;
     note        "mesh renumbering dictionary";
@@ -44,7 +43,6 @@ method          CuthillMcKee;
 //method          random;
 //method          structured;
 //method          spring;
-//method          zoltan;             // only if compiled with zoltan support
 
 //CuthillMcKeeCoeffs
 //{
@@ -100,12 +98,6 @@ blockCoeffs
     //    delta       0.001;
     //    order       xyz;
     //}
-}
-
-
-zoltanCoeffs
-{
-    ORDER_METHOD    LOCAL_HSFC;
 }
 
 

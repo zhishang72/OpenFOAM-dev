@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -89,9 +89,6 @@ Description
 
     Can optionally keep all regions local to the processor.
 
-    Note: does not walk across cyclicAMI/cyclicACMI - since not 'coupled()'
-          at the patch level.
-
 
 SourceFiles
     regionSplit.C
@@ -104,7 +101,6 @@ SourceFiles
 #include "globalIndex.H"
 #include "labelPair.H"
 #include "boolList.H"
-#include "MeshObject.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -119,10 +115,12 @@ class polyMesh;
 
 class regionSplit
 :
-    public MeshObject<polyMesh, TopologicalMeshObject, regionSplit>,
     public labelList
 {
     // Private Data
+
+        //- Reference to the polyMesh
+        const polyMesh& mesh_;
 
         mutable autoPtr<globalIndex> globalNumberingPtr_;
 
@@ -183,8 +181,17 @@ public:
             const bool doGlobalRegions = Pstream::parRun()
         );
 
+        //- Disallow default bitwise copy construction
+        regionSplit(const regionSplit&) = delete;
+
 
     // Member Functions
+
+        //- Return reference to the polyMesh
+        const polyMesh& mesh() const
+        {
+            return mesh_;
+        }
 
         //- Return global region numbering
         const globalIndex& globalNumbering() const

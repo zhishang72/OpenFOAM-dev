@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -33,37 +33,25 @@ Foam::freestreamPressureFvPatchScalarField::
 freestreamPressureFvPatchScalarField
 (
     const fvPatch& p,
-    const DimensionedField<scalar, volMesh>& iF
-)
-:
-    mixedFvPatchScalarField(p, iF),
-    UName_("U"),
-    supersonic_(false)
-{}
-
-
-Foam::freestreamPressureFvPatchScalarField::
-freestreamPressureFvPatchScalarField
-(
-    const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF,
     const dictionary& dict
 )
 :
-    mixedFvPatchScalarField(p, iF),
+    mixedFvPatchScalarField(p, iF, dict, false),
     UName_(dict.lookupOrDefault<word>("U", "U")),
     supersonic_
     (
         dict.lookupOrDefault<Switch>("supersonic", false)
     )
 {
-    freestreamValue() = scalarField("freestreamValue", dict, p.size());
+    freestreamValue() =
+        scalarField("freestreamValue", dimPressure, dict, p.size());
 
     if (dict.found("value"))
     {
         fvPatchScalarField::operator=
         (
-            scalarField("value", dict, p.size())
+            scalarField("value", iF.dimensions(), dict, p.size())
         );
     }
     else
@@ -82,22 +70,10 @@ freestreamPressureFvPatchScalarField
     const freestreamPressureFvPatchScalarField& psf,
     const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     mixedFvPatchScalarField(psf, p, iF, mapper),
-    UName_(psf.UName_),
-    supersonic_(psf.supersonic_)
-{}
-
-
-Foam::freestreamPressureFvPatchScalarField::
-freestreamPressureFvPatchScalarField
-(
-    const freestreamPressureFvPatchScalarField& psf
-)
-:
-    mixedFvPatchScalarField(psf),
     UName_(psf.UName_),
     supersonic_(psf.supersonic_)
 {}

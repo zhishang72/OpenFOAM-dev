@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -57,6 +57,7 @@ SourceFiles
 #include "point.H"
 #include "intersection.H"
 #include "HashSet.H"
+#include "Map.H"
 #include "objectHit.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -64,18 +65,15 @@ SourceFiles
 namespace Foam
 {
 
-class face;
-template<class T> class Map;
-
 /*---------------------------------------------------------------------------*\
-                        Class PrimitivePatchName Declaration
+                     Class PrimitivePatchName Declaration
 \*---------------------------------------------------------------------------*/
 
 TemplateName(PrimitivePatch);
 
 
 /*---------------------------------------------------------------------------*\
-                           Class PrimitivePatch Declaration
+                       Class PrimitivePatch Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class FaceList, class PointField>
@@ -168,6 +166,9 @@ private:
         //- Face centres
         mutable Field<PointType>* faceCentresPtr_;
 
+        //- Face areas
+        mutable Field<PointType>* faceAreasPtr_;
+
         //- Face unit normals
         mutable Field<PointType>* faceNormalsPtr_;
 
@@ -210,6 +211,9 @@ private:
         //- Calculate face centres
         void calcFaceCentres() const;
 
+        //- Calculate face areas
+        void calcFaceAreas() const;
+
         //- Calculate unit face normals
         void calcFaceNormals() const;
 
@@ -250,13 +254,6 @@ public:
             Field<PointType>&& points
         );
 
-        //- Move constructor from components
-        PrimitivePatch
-        (
-            FaceList&& faces,
-            List<PointType>&& points
-        );
-
         //- Construct from components, reuse storage
         PrimitivePatch
         (
@@ -278,7 +275,7 @@ public:
         );
 
         //- Construct and return a clone
-        virtual autoPtr<PrimitivePatch<FaceList, PointField>> clone() const
+        autoPtr<PrimitivePatch<FaceList, PointField>> clone() const
         {
             return autoPtr<PrimitivePatch<FaceList, PointField>>
             (
@@ -286,39 +283,9 @@ public:
             );
         }
 
-        //- Construct from Istream
-        PrimitivePatch
-        (
-            Istream&,
-            const Field<PointType>& points
-        );
-
-        class iNew
-        {
-            const Field<PointType>& points_;
-
-        public:
-
-            iNew(const Field<PointType>& points)
-            :
-                points_(points)
-            {}
-
-            autoPtr<PrimitivePatch<FaceList, PointField>> operator()
-            (
-                Istream& is
-            ) const
-            {
-                return autoPtr<PrimitivePatch<FaceList, PointField>>
-                (
-                    new PrimitivePatch<FaceList, PointField>(is, points_)
-                );
-            }
-        };
-
 
     //- Destructor
-    virtual ~PrimitivePatch();
+    ~PrimitivePatch();
 
 
     // Member Functions
@@ -426,6 +393,9 @@ public:
             //- Return face centres for patch
             const Field<PointType>& faceCentres() const;
 
+            //- Return face areas for patch
+            const Field<PointType>& faceAreas() const;
+
             //- Return face normals for patch
             const Field<PointType>& faceNormals() const;
 
@@ -505,9 +475,6 @@ public:
             void clearTopology();
 
             void clearPatchMeshAddr();
-
-            //- Correct patch after moving points
-            virtual void movePoints(const Field<PointType>&);
 
 
     // Member Operators

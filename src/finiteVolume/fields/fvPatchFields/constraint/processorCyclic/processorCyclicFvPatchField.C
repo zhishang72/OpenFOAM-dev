@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -53,7 +53,7 @@ Foam::processorCyclicFvPatchField<Type>::processorCyclicFvPatchField
     processorFvPatchField<Type>(p, iF, dict),
     procPatch_(refCast<const processorCyclicFvPatch>(p))
 {
-    if (!isType<processorCyclicFvPatch>(p))
+    if (!isA<processorCyclicFvPatch>(p))
     {
         FatalIOErrorInFunction
         (
@@ -94,13 +94,13 @@ Foam::processorCyclicFvPatchField<Type>::processorCyclicFvPatchField
     const processorCyclicFvPatchField<Type>& ptf,
     const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     processorFvPatchField<Type>(ptf, p, iF, mapper),
     procPatch_(refCast<const processorCyclicFvPatch>(p))
 {
-    if (!isType<processorCyclicFvPatch>(this->patch()))
+    if (!isA<processorCyclicFvPatch>(this->patch()))
     {
         FatalErrorInFunction
             << "' not constraint type '" << typeName << "'"
@@ -110,17 +110,6 @@ Foam::processorCyclicFvPatchField<Type>::processorCyclicFvPatchField
             << exit(FatalIOError);
     }
 }
-
-
-template<class Type>
-Foam::processorCyclicFvPatchField<Type>::processorCyclicFvPatchField
-(
-    const processorCyclicFvPatchField<Type>& ptf
-)
-:
-    processorFvPatchField<Type>(ptf),
-    procPatch_(refCast<const processorCyclicFvPatch>(ptf.patch()))
-{}
 
 
 template<class Type>

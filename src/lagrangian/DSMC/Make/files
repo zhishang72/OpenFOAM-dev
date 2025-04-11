@@ -1,11 +1,10 @@
-/* Parcels */
+# Parcels
 parcels/derived/dsmcParcel/dsmcParcel.C
 
-/* Cloud base classes */
-clouds/baseClasses/DSMCBaseCloud/DSMCBaseCloud.C
+# Cloud name
+clouds/Templates/DSMCCloud/DSMCCloudName.C
 
-/* Sub-models */
-parcels/derived/dsmcParcel/defineDSMCParcel.C
+# Sub-models
 parcels/derived/dsmcParcel/makeDSMCParcelBinaryCollisionModels.C
 parcels/derived/dsmcParcel/makeDSMCParcelWallInteractionModels.C
 parcels/derived/dsmcParcel/makeDSMCParcelInflowBoundaryModels.C

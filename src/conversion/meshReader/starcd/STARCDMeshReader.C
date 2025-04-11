@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,7 +24,7 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "STARCDMeshReader.H"
-#include "oldCyclicPolyPatch.H"
+#include "mergedCyclicPolyPatch.H"
 #include "emptyPolyPatch.H"
 #include "wallPolyPatch.H"
 #include "symmetryPolyPatch.H"
@@ -633,7 +633,7 @@ etc,
 void Foam::meshReaders::STARCD::readBoundary(const fileName& inputName)
 {
     const word fileSignature = "PROSTAR_BOUNDARY";
-    label nPatches = 0, nFaces = 0, nBafflePatches = 0, maxId = 0;
+    label nPatches = 0, nBafflePatches = 0, maxId = 0;
     label lineLabel, starCellId, cellFaceId, starRegion, configNumber;
     word patchType;
 
@@ -672,7 +672,6 @@ void Foam::meshReaders::STARCD::readBoundary(const fileName& inputName)
 
             while ((is >> lineLabel).good())
             {
-                nFaces++;
                 is  >> starCellId
                     >> cellFaceId
                     >> starRegion
@@ -799,7 +798,7 @@ void Foam::meshReaders::STARCD::readBoundary(const fileName& inputName)
         labelList sortedIndices;
         sortedOrder(SubList<label>(origRegion, nPatches-1), sortedIndices);
 
-        labelList oldToNew = identity(nPatches);
+        labelList oldToNew = identityMap(nPatches);
         forAll(sortedIndices, i)
         {
             oldToNew[sortedIndices[i]] = i;
@@ -815,7 +814,7 @@ void Foam::meshReaders::STARCD::readBoundary(const fileName& inputName)
     nBafflePatches = 1;
     if (nBafflePatches)
     {
-        labelList oldToNew = identity(nPatches);
+        labelList oldToNew = identityMap(nPatches);
         label newIndex = 0;
         label baffleIndex = (nPatches-1 - nBafflePatches);
 
@@ -945,16 +944,12 @@ void Foam::meshReaders::STARCD::readBoundary(const fileName& inputName)
         }
         else if (origType == "cyclic")
         {
-            // incorrect. should be cyclicPatch but this
-            // requires info on connected faces.
-            patchTypes_[patchi] = oldCyclicPolyPatch::typeName;
+            patchTypes_[patchi] = mergedCyclicPolyPatch::typeName;
             patchPhysicalTypes_[patchi] = patchTypes_[patchi];
         }
         else if (origType == "baffle")
         {
-            // incorrect. tag the patch until we get proper support.
-            // set physical type to a canonical "baffle"
-            patchTypes_[patchi] = emptyPolyPatch::typeName;
+            patchTypes_[patchi] = mergedCyclicPolyPatch::typeName;
             patchPhysicalTypes_[patchi] = "baffle";
         }
         else

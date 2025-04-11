@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -26,7 +26,7 @@ Class
 
 Description
     Class with limiter function which returns the limiter for the
-    UMIST differencing scheme.
+    UMIST interpolation scheme.
 
     Used in conjunction with the template class LimitedScheme.
 
@@ -46,7 +46,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class UMISTLimiter Declaration
+                        Class UMISTLimiter Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class LimiterFunc>

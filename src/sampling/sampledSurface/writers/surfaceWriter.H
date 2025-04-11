@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -40,7 +40,7 @@ SourceFiles
 #include "pointField.H"
 #include "faceList.H"
 #include "fileName.H"
-
+#include "setWriter.H"
 #include "runTimeSelectionTables.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -54,6 +54,17 @@ namespace Foam
 
 class surfaceWriter
 {
+protected:
+
+    // Protected Data
+
+        //- Write format
+        IOstream::streamFormat writeFormat_;
+
+        //- Write compression
+        IOstream::compressionType writeCompression_;
+
+
 public:
 
     //- Runtime type information
@@ -66,40 +77,54 @@ public:
             autoPtr,
             surfaceWriter,
             word,
-            (),
-            ()
+            (
+                const IOstream::streamFormat writeFormat,
+                const IOstream::compressionType writeCompression
+            ),
+            (writeFormat, writeCompression)
         );
 
         declareRunTimeSelectionTable
         (
             autoPtr,
             surfaceWriter,
-            wordDict,
+            dict,
             (
-                const dictionary& optDict
+                const dictionary& dict
             ),
-            (optDict)
+            (dict)
         );
 
 
     // Selectors
 
-        //- Return a reference to the selected surfaceWriter
-        static autoPtr<surfaceWriter> New(const word& writeType);
-
-        //- Return a reference to the selected surfaceWriter
-        //  Select with extra write option
+        //- Select given write options
         static autoPtr<surfaceWriter> New
         (
             const word& writeType,
-            const dictionary& writeOptions
+            const IOstream::streamFormat writeFormat,
+            const IOstream::compressionType writeCompression
+        );
+
+        //- Select given a dictionary
+        static autoPtr<surfaceWriter> New
+        (
+            const word& writeType,
+            const dictionary& dict
         );
 
 
     // Constructors
 
-        //- Construct null
-        surfaceWriter();
+        //- Construct given write options
+        surfaceWriter
+        (
+            const IOstream::streamFormat writeFormat,
+            const IOstream::compressionType writeCompression
+        );
+
+        //- Construct from dictionary
+        surfaceWriter(const dictionary& dict);
 
 
     //- Destructor
@@ -108,92 +133,134 @@ public:
 
     // Member Functions
 
-        //- True if the surface format supports geometry in a separate file.
-        //  False if geometry and field must be in a single file
-        virtual bool separateGeometry()
+        //- Write fields for a single surface to file.
+        virtual void write
+        (
+            const fileName& outputDir,      // <case>/surface/TIME
+            const fileName& surfaceName,    // name of surface
+            const pointField& points,
+            const faceList& faces,
+            const wordList& fieldNames,     // names of fields
+            const bool writePointValues
+            #define FieldTypeValuesConstArg(Type, nullArg) \
+                , const UPtrList<const Field<Type>>& field##Type##Values
+            FOR_ALL_FIELD_TYPES(FieldTypeValuesConstArg)
+            #undef FieldTypeValuesConstArg
+        ) const = 0;
+
+        //- Write fields for a single surface to file.
+        virtual void write
+        (
+            const fileName& outputDir,      // <case>/surface/TIME
+            const fileName& surfaceName,    // name of surface
+            const pointField& points,
+            const faceList& faces,
+            const wordList& fieldNames,     // names of fields
+            const bool writePointValues
+            #define FieldTypeValuesConstArg(Type, nullArg) \
+                , const PtrList<Field<Type>>& field##Type##Values
+            FOR_ALL_FIELD_TYPES(FieldTypeValuesConstArg)
+            #undef FieldTypeValuesConstArg
+        ) const
         {
-            return false;
+            write
+            (
+                outputDir,
+                surfaceName,
+                points,
+                faces,
+                fieldNames,
+                writePointValues
+                #define FieldTypeValuesParameter(Type, nullArg)            \
+                    , reinterpret_cast<const UPtrList<const Field<Type>>&> \
+                    (field##Type##Values)
+                FOR_ALL_FIELD_TYPES(FieldTypeValuesParameter)
+                #undef FieldTypeValuesParameter
+            );
         }
 
-        //- Write single surface geometry to file.
-        virtual void write
+        //- Write the surface geometry only.
+        void inline write
         (
             const fileName& outputDir,      // <case>/surface/TIME
             const fileName& surfaceName,    // name of surface
             const pointField& points,
-            const faceList& faces,
-            const bool verbose = false
-        ) const = 0;
+            const faceList& faces
+        ) const
+        {
+            write
+            (
+                outputDir,
+                surfaceName,
+                points,
+                faces,
+                wordList(),
+                false
+                #define FieldTypeValuesParameter(Type, nullArg) \
+                    , UPtrList<const Field<Type>>()
+                FOR_ALL_FIELD_TYPES(FieldTypeValuesParameter)
+                #undef FieldTypeValuesParameter
+            );
+        }
 
-        //- Write scalarField for a single surface to file.
-        //  One value per face or vertex (isNodeValues = true)
-        virtual void write
+        //- Write fields for a single surface to file. For use in code where
+        //  the fields that are to be written are known. Takes any number of
+        //  name, values arguments at the end. E.g.:
+        //
+        //  write
+        //  (
+        //      // Output options
+        //      "myDirectory", "mySurface",
+        //
+        //      // Geometry
+        //      pp.localPoints(), pp.localFaces(),
+        //
+        //      // Fields
+        //      "p", Field<scalar>(pp.size(), ...),
+        //      "U", Field<vector>(pp.size(), ...)
+        //  );
+        //
+        template<class ... Args>
+        void inline write
         (
             const fileName& outputDir,      // <case>/surface/TIME
             const fileName& surfaceName,    // name of surface
             const pointField& points,
             const faceList& faces,
-            const word& fieldName,          // name of field
-            const Field<scalar>& values,
-            const bool isNodeValues,
-            const bool verbose = false
-        ) const = 0;
+            const bool writePointValues,
+            const Args& ... args
+        ) const
+        {
+            wordList fieldNames;
+            #define DeclareFieldTypeValues(Type, nullArg) \
+                UPtrList<const Field<Type>> field##Type##Values;
+            FOR_ALL_FIELD_TYPES(DeclareFieldTypeValues);
+            #undef DeclareFieldTypeValues
 
-        //- Write vectorField for a single surface to file.
-        //  One value per face or vertex (isNodeValues = true)
-        virtual void write
-        (
-            const fileName& outputDir,      // <case>/surface/TIME
-            const fileName& surfaceName,    // name of surface
-            const pointField& points,
-            const faceList& faces,
-            const word& fieldName,          // name of field
-            const Field<vector>& values,
-            const bool isNodeValues,
-            const bool verbose = false
-        ) const = 0;
+            setWriter::unpackTypeValueSets
+            (
+                fieldNames
+                #define FieldTypeValuesParameter(Type, nullArg) \
+                    , field##Type##Values
+                FOR_ALL_FIELD_TYPES(FieldTypeValuesParameter),
+                #undef FieldTypeValuesParameter
+                args ...
+            );
 
-        //- Write sphericalTensorField for a single surface to file.
-        //  One value per face or vertex (isNodeValues = true)
-        virtual void write
-        (
-            const fileName& outputDir,      // <case>/surface/TIME
-            const fileName& surfaceName,    // name of surface
-            const pointField& points,
-            const faceList& faces,
-            const word& fieldName,          // name of field
-            const Field<sphericalTensor>& values,
-            const bool isNodeValues,
-            const bool verbose = false
-        ) const = 0;
-
-        //- Write symmTensorField for a single surface to file.
-        //  One value per face or vertex (isNodeValues = true)
-        virtual void write
-        (
-            const fileName& outputDir,      // <case>/surface/TIME
-            const fileName& surfaceName,    // name of surface
-            const pointField& points,
-            const faceList& faces,
-            const word& fieldName,          // name of field
-            const Field<symmTensor>& values,
-            const bool isNodeValues,
-            const bool verbose = false
-        ) const = 0;
-
-        //- Write tensorField for a single surface to file.
-        //  One value per face or vertex (isNodeValues = true)
-        virtual void write
-        (
-            const fileName& outputDir,      // <case>/surface/TIME
-            const fileName& surfaceName,    // name of surface
-            const pointField& points,
-            const faceList& faces,
-            const word& fieldName,          // name of field
-            const Field<tensor>& values,
-            const bool isNodeValues,
-            const bool verbose = false
-        ) const = 0;
+            write
+            (
+                outputDir,
+                surfaceName,
+                points,
+                faces,
+                fieldNames,
+                writePointValues
+                #define FieldTypeValuesParameter(Type, nullArg) \
+                    , field##Type##Values
+                FOR_ALL_FIELD_TYPES(FieldTypeValuesParameter)
+                #undef FieldTypeValuesParameter
+            );
+        }
 };
 
 

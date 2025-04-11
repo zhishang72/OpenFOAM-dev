@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,20 +44,16 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class boxToPoint Declaration
+                         Class boxToPoint Declaration
 \*---------------------------------------------------------------------------*/
 
 class boxToPoint
 :
     public topoSetSource
 {
-
     // Private Data
 
-        //- Add usage string
-        static addToUsageTable usage_;
-
-        //- Bounding box.
+        //- Bounding box
         treeBoundBoxList bbs_;
 
 
@@ -70,6 +66,7 @@ public:
 
     //- Runtime type information
     TypeName("boxToPoint");
+
 
     // Constructors
 
@@ -85,13 +82,6 @@ public:
         (
             const polyMesh& mesh,
             const dictionary& dict
-        );
-
-        //- Construct from Istream
-        boxToPoint
-        (
-            const polyMesh& mesh,
-            Istream&
         );
 
 
@@ -111,7 +101,6 @@ public:
             const topoSetSource::setAction action,
             topoSet&
         ) const;
-
 };
 
 

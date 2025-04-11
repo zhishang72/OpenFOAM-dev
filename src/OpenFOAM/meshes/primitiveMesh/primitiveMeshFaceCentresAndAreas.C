@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -46,7 +46,7 @@ void Foam::primitiveMesh::calcFaceCentresAndAreas() const
 
     // It is an error to attempt to recalculate faceCentres
     // if the pointer is already set
-    if (faceCentresPtr_ || faceAreasPtr_)
+    if (faceCentresPtr_ || faceAreasPtr_ || magFaceAreasPtr_)
     {
         FatalErrorInFunction
             << "Face centres or face areas already calculated"
@@ -59,7 +59,10 @@ void Foam::primitiveMesh::calcFaceCentresAndAreas() const
     faceAreasPtr_ = new vectorField(nFaces());
     vectorField& fAreas = *faceAreasPtr_;
 
-    makeFaceCentresAndAreas(points(), fCtrs, fAreas);
+    magFaceAreasPtr_ = new scalarField(nFaces());
+    scalarField& magfAreas = *magFaceAreasPtr_;
+
+    makeFaceCentresAndAreas(points(), fCtrs, fAreas, magfAreas);
 
     if (debug)
     {
@@ -74,63 +77,20 @@ void Foam::primitiveMesh::makeFaceCentresAndAreas
 (
     const pointField& p,
     vectorField& fCtrs,
-    vectorField& fAreas
+    vectorField& fAreas,
+    scalarField& magfAreas
 ) const
 {
     const faceList& fs = faces();
 
     forAll(fs, facei)
     {
-        const labelList& f = fs[facei];
-        label nPoints = f.size();
+        const Tuple2<vector, point> areaAndCentre =
+            face::areaAndCentre(UIndirectList<point>(p, fs[facei]));
 
-        // If the face is a triangle, do a direct calculation for efficiency
-        // and to avoid round-off error-related problems
-        if (nPoints == 3)
-        {
-            fCtrs[facei] = (1.0/3.0)*(p[f[0]] + p[f[1]] + p[f[2]]);
-            fAreas[facei] = 0.5*((p[f[1]] - p[f[0]])^(p[f[2]] - p[f[0]]));
-        }
-        else
-        {
-            vector sumN = Zero;
-            scalar sumA = 0.0;
-            vector sumAc = Zero;
-
-            point fCentre = p[f[0]];
-            for (label pi = 1; pi < nPoints; pi++)
-            {
-                fCentre += p[f[pi]];
-            }
-
-            fCentre /= nPoints;
-
-            for (label pi = 0; pi < nPoints; pi++)
-            {
-                const point& nextPoint = p[f[(pi + 1) % nPoints]];
-
-                vector c = p[f[pi]] + nextPoint + fCentre;
-                vector n = (nextPoint - p[f[pi]])^(fCentre - p[f[pi]]);
-                scalar a = mag(n);
-
-                sumN += n;
-                sumA += a;
-                sumAc += a*c;
-            }
-
-            // This is to deal with zero-area faces. Mark very small faces
-            // to be detected in e.g., processorPolyPatch.
-            if (sumA < rootVSmall)
-            {
-                fCtrs[facei] = fCentre;
-                fAreas[facei] = Zero;
-            }
-            else
-            {
-                fCtrs[facei] = (1.0/3.0)*sumAc/sumA;
-                fAreas[facei] = 0.5*sumN;
-            }
-        }
+        fCtrs[facei] = areaAndCentre.second();
+        fAreas[facei] = areaAndCentre.first();
+        magfAreas[facei] = max(mag(fAreas[facei]), rootVSmall);
     }
 }
 
@@ -156,6 +116,17 @@ const Foam::vectorField& Foam::primitiveMesh::faceAreas() const
     }
 
     return *faceAreasPtr_;
+}
+
+
+const Foam::scalarField& Foam::primitiveMesh::magFaceAreas() const
+{
+    if (!magFaceAreasPtr_)
+    {
+        calcFaceCentresAndAreas();
+    }
+
+    return *magFaceAreasPtr_;
 }
 
 

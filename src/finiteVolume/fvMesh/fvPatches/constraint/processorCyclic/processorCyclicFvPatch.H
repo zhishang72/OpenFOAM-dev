@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -37,6 +37,7 @@ SourceFiles
 
 #include "processorCyclicPolyPatch.H"
 #include "processorFvPatch.H"
+#include "cyclicFvPatch.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -44,7 +45,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class processorCyclicFvPatch Declaration
+                   Class processorCyclicFvPatch Declaration
 \*---------------------------------------------------------------------------*/
 
 class processorCyclicFvPatch
@@ -80,27 +81,23 @@ public:
             return procPolyPatch_.tag();
         }
 
-        const processorCyclicPolyPatch& procPolyPatch() const
+        //- Return the referring patch ID
+        label referPatchIndex() const
         {
-            return procPolyPatch_;
+            return procPolyPatch_.referPatchIndex();
         }
 
-        //- Are the cyclic planes parallel
-        virtual bool parallel() const
+        //- Return a reference to the referring patch
+        const cyclicFvPatch& referPatch() const
         {
-            return procPolyPatch_.parallel();
+            const fvPatch& fvp = this->boundaryMesh()[referPatchIndex()];
+            return refCast<const cyclicFvPatch>(fvp);
         }
 
-        //- Return face transformation tensor
-        virtual const tensorField& forwardT() const
+        //- Return transformation between the coupled patches
+        virtual const transformer& transform() const
         {
-            return procPolyPatch_.forwardT();
-        }
-
-        //- Return neighbour-cell transformation tensor
-        virtual const tensorField& reverseT() const
-        {
-            return procPolyPatch_.reverseT();
+            return procPolyPatch_.transform();
         }
 };
 

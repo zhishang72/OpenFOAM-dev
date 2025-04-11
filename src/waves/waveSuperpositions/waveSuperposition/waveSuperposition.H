@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -26,27 +26,33 @@ Class
 
 Description
     A wrapper around a list of wave models. Superimposes the modelled values of
-    elevation and velocity. The New method looks up or or constructs an
+    elevation and velocity. The New method looks up or constructs an
     instance of this class on demand and returns a reference. Properties are
-    read from a dictionary in constant.
+    read from a waveProperties dictionary in constant.
 
 Usage
     \table
-        Property   | Description                             | Req'd? | Default
-        origin     | origin of the wave coordinate system    | yes    |
-        direction  | direction of the wave coordinate system | yes    |
-        waves      | list of wave models to superimpose      | yes    |
-        UMean      | velocity of the mean flow               | yes    |
-        scale      | scale factor in the direction           | no     | None
-        crossScale | scale factor perpendicular to the direction | no | None
-        heightAboveWave | use the height above the wave as the vertical \\
-        coordinate | no | false
+        Property        | Description                      | Required? | Default
+        origin          | origin of the wave coordinate \\
+                          system                           | yes       |
+        direction       | direction of the wave \\
+                          coordinate system                | yes       |
+        waves           | list of wave models to \\
+                          superimpose                      | yes       |
+        UMean           | velocity of the mean flow        | yes       |
+        scale           | scale factor in the direction    | no        | None
+        crossScale      | scale factor perpendicular to \\
+                          the direction                    | no        | None
+        heightAboveWave | use the height above the wave \\
+                          as the vertical coordinate       | no        | false
     \endtable
 
     Example specification:
     \verbatim
     origin      (0 25 0);
+
     direction   (1 0 0);
+
     waves
     (
         Airy
@@ -64,14 +70,19 @@ Usage
             angle       0;
         }
     );
+
     UMean       (2 0 0);
+
     scale       table ((100 1) (200 0));
+
     crossScale  constant 1;
+
     heightAboveWave no;
     \endverbatim
 
 SourceFiles
     waveSuperposition.C
+    waveSuperpositionNew.C
 
 \*---------------------------------------------------------------------------*/
 
@@ -80,6 +91,7 @@ SourceFiles
 
 #include "waveModel.H"
 #include "IOdictionary.H"
+#include "tensor.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -87,7 +99,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                         Class waveSuperposition Declaration
+                      Class waveSuperposition Declaration
 \*---------------------------------------------------------------------------*/
 
 class waveSuperposition
@@ -132,6 +144,7 @@ protected:
             const scalar t,
             const vectorField& p,
             tensor& axes,
+            vector& drift,
             vectorField& xyz
         ) const;
 
@@ -141,18 +154,19 @@ protected:
         tmp<scalarField> elevation
         (
             const scalar t,
+            const vector2D& drift,
             const vector2DField& xy
         ) const;
 
         //- Get the wave velocity at a given time and local coordinates. Local
         //  x is aligned with the direction, z with negative gravity, and y is
         //  perpendicular to both.
-        tmp<vectorField> velocity(const scalar t, const vectorField& xyz) const;
-
-        //- Get the wave pressure at a given time and local coordinates. Local
-        //  x is aligned with the direction, z with negative gravity, and y is
-        //  perpendicular to both.
-        tmp<scalarField> pressure(const scalar t, const vectorField& xyz) const;
+        tmp<vectorField> velocity
+        (
+            const scalar t,
+            const vector& drift,
+            const vectorField& xyz
+        ) const;
 
         //- Get the scaling factor, calculated from the optional scaling
         //  functions. X and y are the same as for the elevation method.
@@ -201,6 +215,10 @@ public:
 
     // Member Functions
 
+        //- Return the maximum wave speed for the given time t
+        //  used to evaluate the mean velocity
+        scalar maxWaveSpeed(const scalar t) const;
+
         //- Get the height above the waves at a given time and global positions
         virtual tmp<scalarField> height
         (
@@ -217,20 +235,6 @@ public:
 
         //- Get the gas velocity at a given time and global positions
         virtual tmp<vectorField> UGas
-        (
-            const scalar t,
-            const vectorField& p
-        ) const;
-
-        //- Get the liquid pressure at a given time and global positions
-        virtual tmp<scalarField> pLiquid
-        (
-            const scalar t,
-            const vectorField& p
-        ) const;
-
-        //- Get the gas pressure at a given time and global positions
-        virtual tmp<scalarField> pGas
         (
             const scalar t,
             const vectorField& p

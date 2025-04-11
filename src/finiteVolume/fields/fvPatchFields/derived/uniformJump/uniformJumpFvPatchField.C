@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -31,12 +31,30 @@ template<class Type>
 Foam::uniformJumpFvPatchField<Type>::uniformJumpFvPatchField
 (
     const fvPatch& p,
-    const DimensionedField<Type, volMesh>& iF
+    const DimensionedField<Type, volMesh>& iF,
+    const dictionary& dict
 )
 :
-    fixedJumpFvPatchField<Type>(p, iF),
+    fixedJumpFvPatchField<Type>(p, iF, dict, false),
     jumpTable_()
-{}
+{
+    if (this->cyclicPatch().owner())
+    {
+        jumpTable_ =
+            Function1<Type>::New
+            (
+                "jumpTable",
+                this->db().time().userUnits(),
+                iF.dimensions(),
+                dict
+            );
+
+        this->jumpRef() =
+            Field<Type>(p.size(), jumpTable_->value(this->db().time().value()));
+    }
+
+    this->evaluateNoUpdateCoeffs();
+}
 
 
 template<class Type>
@@ -45,51 +63,10 @@ Foam::uniformJumpFvPatchField<Type>::uniformJumpFvPatchField
     const uniformJumpFvPatchField<Type>& ptf,
     const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     fixedJumpFvPatchField<Type>(ptf, p, iF, mapper),
-    jumpTable_(ptf.jumpTable_, false)
-{}
-
-
-template<class Type>
-Foam::uniformJumpFvPatchField<Type>::uniformJumpFvPatchField
-(
-    const fvPatch& p,
-    const DimensionedField<Type, volMesh>& iF,
-    const dictionary& dict
-)
-:
-    fixedJumpFvPatchField<Type>(p, iF),
-    jumpTable_()
-{
-    if (this->cyclicPatch().owner())
-    {
-        jumpTable_ = Function1<Type>::New("jumpTable", dict);
-    }
-
-    if (dict.found("value"))
-    {
-        fvPatchField<Type>::operator=
-        (
-            Field<Type>("value", dict, p.size())
-        );
-    }
-    else
-    {
-        this->evaluate(Pstream::commsTypes::blocking);
-    }
-}
-
-
-template<class Type>
-Foam::uniformJumpFvPatchField<Type>::uniformJumpFvPatchField
-(
-    const uniformJumpFvPatchField<Type>& ptf
-)
-:
-    fixedJumpFvPatchField<Type>(ptf),
     jumpTable_(ptf.jumpTable_, false)
 {}
 
@@ -118,7 +95,7 @@ void Foam::uniformJumpFvPatchField<Type>::updateCoeffs()
 
     if (this->cyclicPatch().owner())
     {
-        this->jump_ = jumpTable_->value(this->db().time().value());
+        this->jumpRef() = jumpTable_->value(this->db().time().value());
     }
 
     fixedJumpFvPatchField<Type>::updateCoeffs();
@@ -128,10 +105,17 @@ void Foam::uniformJumpFvPatchField<Type>::updateCoeffs()
 template<class Type>
 void Foam::uniformJumpFvPatchField<Type>::write(Ostream& os) const
 {
-    fixedJumpFvPatchField<Type>::write(os);
+    fvPatchField<Type>::write(os);
+
     if (this->cyclicPatch().owner())
     {
-        writeEntry(os, jumpTable_());
+        writeEntry
+        (
+            os,
+            this->db().time().userUnits(),
+            this->internalField().dimensions(),
+            jumpTable_()
+        );
     }
 }
 

@@ -38,7 +38,7 @@ int USERD_set_filenames
 
     rootDir = the_path;
 
-    // the path is pre-pended to filename_1
+    // the path is prepended to filename_1
     // 1 is the 'Geometry' : 2 the 'Result' which is null here
     // since two_field is FALSE
     for (label i=0; i<lCase-lRoot;i++)
@@ -73,13 +73,14 @@ int USERD_set_filenames
         IOobject
         (
             fvMesh::defaultRegion,
-            runTime.timeName(),
+            runTime.name(),
             runTime
-        )
+        ),
+        false
     );
 
     // set the available number of time-steps
-    timeDirs = Foam::Time::findTimes(rootDir/caseDir);
+    timeDirs = runTime.findTimes(rootDir/caseDir);
 
     Num_time_steps = timeDirs.size() - 1;
 
@@ -88,7 +89,7 @@ int USERD_set_filenames
     // set the number of fields and store their names
     // a valid field must exist for all time-steps
     runTime.setTime(timeDirs.last(), timeDirs.size()-1);
-    IOobjectList objects(*meshPtr, runTime.timeName());
+    IOobjectList objects(*meshPtr, runTime.name());
 
     fieldNames = objects.names();
 
@@ -151,7 +152,11 @@ int USERD_set_filenames
     {
         runTime.setTime(timeDirs[n+1], n+1);
 
-        Cloud<passiveParticle> lagrangian(*meshPtr, cloud::defaultName);
+        lagrangian::Cloud<passiveParticle> lagrangian
+        (
+            *meshPtr,
+            lagrangian::cloud::defaultName
+        );
 
         n++;
         if (lagrangian.size())
@@ -163,23 +168,33 @@ int USERD_set_filenames
     IOobject sprayHeader
     (
         "positions",
-        runTime.timeName(),
-        cloud::prefix,
+        runTime.name(),
+        lagrangian::cloud::prefix,
         runTime,
         IOobject::NO_READ,
         IOobject::NO_WRITE,
         false
     );
 
-    if (sprayHeader.typeHeaderOk<Cloud<passiveParticle>>(false))
+    if (sprayHeader.headerOk())
     {
         Info<< "[Found lagrangian]" << endl;
 
         delete sprayPtr;
 
-        sprayPtr = new Cloud<passiveParticle>(*meshPtr, cloud::defaultName);
+        sprayPtr =
+            new lagrangian::Cloud<passiveParticle>
+            (
+                *meshPtr,
+                lagrangian::cloud::defaultName
+            );
 
-        IOobjectList objects(*meshPtr, runTime.timeName(), cloud::prefix);
+        IOobjectList objects
+        (
+            *meshPtr,
+            runTime.name(),
+            lagrangian::cloud::prefix
+        );
 
         lagrangianScalarNames =
             objects.names(sprayScalarFieldName);

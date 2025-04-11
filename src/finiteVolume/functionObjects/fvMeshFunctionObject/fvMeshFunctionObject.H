@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,15 +25,16 @@ Class
     Foam::functionObjects::fvMeshFunctionObject
 
 Description
-    Specialization of Foam::functionObject for an Foam::fvMesh, providing a
+    Specialisation of Foam::functionObject for an Foam::fvMesh, providing a
     reference to the Foam::fvMesh.
 
     If the selected region is not an Foam::fvMesh a Foam::FatalError will be
     generated.
 
 See also
-    Foam::regionFunctionObject
     Foam::functionObject
+    Foam::functionObjects::objectRegistryFunctionObject
+    Foam::functionObjects::regionFunctionObject
 
 SourceFiles
     fvMeshFunctionObject.C
@@ -57,7 +58,7 @@ namespace functionObjects
 {
 
 /*---------------------------------------------------------------------------*\
-                     Class fvMeshFunctionObject Declaration
+                    Class fvMeshFunctionObject Declaration
 \*---------------------------------------------------------------------------*/
 
 class fvMeshFunctionObject
@@ -71,6 +72,17 @@ protected:
 
         //- Reference to the fvMesh
         const fvMesh& mesh_;
+
+
+    // Protected member functions
+
+        //- Return the patch set corresponding to the patch selection entries
+        //  in the given dictionary
+        labelHashSet patchSet
+        (
+            const dictionary&,
+            const bool optional = false
+        ) const;
 
 
 public:
@@ -89,12 +101,11 @@ public:
             const dictionary& dict
         );
 
-        //- Construct from the region objectRegistry and dictionary
+        //- Construct from the region objectRegistry
         fvMeshFunctionObject
         (
             const word& name,
-            const objectRegistry& obr,
-            const dictionary& dict
+            const objectRegistry& obr
         );
 
         //- Disallow default bitwise copy construction
@@ -103,6 +114,15 @@ public:
 
     //- Destructor
     virtual ~fvMeshFunctionObject();
+
+
+    // Member Functions
+
+        //- Return a reference to the mesh
+        const fvMesh& mesh() const
+        {
+            return mesh_;
+        }
 
 
     // Member Operators

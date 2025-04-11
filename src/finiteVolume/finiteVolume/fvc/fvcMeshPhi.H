@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -39,6 +39,7 @@ SourceFiles
 #include "volFieldsFwd.H"
 #include "surfaceFieldsFwd.H"
 #include "dimensionedTypes.H"
+#include "IOMRFZoneList.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -46,7 +47,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                     Namespace fvc functions Declaration
+                      Namespace fvc functions Declaration
 \*---------------------------------------------------------------------------*/
 
 namespace fvc
@@ -56,6 +57,12 @@ namespace fvc
         const volVectorField& U
     );
 
+    tmp<scalarField> meshPhi
+    (
+        const volVectorField& U,
+        const label patchi
+    );
+
     tmp<surfaceScalarField> meshPhi
     (
         const dimensionedScalar& rho,
@@ -146,6 +153,34 @@ namespace fvc
         const tmp<surfaceScalarField>& tphi,
         const volScalarField& rho,
         const volVectorField& U
+    );
+
+    //- Return the given relative flux in absolute form
+    tmp<surfaceScalarField> absolute
+    (
+        const tmp<surfaceScalarField>& tphi,
+        const volScalarField& alpha,
+        const volScalarField& rho,
+        const volVectorField& U
+    );
+
+    template<class MRFType>
+    void correctUf
+    (
+        autoPtr<surfaceVectorField>& Uf,
+        const volVectorField& U,
+        const surfaceScalarField& phi,
+        const MRFType& MRF
+    );
+
+    template<class MRFType>
+    void correctRhoUf
+    (
+        autoPtr<surfaceVectorField>& rhoUf,
+        const volScalarField& rho,
+        const volVectorField& U,
+        const surfaceScalarField& phi,
+        const MRFType& MRF
     );
 
     void correctUf
@@ -168,6 +203,12 @@ namespace fvc
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 } // End namespace Foam
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+#ifdef NoRepository
+    #include "fvcMeshPhiTemplates.C"
+#endif
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

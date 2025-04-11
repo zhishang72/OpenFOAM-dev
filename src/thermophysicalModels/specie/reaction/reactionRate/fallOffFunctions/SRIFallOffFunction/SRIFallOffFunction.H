@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -35,7 +35,7 @@ SourceFiles
 #ifndef SRIFallOffFunction_H
 #define SRIFallOffFunction_H
 
-#include "scalar.H"
+#include "dictionary.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -49,7 +49,7 @@ Ostream& operator<<(Ostream&, const SRIFallOffFunction&);
 
 
 /*---------------------------------------------------------------------------*\
-                    Class SRIFallOffFunction Declaration
+                     Class SRIFallOffFunction Declaration
 \*---------------------------------------------------------------------------*/
 
 class SRIFallOffFunction
@@ -93,18 +93,16 @@ public:
 
         inline scalar ddT
         (
+            const scalar T,
             const scalar Pr,
-            const scalar F,
-            const scalar dPrdT,
-            const scalar T
+            const scalar F
         ) const;
 
-        inline scalar ddc
+        inline scalar ddPr
         (
+            const scalar T,
             const scalar Pr,
-            const scalar F,
-            const scalar dPrdc,
-            const scalar T
+            const scalar F
         ) const;
 
         //- Write to stream

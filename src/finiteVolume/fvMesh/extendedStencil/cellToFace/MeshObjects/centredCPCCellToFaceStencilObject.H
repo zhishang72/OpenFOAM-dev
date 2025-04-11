@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -35,7 +35,7 @@ SourceFiles
 
 #include "extendedCentredCellToFaceStencil.H"
 #include "CPCCellToFaceStencil.H"
-#include "MeshObject.H"
+#include "DemandDrivenMeshObject.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -48,20 +48,25 @@ namespace Foam
 
 class centredCPCCellToFaceStencilObject
 :
-    public MeshObject
+    public DemandDrivenMeshObject
     <
         fvMesh,
-        TopologicalMeshObject,
+        MoveableMeshObject,
         centredCPCCellToFaceStencilObject
     >,
     public extendedCentredCellToFaceStencil
 {
 
-public:
+protected:
 
-    TypeName("centredCPCCellToFaceStencil");
+    friend class DemandDrivenMeshObject
+    <
+        fvMesh,
+        MoveableMeshObject,
+        centredCPCCellToFaceStencilObject
+    >;
 
-    // Constructors
+    // Protected Constructors
 
         //- Construct from uncompacted face stencil
         explicit centredCPCCellToFaceStencilObject
@@ -69,10 +74,10 @@ public:
             const fvMesh& mesh
         )
         :
-            MeshObject
+            DemandDrivenMeshObject
             <
                 fvMesh,
-                Foam::TopologicalMeshObject,
+                MoveableMeshObject,
                 centredCPCCellToFaceStencilObject
             >(mesh),
             extendedCentredCellToFaceStencil(CPCCellToFaceStencil(mesh))
@@ -86,9 +91,19 @@ public:
         }
 
 
+public:
+
+    TypeName("centredCPCCellToFaceStencil");
+
     //- Destructor
     virtual ~centredCPCCellToFaceStencilObject()
     {}
+
+    //- Update for mesh motion
+    virtual bool movePoints()
+    {
+        return true;
+    }
 };
 
 

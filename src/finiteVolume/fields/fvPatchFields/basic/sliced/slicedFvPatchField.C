@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ License
 
 #include "slicedFvPatchField.H"
 
-// * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class Type>
 Foam::slicedFvPatchField<Type>::slicedFvPatchField
@@ -46,39 +46,14 @@ template<class Type>
 Foam::slicedFvPatchField<Type>::slicedFvPatchField
 (
     const fvPatch& p,
-    const DimensionedField<Type, volMesh>& iF
+    const DimensionedField<Type, volMesh>& iF,
+    const fvPatchField<Type>& pf
 )
 :
     fvPatchField<Type>(p, iF, Field<Type>())
-{}
-
-
-template<class Type>
-Foam::slicedFvPatchField<Type>::slicedFvPatchField
-(
-    const fvPatch& p,
-    const DimensionedField<Type, volMesh>& iF,
-    const dictionary& dict
-)
-:
-    fvPatchField<Type>(p, iF, dict, false)
 {
-    NotImplemented;
-}
-
-
-template<class Type>
-Foam::slicedFvPatchField<Type>::slicedFvPatchField
-(
-    const slicedFvPatchField<Type>& ptf,
-    const fvPatch& p,
-    const DimensionedField<Type, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
-)
-:
-    fvPatchField<Type>(ptf, p, iF, mapper)
-{
-    NotImplemented;
+    // Set the fvPatchField values to the given fvPatchField
+    UList<Type>::shallowCopy(pf);
 }
 
 
@@ -96,48 +71,7 @@ Foam::slicedFvPatchField<Type>::slicedFvPatchField
 }
 
 
-template<class Type>
-Foam::tmp<Foam::fvPatchField<Type>>
-Foam::slicedFvPatchField<Type>::clone() const
-{
-    return tmp<fvPatchField<Type>>
-    (
-        new slicedFvPatchField<Type>(*this)
-    );
-}
-
-
-template<class Type>
-Foam::slicedFvPatchField<Type>::slicedFvPatchField
-(
-    const slicedFvPatchField<Type>& ptf
-)
-:
-    fvPatchField<Type>
-    (
-        ptf.patch(),
-        ptf.internalField(),
-        Field<Type>()
-    )
-{
-    // Transfer the slice from the argument
-    UList<Type>::shallowCopy(ptf);
-}
-
-
-template<class Type>
-Foam::tmp<Foam::fvPatchField<Type>>
-Foam::slicedFvPatchField<Type>::clone
-(
-    const DimensionedField<Type, volMesh>& iF
-) const
-{
-    return tmp<fvPatchField<Type>>
-    (
-        new slicedFvPatchField<Type>(*this, iF)
-    );
-}
-
+// * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
 
 template<class Type>
 Foam::slicedFvPatchField<Type>::~slicedFvPatchField()
@@ -163,46 +97,6 @@ template<class Type>
 void Foam::slicedFvPatchField<Type>::updateCoeffs()
 {
     NotImplemented;
-}
-
-
-template<class Type>
-Foam::tmp<Foam::Field<Type>>
-Foam::slicedFvPatchField<Type>::patchInternalField() const
-{
-    NotImplemented;
-
-    return Field<Type>::null();
-}
-
-
-template<class Type>
-void Foam::slicedFvPatchField<Type>::patchInternalField(Field<Type>&) const
-{
-    NotImplemented;
-}
-
-
-template<class Type>
-Foam::tmp<Foam::Field<Type>>
-Foam::slicedFvPatchField<Type>::patchNeighbourField
-(
-    const Field<Type>& iField
-) const
-{
-    NotImplemented;
-
-    return Field<Type>::null();
-}
-
-
-template<class Type>
-Foam::tmp<Foam::Field<Type>>
-Foam::slicedFvPatchField<Type>::patchNeighbourField() const
-{
-    NotImplemented;
-
-    return Field<Type>::null();
 }
 
 

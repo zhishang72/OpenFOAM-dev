@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -29,7 +29,7 @@ License
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class Type>
-Foam::wordList Foam::objectRegistry::names() const
+Foam::wordList Foam::objectRegistry::toc() const
 {
     wordList objectNames(size());
 
@@ -49,7 +49,7 @@ Foam::wordList Foam::objectRegistry::names() const
 
 
 template<class Type>
-Foam::wordList Foam::objectRegistry::names(const wordRe& name) const
+Foam::wordList Foam::objectRegistry::toc(const wordRe& name) const
 {
     wordList objectNames(size());
 
@@ -74,9 +74,9 @@ Foam::wordList Foam::objectRegistry::names(const wordRe& name) const
 
 
 template<class Type>
-Foam::wordList Foam::objectRegistry::names(const wordReList& patterns) const
+Foam::wordList Foam::objectRegistry::toc(const wordReList& patterns) const
 {
-    wordList names(this->names<Type>());
+    wordList names(this->toc<Type>());
 
     return wordList(names, findStrings(patterns, names));
 }
@@ -196,7 +196,7 @@ const Type& Foam::objectRegistry::lookupObject(const word& name) const
             << " " << name << " from objectRegistry " << this->name()
             << " failed\n    available objects of type " << Type::typeName
             << " are" << nl
-            << names<Type>();
+            << toc<Type>();
 
         if (cacheTemporaryObject(name))
         {
@@ -223,60 +223,87 @@ Type& Foam::objectRegistry::lookupObjectRef(const word& name) const
 }
 
 
+template<class Type>
+bool Foam::objectRegistry::foundType(const word& group) const
+{
+    return foundObject<Type>(IOobject::groupName(Type::typeName, group));
+}
+
+
+template<class Type>
+const Type& Foam::objectRegistry::lookupType(const word& group) const
+{
+    return lookupObject<Type>(IOobject::groupName(Type::typeName, group));
+}
+
+
 template<class Object>
 bool Foam::objectRegistry::cacheTemporaryObject(Object& ob) const
 {
-    readCacheTemporaryObjects();
+    const objectRegistry& root = time_;
 
-    if (cacheTemporaryObjects_.size())
-    {
-        temporaryObjects_.insert(ob.name());
+    root.readCacheTemporaryObjects();
 
-        HashTable<Pair<bool>>::iterator iter
-        (
-            cacheTemporaryObjects_.find(ob.name())
-        );
-
-        // Cache object ob if is in the cacheTemporaryObjects list
-        // and hasn't been cached yet
-        if (iter != cacheTemporaryObjects_.end() && iter().first() == false)
-        {
-            iter().first() = true;
-            iter().second() = true;
-
-            if (ob.db().template foundObject<Object>(ob.name()))
-            {
-                Object& cachedOb =
-                    ob.db().template lookupObjectRef<Object>(ob.name());
-
-                // If the object is already cached in the database delete it
-                if (&cachedOb != &ob && cachedOb.ownedByRegistry())
-                {
-                    deleteCachedObject(cachedOb);
-                }
-            }
-
-            if (debug)
-            {
-                Info<< "Caching " << ob.name()
-                    << " of type " << ob.type() << endl;
-            }
-
-            ob.release();
-            ob.checkOut();
-            store(new Object(move(ob)));
-
-            return true;
-        }
-        else
-        {
-            return false;
-        }
-    }
-    else
+    if (root.cacheTemporaryObjects_.empty())
     {
         return false;
     }
+
+    temporaryObjects_.insert(ob.name());
+
+    HashTable<Pair<bool>>::iterator rootIter
+    (
+        root.cacheTemporaryObjects_.find(ob.name())
+    );
+
+    if (rootIter == root.cacheTemporaryObjects_.end()) return false;
+
+    HashTable<Pair<bool>>::iterator iter
+    (
+        cacheTemporaryObjects_.find(ob.name())
+    );
+
+    if (iter == cacheTemporaryObjects_.end())
+    {
+        cacheTemporaryObjects_.insert(rootIter.key(), rootIter());
+
+        iter = cacheTemporaryObjects_.find(ob.name());
+    }
+
+    // Cache object ob if it hasn't been cached yet
+    if (iter().first() == false)
+    {
+        rootIter().first() = true;
+        rootIter().second() = true;
+        iter().first() = true;
+        iter().second() = true;
+
+        if (ob.db().template foundObject<Object>(ob.name()))
+        {
+            Object& cachedOb =
+                ob.db().template lookupObjectRef<Object>(ob.name());
+
+            // If the object is already cached in the database delete it
+            if (&cachedOb != &ob && cachedOb.ownedByRegistry())
+            {
+                deleteCachedObject(cachedOb);
+            }
+        }
+
+        if (debug)
+        {
+            Info<< "Caching " << ob.name()
+                << " of type " << ob.type() << endl;
+        }
+
+        ob.release();
+        ob.checkOut();
+        store(new Object(move(ob)));
+
+        return true;
+    }
+
+    return false;
 }
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ Class
     Foam::harmonic
 
 Description
-    Harmonic-mean differencing scheme class.
+    Harmonic-mean interpolation scheme class.
 
     This scheme interpolates 1/field using a scheme specified at run-time
     and return the reciprocal of the interpolate.
@@ -49,7 +49,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class harmonic Declaration
+                          Class harmonic Declaration
 \*---------------------------------------------------------------------------*/
 
 class harmonic
@@ -100,7 +100,7 @@ public:
         //- Return the interpolation weighting factors
         virtual tmp<surfaceScalarField> weights
         (
-            const GeometricField<scalar, fvPatchField, volMesh>&
+            const VolField<scalar>&
         ) const
         {
             NotImplemented;
@@ -109,10 +109,10 @@ public:
         }
 
         //- Return the face-interpolate of the given cell field
-        virtual tmp<GeometricField<scalar, fvsPatchField, surfaceMesh>>
+        virtual tmp<SurfaceField<scalar>>
         interpolate
         (
-            const GeometricField<scalar, fvPatchField, volMesh>& vf
+            const VolField<scalar>& vf
         ) const
         {
             return 1.0/(reverseLinear<scalar>(vf.mesh()).interpolate(1.0/vf));

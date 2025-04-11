@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,8 +24,8 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "turbulenceFields.H"
-#include "turbulentTransportModel.H"
-#include "turbulentFluidThermoModel.H"
+#include "incompressibleMomentumTransportModel.H"
+#include "fluidThermophysicalTransportModel.H"
 #include "addToRunTimeSelectionTable.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
@@ -49,30 +49,6 @@ template<>
 const char* Foam::NamedEnum
 <
     Foam::functionObjects::turbulenceFields::compressibleField,
-    9
->::names[] =
-{
-    "k",
-    "epsilon",
-    "omega",
-    "mut",
-    "muEff",
-    "alphat",
-    "alphaEff",
-    "R",
-    "devRhoReff"
-};
-
-const Foam::NamedEnum
-<
-    Foam::functionObjects::turbulenceFields::compressibleField,
-    9
-> Foam::functionObjects::turbulenceFields::compressibleFieldNames_;
-
-template<>
-const char* Foam::NamedEnum
-<
-    Foam::functionObjects::turbulenceFields::incompressibleField,
     7
 >::names[] =
 {
@@ -81,14 +57,35 @@ const char* Foam::NamedEnum
     "omega",
     "nut",
     "nuEff",
-    "R",
-    "devReff"
+    "kappaEff",
+    "R"
+};
+
+const Foam::NamedEnum
+<
+    Foam::functionObjects::turbulenceFields::compressibleField,
+    7
+> Foam::functionObjects::turbulenceFields::compressibleFieldNames_;
+
+template<>
+const char* Foam::NamedEnum
+<
+    Foam::functionObjects::turbulenceFields::incompressibleField,
+    6
+>::names[] =
+{
+    "k",
+    "epsilon",
+    "omega",
+    "nut",
+    "nuEff",
+    "R"
 };
 
 const Foam::NamedEnum
 <
     Foam::functionObjects::turbulenceFields::incompressibleField,
-    7
+    6
 > Foam::functionObjects::turbulenceFields::incompressibleFieldNames_;
 
 
@@ -102,7 +99,8 @@ Foam::functionObjects::turbulenceFields::turbulenceFields
 )
 :
     fvMeshFunctionObject(name, runTime, dict),
-    fieldSet_()
+    fieldSet_(),
+    phaseName_(dict.lookupOrDefault<word>("phase", word::null))
 {
     read(dict);
 }
@@ -115,12 +113,6 @@ Foam::functionObjects::turbulenceFields::~turbulenceFields()
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
-
-const Foam::word& Foam::functionObjects::turbulenceFields::modelName()
-{
-    return Foam::turbulenceModel::propertiesName;
-}
-
 
 bool Foam::functionObjects::turbulenceFields::read(const dictionary& dict)
 {
@@ -135,7 +127,7 @@ bool Foam::functionObjects::turbulenceFields::read(const dictionary& dict)
 
     if (dict.lookupOrDefault<Switch>("prefix", false))
     {
-        prefix_ = modelName() + ':';
+        prefix_ = momentumTransportModel::typeName + ':';
     }
     else
     {
@@ -148,7 +140,8 @@ bool Foam::functionObjects::turbulenceFields::read(const dictionary& dict)
         Info<< "storing fields:" << nl;
         forAllConstIter(wordHashSet, fieldSet_, iter)
         {
-            Info<< "    " << prefix_ + iter.key() << nl;
+            Info<< "    "
+                << IOobject::groupName(prefix_ + iter.key(), phaseName_) << nl;
         }
         Info<< endl;
     }
@@ -163,10 +156,13 @@ bool Foam::functionObjects::turbulenceFields::read(const dictionary& dict)
 
 bool Foam::functionObjects::turbulenceFields::execute()
 {
-    if (obr_.foundObject<compressible::turbulenceModel>(modelName()))
+    if (obr_.foundType<fluidThermophysicalTransportModel>(phaseName_))
     {
-        const compressible::turbulenceModel& model =
-            obr_.lookupObject<compressible::turbulenceModel>(modelName());
+        const fluidThermophysicalTransportModel& ttm =
+            obr_.lookupType<fluidThermophysicalTransportModel>(phaseName_);
+
+        const compressibleMomentumTransportModel& model =
+            ttm.momentumTransport();
 
         forAllConstIter(wordHashSet, fieldSet_, iter)
         {
@@ -185,37 +181,27 @@ bool Foam::functionObjects::turbulenceFields::execute()
                 }
                 case compressibleField::omega:
                 {
-                    processField<scalar>(f, omega(model));
+                    processField<scalar>(f, model.omega());
                     break;
                 }
-                case compressibleField::mut:
+                case compressibleField::nut:
                 {
-                    processField<scalar>(f, model.mut());
+                    processField<scalar>(f, model.nut());
                     break;
                 }
-                case compressibleField::muEff:
+                case compressibleField::nuEff:
                 {
-                    processField<scalar>(f, model.muEff());
+                    processField<scalar>(f, model.nuEff());
                     break;
                 }
-                case compressibleField::alphat:
+                case compressibleField::kappaEff:
                 {
-                    processField<scalar>(f, model.alphat());
-                    break;
-                }
-                case compressibleField::alphaEff:
-                {
-                    processField<scalar>(f, model.alphaEff());
+                    processField<scalar>(f, ttm.kappaEff());
                     break;
                 }
                 case compressibleField::R:
                 {
                     processField<symmTensor>(f, model.R());
-                    break;
-                }
-                case compressibleField::devRhoReff:
-                {
-                    processField<symmTensor>(f, model.devRhoReff());
                     break;
                 }
                 default:
@@ -226,10 +212,10 @@ bool Foam::functionObjects::turbulenceFields::execute()
             }
         }
     }
-    else if (obr_.foundObject<compressibleTurbulenceModel>(modelName()))
+    else if (obr_.foundType<compressibleMomentumTransportModel>(phaseName_))
     {
-        const compressibleTurbulenceModel& model =
-            obr_.lookupObject<compressibleTurbulenceModel>(modelName());
+        const compressibleMomentumTransportModel& model =
+            obr_.lookupType<compressibleMomentumTransportModel>(phaseName_);
 
         forAllConstIter(wordHashSet, fieldSet_, iter)
         {
@@ -248,27 +234,22 @@ bool Foam::functionObjects::turbulenceFields::execute()
                 }
                 case compressibleField::omega:
                 {
-                    processField<scalar>(f, omega(model));
+                    processField<scalar>(f, model.omega());
                     break;
                 }
-                case compressibleField::mut:
+                case compressibleField::nut:
                 {
-                    processField<scalar>(f, model.mut());
+                    processField<scalar>(f, model.nut());
                     break;
                 }
-                case compressibleField::muEff:
+                case compressibleField::nuEff:
                 {
-                    processField<scalar>(f, model.muEff());
+                    processField<scalar>(f, model.nuEff());
                     break;
                 }
                 case compressibleField::R:
                 {
                     processField<symmTensor>(f, model.R());
-                    break;
-                }
-                case compressibleField::devRhoReff:
-                {
-                    processField<symmTensor>(f, model.devRhoReff());
                     break;
                 }
                 default:
@@ -279,10 +260,13 @@ bool Foam::functionObjects::turbulenceFields::execute()
             }
         }
     }
-    else if (obr_.foundObject<incompressible::turbulenceModel>(modelName()))
+    else if
+    (
+        obr_.foundType<incompressible::momentumTransportModel>(phaseName_)
+    )
     {
-        const incompressible::turbulenceModel& model =
-            obr_.lookupObject<incompressible::turbulenceModel>(modelName());
+        const incompressible::momentumTransportModel& model =
+            obr_.lookupType<incompressible::momentumTransportModel>(phaseName_);
 
         forAllConstIter(wordHashSet, fieldSet_, iter)
         {
@@ -301,7 +285,7 @@ bool Foam::functionObjects::turbulenceFields::execute()
                 }
                 case incompressibleField::omega:
                 {
-                    processField<scalar>(f, omega(model));
+                    processField<scalar>(f, model.omega());
                     break;
                 }
                 case incompressibleField::nut:
@@ -317,11 +301,6 @@ bool Foam::functionObjects::turbulenceFields::execute()
                 case incompressibleField::R:
                 {
                     processField<symmTensor>(f, model.R());
-                    break;
-                }
-                case incompressibleField::devReff:
-                {
-                    processField<symmTensor>(f, model.devReff());
                     break;
                 }
                 default:
@@ -347,7 +326,10 @@ bool Foam::functionObjects::turbulenceFields::write()
 {
     forAllConstIter(wordHashSet, fieldSet_, iter)
     {
-        const word fieldName = prefix_ + iter.key();
+        const word fieldName
+        (
+            IOobject::groupName(prefix_ + iter.key(), phaseName_)
+        );
         writeObject(fieldName);
     }
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -55,7 +55,6 @@ SourceFiles
 
 #include "sampledSet.H"
 #include "DynamicList.H"
-#include "passiveParticleCloud.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -65,7 +64,7 @@ namespace sampledSets
 {
 
 /*---------------------------------------------------------------------------*\
-                         Class lineFace Declaration
+                          Class lineFace Declaration
 \*---------------------------------------------------------------------------*/
 
 class lineFace
@@ -86,15 +85,15 @@ class lineFace
         //- Calculate all the sampling points
         void calcSamples
         (
-            DynamicList<point>& samplingPts,
-            DynamicList<label>& samplingCells,
-            DynamicList<label>& samplingFaces,
+            DynamicList<point>& samplingPositions,
+            DynamicList<scalar>& samplingDistances,
             DynamicList<label>& samplingSegments,
-            DynamicList<scalar>& samplingCurveDist
+            DynamicList<label>& samplingCells,
+            DynamicList<label>& samplingFaces
         ) const;
 
         //- Uses calcSamples to obtain samples and copies them into *this
-        void genSamples();
+        virtual void genSamples();
 
 
 public:
@@ -112,11 +111,13 @@ public:
             const meshSearch& searchEngine,
             const vector& start,
             const vector& end,
-            DynamicList<point>& samplingPts,
-            DynamicList<label>& samplingCells,
-            DynamicList<label>& samplingFaces,
+            const label storeFaces,
+            const bool storeCells,
+            DynamicList<point>& samplingPositions,
+            DynamicList<scalar>& samplingDistances,
             DynamicList<label>& samplingSegments,
-            DynamicList<scalar>& samplingCurveDist
+            DynamicList<label>& samplingCells,
+            DynamicList<label>& samplingFaces
         );
 
 

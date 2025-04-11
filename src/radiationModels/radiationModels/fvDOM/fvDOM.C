@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -28,6 +28,8 @@ License
 #include "scatterModel.H"
 #include "constants.H"
 #include "fvm.H"
+#include "wedgePolyPatch.H"
+#include "cyclicTransform.H"
 #include "addToRunTimeSelectionTable.H"
 
 using namespace Foam::constant;
@@ -49,6 +51,25 @@ namespace radiationModels
 
 void Foam::radiationModels::fvDOM::initialise()
 {
+    forAll(mesh_.boundaryMesh(), patchi)
+    {
+        const polyPatch& pp = mesh_.boundaryMesh()[patchi];
+        if
+        (
+            (
+                isA<cyclicTransform>(pp)
+             && refCast<const cyclicTransform>(pp).transform().rotates()
+            )
+         || isA<wedgePolyPatch>(pp)
+        )
+        {
+            FatalErrorInFunction << type()
+                << " radiation model does not currently support"
+                   " rotationally transforming patches: cyclic and wedge."
+                << exit(FatalError);
+        }
+    }
+
     // 3D
     if (mesh_.nSolutionD() == 3)
     {
@@ -161,7 +182,7 @@ void Foam::radiationModels::fvDOM::initialise()
                 IOobject
                 (
                     "aLambda_" + Foam::name(lambdaI) ,
-                    mesh_.time().timeName(),
+                    mesh_.time().name(),
                     mesh_,
                     IOobject::NO_READ,
                     IOobject::NO_WRITE
@@ -206,7 +227,7 @@ Foam::radiationModels::fvDOM::fvDOM(const volScalarField& T)
         IOobject
         (
             "G",
-            mesh_.time().timeName(),
+            mesh_.time().name(),
             mesh_,
             IOobject::NO_READ,
             IOobject::AUTO_WRITE
@@ -219,7 +240,7 @@ Foam::radiationModels::fvDOM::fvDOM(const volScalarField& T)
         IOobject
         (
             "qr",
-            mesh_.time().timeName(),
+            mesh_.time().name(),
             mesh_,
             IOobject::READ_IF_PRESENT,
             IOobject::AUTO_WRITE
@@ -232,7 +253,7 @@ Foam::radiationModels::fvDOM::fvDOM(const volScalarField& T)
         IOobject
         (
             "qem",
-            mesh_.time().timeName(),
+            mesh_.time().name(),
             mesh_,
             IOobject::READ_IF_PRESENT,
             IOobject::AUTO_WRITE
@@ -245,7 +266,7 @@ Foam::radiationModels::fvDOM::fvDOM(const volScalarField& T)
         IOobject
         (
             "qin",
-            mesh_.time().timeName(),
+            mesh_.time().name(),
             mesh_,
             IOobject::READ_IF_PRESENT,
             IOobject::AUTO_WRITE
@@ -258,7 +279,7 @@ Foam::radiationModels::fvDOM::fvDOM(const volScalarField& T)
         IOobject
         (
             "a",
-            mesh_.time().timeName(),
+            mesh_.time().name(),
             mesh_,
             IOobject::NO_READ,
             IOobject::AUTO_WRITE
@@ -275,9 +296,11 @@ Foam::radiationModels::fvDOM::fvDOM(const volScalarField& T)
     IRay_(0),
     tolerance_
     (
-        coeffs_.found("convergence")
-      ? coeffs_.lookup<scalar>("convergence")
-      : coeffs_.lookupOrDefault<scalar>("tolerance", 0)
+        coeffs_.lookupOrDefaultBackwardsCompatible<scalar>
+        (
+            {"tolerance", "convergence"},
+            0
+        )
     ),
     maxIter_(coeffs_.lookupOrDefault<label>("maxIter", 50)),
     omegaMax_(0)
@@ -298,7 +321,7 @@ Foam::radiationModels::fvDOM::fvDOM
         IOobject
         (
             "G",
-            mesh_.time().timeName(),
+            mesh_.time().name(),
             mesh_,
             IOobject::READ_IF_PRESENT,
             IOobject::AUTO_WRITE
@@ -311,7 +334,7 @@ Foam::radiationModels::fvDOM::fvDOM
         IOobject
         (
             "qr",
-            mesh_.time().timeName(),
+            mesh_.time().name(),
             mesh_,
             IOobject::READ_IF_PRESENT,
             IOobject::AUTO_WRITE
@@ -324,7 +347,7 @@ Foam::radiationModels::fvDOM::fvDOM
         IOobject
         (
             "qem",
-            mesh_.time().timeName(),
+            mesh_.time().name(),
             mesh_,
             IOobject::NO_READ,
             IOobject::NO_WRITE
@@ -337,7 +360,7 @@ Foam::radiationModels::fvDOM::fvDOM
         IOobject
         (
             "qin",
-            mesh_.time().timeName(),
+            mesh_.time().name(),
             mesh_,
             IOobject::READ_IF_PRESENT,
             IOobject::AUTO_WRITE
@@ -350,7 +373,7 @@ Foam::radiationModels::fvDOM::fvDOM
         IOobject
         (
             "a",
-            mesh_.time().timeName(),
+            mesh_.time().name(),
             mesh_,
             IOobject::NO_READ,
             IOobject::NO_WRITE
@@ -367,9 +390,11 @@ Foam::radiationModels::fvDOM::fvDOM
     IRay_(0),
     tolerance_
     (
-        coeffs_.found("convergence")
-      ? coeffs_.lookup<scalar>("convergence")
-      : coeffs_.lookupOrDefault<scalar>("tolerance", 0)
+        coeffs_.lookupOrDefaultBackwardsCompatible<scalar>
+        (
+            {"tolerance", "convergence"},
+            0
+        )
     ),
     maxIter_(coeffs_.lookupOrDefault<label>("maxIter", 50)),
     omegaMax_(0)
@@ -486,7 +511,7 @@ Foam::radiationModels::fvDOM::Ru() const
             IOobject
             (
                 "Ru",
-                mesh_.time().timeName(),
+                mesh_.time().name(),
                 mesh_,
                 IOobject::NO_READ,
                 IOobject::NO_WRITE,

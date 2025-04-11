@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ Class
     Foam::ParRunControl
 
 Description
-    Helper class for initializing parallel jobs from the command arguments.
+    Helper class for initialising parallel jobs from the command arguments.
 
 \*---------------------------------------------------------------------------*/
 
@@ -41,7 +41,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class ParRunControl Declaration
+                        Class ParRunControl Declaration
 \*---------------------------------------------------------------------------*/
 
 class ParRunControl
@@ -90,4 +90,4 @@ public:
 
 #endif
 
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+// ************************************************************************* //

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -45,17 +45,17 @@ namespace Foam
 Foam::porosityModels::solidification::solidification
 (
     const word& name,
-    const word& modelType,
     const fvMesh& mesh,
     const dictionary& dict,
+    const dictionary& coeffDict,
     const word& cellZoneName
 )
 :
-    porosityModel(name, modelType, mesh, dict, cellZoneName),
-    TName_(coeffs_.lookupOrDefault<word>("T", "T")),
-    alphaName_(coeffs_.lookupOrDefault<word>("alpha", "none")),
-    rhoName_(coeffs_.lookupOrDefault<word>("rho", "rho")),
-    D_(Function1<scalar>::New("D", coeffs_))
+    porosityModel(name, mesh, dict, coeffDict, cellZoneName),
+    TName_(coeffDict.lookupOrDefault<word>("T", "T")),
+    alphaName_(coeffDict.lookupOrDefault<word>("alpha", "none")),
+    rhoName_(coeffDict.lookupOrDefault<word>("rho", "rho")),
+    D_(Function1<scalar>::New("D", dimTemperature, dimless/dimTime, coeffDict))
 {}
 
 
@@ -115,21 +115,6 @@ void Foam::porosityModels::solidification::correct
 
 void Foam::porosityModels::solidification::correct
 (
-    fvVectorMatrix& UEqn,
-    const volScalarField& rho,
-    const volScalarField& mu
-) const
-{
-    const volVectorField& U = UEqn.psi();
-    const scalarField& V = mesh_.V();
-    scalarField& Udiag = UEqn.diag();
-
-    apply(Udiag, V, rho, U);
-}
-
-
-void Foam::porosityModels::solidification::correct
-(
     const fvVectorMatrix& UEqn,
     volTensorField& AU
 ) const
@@ -149,15 +134,6 @@ void Foam::porosityModels::solidification::correct
     {
         apply(AU, geometricOneField(), U);
     }
-}
-
-
-bool Foam::porosityModels::solidification::writeData(Ostream& os) const
-{
-    os  << indent << name_ << endl;
-    dict_.write(os);
-
-    return true;
 }
 
 

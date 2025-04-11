@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2018-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2018-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -68,8 +68,8 @@ SourceFiles
 
 \*---------------------------------------------------------------------------*/
 
-#ifndef age_H
-#define age_H
+#ifndef functionObjects_age_H
+#define functionObjects_age_H
 
 #include "fvMeshFunctionObject.H"
 #include "volFields.H"
@@ -82,7 +82,7 @@ namespace functionObjects
 {
 
 /*---------------------------------------------------------------------------*\
-                               Class age Declaration
+                             Class age Declaration
 \*---------------------------------------------------------------------------*/
 
 class age
@@ -144,6 +144,9 @@ public:
 
         //- Read the data
         virtual bool read(const dictionary&);
+
+        //- Return the list of fields required
+        virtual wordList fields() const;
 
         //- Execute
         virtual bool execute();

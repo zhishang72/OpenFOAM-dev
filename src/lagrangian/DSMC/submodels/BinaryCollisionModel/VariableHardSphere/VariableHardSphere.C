@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -50,13 +50,6 @@ Foam::VariableHardSphere<CloudType>::~VariableHardSphere()
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
-
-template<class CloudType>
-bool Foam::VariableHardSphere<CloudType>::active() const
-{
-    return true;
-}
-
 
 template<class CloudType>
 Foam::scalar Foam::VariableHardSphere<CloudType>::sigmaTcR
@@ -121,7 +114,7 @@ void Foam::VariableHardSphere<CloudType>::collide
     vector& UP = pP.U();
     vector& UQ = pQ.U();
 
-    Random& rndGen(cloud.rndGen());
+    randomGenerator& rndGen(cloud.rndGen());
 
     scalar mP = cloud.constProps(typeIdP).mass();
 

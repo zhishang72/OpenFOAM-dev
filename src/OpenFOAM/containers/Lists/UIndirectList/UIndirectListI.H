@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -29,7 +29,7 @@ template<class T>
 inline Foam::UIndirectList<T>::UIndirectList
 (
     const UList<T>& completeList,
-    const labelUList& addr
+    const UList<label>& addr
 )
 :
     completeList_(const_cast<UList<T>&>(completeList)),
@@ -78,6 +78,20 @@ template<class T>
 inline const T& Foam::UIndirectList<T>::last() const
 {
     return completeList_[addressing_.last()];
+}
+
+
+template<class T>
+inline Foam::label Foam::UIndirectList<T>::fcIndex(const label i) const
+{
+    return addressing_.fcIndex(i);
+}
+
+
+template<class T>
+inline Foam::label Foam::UIndirectList<T>::rcIndex(const label i) const
+{
+    return addressing_.rcIndex(i);
 }
 
 
@@ -170,6 +184,33 @@ inline void Foam::UIndirectList<T>::operator=(const T& t)
     {
         completeList_[addressing_[i]] = t;
     }
+}
+
+
+template<class T>
+inline bool Foam::UIndirectList<T>::operator==(const UIndirectList<T>& ae) const
+{
+    if (addressing_.size() != ae.size())
+    {
+        return false;
+    }
+
+    forAll(addressing_, i)
+    {
+        if (completeList_[addressing_[i]] != ae[i])
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+
+template<class T>
+inline bool Foam::UIndirectList<T>::operator!=(const UIndirectList<T>& ae) const
+{
+    return !(*this == ae);
 }
 
 

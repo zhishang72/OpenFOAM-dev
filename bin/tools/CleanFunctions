@@ -2,7 +2,7 @@
 # =========                 |
 # \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
 #  \\    /   O peration     | Website:  https://openfoam.org
-#   \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+#   \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
 #    \\/     M anipulation  |
 #------------------------------------------------------------------------------
 # License
@@ -29,9 +29,10 @@
 #
 #------------------------------------------------------------------------------
 
-cleanTimeDirectories()
+cleanCase()
 {
     echo "Cleaning $PWD case"
+
     zeros=""
     while [ ${#zeros} -lt 8 ]
     do
@@ -39,55 +40,36 @@ cleanTimeDirectories()
         rm -rf ./${timeDir} ./-${timeDir} > /dev/null 2>&1
         zeros="0$zeros"
     done
-    rm -rf ./[1-9]* ./-[1-9]* ./log ./log.* ./log-* ./logSummary.* ./*.xml \
-       ./*.dat ./*.eps ./ParaView* ./paraFoam* ./*.OpenFOAM ./*.blockMesh \
-       ./.setSet > /dev/null 2>&1
-}
 
-cleanDynamicCode()
-{
-    if [ -d system -a -d dynamicCode ]
-    then
-        rm -rf dynamicCode > /dev/null 2>&1
-    fi
-}
+    rm -rf ./[1-9]* ./-[1-9]* ./log ./log.* ./logSummary.* \
+        ./*.OpenFOAM ./*.blockMesh ./*.foam
 
-cleanCase()
-{
-    cleanTimeDirectories
-    cleanDynamicCode
+    for d in constant 0
+    do
+        rm -rf $d/polyMesh     $d/*/polyMesh \
+               $d/fvMesh       $d/*/fvMesh \
+               $d/cellToRegion* $d/*/cellToRegion* \
+               $d/cellLevel*   $d/pointLevel* \
+               $d/cellProc*
+    done
 
-    rm -rf processor* > /dev/null 2>&1
-    rm -rf jobInfo > /dev/null 2>&1
-    rm -rf postProcessing > /dev/null 2>&1
-    rm -rf TDAC > /dev/null 2>&1
+    rm -rf constant/meshes
 
-    if [ -d constant/polyMesh ]
-    then
-        rm -rf constant/polyMesh > /dev/null 2>&1
-    fi
-    if [ -d constant ]
-    then
-        (cd constant && \
-            rm -rf \
-            cellToRegion cellLevel* pointLevel* \
-            > /dev/null 2>&1 \
-        )
-    fi
+    [ -d dynamicCode ] && rm -rf dynamicCode
 
-    rm -rf constant/tetDualMesh > /dev/null 2>&1
-
-    rm -rf VTK > /dev/null 2>&1
-    rm -rf sequencedVTK > /dev/null 2>&1
-
-    rm -rf 0/polyMesh 0/cellLevel 0/pointLevel 0/cellDist constant/cellDecomposition
-
-    if [ -e system/blockMeshDict.m4 ]
-    then
-        rm -f system/blockMeshDict > /dev/null 2>&1
-    fi
+    rm -rf processor*
+    rm -rf postProcessing
+    rm -rf jobInfo TDAC constant/tetDualMesh
+    rm -rf VTK sequencedVTK
+    rm -rf logs
 
     find . -name "*.orig" -type f -exec sh -c 'rm -f ${0%.*} ${0%.*}.gz' {} \;
+}
+
+cleanExplicitFeatures()
+{
+    rm -rf constant/extendedFeatureEdgeMesh
+    rm -f constant/geometry/*.eMesh*
 }
 
 cleanVoFCase()
@@ -99,17 +81,7 @@ cleanVoFCase()
 removeCase()
 {
     echo "Removing ${1:-unknown} case"
-    rm -rf $1
-}
-
-cleanSamples()
-{
-    rm -rf ./sets ./samples ./sampleSurfaces > /dev/null 2>&1
-}
-
-cleanUcomponents()
-{
-    rm -rf 0/Ux 0/Uy 0/Uz > /dev/null 2>&1
+    rm -rf "$1"
 }
 
 cleanApplication()

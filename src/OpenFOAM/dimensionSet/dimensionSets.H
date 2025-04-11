@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -32,13 +32,11 @@ SourceFiles
 
 \*---------------------------------------------------------------------------*/
 
-
 #ifndef dimensionSets_H
 #define dimensionSets_H
 
-#include "scalarMatrices.H"
-#include "dimensionedScalarFwd.H"
-#include "PtrList.H"
+#include "dimensionSet.H"
+#include "unitConversions.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -59,78 +57,35 @@ extern const dimensionSet dimLuminousIntensity;
 
 extern const dimensionSet dimArea;
 extern const dimensionSet dimVolume;
-extern const dimensionSet dimVol;
+
+extern const dimensionSet dimRate;
+
+extern const dimensionSet dimVelocity;
+extern const dimensionSet dimMomentum;
+extern const dimensionSet dimAcceleration;
 
 extern const dimensionSet dimDensity;
 extern const dimensionSet dimForce;
 extern const dimensionSet dimEnergy;
 extern const dimensionSet dimPower;
 
-extern const dimensionSet dimVelocity;
-extern const dimensionSet dimAcceleration;
 extern const dimensionSet dimPressure;
+extern const dimensionSet dimKinematicPressure;
 extern const dimensionSet dimCompressibility;
 extern const dimensionSet dimGasConstant;
 extern const dimensionSet dimSpecificHeatCapacity;
-extern const dimensionSet dimViscosity;
+extern const dimensionSet dimKinematicViscosity;
 extern const dimensionSet dimDynamicViscosity;
+extern const dimensionSet dimThermalConductivity;
+
+extern const dimensionSet dimVolumetricFlux;
+extern const dimensionSet dimMassFlux;
 
 
-class dimensionSets
-{
-    // Private Data
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-        //- Set of dimensions
-        PtrList<dimensionedScalar> units_;
-
-        //- LU decomposition of dimensions
-        scalarSquareMatrix conversion_;
-
-        //- See above
-        labelList conversionPivots_;
-
-        //- Is LU decomposition valid
-        bool valid_;
-
-public:
-
-    // Constructors
-
-        //- Construct from all units and set of units to use for inversion
-        dimensionSets
-        (
-            const HashTable<dimensionedScalar>&,
-            const wordList& unitNames
-        );
-
-
-    // Member Functions
-
-        //- Return the units
-        const PtrList<dimensionedScalar>& units() const
-        {
-            return units_;
-        }
-
-        //- Is there a valid inverse of the selected unit
-        bool valid() const
-        {
-            return valid_;
-        }
-
-        //- (if valid) obtain set of coefficients of unitNames
-        void coefficients(scalarField&) const;
-};
-
-
-//- Top level dictionary
-dictionary& dimensionSystems();
-
-//- Set of all dimensions
-const HashTable<dimensionedScalar>& unitSet();
-
-//- Set of units
-const dimensionSets& writeUnitSet();
+//- Get the table of dimension sets
+const HashTable<dimensionSet>& dimensions();
 
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,7 +44,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                         Class boxToFace Declaration
+                          Class boxToFace Declaration
 \*---------------------------------------------------------------------------*/
 
 class boxToFace
@@ -53,10 +53,7 @@ class boxToFace
 {
     // Private Data
 
-        //- Add usage string
-        static addToUsageTable usage_;
-
-        //- Bounding box.
+        //- Bounding box
         treeBoundBoxList bbs_;
 
 
@@ -69,6 +66,7 @@ public:
 
     //- Runtime type information
     TypeName("boxToFace");
+
 
     // Constructors
 
@@ -84,13 +82,6 @@ public:
         (
             const polyMesh& mesh,
             const dictionary& dict
-        );
-
-        //- Construct from Istream
-        boxToFace
-        (
-            const polyMesh& mesh,
-            Istream&
         );
 
 

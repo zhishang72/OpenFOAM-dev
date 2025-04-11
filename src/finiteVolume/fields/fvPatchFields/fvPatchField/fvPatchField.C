@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -26,7 +26,7 @@ License
 #include "IOobject.H"
 #include "dictionary.H"
 #include "fvMesh.H"
-#include "fvPatchFieldMapper.H"
+#include "fieldMapper.H"
 #include "volMesh.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
@@ -42,8 +42,7 @@ Foam::fvPatchField<Type>::fvPatchField
     patch_(p),
     internalField_(iF),
     updated_(false),
-    manipulatedMatrix_(false),
-    patchType_(word::null)
+    manipulatedMatrix_(false)
 {}
 
 
@@ -59,8 +58,7 @@ Foam::fvPatchField<Type>::fvPatchField
     patch_(p),
     internalField_(iF),
     updated_(false),
-    manipulatedMatrix_(false),
-    patchType_(word::null)
+    manipulatedMatrix_(false)
 {}
 
 
@@ -74,11 +72,19 @@ Foam::fvPatchField<Type>::fvPatchField
 )
 :
     Field<Type>(p.size()),
+    libs_
+    (
+        dict.lookupOrDefault
+        (
+            "libs",
+            fileNameList::null(),
+            dictionary::writeOptionalEntries > 1
+        )
+    ),
     patch_(p),
     internalField_(iF),
     updated_(false),
-    manipulatedMatrix_(false),
-    patchType_(dict.lookupOrDefault<word>("patchType", word::null))
+    manipulatedMatrix_(false)
 {
     if (valueRequired)
     {
@@ -86,15 +92,13 @@ Foam::fvPatchField<Type>::fvPatchField
         {
             Field<Type>::operator=
             (
-                Field<Type>("value", dict, p.size())
+                Field<Type>("value", iF.dimensions(), dict, p.size())
             );
         }
         else
         {
-            FatalIOErrorInFunction
-            (
-                dict
-            )   << "Essential entry 'value' missing"
+            FatalIOErrorInFunction(dict)
+                << "Essential entry 'value' missing"
                 << exit(FatalIOError);
         }
     }
@@ -107,42 +111,22 @@ Foam::fvPatchField<Type>::fvPatchField
     const fvPatchField<Type>& ptf,
     const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
-    const fvPatchFieldMapper& mapper,
+    const fieldMapper& mapper,
     const bool mappingRequired
 )
 :
     Field<Type>(p.size()),
+    libs_(ptf.libs_),
     patch_(p),
     internalField_(iF),
     updated_(false),
-    manipulatedMatrix_(false),
-    patchType_(ptf.patchType_)
+    manipulatedMatrix_(false)
 {
     if (mappingRequired)
     {
-        // For unmapped faces set to internal field value (zero-gradient)
-        if (notNull(iF) && mapper.hasUnmapped())
-        {
-            fvPatchField<Type>::operator=(this->patchInternalField());
-        }
         mapper(*this, ptf);
     }
 }
-
-
-template<class Type>
-Foam::fvPatchField<Type>::fvPatchField
-(
-    const fvPatchField<Type>& ptf
-)
-:
-    Field<Type>(ptf),
-    patch_(ptf.patch_),
-    internalField_(ptf.internalField_),
-    updated_(false),
-    manipulatedMatrix_(false),
-    patchType_(ptf.patchType_)
-{}
 
 
 template<class Type>
@@ -153,11 +137,11 @@ Foam::fvPatchField<Type>::fvPatchField
 )
 :
     Field<Type>(ptf),
+    libs_(ptf.libs_),
     patch_(ptf.patch_),
     internalField_(iF),
     updated_(false),
-    manipulatedMatrix_(false),
-    patchType_(ptf.patchType_)
+    manipulatedMatrix_(false)
 {}
 
 
@@ -205,23 +189,20 @@ void Foam::fvPatchField<Type>::patchInternalField(Field<Type>& pif) const
 
 
 template<class Type>
-void Foam::fvPatchField<Type>::autoMap
+void Foam::fvPatchField<Type>::map
 (
-    const fvPatchFieldMapper& mapper
+    const fvPatchField<Type>& ptf,
+    const fieldMapper& mapper
 )
 {
-    mapper(*this, *this);
+    mapper(*this, ptf);
 }
 
 
 template<class Type>
-void Foam::fvPatchField<Type>::rmap
-(
-    const fvPatchField<Type>& ptf,
-    const labelList& addr
-)
+void Foam::fvPatchField<Type>::reset(const fvPatchField<Type>& ptf)
 {
-    Field<Type>::rmap(ptf, addr);
+    Field<Type>::reset(ptf);
 }
 
 
@@ -229,19 +210,6 @@ template<class Type>
 void Foam::fvPatchField<Type>::updateCoeffs()
 {
     updated_ = true;
-}
-
-
-template<class Type>
-void Foam::fvPatchField<Type>::updateWeightedCoeffs(const scalarField& weights)
-{
-    // Default behaviour ignores the weights
-    if (!updated_)
-    {
-        updateCoeffs();
-
-        updated_ = true;
-    }
 }
 
 
@@ -266,24 +234,18 @@ void Foam::fvPatchField<Type>::manipulateMatrix(fvMatrix<Type>& matrix)
 
 
 template<class Type>
-void Foam::fvPatchField<Type>::manipulateMatrix
-(
-    fvMatrix<Type>& matrix,
-    const scalarField& weights
-)
-{
-    manipulatedMatrix_ = true;
-}
-
-
-template<class Type>
 void Foam::fvPatchField<Type>::write(Ostream& os) const
 {
     writeEntry(os, "type", type());
 
-    if (patchType_.size())
+    if (overridesConstraint())
     {
-        writeEntry(os, "patchType", patchType_);
+        writeEntry(os, "patchType", patch().type());
+    }
+
+    if (libs_.size())
+    {
+        writeEntry(os, "libs", libs_);
     }
 }
 
@@ -501,6 +463,6 @@ Foam::Ostream& Foam::operator<<(Ostream& os, const fvPatchField<Type>& ptf)
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-    #include "fvPatchFieldNew.C"
+#include "fvPatchFieldNew.C"
 
 // ************************************************************************* //

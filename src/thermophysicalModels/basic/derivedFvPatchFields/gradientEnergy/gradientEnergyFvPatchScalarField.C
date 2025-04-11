@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -27,38 +27,25 @@ License
 #include "gradientEnergyFvPatchScalarField.H"
 #include "gradientEnergyCalculatedTemperatureFvPatchScalarField.H"
 #include "addToRunTimeSelectionTable.H"
-#include "fvPatchFieldMapper.H"
+#include "fieldMapper.H"
 #include "volFields.H"
 #include "basicThermo.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
-Foam::gradientEnergyFvPatchScalarField::
-gradientEnergyFvPatchScalarField
+Foam::gradientEnergyFvPatchScalarField::gradientEnergyFvPatchScalarField
 (
     const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF
 )
 :
     fixedGradientFvPatchScalarField(p, iF)
-{}
+{
+    gradient() = scalar(0);
+}
 
 
-Foam::gradientEnergyFvPatchScalarField::
-gradientEnergyFvPatchScalarField
-(
-    const gradientEnergyFvPatchScalarField& ptf,
-    const fvPatch& p,
-    const DimensionedField<scalar, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
-)
-:
-    fixedGradientFvPatchScalarField(ptf, p, iF, mapper)
-{}
-
-
-Foam::gradientEnergyFvPatchScalarField::
-gradientEnergyFvPatchScalarField
+Foam::gradientEnergyFvPatchScalarField::gradientEnergyFvPatchScalarField
 (
     const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF,
@@ -69,18 +56,21 @@ gradientEnergyFvPatchScalarField
 {}
 
 
-Foam::gradientEnergyFvPatchScalarField::
-gradientEnergyFvPatchScalarField
+Foam::gradientEnergyFvPatchScalarField::gradientEnergyFvPatchScalarField
 (
-    const gradientEnergyFvPatchScalarField& tppsf
+    const gradientEnergyFvPatchScalarField& ptf,
+    const fvPatch& p,
+    const DimensionedField<scalar, volMesh>& iF,
+    const fieldMapper& mapper
 )
 :
-    fixedGradientFvPatchScalarField(tppsf)
-{}
+    fixedGradientFvPatchScalarField(ptf, p, iF, mapper, false)
+{
+    map(ptf, mapper);
+}
 
 
-Foam::gradientEnergyFvPatchScalarField::
-gradientEnergyFvPatchScalarField
+Foam::gradientEnergyFvPatchScalarField::gradientEnergyFvPatchScalarField
 (
     const gradientEnergyFvPatchScalarField& tppsf,
     const DimensionedField<scalar, volMesh>& iF
@@ -91,6 +81,29 @@ gradientEnergyFvPatchScalarField
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+
+void Foam::gradientEnergyFvPatchScalarField::map
+(
+    const gradientEnergyFvPatchScalarField& ptf,
+    const fieldMapper& mapper
+)
+{
+    // Unmapped faces are considered zero-gradient/adiabatic
+    // until they are corrected later
+    mapper(*this, ptf, [&](){ return this->patchInternalField(); });
+    mapper(gradient(), ptf.gradient(), scalar(0));
+}
+
+
+void Foam::gradientEnergyFvPatchScalarField::map
+(
+    const fvPatchScalarField& ptf,
+    const fieldMapper& mapper
+)
+{
+    map(refCast<const gradientEnergyFvPatchScalarField>(ptf), mapper);
+}
+
 
 void Foam::gradientEnergyFvPatchScalarField::updateCoeffs()
 {
@@ -155,7 +168,7 @@ void Foam::gradientEnergyFvPatchScalarField::write(Ostream& os) const
 
 namespace Foam
 {
-    makePatchTypeField
+    makeNullConstructablePatchTypeField
     (
         fvPatchScalarField,
         gradientEnergyFvPatchScalarField

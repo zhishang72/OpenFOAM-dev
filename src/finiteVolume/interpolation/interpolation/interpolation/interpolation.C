@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -28,25 +28,140 @@ License
 #include "polyMesh.H"
 #include "calculatedPointPatchFields.H"
 
-// * * * * * * * * * * * * * * * * Constructor * * * * * * * * * * * * * * * //
+// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class Type>
 Foam::interpolation<Type>::interpolation
 (
-    const GeometricField<Type, fvPatchField, volMesh>& psi
+    const VolField<Type>& psi
 )
 :
     psi_(psi),
-    pMesh_(psi.mesh()),
-    pMeshPoints_(pMesh_.points()),
-    pMeshFaces_(pMesh_.faces()),
-    pMeshFaceCentres_(pMesh_.faceCentres()),
-    pMeshFaceAreas_(pMesh_.faceAreas())
+    mesh_(psi.mesh())
 {}
 
 
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+template<class Type>
+Foam::interpolation<Type>::interpolation(const interpolation<Type>& i)
+:
+    psi_(i.psi_),
+    mesh_(i.mesh_)
+{}
 
-#include "interpolationNew.C"
+
+// * * * * * * * * * * * * * * * * Selectors * * * * * * * * * * * * * * * * //
+
+template<class Type>
+Foam::autoPtr<Foam::interpolation<Type>> Foam::interpolation<Type>::New
+(
+    const word& interpolationType,
+    const VolField<Type>& psi
+)
+{
+    typename dictionaryConstructorTable::iterator cstrIter =
+        dictionaryConstructorTablePtr_->find(interpolationType);
+
+    if (cstrIter == dictionaryConstructorTablePtr_->end())
+    {
+        FatalErrorInFunction
+            << "Unknown interpolation type " << interpolationType
+            << " for field " << psi.name() << nl << nl
+            << "Valid interpolation types : " << endl
+            << dictionaryConstructorTablePtr_->sortedToc()
+            << exit(FatalError);
+    }
+
+    return autoPtr<interpolation<Type>>(cstrIter()(psi));
+}
+
+
+template<class Type>
+Foam::autoPtr<Foam::interpolation<Type>> Foam::interpolation<Type>::New
+(
+    const dictionary& interpolationSchemes,
+    const VolField<Type>& psi
+)
+{
+    return New(word(interpolationSchemes.lookup(psi.name())), psi);
+}
+
+
+// * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * * //
+
+template<class Type>
+Type Foam::interpolation<Type>::interpolate
+(
+    const barycentric& coordinates,
+    const tetIndices& tetIs,
+    const label facei
+) const
+{
+    return
+        interpolate
+        (
+            tetIs.tet(mesh_).barycentricToPoint(coordinates),
+            tetIs.cell(),
+            facei
+        );
+}
+
+
+template<class Type, class InterpolationType>
+Foam::tmp<Foam::Field<Type>>
+Foam::fieldInterpolation<Type, InterpolationType>::interpolate
+(
+    const vectorField& position,
+    const labelList& celli,
+    const labelList& facei
+) const
+{
+    tmp<Field<Type>> tField(new Field<Type>(position.size()));
+
+    Field<Type>& field = tField.ref();
+
+    forAll(field, i)
+    {
+        field[i] =
+            static_cast<const InterpolationType&>(*this).interpolate
+            (
+                position[i],
+                celli[i],
+                isNull(facei) ? -1 : facei[i]
+            );
+    }
+
+    return tField;
+}
+
+
+template<class Type, class InterpolationType>
+Foam::tmp<Foam::Field<Type>>
+Foam::fieldInterpolation<Type, InterpolationType>::interpolate
+(
+    const Field<barycentric>& coordinates,
+    const labelList& celli,
+    const labelList& tetFacei,
+    const labelList& tetPti,
+    const labelList& facei
+) const
+{
+    tmp<Field<Type>> tField(new Field<Type>(coordinates.size()));
+
+    Field<Type>& field = tField.ref();
+
+    forAll(field, i)
+    {
+        field[i] =
+            static_cast<const InterpolationType&>(*this).interpolate
+            (
+                coordinates[i],
+                tetIndices(celli[i], tetFacei[i], tetPti[i]),
+                isNull(facei) ? -1 : facei[i]
+            );
+    }
+
+    return tField;
+}
+
 
 // ************************************************************************* //

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -36,6 +36,7 @@ SourceFiles
 #define transformField_H
 
 #include "transform.H"
+#include "spatialTransform.H"
 #include "quaternion.H"
 #include "septernion.H"
 #include "vectorField.H"
@@ -47,6 +48,10 @@ namespace Foam
 {
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+template<class Type>
+List<Type> transform(const tensor&, const UList<Type>&);
+
 
 template<class Type>
 void transform(Field<Type>&, const tensorField&, const Field<Type>&);
@@ -104,6 +109,21 @@ template<>
 tmp<Field<sphericalTensor>> transformFieldMask<sphericalTensor>
 (
     const tmp<tensorField>&
+);
+
+
+//- Transform given vectorField of coordinates with the given spatialTransform
+void transformPoints(vectorField&, const spatialTransform&, const vectorField&);
+
+//- Transform given vectorField of coordinates with the given spatialTransform
+tmp<vectorField> transformPoints(const spatialTransform&, const vectorField&);
+
+//- Transform given tmp<vectorField> of coordinates
+//  with the given spatialTransform
+tmp<vectorField> transformPoints
+(
+    const spatialTransform&,
+    const tmp<vectorField>&
 );
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -35,7 +35,7 @@ SourceFiles
 #ifndef cellMotionFvPatchField_H
 #define cellMotionFvPatchField_H
 
-#include "Random.H"
+#include "randomGenerator.H"
 #include "fixedValueFvPatchFields.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -44,7 +44,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                     Class cellMotionFvPatch Declaration
+                      Class cellMotionFvPatch Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -83,23 +83,11 @@ public:
             const cellMotionFvPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
-        cellMotionFvPatchField
-        (
-            const cellMotionFvPatchField<Type>&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchField<Type>> clone() const
-        {
-            return tmp<fvPatchField<Type>>
-            (
-                new cellMotionFvPatchField<Type>(*this)
-            );
-        }
+        //- Disallow copy without setting internal field reference
+        cellMotionFvPatchField(const cellMotionFvPatchField<Type>&) = delete;
 
         //- Copy constructor setting internal field reference
         cellMotionFvPatchField

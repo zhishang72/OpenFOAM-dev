@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -26,9 +26,7 @@ Class
 
 Description
     Variant of pointEdgePoint with some transported additional data.
-    WIP - should be templated on data like wallDistData.
-    Passive vector v_ is not a coordinate (so no enterDomain/leaveDomain
-    transformation needed)
+    WIP - should be templated on data like wallPointData.
 
 SourceFiles
     pointDataI.H
@@ -50,13 +48,14 @@ namespace Foam
 // Forward declaration of friend functions and operators
 
 class pointData;
+class transformer;
 
 Istream& operator>>(Istream&, pointData&);
 Ostream& operator<<(Ostream&, const pointData&);
 
 
 /*---------------------------------------------------------------------------*\
-                           Class pointData Declaration
+                          Class pointData Declaration
 \*---------------------------------------------------------------------------*/
 
 class pointData
@@ -99,11 +98,13 @@ public:
 
         // Needed by meshWave
 
-            //- Apply rotation matrix to origin
+            //- Transform across an interface
             template<class TrackingData>
             inline void transform
             (
-                const tensor& rotTensor,
+                const polyPatch& patch,
+                const label patchFacei,
+                const transformer& transform,
                 TrackingData& td
             );
 
@@ -113,8 +114,8 @@ public:
             (
                 const polyMesh& mesh,
                 const label pointi,
-                const label edgeI,
-                const pointData& edgeInfo,
+                const label edgei,
+                const pointData& edgeinfo,
                 const scalar tol,
                 TrackingData& td
             );
@@ -131,27 +132,18 @@ public:
                 TrackingData& td
             );
 
-            //- Influence of different value on same point.
-            //  No information about current position whatsoever.
-            template<class TrackingData>
-            inline bool updatePoint
-            (
-                const pointData& newPointInfo,
-                const scalar tol,
-                TrackingData& td
-            );
-
             //- Influence of point on edge.
             template<class TrackingData>
             inline bool updateEdge
             (
                 const polyMesh& mesh,
-                const label edgeI,
+                const label edgei,
                 const label pointi,
                 const pointData& pointInfo,
                 const scalar tol,
                 TrackingData& td
             );
+
 
     // Member Operators
 

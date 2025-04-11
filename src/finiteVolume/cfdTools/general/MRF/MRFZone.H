@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -39,25 +39,15 @@ SourceFiles
 #ifndef MRFZone_H
 #define MRFZone_H
 
-#include "dictionary.H"
-#include "wordList.H"
-#include "labelList.H"
-#include "dimensionedScalar.H"
-#include "dimensionedVector.H"
+#include "fvCellSet.H"
 #include "volFieldsFwd.H"
 #include "surfaceFields.H"
-#include "fvMatricesFwd.H"
-#include "mapPolyMesh.H"
-#include "Function1.H"
-#include "autoPtr.H"
+#include "omega1.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
 {
-
-// Forward declaration of classes
-class fvMesh;
 
 /*---------------------------------------------------------------------------*\
                            Class MRFZone Declaration
@@ -76,27 +66,14 @@ class MRFZone
         //- Coefficients dictionary
         dictionary coeffs_;
 
-        //- MRF region active flag
-        bool active_;
+        //- MRF zone cell set
+        fvCellSet cellSet_;
 
-        //- Name of cell zone
-        word cellZoneName_;
-
-        //- Cell zone ID
-        label cellZoneID_;
-
-        const wordReList excludedPatchNames_;
-
-        labelList excludedPatchLabels_;
-
-        //- Internal faces that are part of MRF
+        //- Internal faces that are in the MRF region
         labelList internalFaces_;
 
-        //- Outside faces (per patch) that move with the MRF
-        labelListList includedFaces_;
-
-        //- Excluded faces (per patch) that do not move with the MRF
-        labelListList excludedFaces_;
+        //- Patch faces that are in the MRF region
+        labelListList patchFaces_;
 
         //- Origin of the axis
         const vector origin_;
@@ -104,14 +81,17 @@ class MRFZone
         //- Axis vector
         vector axis_;
 
-        //- Angular velocity (rad/sec)
-        autoPtr<Function1<scalar>> omega_;
+        //- Angular velocity
+        Function1s::omega omega_;
 
 
     // Private Member Functions
 
         //- Divide faces in frame according to patch
         void setMRFFaces();
+
+        //- Check that the case has been updated with correct MRF BCs
+        void checkMRFBCs(const volVectorField& U) const;
 
         //- Make the given absolute mass/vol flux relative within the MRF region
         template<class RhoFieldType>
@@ -126,7 +106,7 @@ class MRFZone
         void makeRelativeRhoFlux
         (
             const RhoFieldType& rho,
-            FieldField<fvsPatchField, scalar>& phi
+            FieldField<surfaceMesh::PatchField, scalar>& phi
         ) const;
 
         //- Make the given absolute mass/vol flux relative within the MRF region
@@ -160,8 +140,7 @@ public:
         (
             const word& name,
             const fvMesh& mesh,
-            const dictionary& dict,
-            const word& cellZoneName = word::null
+            const dictionary& dict
         );
 
         //- Disallow default bitwise copy construction
@@ -180,18 +159,8 @@ public:
         //- Return const access to the MRF region name
         inline const word& name() const;
 
-        //- Return const access to the MRF active flag
-        inline bool active() const;
-
         //- Return the current Omega vector
         vector Omega() const;
-
-        //- Update the mesh corresponding to given map
-        void updateMesh(const mapPolyMesh& mpm)
-        {
-            // Only updates face addressing
-            setMRFFaces();
-        }
 
         //- Add the Coriolis force contribution to the acceleration field
         void addCoriolis
@@ -200,21 +169,10 @@ public:
             volVectorField& ddtU
         ) const;
 
-        //- Add the Coriolis force contribution to the momentum equation
-        //  Adds to the lhs of the equation; optionally add to rhs
-        void addCoriolis
+        //- Add the centrifugal acceleration
+        void addCentrifugalAcceleration
         (
-            fvVectorMatrix& UEqn,
-            const bool rhs = false
-        ) const;
-
-        //- Add the Coriolis force contribution to the momentum equation
-        //  Adds to the lhs of the equation; optionally add to rhs
-        void addCoriolis
-        (
-            const volScalarField& rho,
-            fvVectorMatrix& UEqn,
-            const bool rhs = false
+            volVectorField& centrifugalAcceleration
         ) const;
 
         //- Make the given absolute velocity relative within the MRF region
@@ -225,7 +183,10 @@ public:
 
         //- Make the given absolute boundary flux relative
         //  within the MRF region
-        void makeRelative(FieldField<fvsPatchField, scalar>& phi) const;
+        void makeRelative
+        (
+            FieldField<surfaceMesh::PatchField, scalar>& phi
+        ) const;
 
         //- Make the given absolute patch flux relative
         //  within the MRF region
@@ -237,6 +198,10 @@ public:
             const surfaceScalarField& rho,
             surfaceScalarField& phi
         ) const;
+
+        //- Make the given relative patch velocity relative
+        //  within the MRF region
+        void makeRelative(Field<vector>& Up, const label patchi) const;
 
         //- Make the given relative velocity absolute within the MRF region
         void makeAbsolute(volVectorField& U) const;
@@ -251,21 +216,19 @@ public:
             surfaceScalarField& phi
         ) const;
 
-        //- Correct the boundary velocity for the rotation of the MRF region
-        void correctBoundaryVelocity(volVectorField& U) const;
+        //- Make the given relative patch velocity absolute
+        //  within the MRF region
+        void makeAbsolute(Field<vector>& Up, const label patchi) const;
 
         //- Zero the MRF region of the given field
         template<class Type>
-        void zero(GeometricField<Type, fvsPatchField, surfaceMesh>& phi) const;
+        void zero(SurfaceField<Type>& phi) const;
 
         //- Update MRFZone faces if the mesh topology changes
         void update();
 
 
     // I-O
-
-        //- Write
-        void writeData(Ostream& os) const;
 
         //- Read MRF dictionary
         bool read(const dictionary& dict);

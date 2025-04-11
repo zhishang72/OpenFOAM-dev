@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -56,7 +56,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                         Class SpatialVector Declaration
+                        Class SpatialVector Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Cmpt>
@@ -91,7 +91,7 @@ public:
         //- Construct null
         inline SpatialVector();
 
-        //- Construct initialized to zero
+        //- Construct initialised to zero
         inline SpatialVector(const Foam::zero);
 
         //- Construct given VectorSpace of the same rank

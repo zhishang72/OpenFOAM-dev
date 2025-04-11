@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -41,6 +41,7 @@ Description
 \*---------------------------------------------------------------------------*/
 
 #include "argList.H"
+#include "timeSelector.H"
 #include "Time.H"
 #include "polyMesh.H"
 #include "IStringStream.H"
@@ -51,12 +52,10 @@ Description
 #include "IFstream.H"
 #include "IOobjectList.H"
 #include "SortableList.H"
-#include "timeSelector.H"
 
 using namespace Foam;
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
 
 int main(int argc, char *argv[])
 {
@@ -72,17 +71,17 @@ int main(int argc, char *argv[])
         "ignore orientation of faceSet"
     );
 
+    #include "addMeshOption.H"
     #include "addRegionOption.H"
-    #include "addTimeOptions.H"
     #include "setRootCase.H"
     #include "createTime.H"
 
     const bool noFlipMap = args.optionFound("noFlipMap");
 
     // Get times list
-    (void)timeSelector::selectIfPresent(runTime, args);
+    timeSelector::selectIfPresent(runTime, args);
 
-    #include "createNamedPolyMesh.H"
+    #include "createSpecifiedPolyMesh.H"
 
     const fileName setsSubPath(mesh.dbDir()/polyMesh::meshSubDir/"sets");
 
@@ -113,7 +112,7 @@ int main(int argc, char *argv[])
         pointSet set(*iter());
         SortableList<label> pointLabels(set.toc());
 
-        label zoneID = mesh.pointZones().findZoneID(set.name());
+        label zoneID = mesh.pointZones().findIndex(set.name());
         if (zoneID == -1)
         {
             Info<< "Adding set " << set.name() << " as a pointZone." << endl;
@@ -126,8 +125,7 @@ int main(int argc, char *argv[])
                 (
                     set.name(),             // name
                     pointLabels,            // addressing
-                    sz,                     // index
-                    mesh.pointZones()       // pointZoneMesh
+                    mesh.pointZones()       // pointZones
                 )
             );
             mesh.pointZones().writeOpt() = IOobject::AUTO_WRITE;
@@ -244,7 +242,7 @@ int main(int argc, char *argv[])
             }
         }
 
-        label zoneID = mesh.faceZones().findZoneID(set.name());
+        label zoneID = mesh.faceZones().findIndex(set.name());
         if (zoneID == -1)
         {
             Info<< "Adding set " << set.name() << " as a faceZone." << endl;
@@ -258,8 +256,7 @@ int main(int argc, char *argv[])
                     set.name(),             // name
                     addressing.shrink(),    // addressing
                     flipMap.shrink(),       // flipmap
-                    sz,                     // index
-                    mesh.faceZones()        // pointZoneMesh
+                    mesh.faceZones()        // faceZones
                 )
             );
             mesh.faceZones().writeOpt() = IOobject::AUTO_WRITE;
@@ -293,7 +290,7 @@ int main(int argc, char *argv[])
             cellSet set(*iter());
             SortableList<label> cellLabels(set.toc());
 
-            label zoneID = mesh.cellZones().findZoneID(set.name());
+            label zoneID = mesh.cellZones().findIndex(set.name());
             if (zoneID == -1)
             {
                 Info<< "Adding set " << set.name() << " as a cellZone." << endl;
@@ -306,8 +303,7 @@ int main(int argc, char *argv[])
                     (
                         set.name(),             // name
                         cellLabels,             // addressing
-                        sz,                     // index
-                        mesh.cellZones()        // pointZoneMesh
+                        mesh.cellZones()        // cellZones
                     )
                 );
                 mesh.cellZones().writeOpt() = IOobject::AUTO_WRITE;

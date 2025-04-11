@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -32,7 +32,28 @@ License
 namespace Foam
 {
     defineTypeNameAndDebug(dimensionSet, 1);
-    const scalar dimensionSet::smallExponent = small;
+
+    template<>
+    const char* NamedEnum<dimensionSet::dimensionType, 7>::names[] =
+    {
+        "mass",
+        "length",
+        "time",
+        "temperature",
+        "moles",
+        "current",
+        "luminousIntensity"
+    };
+}
+
+
+const Foam::NamedEnum<Foam::dimensionSet::dimensionType, 7>
+    Foam::dimensionSet::dimensionTypeNames_;
+
+
+namespace Foam
+{
+    const scalar dimensionSet::smallExponent = rootSmall;
 }
 
 
@@ -170,7 +191,7 @@ bool Foam::dimensionSet::operator=(const dimensionSet& ds) const
     {
         FatalErrorInFunction
             << "Different dimensions for =" << endl
-            << "     dimensions : " << *this << " = " << ds << endl
+            << "     dimensions : " << info() << " = " << ds.info() << endl
             << abort(FatalError);
     }
 
@@ -184,7 +205,7 @@ bool Foam::dimensionSet::operator+=(const dimensionSet& ds) const
     {
         FatalErrorInFunction
             << "Different dimensions for +=" << endl
-            << "     dimensions : " << *this << " = " << ds << endl
+            << "     dimensions : " << info() << " = " << ds.info() << endl
             << abort(FatalError);
     }
 
@@ -198,7 +219,7 @@ bool Foam::dimensionSet::operator-=(const dimensionSet& ds) const
     {
         FatalErrorInFunction
             << "Different dimensions for -=" << endl
-            << "     dimensions : " << *this << " = " << ds << endl
+            << "     dimensions : " << info() << " = " << ds.info() << endl
             << abort(FatalError);
     }
 
@@ -230,8 +251,8 @@ Foam::dimensionSet Foam::max(const dimensionSet& ds1, const dimensionSet& ds2)
     {
         FatalErrorInFunction
             << "Arguments of max have different dimensions" << endl
-            << "     dimensions : " << ds1 << " and " << ds2 << endl
-            << abort(FatalError);
+            << "     dimensions : " << ds1.info() << " and " << ds2.info()
+            << endl << abort(FatalError);
     }
 
     return ds1;
@@ -244,8 +265,8 @@ Foam::dimensionSet Foam::min(const dimensionSet& ds1, const dimensionSet& ds2)
     {
         FatalErrorInFunction
             << "Arguments of min have different dimensions" << endl
-            << "     dimensions : " << ds1 << " and " << ds2 << endl
-            << abort(FatalError);
+            << "     dimensions : " << ds1.info() << " and " << ds2.info()
+            << endl << abort(FatalError);
     }
 
     return ds1;
@@ -269,6 +290,12 @@ Foam::dimensionSet Foam::cmptDivide
 )
 {
     return ds1/ds2;
+}
+
+
+Foam::dimensionSet Foam::cmptMag(const dimensionSet& ds)
+{
+    return ds;
 }
 
 
@@ -466,8 +493,8 @@ Foam::dimensionSet Foam::atan2(const dimensionSet& ds1, const dimensionSet& ds2)
     {
         FatalErrorInFunction
             << "Arguments of atan2 have different dimensions" << endl
-            << "     dimensions : " << ds1 << " and " << ds2 << endl
-            << abort(FatalError);
+            << "     dimensions : " << ds1.info() << " and " << ds2.info()
+            << endl << abort(FatalError);
     }
 
     return dimless;
@@ -477,6 +504,18 @@ Foam::dimensionSet Foam::atan2(const dimensionSet& ds1, const dimensionSet& ds2)
 Foam::dimensionSet Foam::transform(const dimensionSet& ds)
 {
     return ds;
+}
+
+
+Foam::dimensionSet Foam::normalised(const dimensionSet& ds)
+{
+    return dimless;
+}
+
+
+Foam::dimensionSet Foam::perpendicular(const dimensionSet& ds)
+{
+    return dimless;
 }
 
 
@@ -500,8 +539,8 @@ Foam::dimensionSet Foam::operator+
     {
         FatalErrorInFunction
             << "LHS and RHS of + have different dimensions" << endl
-            << "     dimensions : " << ds1 << " + " << ds2 << endl
-            << abort(FatalError);
+            << "     dimensions : " << ds1.info() << " + " << ds2.info()
+            << endl << abort(FatalError);
     }
 
     return dimSum;
@@ -520,8 +559,8 @@ Foam::dimensionSet Foam::operator-
     {
         FatalErrorInFunction
             << "LHS and RHS of - have different dimensions" << endl
-            << "     dimensions : " << ds1 << " - " << ds2 << endl
-            << abort(FatalError);
+            << "     dimensions : " << ds1.info() << " - " << ds2.info()
+            << endl << abort(FatalError);
     }
 
     return dimDifference;

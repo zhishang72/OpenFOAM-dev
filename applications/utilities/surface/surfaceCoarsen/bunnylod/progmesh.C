@@ -34,7 +34,7 @@ class Vertex;
 class Triangle {
   public:
         Vertex *         vertex[3]; // the 3 points that make this tri
-        Vector           normal;    // unit vector othogonal to this face
+        Vector           normal;    // unit vector orthogonal to this face
                          Triangle(Vertex *v0,Vertex *v1,Vertex *v2);
                          ~Triangle();
         void             ComputeNormal();
@@ -93,7 +93,7 @@ void Triangle::ComputeNormal(){
         Vector v2=vertex[2]->position;
         normal = (v1-v0)*(v2-v1);
         if(magnitude(normal)==0)return;
-        normal = normalize(normal);
+        normal = normalise(normal);
 }
 void Triangle::ReplaceVertex(Vertex *vold,Vertex *vnew) {
         assert(vold && vnew);
@@ -158,7 +158,7 @@ float ComputeEdgeCollapseCost(Vertex *u,Vertex *v) {
         // The method of determining cost was designed in order
         // to exploit small and coplanar regions for
         // effective polygon reduction.
-        // Is is possible to add some checks here to see if "folds"
+        // Is possible to add some checks here to see if "folds"
         // would be generated.  i.e. normal of a remaining face gets
         // flipped.  I never seemed to run into this problem and
         // therefore never added code to detect this case.
@@ -275,7 +275,7 @@ Vertex *MinimumCostEdge(){
         // Find the edge that when collapsed will affect model the least.
         // This function actually returns a Vertex, the second vertex
         // of the edge (collapse candidate) is stored in the vertex data.
-        // Serious optimization opportunity here: this function currently
+        // Serious optimisation opportunity here: this function currently
         // does a sequential search through an unsorted list :-(
         // Our algorithm could be O(n*lg(n)) instead of O(n*n)
         Vertex *mn=vertices[0];

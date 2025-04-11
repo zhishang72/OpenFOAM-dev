@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -26,21 +26,9 @@ License
 #include "surfaceNormalFixedValueFvPatchVectorField.H"
 #include "addToRunTimeSelectionTable.H"
 #include "volFields.H"
-#include "fvPatchFieldMapper.H"
+#include "fieldMapper.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
-
-Foam::surfaceNormalFixedValueFvPatchVectorField::
-surfaceNormalFixedValueFvPatchVectorField
-(
-    const fvPatch& p,
-    const DimensionedField<vector, volMesh>& iF
-)
-:
-    fixedValueFvPatchVectorField(p, iF),
-    refValue_(p.size())
-{}
-
 
 Foam::surfaceNormalFixedValueFvPatchVectorField::
 surfaceNormalFixedValueFvPatchVectorField
@@ -51,7 +39,7 @@ surfaceNormalFixedValueFvPatchVectorField
 )
 :
     fixedValueFvPatchVectorField(p, iF, dict, false),
-    refValue_("refValue", dict, p.size())
+    refValue_("refValue", iF.dimensions(), dict, p.size())
 {
     fvPatchVectorField::operator=(refValue_*patch().nf());
 }
@@ -63,7 +51,7 @@ surfaceNormalFixedValueFvPatchVectorField
     const surfaceNormalFixedValueFvPatchVectorField& ptf,
     const fvPatch& p,
     const DimensionedField<vector, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     fixedValueFvPatchVectorField(p, iF),
@@ -81,17 +69,6 @@ surfaceNormalFixedValueFvPatchVectorField
 Foam::surfaceNormalFixedValueFvPatchVectorField::
 surfaceNormalFixedValueFvPatchVectorField
 (
-    const surfaceNormalFixedValueFvPatchVectorField& pivpvf
-)
-:
-    fixedValueFvPatchVectorField(pivpvf),
-    refValue_(pivpvf.refValue_)
-{}
-
-
-Foam::surfaceNormalFixedValueFvPatchVectorField::
-surfaceNormalFixedValueFvPatchVectorField
-(
     const surfaceNormalFixedValueFvPatchVectorField& pivpvf,
     const DimensionedField<vector, volMesh>& iF
 )
@@ -103,28 +80,32 @@ surfaceNormalFixedValueFvPatchVectorField
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-void Foam::surfaceNormalFixedValueFvPatchVectorField::autoMap
-(
-    const fvPatchFieldMapper& m
-)
-{
-    fixedValueFvPatchVectorField::autoMap(m);
-    m(refValue_, refValue_);
-}
-
-
-void Foam::surfaceNormalFixedValueFvPatchVectorField::rmap
+void Foam::surfaceNormalFixedValueFvPatchVectorField::map
 (
     const fvPatchVectorField& ptf,
-    const labelList& addr
+    const fieldMapper& mapper
 )
 {
-    fixedValueFvPatchVectorField::rmap(ptf, addr);
+    fixedValueFvPatchVectorField::map(ptf, mapper);
 
     const surfaceNormalFixedValueFvPatchVectorField& tiptf =
         refCast<const surfaceNormalFixedValueFvPatchVectorField>(ptf);
 
-    refValue_.rmap(tiptf.refValue_, addr);
+    mapper(refValue_, tiptf.refValue_);
+}
+
+
+void Foam::surfaceNormalFixedValueFvPatchVectorField::reset
+(
+    const fvPatchVectorField& ptf
+)
+{
+    fixedValueFvPatchVectorField::reset(ptf);
+
+    const surfaceNormalFixedValueFvPatchVectorField& tiptf =
+        refCast<const surfaceNormalFixedValueFvPatchVectorField>(ptf);
+
+    refValue_.reset(tiptf.refValue_);
 }
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -32,7 +32,7 @@ Description
 #include "defineDebugSwitch.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-// Declarations (without debug information)
+                  // Declarations (without debug information)
 
 //- Add typeName information from argument \a TypeNameString to a class.
 //  Without debug information
@@ -58,7 +58,7 @@ public:                                                                        \
 
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-// Declarations (with debug information)
+                   // Declarations (with debug information)
 
 //- Add typeName information from argument \a TypeNameString to a class.
 //  Also declares debug information.
@@ -119,6 +119,11 @@ public:                                                                        \
 #define defineTypeNameAndDebug(Type, DebugSwitch)                              \
     defineTypeName(Type);                                                      \
     defineDebugSwitch(Type, DebugSwitch)
+
+//- Define the typeName and debug information, lookup as \a Name
+#define defineTypeNameAndDebugWithName(Type, Name, DebugSwitch)                \
+    defineTypeNameWithName(Type, Name);                                        \
+    defineDebugSwitchWithName(Type, Name, DebugSwitch)
 
 //- Define the typeName and debug information, lookup as \a Name
 #define defineTemplateTypeNameAndDebugWithName(Type, Name, DebugSwitch)        \

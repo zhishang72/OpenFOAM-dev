@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2019-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,7 +24,11 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "liquid.H"
+#include "None.H"
 #include "addToRunTimeSelectionTable.H"
+
+#include "thermodynamicConstants.H"
+using namespace Foam::constant::thermodynamic;
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -34,45 +38,75 @@ namespace Foam
     addToRunTimeSelectionTable(liquidProperties, liquid, dictionary);
 }
 
+
+// * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
+
+Foam::autoPtr<Foam::Function1<Foam::scalar>> Foam::liquid::New
+(
+    const word& name,
+    const dimensionSet& dims,
+    const dictionary& dict
+)
+{
+    if (dict.isDict(name))
+    {
+        return Function1<scalar>::New(name, dimTemperature, dims, dict);
+    }
+    else
+    {
+        return autoPtr<Function1<scalar>>(new Function1s::None<scalar>(name));
+    }
+}
+
+
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 Foam::liquid::liquid(const dictionary& dict)
 :
     liquidProperties(dict),
-    rho_(thermophysicalFunction::New(dict, "rho")),
-    pv_(thermophysicalFunction::New(dict, "pv")),
-    hl_(thermophysicalFunction::New(dict, "hl")),
-    Cp_(thermophysicalFunction::New(dict, "Cp")),
-    h_(thermophysicalFunction::New(dict, "h")),
-    Cpg_(thermophysicalFunction::New(dict, "Cpg")),
-    B_(thermophysicalFunction::New(dict, "B")),
-    mu_(thermophysicalFunction::New(dict, "mu")),
-    mug_(thermophysicalFunction::New(dict, "mug")),
-    kappa_(thermophysicalFunction::New(dict, "kappa")),
-    kappag_(thermophysicalFunction::New(dict, "kappag")),
-    sigma_(thermophysicalFunction::New(dict, "sigma")),
-    D_(thermophysicalFunction::New(dict, "D"))
+    rho_(New("rho", dimDensity, dict)),
+    pv_(New("pv", dimPressure, dict)),
+    hl_(New("hl", dimEnergy/dimMass, dict)),
+    Cp_(New("Cp", dimSpecificHeatCapacity, dict)),
+    h_(New("h", dimEnergy/dimMass, dict)),
+    Cpg_(New("Cpg", dimSpecificHeatCapacity, dict)),
+    B_(New("B", dimVolume/dimMass, dict)),
+    mu_(New("mu", dimDynamicViscosity, dict)),
+    mug_(New("mug", dimDynamicViscosity, dict)),
+    kappa_(New("kappa", dimThermalConductivity, dict)),
+    kappag_(New("kappag", dimThermalConductivity, dict)),
+    sigma_(New("sigma", dimForce/dimLength, dict)),
+    D_(New("D", dimArea/dimTime, dict)),
+    hf_(h_->value(Tstd))
 {}
+
+
+Foam::liquid::liquid(const liquid& lm)
+:
+    liquidProperties(lm),
+    rho_(lm.rho_, false),
+    pv_(lm.pv_, false),
+    hl_(lm.hl_, false),
+    Cp_(lm.Cp_, false),
+    h_(lm.h_, false),
+    Cpg_(lm.Cpg_, false),
+    B_(lm.B_, false),
+    mu_(lm.mu_, false),
+    mug_(lm.mug_, false),
+    kappa_(lm.kappa_, false),
+    kappag_(lm.kappag_, false),
+    sigma_(lm.sigma_, false),
+    D_(lm.D_, false),
+    hf_(lm.hf_)
+{}
+
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 void Foam::liquid::write(Ostream& os) const
 {
-    liquidProperties::write(os); os << nl;
-    rho_->write(os); os << nl;
-    pv_->write(os); os << nl;
-    hl_->write(os); os << nl;
-    Cp_->write(os); os << nl;
-    h_->write(os); os << nl;
-    Cpg_->write(os); os << nl;
-    B_->write(os); os << nl;
-    mu_->write(os); os << nl;
-    mug_->write(os); os << nl;
-    kappa_->write(os); os << nl;
-    kappag_->write(os); os << nl;
-    sigma_->write(os); os << nl;
-    D_->write(os); os << endl;
+    liquidProperties::write(*this, os);
 }
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,9 +25,8 @@ License
 
 #include "greyMean.H"
 #include "addToRunTimeSelectionTable.H"
-#include "unitConversion.H"
 #include "extrapolatedCalculatedFvPatchFields.H"
-#include "basicSpecieMixture.H"
+#include "fluidMulticomponentThermo.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -59,15 +58,14 @@ Foam::radiationModels::absorptionEmissionModels::greyMean::greyMean
     const word& modelName
 )
 :
-    absorptionEmissionModel(dict, mesh),
-    coeffsDict_(dict.subDict(modelName + "Coeffs")),
+    absorptionEmissionModel(mesh),
     speciesNames_(0),
     specieIndex_(label(0)),
     lookUpTablePtr_(),
-    thermo_(mesh.lookupObject<fluidThermo>(basicThermo::dictName)),
+    thermo_(mesh.lookupObject<fluidThermo>(physicalProperties::typeName)),
     Yj_(nSpecies_)
 {
-    if (!isA<basicSpecieMixture>(thermo_))
+    if (!isA<fluidMulticomponentThermo>(thermo_))
     {
         FatalErrorInFunction
             << "Model requires a multi-component thermo package"
@@ -75,7 +73,7 @@ Foam::radiationModels::absorptionEmissionModels::greyMean::greyMean
     }
 
     label nFunc = 0;
-    forAllConstIter(dictionary, coeffsDict_, iter)
+    forAllConstIter(dictionary, dict, iter)
     {
         // safety:
         if (!iter().isDict())
@@ -89,16 +87,16 @@ Foam::radiationModels::absorptionEmissionModels::greyMean::greyMean
         nFunc++;
     }
 
-    if (coeffsDict_.found("lookUpTableFileName"))
+    if (dict.found("lookUpTableFileName"))
     {
-        const word name = coeffsDict_.lookup("lookUpTableFileName");
+        const word name = dict.lookup("lookUpTableFileName");
         if (name != "none")
         {
             lookUpTablePtr_.set
             (
-                new interpolationLookUpTable<scalar>
+                new interpolationLookUpTable
                 (
-                    fileName(coeffsDict_.lookup("lookUpTableFileName")),
+                    fileName(dict.lookup("lookUpTableFileName")),
                     mesh.time().constant(),
                     mesh
                 )
@@ -180,8 +178,8 @@ Foam::radiationModels::absorptionEmissionModels::greyMean::aCont
     const label bandI
 ) const
 {
-    const basicSpecieMixture& mixture =
-        dynamic_cast<const basicSpecieMixture&>(thermo_);
+    const fluidMulticomponentThermo& mcThermo =
+        dynamic_cast<const fluidMulticomponentThermo&>(thermo_);
 
     const volScalarField& T = thermo_.T();
     const volScalarField& p = thermo_.p();
@@ -200,6 +198,8 @@ Foam::radiationModels::absorptionEmissionModels::greyMean::aCont
 
     scalarField& a = ta.ref().primitiveFieldRef();
 
+    const unitConversion& unitAtm = units()["atm"];
+
     forAll(a, celli)
     {
         forAllConstIter(HashTable<label>, speciesNames_, iter)
@@ -213,21 +213,24 @@ Foam::radiationModels::absorptionEmissionModels::greyMean::aCont
                     mesh_.lookupObject<volScalarField>("ft");
 
                 const List<scalar>& Ynft = lookUpTablePtr_().lookUp(ft[celli]);
+
                 // moles x pressure [atm]
-                Xipi = Ynft[specieIndex_[n]]*paToAtm(p[celli]);
+                Xipi = unitAtm.toUser(Ynft[specieIndex_[n]]*p[celli]);
             }
             else
             {
                 scalar invWt = 0.0;
-                forAll(mixture.Y(), s)
+                forAll(mcThermo.Y(), s)
                 {
-                    invWt += mixture.Y(s)[celli]/mixture.Wi(s);
+                    invWt += mcThermo.Y(s)[celli]/mcThermo.WiValue(s);
                 }
 
-                label index = mixture.species()[iter.key()];
-                scalar Xk = mixture.Y(index)[celli]/(mixture.Wi(index)*invWt);
+                const label index = mcThermo.species()[iter.key()];
 
-                Xipi = Xk*paToAtm(p[celli]);
+                const scalar Xk =
+                    mcThermo.Y(index)[celli]/(mcThermo.WiValue(index)*invWt);
+
+                Xipi = unitAtm.toUser(Xk*p[celli]);
             }
 
             const absorptionCoeffs::coeffArray& b = coeffs_[n].coeffs(T[celli]);

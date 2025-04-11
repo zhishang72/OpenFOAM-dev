@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,8 +25,31 @@ Class
     Foam::hConstThermo
 
 Description
-    Constant properties thermodynamics package
-    templated into the EquationOfState.
+    Enthalpy based thermodynamics package using a constant heat capacity
+    at constant pressure.
+
+    The sensible enthalpy is evaluated as:
+    \verbatim
+        hs = Cp*(T - Tref) + hsRef
+    \endverbatim
+
+Usage
+    \table
+        Property     | Description
+        Cp           | Constant Heat capacity at constant pressure [J/kg/K]
+        Tref         | Reference temperature [K] (defaults to Tstd)
+        hsRef        | Reference sensible enthalpy [J/kg] (defaults to 0)
+        hf           | Heat of formation [J/kg]
+    \endtable
+
+    Example specification of hConstThermo for air:
+    \verbatim
+    thermodynamics
+    {
+        Cp          1007;
+        hf          0;
+    }
+    \endverbatim
 
 SourceFiles
     hConstThermoI.H
@@ -76,7 +99,7 @@ Ostream& operator<<
 
 
 /*---------------------------------------------------------------------------*\
-                           Class hConstThermo Declaration
+                        Class hConstThermo Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class EquationOfState>
@@ -86,39 +109,41 @@ class hConstThermo
 {
     // Private Data
 
-        //- Heat capacity at constant pressure [J/kmol/K]
+        //- Heat capacity at constant pressure [J/kg/K]
         scalar Cp_;
 
         //- Heat of formation [J/kg]
-        scalar Hf_;
+        scalar hf_;
 
+        //- Reference temperature around which to linearise [K]
+        scalar Tref_;
 
-    // Private Member Functions
-
-        //- Construct from components
-        inline hConstThermo
-        (
-            const EquationOfState& st,
-            const scalar cp,
-            const scalar hf
-        );
+        //- Reference sensible enthalpy around which to linearise [J/kg]
+        scalar hsRef_;
 
 
 public:
 
     // Constructors
 
-        //- Construct from dictionary
-        hConstThermo(const dictionary& dict);
+        //- Construct from components
+        inline hConstThermo
+        (
+            const EquationOfState& st,
+            const scalar Cp,
+            const scalar hf,
+            const scalar Tref,
+            const scalar hsRef
+        );
+
+        //- Construct from name and dictionary
+        hConstThermo(const word& name, const dictionary& dict);
 
         //- Construct as named copy
         inline hConstThermo(const word&, const hConstThermo&);
 
         //- Construct and return a clone
         inline autoPtr<hConstThermo> clone() const;
-
-        //- Selector from dictionary
-        inline static autoPtr<hConstThermo> New(const dictionary& dict);
 
 
     // Member Functions
@@ -139,27 +164,24 @@ public:
             inline scalar Cp(const scalar p, const scalar T) const;
 
             //- Absolute enthalpy [J/kg]
-            inline scalar Ha(const scalar p, const scalar T) const;
+            inline scalar ha(const scalar p, const scalar T) const;
 
             //- Sensible enthalpy [J/kg]
-            inline scalar Hs(const scalar p, const scalar T) const;
+            inline scalar hs(const scalar p, const scalar T) const;
 
-            //- Chemical enthalpy [J/kg]
-            inline scalar Hc() const;
+            //- Enthalpy of formation [J/kg]
+            inline scalar hf() const;
 
             //- Entropy [J/kg/K]
-            inline scalar S(const scalar p, const scalar T) const;
+            inline scalar s(const scalar p, const scalar T) const;
 
             //- Gibbs free energy of the mixture in the standard state [J/kg]
-            inline scalar Gstd(const scalar T) const;
+            inline scalar gStd(const scalar T) const;
 
             #include "HtoEthermo.H"
 
 
         // Derivative term used for Jacobian
-
-            //- Derivative of Gibbs free energy w.r.t. temperature
-            inline scalar dGdT(const scalar p, const scalar T) const;
 
             //- Temperature derivative of heat capacity at constant pressure
             inline scalar dCpdT(const scalar p, const scalar T) const;

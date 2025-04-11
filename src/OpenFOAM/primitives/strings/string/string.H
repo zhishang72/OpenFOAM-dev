@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -67,6 +67,8 @@ Istream& operator>>(Istream&, string&);
 Ostream& operator<<(Ostream&, const string&);
 Ostream& operator<<(Ostream&, const std::string&);
 
+template<class T>
+class UList;
 
 /*---------------------------------------------------------------------------*\
                            Class string Declaration
@@ -115,6 +117,9 @@ public:
         //- Construct as copy of character array
         inline string(const char*);
 
+        //- Construct as copy of UList of character
+        string(const UList<char>&);
+
         //- Construct as copy of specified number of characters
         inline string(const char*, const size_type);
 
@@ -160,9 +165,27 @@ public:
         //- Avoid masking the normal std::string replace
         using std::string::replace;
 
+        //- In this string replace first occurrence of sub-string oldStr
+        //  with newStr starting at start
+        string& replace
+        (
+            const string& oldStr,
+            const string& newStr,
+            size_type start = 0
+        );
+
         //- Replace first occurrence of sub-string oldStr with newStr
         //  starting at start
-        string& replace
+        string replace
+        (
+            const string& oldStr,
+            const string& newStr,
+            size_type start = 0
+        ) const;
+
+        //- In this string replace all occurrences of sub-string oldStr
+        //  with newStr starting at start
+        string& replaceAll
         (
             const string& oldStr,
             const string& newStr,
@@ -171,12 +194,12 @@ public:
 
         //- Replace all occurrences of sub-string oldStr with newStr
         //  starting at start
-        string& replaceAll
+        string replaceAll
         (
             const string& oldStr,
             const string& newStr,
             size_type start = 0
-        );
+        ) const;
 
         //- Expand initial tildes and all occurrences of environment variables
         //  Expansion includes:
@@ -194,10 +217,16 @@ public:
         //  Foam::findEtcFile
         string& expand(const bool allowEmpty = false);
 
-        //- Remove repeated characters returning true if string changed
+        //- Remove all occurrences of character returning true if string changed
+        bool remove(const char);
+
+        //- Remove all occurrences of character and return the string
+        string remove(const char) const;
+
+        //- Remove repeated character returning true if string changed
         bool removeRepeated(const char);
 
-        //- Return string with repeated characters removed
+        //- Remove repeated character and return the string
         string removeRepeated(const char) const;
 
         //- Remove trailing character returning true if string changed
@@ -211,6 +240,27 @@ public:
 
         //- Return string with trailing string removed
         string removeTrailing(const string&) const;
+
+        //- Strip characters from the start and end of the string
+        void strip(const string&);
+
+        //- Find the closing character. Brackets counting algorithm. The
+        //  opening bracket character is taken to be the one at the starting
+        //  position. The closing character is provided by argument.
+        //
+        //  Examples:
+        //
+        //          [char #1]       [char #15]
+        //               |             |
+        //               V             V
+        //      string("0(2(4,6)8,a(c)e)g").findClosing(')',1) == 15
+        //
+        //          [char #3] [char #7]
+        //                 |   |
+        //                 V   V
+        //      string("0(2(4,6)8,a(c)e)g").findClosing(')',3) == 7
+        //
+        size_type findClosing(const char, const size_type) const;
 
 
     // Member Operators

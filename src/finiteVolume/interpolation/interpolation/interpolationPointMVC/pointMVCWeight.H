@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -43,26 +43,25 @@ SourceFiles
 #ifndef pointMVCWeight_H
 #define pointMVCWeight_H
 
+#include "point.H"
+#include "volFieldsFwd.H"
+#include "pointFieldsFwd.H"
 #include "scalarField.H"
 #include "vectorField.H"
 #include "Map.H"
 #include "DynamicList.H"
-#include "point.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
 {
 
+class face;
 class polyMesh;
 class pointMesh;
-template<class T> class pointPatchField;
-template<class Type, template<class> class PatchField, class GeoMesh>
-class GeometricField;
-class face;
 
 /*---------------------------------------------------------------------------*\
-                           Class pointMVCWeight Declaration
+                       Class pointMVCWeight Declaration
 \*---------------------------------------------------------------------------*/
 
 class pointMVCWeight
@@ -104,8 +103,8 @@ protected:
 
 public:
 
-    //- Debug switch
-    static int debug;
+    //- Type information
+    ClassName("pointMVCWeight");
 
     //- Tolerance used in calculating barycentric co-ordinates
     //  (applied to normalised values)
@@ -142,7 +141,7 @@ public:
         template<class Type>
         inline Type interpolate
         (
-            const GeometricField<Type, pointPatchField, pointMesh>& psip
+            const PointField<Type>& psip
         ) const;
 };
 

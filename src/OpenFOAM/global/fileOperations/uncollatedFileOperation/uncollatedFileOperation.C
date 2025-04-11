@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -27,10 +27,11 @@ License
 #include "Time.H"
 #include "IFstream.H"
 #include "OFstream.H"
-#include "addToRunTimeSelectionTable.H"
 #include "decomposedBlockData.H"
 #include "dummyISstream.H"
 #include "unthreadedInitialise.H"
+#include "OSspecific.H"
+#include "addToRunTimeSelectionTable.H"
 
 /* * * * * * * * * * * * * * * Static Member Data  * * * * * * * * * * * * * */
 
@@ -57,7 +58,7 @@ namespace fileOperations
 
 Foam::fileName Foam::fileOperations::uncollatedFileOperation::filePathInfo
 (
-    const bool checkGlobal,
+    const bool globalFile,
     const bool isFile,
     const IOobject& io
 ) const
@@ -77,7 +78,7 @@ Foam::fileName Foam::fileOperations::uncollatedFileOperation::filePathInfo
     }
     else
     {
-        fileName path = io.path();
+        fileName path = io.path(globalFile);
         fileName objectPath = path/io.name();
 
         if (isFileOrDir(isFile, objectPath))
@@ -88,7 +89,7 @@ Foam::fileName Foam::fileOperations::uncollatedFileOperation::filePathInfo
         {
             if
             (
-                checkGlobal
+                globalFile
              && io.time().processorCase()
              && (
                     io.instance() == io.time().system()
@@ -113,7 +114,7 @@ Foam::fileName Foam::fileOperations::uncollatedFileOperation::filePathInfo
             {
                 tmpNrc<dirIndexList> pDirs
                 (
-                    lookupProcessorsPath(io.objectPath())
+                    lookupProcessorsPath(io.objectPath(globalFile))
                 );
                 forAll(pDirs(), i)
                 {
@@ -142,7 +143,7 @@ Foam::fileName Foam::fileOperations::uncollatedFileOperation::filePathInfo
                 {
                     fileName fName
                     (
-                        io.rootPath()/io.caseName()
+                        io.rootPath()/io.caseName(globalFile)
                        /newInstancePath/io.db().dbDir()/io.local()/io.name()
                     );
 
@@ -364,25 +365,24 @@ bool Foam::fileOperations::uncollatedFileOperation::mv
 
 Foam::fileName Foam::fileOperations::uncollatedFileOperation::filePath
 (
-    const bool checkGlobal,
-    const IOobject& io,
-    const word& typeName
+    const bool globalFile,
+    const IOobject& io
 ) const
 {
     if (debug)
     {
         Pout<< "uncollatedFileOperation::filePath :"
-            << " objectPath:" << io.objectPath()
-            << " checkGlobal:" << checkGlobal << endl;
+            << " objectPath:" << io.objectPath(globalFile)
+            << " globalFile:" << globalFile << endl;
     }
 
-    fileName objPath(filePathInfo(checkGlobal, true, io));
+    fileName objPath(filePathInfo(globalFile, true, io));
 
     if (debug)
     {
         Pout<< "uncollatedFileOperation::filePath :"
             << " Returning from file searching:" << endl
-            << "    objectPath:" << io.objectPath() << endl
+            << "    objectPath:" << io.objectPath(globalFile) << endl
             << "    filePath  :" << objPath << endl << endl;
     }
     return objPath;
@@ -391,24 +391,24 @@ Foam::fileName Foam::fileOperations::uncollatedFileOperation::filePath
 
 Foam::fileName Foam::fileOperations::uncollatedFileOperation::dirPath
 (
-    const bool checkGlobal,
+    const bool globalFile,
     const IOobject& io
 ) const
 {
     if (debug)
     {
         Pout<< "uncollatedFileOperation::dirPath :"
-            << " objectPath:" << io.objectPath()
-            << " checkGlobal:" << checkGlobal << endl;
+            << " objectPath:" << io.objectPath(globalFile)
+            << " globalFile:" << globalFile << endl;
     }
 
-    fileName objPath(filePathInfo(checkGlobal, false, io));
+    fileName objPath(filePathInfo(globalFile, false, io));
 
     if (debug)
     {
         Pout<< "uncollatedFileOperation::dirPath :"
             << " Returning from directory searching:" << endl
-            << "    objectPath:" << io.objectPath() << endl
+            << "    objectPath:" << io.objectPath(globalFile) << endl
             << "    dirPath   :" << objPath << endl << endl;
     }
     return objPath;
@@ -482,7 +482,7 @@ bool Foam::fileOperations::uncollatedFileOperation::readHeader
         if (IOobject::debug)
         {
             InfoInFunction
-                << "file " << io.objectPath() << " could not be opened"
+                << "file for object " << io.name() << " could not be opened"
                 << endl;
         }
 
@@ -541,6 +541,7 @@ Foam::fileOperations::uncollatedFileOperation::readStream
     }
 
     isPtr = NewIFstream(fName);
+    isPtr->global() = io.global();
 
     if (!isPtr.valid() || !isPtr->good())
     {
@@ -549,8 +550,7 @@ Foam::fileOperations::uncollatedFileOperation::readStream
             "uncollatedFileOperation::readStream()",
             __FILE__,
             __LINE__,
-            fName,
-            0
+            IOerrorLocation(fName, 0)
         )   << "cannot open file"
             << exit(FatalIOError);
     }
@@ -610,11 +610,16 @@ bool Foam::fileOperations::uncollatedFileOperation::read
 (
     regIOobject& io,
     const bool masterOnly,
-    const IOstream::streamFormat format,
+    const IOstream::streamFormat defaultFormat,
     const word& typeName
 ) const
 {
     bool ok = true;
+
+    // Initialise format to the defaultFormat
+    // but reset to ASCII if defaultFormat and file format are ASCII
+    IOstream::streamFormat format = defaultFormat;
+
     if (Pstream::master() || !masterOnly)
     {
         if (debug)
@@ -624,8 +629,19 @@ bool Foam::fileOperations::uncollatedFileOperation::read
                 << " from file " << endl;
         }
 
-        // Read file
-        ok = io.readData(io.readStream(typeName));
+        // Open file and read header
+        Istream& is = io.readStream(typeName);
+
+        // Set format to ASCII if defaultFormat and file format are ASCII
+        if (defaultFormat == IOstream::ASCII)
+        {
+            format = is.format();
+        }
+
+        // Read the data from the file
+        ok = io.readData(is);
+
+        // Close the file
         io.close();
 
         if (debug)
@@ -642,6 +658,13 @@ bool Foam::fileOperations::uncollatedFileOperation::read
         // transferred as well as contents.
         Pstream::scatter(io.headerClassName());
         Pstream::scatter(io.note());
+
+        if (defaultFormat == IOstream::ASCII)
+        {
+            std::underlying_type_t<IOstream::streamFormat> formatValue(format);
+            Pstream::scatter(formatValue);
+            format = IOstream::streamFormat(formatValue);
+        }
 
         // Get my communication order
         const List<Pstream::commsStruct>& comms =
@@ -662,8 +685,11 @@ bool Foam::fileOperations::uncollatedFileOperation::read
                 0,
                 Pstream::msgType(),
                 Pstream::worldComm,
-                format
+                format,
+                IOstream::currentVersion,
+                masterOnly
             );
+
             ok = io.readData(fromAbove);
         }
 
@@ -677,8 +703,11 @@ bool Foam::fileOperations::uncollatedFileOperation::read
                 0,
                 Pstream::msgType(),
                 Pstream::worldComm,
-                format
+                format,
+                IOstream::currentVersion,
+                masterOnly
             );
+
             bool okWrite = io.writeData(toBelow);
             ok = ok && okWrite;
         }
@@ -690,24 +719,29 @@ bool Foam::fileOperations::uncollatedFileOperation::read
 Foam::autoPtr<Foam::ISstream>
 Foam::fileOperations::uncollatedFileOperation::NewIFstream
 (
-    const fileName& filePath
+    const fileName& filePath,
+    IOstream::streamFormat format,
+    IOstream::versionNumber version
 ) const
 {
-    return autoPtr<ISstream>(new IFstream(filePath));
+    return autoPtr<ISstream>(new IFstream(filePath, format, version));
 }
 
 
 Foam::autoPtr<Foam::Ostream>
 Foam::fileOperations::uncollatedFileOperation::NewOFstream
 (
-    const fileName& pathName,
-    IOstream::streamFormat fmt,
-    IOstream::versionNumber ver,
-    IOstream::compressionType cmp,
+    const fileName& filePath,
+    IOstream::streamFormat format,
+    IOstream::versionNumber version,
+    IOstream::compressionType compression,
     const bool write
 ) const
 {
-    return autoPtr<Ostream>(new OFstream(pathName, fmt, ver, cmp));
+    return autoPtr<Ostream>
+    (
+        new OFstream(filePath, format, version, compression)
+    );
 }
 
 

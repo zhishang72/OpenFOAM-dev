@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -27,7 +27,7 @@ License
 #include "IOstreams.H"
 #include "transformField.H"
 
-// * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class Type>
 Foam::transformFvPatchField<Type>::transformFvPatchField
@@ -37,19 +37,6 @@ Foam::transformFvPatchField<Type>::transformFvPatchField
 )
 :
    fvPatchField<Type>(p, iF)
-{}
-
-
-template<class Type>
-Foam::transformFvPatchField<Type>::transformFvPatchField
-(
-    const transformFvPatchField<Type>& ptf,
-    const fvPatch& p,
-    const DimensionedField<Type, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
-)
-:
-    fvPatchField<Type>(ptf, p, iF, mapper)
 {}
 
 
@@ -68,10 +55,13 @@ Foam::transformFvPatchField<Type>::transformFvPatchField
 template<class Type>
 Foam::transformFvPatchField<Type>::transformFvPatchField
 (
-    const transformFvPatchField<Type>& ptf
+    const transformFvPatchField<Type>& ptf,
+    const fvPatch& p,
+    const DimensionedField<Type, volMesh>& iF,
+    const fieldMapper& mapper
 )
 :
-    fvPatchField<Type>(ptf)
+    fvPatchField<Type>(ptf, p, iF, mapper)
 {}
 
 

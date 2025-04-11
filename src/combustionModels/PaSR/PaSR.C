@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,26 +24,38 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "PaSR.H"
+#include "addToRunTimeSelectionTable.H"
+
+// * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
+
+namespace Foam
+{
+namespace combustionModels
+{
+    defineTypeNameAndDebug(PaSR, 0);
+    addToRunTimeSelectionTable(combustionModel, PaSR, dictionary);
+}
+}
+
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
-template<class ReactionThermo>
-Foam::combustionModels::PaSR<ReactionThermo>::PaSR
+Foam::combustionModels::PaSR::PaSR
 (
     const word& modelType,
-    const ReactionThermo& thermo,
-    const compressibleTurbulenceModel& turb,
+    const fluidMulticomponentThermo& thermo,
+    const compressibleMomentumTransportModel& turb,
     const word& combustionProperties
 )
 :
-    laminar<ReactionThermo>(modelType, thermo, turb, combustionProperties),
+    laminar(modelType, thermo, turb, combustionProperties),
     Cmix_(this->coeffs().template lookup<scalar>("Cmix")),
     kappa_
     (
         IOobject
         (
-            thermo.phasePropertyName(typeName + ":kappa"),
-            this->mesh().time().timeName(),
+            thermo.phasePropertyName(typedName("kappa")),
+            this->mesh().time().name(),
             this->mesh(),
             IOobject::NO_READ,
             IOobject::AUTO_WRITE
@@ -56,34 +68,29 @@ Foam::combustionModels::PaSR<ReactionThermo>::PaSR
 
 // * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
 
-template<class ReactionThermo>
-Foam::combustionModels::PaSR<ReactionThermo>::~PaSR()
+Foam::combustionModels::PaSR::~PaSR()
 {}
 
 
 // * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * * //
 
-template<class ReactionThermo>
-void Foam::combustionModels::PaSR<ReactionThermo>::correct()
+void Foam::combustionModels::PaSR::correct()
 {
-    laminar<ReactionThermo>::correct();
+    laminar::correct();
 
     tmp<volScalarField> tepsilon(this->turbulence().epsilon());
     const scalarField& epsilon = tepsilon();
 
-    tmp<volScalarField> tmuEff(this->turbulence().muEff());
-    const scalarField& muEff = tmuEff();
+    tmp<volScalarField> tnuEff(this->turbulence().nuEff());
+    const scalarField& nuEff = tnuEff();
 
-    tmp<volScalarField> ttc(this->tc());
+    tmp<volScalarField> ttc(this->chemistryPtr_->tc());
     const scalarField& tc = ttc();
-
-    tmp<volScalarField> trho(this->rho());
-    const scalarField& rho = trho();
 
     forAll(epsilon, i)
     {
         const scalar tk =
-            Cmix_*sqrt(max(muEff[i]/rho[i]/(epsilon[i] + small), 0));
+            Cmix_*sqrt(max(nuEff[i]/(epsilon[i] + small), 0));
 
         if (tk > small)
         {
@@ -97,30 +104,34 @@ void Foam::combustionModels::PaSR<ReactionThermo>::correct()
 }
 
 
-template<class ReactionThermo>
-Foam::tmp<Foam::fvScalarMatrix>
-Foam::combustionModels::PaSR<ReactionThermo>::R(volScalarField& Y) const
+Foam::tmp<Foam::volScalarField::Internal>
+Foam::combustionModels::PaSR::R(const label speciei) const
 {
-    return kappa_*laminar<ReactionThermo>::R(Y);
+    return kappa_*laminar::R(speciei);
 }
 
 
-template<class ReactionThermo>
+Foam::tmp<Foam::fvScalarMatrix>
+Foam::combustionModels::PaSR::R(volScalarField& Y) const
+{
+    return kappa_*laminar::R(Y);
+}
+
+
 Foam::tmp<Foam::volScalarField>
-Foam::combustionModels::PaSR<ReactionThermo>::Qdot() const
+Foam::combustionModels::PaSR::Qdot() const
 {
     return volScalarField::New
     (
-        this->thermo().phasePropertyName(typeName + ":Qdot"),
-        kappa_*laminar<ReactionThermo>::Qdot()
+        this->thermo().phasePropertyName(typedName("Qdot")),
+        kappa_*laminar::Qdot()
     );
 }
 
 
-template<class ReactionThermo>
-bool Foam::combustionModels::PaSR<ReactionThermo>::read()
+bool Foam::combustionModels::PaSR::read()
 {
-    if (laminar<ReactionThermo>::read())
+    if (laminar::read())
     {
         this->coeffs().lookup("Cmix") >> Cmix_;
         return true;

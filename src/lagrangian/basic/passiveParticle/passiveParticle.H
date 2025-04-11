@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -45,7 +45,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                      Class passiveParticle Declaration
+                       Class passiveParticle Declaration
 \*---------------------------------------------------------------------------*/
 
 class passiveParticle
@@ -67,7 +67,7 @@ public:
             const label tetPti
         )
         :
-            particle(mesh, coordinates, celli, tetFacei, tetPti)
+            particle(mesh, coordinates, celli, tetFacei, tetPti, -1)
         {}
 
 
@@ -77,21 +77,17 @@ public:
         (
             const polyMesh& mesh,
             const vector& position,
-            const label celli
+            const label celli,
+            label& nLocateBoundaryHits
         )
         :
-            particle(mesh, position, celli)
+            particle(mesh, position, celli, nLocateBoundaryHits)
         {}
 
         //- Construct from Istream
-        passiveParticle
-        (
-            const polyMesh& mesh,
-            Istream& is,
-            bool readFields = true
-        )
+        passiveParticle(Istream& is, bool readFields = true)
         :
-            particle(mesh, is, readFields)
+            particle(is, readFields)
         {}
 
         //- Copy constructor
@@ -104,6 +100,12 @@ public:
         virtual autoPtr<particle> clone() const
         {
             return autoPtr<particle>(new passiveParticle(*this));
+        }
+
+        //- Construct from Istream and return
+        static autoPtr<passiveParticle> New(Istream& is)
+        {
+            return autoPtr<passiveParticle>(new passiveParticle(is));
         }
 };
 

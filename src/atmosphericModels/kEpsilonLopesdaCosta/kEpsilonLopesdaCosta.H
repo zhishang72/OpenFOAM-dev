@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2018-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2018-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -71,13 +71,13 @@ namespace RASModels
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class kEpsilonLopesdaCosta Declaration
+                    Class kEpsilonLopesdaCosta Declaration
 \*---------------------------------------------------------------------------*/
 
-template<class BasicTurbulenceModel>
+template<class BasicMomentumTransportModel>
 class kEpsilonLopesdaCosta
 :
-    public eddyViscosity<RASModel<BasicTurbulenceModel>>
+    public eddyViscosity<RASModel<BasicMomentumTransportModel>>
 {
 protected:
 
@@ -93,7 +93,7 @@ protected:
 
         // Lopes da Costa porosity coefficients
 
-            volScalarField::Internal CdSigma_;
+            volScalarField::Internal CdAv_;
             volScalarField::Internal betap_;
             volScalarField::Internal betad_;
             volScalarField::Internal C4_;
@@ -114,7 +114,7 @@ protected:
             const porosityModels::powerLawLopesdaCosta& pm
         );
 
-        void setCdSigma
+        void setCdAv
         (
             volScalarField::Internal& C,
             const porosityModels::powerLawLopesdaCosta& pm
@@ -122,6 +122,10 @@ protected:
 
         void setPorosityCoefficients();
 
+        //- Bound epsilon and return Cmu*sqr(k) for nut
+        tmp<volScalarField> boundEpsilon();
+
+        //- Correct the eddy-viscosity nut
         virtual void correctNut();
 
         virtual tmp<fvScalarMatrix> kSource
@@ -139,9 +143,8 @@ protected:
 
 public:
 
-    typedef typename BasicTurbulenceModel::alphaField alphaField;
-    typedef typename BasicTurbulenceModel::rhoField rhoField;
-    typedef typename BasicTurbulenceModel::transportModel transportModel;
+    typedef typename BasicMomentumTransportModel::alphaField alphaField;
+    typedef typename BasicMomentumTransportModel::rhoField rhoField;
 
 
     //- Runtime type information
@@ -158,8 +161,7 @@ public:
             const volVectorField& U,
             const surfaceScalarField& alphaRhoPhi,
             const surfaceScalarField& phi,
-            const transportModel& transport,
-            const word& propertiesName = turbulenceModel::propertiesName,
+            const viscosity& viscosity,
             const word& type = typeName
         );
 
@@ -207,6 +209,16 @@ public:
         virtual tmp<volScalarField> epsilon() const
         {
             return epsilon_;
+        }
+
+        //- Return the turbulence specific dissipation rate
+        virtual tmp<volScalarField> omega() const
+        {
+            return volScalarField::New
+            (
+                "omega",
+                epsilon_/(Cmu_*k_)
+            );
         }
 
         //- Solve the turbulence equations and correct the turbulence viscosity

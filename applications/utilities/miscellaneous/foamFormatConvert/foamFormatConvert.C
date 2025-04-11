@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -79,7 +79,7 @@ bool writeZones(const word& name, const fileName& meshDir, Time& runTime)
     IOobject io
     (
         name,
-        runTime.timeName(),
+        runTime.name(),
         meshDir,
         runTime,
         IOobject::MUST_READ,
@@ -89,7 +89,7 @@ bool writeZones(const word& name, const fileName& meshDir, Time& runTime)
 
     bool writeOk = false;
 
-    if (io.typeHeaderOk<cellZoneMesh>(false))
+    if (io.headerOk())
     {
         Info<< "        Reading " << io.headerClassName()
             << " : " << name << endl;
@@ -130,6 +130,7 @@ bool writeZones(const word& name, const fileName& meshDir, Time& runTime)
         }
 
         const_cast<word&>(IOPtrList<entry>::typeName) = oldTypeName;
+
         // Fake type back to what was in field
         const_cast<word&>(meshObject.type()) = io.headerClassName();
 
@@ -189,7 +190,7 @@ bool writeOptionalMeshObject
     IOobject io
     (
         name,
-        runTime.timeName(),
+        runTime.name(),
         meshDir,
         runTime,
         IOobject::MUST_READ,
@@ -199,7 +200,7 @@ bool writeOptionalMeshObject
 
     bool writeOk = false;
 
-    bool haveFile = io.typeHeaderOk<IOField<label>>(false);
+    const bool haveFile = io.headerOk();
 
     // Make sure all know if there is a valid class name
     stringList classNames(1, io.headerClassName());
@@ -243,16 +244,14 @@ int main(int argc, char *argv[])
         Info<< "Excluding the constant directory." << nl << endl;
     }
 
-
     #include "createTime.H"
+
     // Optional mesh (used to read Clouds)
     autoPtr<polyMesh> meshPtr;
-
 
     // Make sure we do not use the master-only reading since we read
     // fields (different per processor) as dictionaries.
     regIOobject::fileModificationChecking = regIOobject::timeStamp;
-
 
     fileName meshDir = polyMesh::meshSubDir;
     fileName regionPrefix = "";
@@ -264,12 +263,12 @@ int main(int argc, char *argv[])
         meshDir = regionName/polyMesh::meshSubDir;
     }
 
-    Foam::instantList timeDirs = Foam::timeSelector::select0(runTime, args);
+    const instantList timeDirs = Foam::timeSelector::select0(runTime, args);
 
     forAll(timeDirs, timeI)
     {
         runTime.setTime(timeDirs[timeI], timeI);
-        Info<< "Time = " << runTime.timeName() << endl;
+        Info<< "Time = " << runTime.userTimeName() << endl;
 
         // Convert all the standard mesh files
         writeMeshObject<cellCompactIOList, cellIOList>
@@ -280,12 +279,15 @@ int main(int argc, char *argv[])
         );
         writeMeshObject<labelIOList>("owner", meshDir, runTime);
         writeMeshObject<labelIOList>("neighbour", meshDir, runTime);
-        writeMeshObject<faceCompactIOList, faceIOList>
-        (
-            "faces",
-            meshDir,
-            runTime
-        );
+        if (!writeMeshObject<faceCompactIOList>("faces", meshDir, runTime))
+        {
+            writeMeshObject<faceCompactIOList, faceIOList>
+            (
+                "faces",
+                meshDir,
+                runTime
+            );
+        }
         writeMeshObject<pointIOField>("points", meshDir, runTime);
         // Write boundary in ascii. This is only needed for fileHandler to
         // kick in. Should not give problems since always writing ascii.
@@ -293,20 +295,6 @@ int main(int argc, char *argv[])
         writeMeshObject<labelIOList>("pointProcAddressing", meshDir, runTime);
         writeMeshObject<labelIOList>("faceProcAddressing", meshDir, runTime);
         writeMeshObject<labelIOList>("cellProcAddressing", meshDir, runTime);
-        writeMeshObject<labelIOList>
-        (
-            "boundaryProcAddressing",
-            meshDir,
-            runTime
-        );
-
-        // foamyHexMesh vertices
-        writeMeshObject<pointIOField>
-        (
-            "internalDelaunayVertices",
-            regionPrefix,
-            runTime
-        );
 
         if (runTime.writeFormat() == IOstream::ASCII)
         {
@@ -318,7 +306,7 @@ int main(int argc, char *argv[])
         }
 
         // Get list of objects from the database
-        IOobjectList objects(runTime, runTime.timeName(), regionPrefix);
+        IOobjectList objects(runTime, runTime.name(), regionPrefix);
 
         forAllConstIter(IOobjectList, objects, iter)
         {
@@ -361,16 +349,12 @@ int main(int argc, char *argv[])
             }
         }
 
-
-
         // Check for lagrangian
         const fileName lagrangianDir
         (
             fileHandler().filePath
             (
-                runTime.timePath()
-              / regionPrefix
-              / cloud::prefix
+                runTime.timePath()/regionPrefix/lagrangian::cloud::prefix
             )
         );
         stringList lagrangianDirs
@@ -390,7 +374,7 @@ int main(int argc, char *argv[])
             else
             {
                 Info<< "        Create polyMesh for time = "
-                    << runTime.timeName() << endl;
+                    << runTime.name() << endl;
 
                 meshPtr.reset
                 (
@@ -399,7 +383,7 @@ int main(int argc, char *argv[])
                         IOobject
                         (
                             regionName,
-                            runTime.timeName(),
+                            runTime.name(),
                             runTime,
                             Foam::IOobject::MUST_READ
                         )
@@ -420,9 +404,14 @@ int main(int argc, char *argv[])
 
             forAll(cloudDirs, i)
             {
-                fileName dir(cloud::prefix/cloudDirs[i]);
+                const fileName dir(lagrangian::cloud::prefix/cloudDirs[i]);
 
-                Cloud<passiveParticle> parcels(meshPtr(), cloudDirs[i], false);
+                lagrangian::Cloud<passiveParticle> parcels
+                (
+                    meshPtr(),
+                    cloudDirs[i],
+                    false
+                );
 
                 parcels.writeObject
                 (
@@ -434,7 +423,7 @@ int main(int argc, char *argv[])
 
 
                 // Do local scan for valid cloud objects
-                IOobjectList sprayObjs(runTime, runTime.timeName(), dir);
+                IOobjectList sprayObjs(runTime, runTime.name(), dir);
 
                 // Combine with all other cloud objects
                 stringList sprayFields(sprayObjs.sortedToc());

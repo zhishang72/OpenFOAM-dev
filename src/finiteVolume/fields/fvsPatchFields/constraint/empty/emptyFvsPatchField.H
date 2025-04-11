@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,7 +44,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                         Class emptyFvsPatch Declaration
+                        Class emptyFvsPatch Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -82,23 +82,11 @@ public:
             const emptyFvsPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, surfaceMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
-        emptyFvsPatchField
-        (
-            const emptyFvsPatchField<Type>&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvsPatchField<Type>> clone() const
-        {
-            return tmp<fvsPatchField<Type>>
-            (
-                new emptyFvsPatchField<Type>(*this)
-            );
-        }
+        //- Disallow copy without setting internal field reference
+        emptyFvsPatchField(const emptyFvsPatchField<Type>&) = delete;
 
         //- Copy constructor setting internal field reference
         emptyFvsPatchField
@@ -124,14 +112,13 @@ public:
 
         // Mapping functions
 
-            //- Map (and resize as needed) from self given a mapping object
-            //  Used to update fields following mesh topology change
-            virtual void autoMap(const fvPatchFieldMapper&)
+            //- Map the given fvsPatchField onto this fvsPatchField
+            virtual void map(const fvsPatchField<Type>&, const fieldMapper&)
             {}
 
-            //- Reverse map the given fvsPatchField onto this fvsPatchField
-            //  Used to reconstruct fields
-            virtual void rmap(const fvsPatchField<Type>&, const labelList&)
+            //- Reset the fvsPatchField to the given fvsPatchField
+            //  Used for mesh to mesh mapping
+            virtual void reset(const fvsPatchField<Type>&)
             {}
 };
 

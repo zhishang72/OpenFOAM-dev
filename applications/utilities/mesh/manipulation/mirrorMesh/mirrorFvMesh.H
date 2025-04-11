@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -42,7 +42,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                       Class mirrorFvMesh Declaration
+                        Class mirrorFvMesh Declaration
 \*---------------------------------------------------------------------------*/
 
 class mirrorFvMesh
@@ -70,7 +70,7 @@ public:
     // Constructors
 
         //- Construct from IOobject
-        mirrorFvMesh(const IOobject& io, const word& dictName);
+        mirrorFvMesh(const IOobject& io, const IOobject& dictIO);
 
         //- Disallow default bitwise copy construction
         mirrorFvMesh(const mirrorFvMesh&) = delete;
@@ -89,13 +89,13 @@ public:
         }
 
         //- Mirrored to original cell
-        const labelList& cellMap() const
+        labelList& cellMap()
         {
             return cellMapPtr_();
         }
 
         //- Mirrored to original point
-        const labelList& pointMap() const
+        labelList& pointMap()
         {
             return pointMapPtr_();
         }

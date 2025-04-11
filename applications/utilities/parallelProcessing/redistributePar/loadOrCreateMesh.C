@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -26,8 +26,8 @@ License
 #include "loadOrCreateMesh.H"
 #include "processorPolyPatch.H"
 #include "processorCyclicPolyPatch.H"
-#include "Time.H"
 #include "IOPtrList.H"
+#include "OSspecific.H"
 
 // * * * * * * * * * * * * * * * Global Functions  * * * * * * * * * * * * * //
 
@@ -181,7 +181,6 @@ Foam::autoPtr<Foam::fvMesh> Foam::loadOrCreateMesh
             (
                 "dummyPointZone",
                 labelList(0),
-                0,
                 dummyMesh.pointZones()
             )
         );
@@ -193,7 +192,6 @@ Foam::autoPtr<Foam::fvMesh> Foam::loadOrCreateMesh
                 "dummyFaceZone",
                 labelList(0),
                 boolList(0),
-                0,
                 dummyMesh.faceZones()
             )
         );
@@ -204,20 +202,16 @@ Foam::autoPtr<Foam::fvMesh> Foam::loadOrCreateMesh
             (
                 "dummyCellZone",
                 labelList(0),
-                0,
                 dummyMesh.cellZones()
             )
         );
         dummyMesh.addZones(pz, fz, cz);
-        // Pout<< "Writing dummy mesh to " << dummyMesh.polyMesh::objectPath()
-        //    << endl;
         dummyMesh.write();
 
         Pstream::parRun() = oldParRun;
     }
 
-    // Pout<< "Reading mesh from " << io.objectPath() << endl;
-    autoPtr<fvMesh> meshPtr(new fvMesh(io));
+    autoPtr<fvMesh> meshPtr(new fvMesh(io, false));
     fvMesh& mesh = meshPtr();
 
 
@@ -278,11 +272,11 @@ Foam::autoPtr<Foam::fvMesh> Foam::loadOrCreateMesh
     // Determine zones
     // ~~~~~~~~~~~~~~~
 
-    wordList pointZoneNames(mesh.pointZones().names());
+    wordList pointZoneNames(mesh.pointZones().toc());
     Pstream::scatter(pointZoneNames);
-    wordList faceZoneNames(mesh.faceZones().names());
+    wordList faceZoneNames(mesh.faceZones().toc());
     Pstream::scatter(faceZoneNames);
-    wordList cellZoneNames(mesh.cellZones().names());
+    wordList cellZoneNames(mesh.cellZones().toc());
     Pstream::scatter(cellZoneNames);
 
     if (!haveMesh)
@@ -299,7 +293,6 @@ Foam::autoPtr<Foam::fvMesh> Foam::loadOrCreateMesh
             (
                 pointZoneNames[i],
                 labelList(0),
-                i,
                 mesh.pointZones()
             );
         }
@@ -311,7 +304,6 @@ Foam::autoPtr<Foam::fvMesh> Foam::loadOrCreateMesh
                 faceZoneNames[i],
                 labelList(0),
                 boolList(0),
-                i,
                 mesh.faceZones()
             );
         }
@@ -322,7 +314,6 @@ Foam::autoPtr<Foam::fvMesh> Foam::loadOrCreateMesh
             (
                 cellZoneNames[i],
                 labelList(0),
-                i,
                 mesh.cellZones()
             );
         }

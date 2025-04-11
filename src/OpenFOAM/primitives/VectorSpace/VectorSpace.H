@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -71,8 +71,14 @@ Ostream& operator<<
 );
 
 
+// Helper to restrict templated methods to rank-0 primitives
+
+template<class Type>
+using EnableRank0 = typename std::enable_if<pTraits<Type>::rank == 0>::type;
+
+
 /*---------------------------------------------------------------------------*\
-                           Class VectorSpace Declaration
+                         Class VectorSpace Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Form, class Cmpt, direction Ncmpts>
@@ -99,10 +105,9 @@ public:
         //- Number of components in this vector space
         static const direction nComponents = Ncmpts;
 
-
         // VectorSpace currently defaults to a column-vector
         // This will be removed when column-vector is introduced
-        // as a specialization
+        // as a specialisation
         static const direction mRows = Ncmpts;
         static const direction nCols = 1;
 
@@ -117,6 +122,7 @@ public:
         static const Form min;
         static const Form rootMax;
         static const Form rootMin;
+        static const Form nan;
 
 
     // Sub-Block Classes
@@ -156,7 +162,7 @@ public:
         //- Construct null
         inline VectorSpace();
 
-        //- Construct initialized to zero
+        //- Construct initialised to zero
         inline VectorSpace(const Foam::zero);
 
         //- Construct from Istream
@@ -194,8 +200,11 @@ public:
         inline void operator-=(const VectorSpace<Form, Cmpt, Ncmpts>&);
 
         inline void operator=(const Foam::zero);
-        inline void operator*=(const scalar);
-        inline void operator/=(const scalar);
+
+        template<class Type, class Enable = EnableRank0<Type>>
+        inline void operator*=(const Type);
+        template<class Type, class Enable = EnableRank0<Type>>
+        inline void operator/=(const Type);
 
 
     // IOstream Operators

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -38,7 +38,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                       Class absoluteEnthalpy Declaration
+                      Class absoluteEnthalpy Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Thermo>
@@ -62,7 +62,13 @@ public:
             return "absoluteEnthalpy";
         }
 
+
         // Fundamental properties
+
+            static bool enthalpy()
+            {
+                return true;
+            }
 
             static word energyName()
             {
@@ -80,31 +86,20 @@ public:
                 return thermo.Cp(p, T);
             }
 
-            //- Cp/Cp []
-            scalar CpByCpv
-            (
-                const Thermo& thermo,
-                const scalar p,
-                const scalar T
-            ) const
-            {
-                return 1;
-            }
-
             // Absolute enthalpy [J/kg]
-            scalar HE
+            scalar he
             (
                 const Thermo& thermo,
                 const scalar p,
                 const scalar T
             ) const
             {
-                return thermo.Ha(p, T);
+                return thermo.ha(p, T);
             }
 
             //- Temperature from absolute enthalpy
             //  given an initial temperature T0
-            scalar THE
+            scalar The
             (
                 const Thermo& thermo,
                 const scalar h,
@@ -112,7 +107,7 @@ public:
                 const scalar T0
             ) const
             {
-                return thermo.THa(h, p, T0);
+                return thermo.Tha(h, p, T0);
             }
 };
 

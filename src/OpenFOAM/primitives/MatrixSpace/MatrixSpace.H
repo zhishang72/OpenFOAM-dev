@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -85,7 +85,7 @@ public:
         }
 
         //- Return the identity matrix for square matrix spaces
-        inline static msType identity();
+        inline static msType identityMap();
 
 
     // Sub-Block Classes
@@ -201,7 +201,7 @@ public:
         //- Construct null
         inline MatrixSpace();
 
-        //- Construct initialized to zero
+        //- Construct initialised to zero
         inline MatrixSpace(const Foam::zero);
 
         //- Construct as copy of a VectorSpace with the same size

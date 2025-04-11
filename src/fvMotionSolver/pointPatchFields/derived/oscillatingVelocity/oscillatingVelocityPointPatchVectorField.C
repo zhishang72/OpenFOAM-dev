@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -40,27 +40,13 @@ oscillatingVelocityPointPatchVectorField::
 oscillatingVelocityPointPatchVectorField
 (
     const pointPatch& p,
-    const DimensionedField<vector, pointMesh>& iF
-)
-:
-    fixedValuePointPatchField<vector>(p, iF),
-    amplitude_(Zero),
-    omega_(0.0),
-    p0_(p.localPoints())
-{}
-
-
-oscillatingVelocityPointPatchVectorField::
-oscillatingVelocityPointPatchVectorField
-(
-    const pointPatch& p,
     const DimensionedField<vector, pointMesh>& iF,
     const dictionary& dict
 )
 :
     fixedValuePointPatchField<vector>(p, iF, dict),
-    amplitude_(dict.lookup("amplitude")),
-    omega_(dict.lookup<scalar>("omega"))
+    amplitude_(dict.lookup<vector>("amplitude", dimLength)),
+    omega_(dict.lookup<scalar>("omega", unitRadians/dimTime))
 {
     if (!dict.found("value"))
     {
@@ -69,7 +55,7 @@ oscillatingVelocityPointPatchVectorField
 
     if (dict.found("p0"))
     {
-        p0_ = vectorField("p0", dict , p.size());
+        p0_ = vectorField("p0", dimLength, dict, p.size());
     }
     else
     {
@@ -84,7 +70,7 @@ oscillatingVelocityPointPatchVectorField
     const oscillatingVelocityPointPatchVectorField& ptf,
     const pointPatch& p,
     const DimensionedField<vector, pointMesh>& iF,
-    const pointPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     fixedValuePointPatchField<vector>(ptf, p, iF, mapper),
@@ -110,29 +96,32 @@ oscillatingVelocityPointPatchVectorField
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-void oscillatingVelocityPointPatchVectorField::autoMap
-(
-    const pointPatchFieldMapper& m
-)
-{
-    fixedValuePointPatchField<vector>::autoMap(m);
-
-    m(p0_, p0_);
-}
-
-
-void oscillatingVelocityPointPatchVectorField::rmap
+void oscillatingVelocityPointPatchVectorField::map
 (
     const pointPatchField<vector>& ptf,
-    const labelList& addr
+    const fieldMapper& mapper
 )
 {
     const oscillatingVelocityPointPatchVectorField& oVptf =
         refCast<const oscillatingVelocityPointPatchVectorField>(ptf);
 
-    fixedValuePointPatchField<vector>::rmap(oVptf, addr);
+    fixedValuePointPatchField<vector>::map(oVptf, mapper);
 
-    p0_.rmap(oVptf.p0_, addr);
+    mapper(p0_, oVptf.p0_);
+}
+
+
+void oscillatingVelocityPointPatchVectorField::reset
+(
+    const pointPatchField<vector>& ptf
+)
+{
+    const oscillatingVelocityPointPatchVectorField& oVptf =
+        refCast<const oscillatingVelocityPointPatchVectorField>(ptf);
+
+    fixedValuePointPatchField<vector>::reset(oVptf);
+
+    p0_.reset(oVptf.p0_);
 }
 
 

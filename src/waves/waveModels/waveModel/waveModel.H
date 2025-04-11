@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -31,13 +31,13 @@ Description
 
 SourceFiles
     waveModel.C
+    waveModelNew.C
 
 \*---------------------------------------------------------------------------*/
 
 #ifndef waveModel_H
 #define waveModel_H
 
-#include "objectRegistry.H"
 #include "dictionary.H"
 #include "Function1.H"
 #include "runTimeSelectionTables.H"
@@ -50,18 +50,15 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                         Class waveModel Declaration
+                          Class waveModel Declaration
 \*---------------------------------------------------------------------------*/
 
 class waveModel
 {
     // Private Data
 
-        //- Reference to the database
-        const objectRegistry& db_;
-
-        //- Peak-to-mean amplitude [m]
-        autoPtr<Function1<scalar>> amplitude_;
+        //- Gravitational acceleration [m/s^2]
+        const scalar g_;
 
 
 public:
@@ -75,9 +72,9 @@ public:
     (
         autoPtr,
         waveModel,
-        objectRegistry,
-        (const objectRegistry& db, const dictionary& dict),
-        (db, dict)
+        dictionary,
+        (const dictionary& dict, const scalar g),
+        (dict, g)
     );
 
 
@@ -86,8 +83,8 @@ public:
         //- Construct a copy
         waveModel(const waveModel& wave);
 
-        //- Construct from a database and a dictionary
-        waveModel(const objectRegistry& db, const dictionary& dict);
+        //- Construct from a dictionary and gravity
+        waveModel(const dictionary& dict, const scalar g);
 
         //- Construct a clone
         virtual autoPtr<waveModel> clone() const = 0;
@@ -98,16 +95,16 @@ public:
         //- Select
         static autoPtr<waveModel> New
         (
-            const objectRegistry& db,
-            const dictionary& dict
+            const dictionary& dict,
+            const scalar g
         );
 
         //- Select
         static autoPtr<waveModel> New
         (
             const word& type,
-            const objectRegistry& db,
-            const dictionary& dict
+            const dictionary& dict,
+            const scalar g
         );
 
 
@@ -117,16 +114,14 @@ public:
 
     // Member Functions
 
-        // Access
+        //- Get the value of gravity
+        scalar g() const
+        {
+            return g_;
+        }
 
-            //- Get the amplitude
-            scalar amplitude(const scalar t) const
-            {
-                return amplitude_->value(t);
-            }
-
-        //- Get the (scalar) value of gravity.
-        scalar g() const;
+        //- The wave celerity [m/s]
+        virtual scalar celerity() const = 0;
 
         //- Get the wave elevation at a given time and local coordinates. Local
         //  x is aligned with the direction of propagation.
@@ -140,15 +135,6 @@ public:
         //  x is aligned with the direction of propagation, and z with negative
         //  gravity.
         virtual tmp<vector2DField> velocity
-        (
-            const scalar t,
-            const vector2DField& xz
-        ) const = 0;
-
-        //- Get the wave pressure at a given time and local coordinates. Local
-        //  x is aligned with the direction of propagation, and z with negative
-        //  gravity.
-        virtual tmp<scalarField> pressure
         (
             const scalar t,
             const vector2DField& xz

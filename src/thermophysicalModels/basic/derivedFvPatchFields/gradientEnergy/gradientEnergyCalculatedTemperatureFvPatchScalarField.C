@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2019-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -72,22 +72,11 @@ gradientEnergyCalculatedTemperatureFvPatchScalarField
     const gradientEnergyCalculatedTemperatureFvPatchScalarField& ptf,
     const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     calculatedFvPatchScalarField(ptf, p, iF, mapper),
     heGradient_(mapper(ptf.heGradient_))
-{}
-
-
-Foam::gradientEnergyCalculatedTemperatureFvPatchScalarField::
-gradientEnergyCalculatedTemperatureFvPatchScalarField
-(
-    const gradientEnergyCalculatedTemperatureFvPatchScalarField& ptf
-)
-:
-    calculatedFvPatchScalarField(ptf),
-    heGradient_(ptf.heGradient_)
 {}
 
 
@@ -105,23 +94,13 @@ gradientEnergyCalculatedTemperatureFvPatchScalarField
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-void Foam::gradientEnergyCalculatedTemperatureFvPatchScalarField::autoMap
-(
-    const fvPatchFieldMapper& m
-)
-{
-    calculatedFvPatchScalarField::autoMap(m);
-    m(heGradient_, heGradient_);
-}
-
-
-void Foam::gradientEnergyCalculatedTemperatureFvPatchScalarField::rmap
+void Foam::gradientEnergyCalculatedTemperatureFvPatchScalarField::map
 (
     const fvPatchScalarField& ptf,
-    const labelList& addr
+    const fieldMapper& mapper
 )
 {
-    calculatedFvPatchScalarField::rmap(ptf, addr);
+    calculatedFvPatchScalarField::map(ptf, mapper);
 
     const gradientEnergyCalculatedTemperatureFvPatchScalarField& mptf =
         refCast<const gradientEnergyCalculatedTemperatureFvPatchScalarField>
@@ -129,7 +108,24 @@ void Foam::gradientEnergyCalculatedTemperatureFvPatchScalarField::rmap
             ptf
         );
 
-    heGradient_.rmap(mptf.heGradient_, addr);
+    mapper(heGradient_, mptf.heGradient_);
+}
+
+
+void Foam::gradientEnergyCalculatedTemperatureFvPatchScalarField::reset
+(
+    const fvPatchScalarField& ptf
+)
+{
+    calculatedFvPatchScalarField::reset(ptf);
+
+    const gradientEnergyCalculatedTemperatureFvPatchScalarField& mptf =
+        refCast<const gradientEnergyCalculatedTemperatureFvPatchScalarField>
+        (
+            ptf
+        );
+
+    heGradient_.reset(mptf.heGradient_);
 }
 
 

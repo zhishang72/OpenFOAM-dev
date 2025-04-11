@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,34 +24,9 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "fixedInternalValueFvPatchField.H"
-#include "fvPatchFieldMapper.H"
 #include "fvMatrix.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
-
-template<class Type>
-Foam::fixedInternalValueFvPatchField<Type>::fixedInternalValueFvPatchField
-(
-    const fvPatch& p,
-    const DimensionedField<Type, volMesh>& iF
-)
-:
-    zeroGradientFvPatchField<Type>(p, iF)
-{}
-
-
-template<class Type>
-Foam::fixedInternalValueFvPatchField<Type>::fixedInternalValueFvPatchField
-(
-    const fixedInternalValueFvPatchField<Type>& ptf,
-    const fvPatch& p,
-    const DimensionedField<Type, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
-)
-:
-    zeroGradientFvPatchField<Type>(ptf, p, iF, mapper)
-{}
-
 
 template<class Type>
 Foam::fixedInternalValueFvPatchField<Type>::fixedInternalValueFvPatchField
@@ -68,10 +43,13 @@ Foam::fixedInternalValueFvPatchField<Type>::fixedInternalValueFvPatchField
 template<class Type>
 Foam::fixedInternalValueFvPatchField<Type>::fixedInternalValueFvPatchField
 (
-    const fixedInternalValueFvPatchField& fivpf
+    const fixedInternalValueFvPatchField<Type>& ptf,
+    const fvPatch& p,
+    const DimensionedField<Type, volMesh>& iF,
+    const fieldMapper& mapper
 )
 :
-    zeroGradientFvPatchField<Type>(fivpf)
+    zeroGradientFvPatchField<Type>(ptf, p, iF, mapper)
 {}
 
 
@@ -95,7 +73,7 @@ void Foam::fixedInternalValueFvPatchField<Type>::manipulateMatrix
 )
 {
     // Apply the patch internal field as a constraint in the matrix
-    matrix.setValues(this->patch().faceCells(), this->patchInternalField());
+    matrix.setValues(this->patch().faceCells(), this->patchInternalField()());
 }
 
 

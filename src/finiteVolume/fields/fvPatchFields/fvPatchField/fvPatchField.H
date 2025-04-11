@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -46,6 +46,8 @@ SourceFiles
 
 #include "fvPatch.H"
 #include "DimensionedField.H"
+#include "fvPatchFieldMapperFwd.H"
+#include "fileNameList.H"
 #include "fieldTypes.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -57,7 +59,7 @@ namespace Foam
 
 class objectRegistry;
 class dictionary;
-class fvPatchFieldMapper;
+class fieldMapper;
 class volMesh;
 
 
@@ -68,6 +70,9 @@ class fvPatchField;
 
 template<class Type>
 class calculatedFvPatchField;
+
+template<class Type>
+class slicedFvPatchField;
 
 template<class Type>
 class fvMatrix;
@@ -87,6 +92,9 @@ class fvPatchField
 {
     // Private Data
 
+        //- Optional list of libraries required for this boundary condition
+        fileNameList libs_;
+
         //- Reference to patch
         const fvPatch& patch_;
 
@@ -101,20 +109,24 @@ class fvPatchField
         //  during the construction of the matrix
         bool manipulatedMatrix_;
 
-        //- Optional patch type, used to allow specified boundary conditions
-        //  to be applied to constraint patches by providing the constraint
-        //  patch type as 'patchType'
-        word patchType_;
-
 
 public:
 
-    typedef fvPatch Patch;
-    typedef calculatedFvPatchField<Type> Calculated;
+    // Public Typedefs
+
+        //- The patch type
+        typedef fvPatch Patch;
+
+        //- The calculated patch field type
+        typedef calculatedFvPatchField<Type> Calculated;
+
+        //- The sliced patch field type
+        typedef slicedFvPatchField<Type> Sliced;
 
 
     //- Runtime type information
     TypeName("fvPatchField");
+
 
     //- Debug switch to disallow the use of genericFvPatchField
     static int disallowGenericFvPatchField;
@@ -143,7 +155,7 @@ public:
                 const fvPatchField<Type>& ptf,
                 const fvPatch& p,
                 const DimensionedField<Type, volMesh>& iF,
-                const fvPatchFieldMapper& m
+                const fieldMapper& m
             ),
             (dynamic_cast<const fvPatchFieldType&>(ptf), p, iF, m)
         );
@@ -194,17 +206,18 @@ public:
             const fvPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, volMesh>&,
-            const fvPatchFieldMapper&,
+            const fieldMapper&,
             const bool mappingRequired=true
         );
 
-        //- Copy constructor
-        fvPatchField(const fvPatchField<Type>&);
+        //- Disallow copy without setting internal field reference
+        fvPatchField(const fvPatchField<Type>&) = delete;
 
-        //- Construct and return a clone
-        virtual tmp<fvPatchField<Type>> clone() const
+        //- Disallow clone without setting internal field reference
+        tmp<fvPatchField<Type>> clone() const
         {
-            return tmp<fvPatchField<Type>>(new fvPatchField<Type>(*this));
+            NotImplemented;
+            return tmp<fvPatchField<Type>>(nullptr);
         }
 
         //- Copy constructor setting internal field reference
@@ -221,6 +234,20 @@ public:
         ) const
         {
             return tmp<fvPatchField<Type>>(new fvPatchField<Type>(*this, iF));
+        }
+
+        //- Construct and return a clone onto a new patch
+        //  setting internal field reference
+        virtual tmp<fvPatchField<Type>> clone
+        (
+            const fvPatch& patch,
+            const DimensionedField<Type, volMesh>& iF
+        ) const
+        {
+            return tmp<fvPatchField<Type>>
+            (
+                new fvPatchField<Type>(patch, iF, *this)
+            );
         }
 
 
@@ -255,7 +282,7 @@ public:
             const fvPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
         //- Return a pointer to a new patchField created on freestore
@@ -284,7 +311,7 @@ public:
 
 
     //- Destructor
-    virtual ~fvPatchField<Type>()
+    virtual ~fvPatchField()
     {}
 
 
@@ -316,6 +343,22 @@ public:
                 return false;
             }
 
+            //- Return true if this overrides the underlying constraint type
+            bool overridesConstraint() const
+            {
+                if (type() == patch_.type())
+                {
+                    return false;
+                }
+
+                typename patchConstructorTable::iterator patchTypeCstrIter
+                    = patchConstructorTablePtr_->find(patch_.type());
+
+                return
+                    patchTypeCstrIter
+                 != patchConstructorTablePtr_->end();
+            }
+
 
         // Access
 
@@ -329,8 +372,7 @@ public:
             }
 
             //- Return dimensioned internal field reference
-            const DimensionedField<Type, volMesh>&
-            internalField() const
+            const DimensionedField<Type, volMesh>& internalField() const
             {
                 return internalField_;
             }
@@ -339,18 +381,6 @@ public:
             const Field<Type>& primitiveField() const
             {
                 return internalField_;
-            }
-
-            //- Optional patch type
-            const word& patchType() const
-            {
-                return patchType_;
-            }
-
-            //- Optional patch type
-            word& patchType()
-            {
-                return patchType_;
             }
 
             //- Return true if the boundary condition has already been updated
@@ -368,13 +398,12 @@ public:
 
         // Mapping functions
 
-            //- Map (and resize as needed) from self given a mapping object
-            //  Used to update fields following mesh topology change
-            virtual void autoMap(const fvPatchFieldMapper&);
+            //- Map the given fvPatchField onto this fvPatchField
+            virtual void map(const fvPatchField<Type>&, const fieldMapper&);
 
-            //- Reverse map the given fvPatchField onto this fvPatchField
-            //  Used to reconstruct fields
-            virtual void rmap(const fvPatchField<Type>&, const labelList&);
+            //- Reset the fvPatchField to the given fvPatchField
+            //  Used for mesh to mesh mapping
+            virtual void reset(const fvPatchField<Type>&);
 
 
         // Evaluation functions
@@ -397,20 +426,27 @@ public:
             //  Sets Updated to true
             virtual void updateCoeffs();
 
-            //- Update the coefficients associated with the patch field
-            //  with a weight field (0..1). This weight field is usually
-            //  provided as the amount of geometric overlap for 'duplicate'
-            //  patches. Sets Updated to true
-            virtual void updateWeightedCoeffs(const scalarField& weights);
-
             //- Return internal field next to patch as patch field
             virtual tmp<Field<Type>> patchInternalField() const;
 
             //- Return internal field next to patch as patch field
             virtual void patchInternalField(Field<Type>&) const;
 
+            //- Initialise return of the patchField on the opposite patch of a
+            //  coupled patch
+            virtual void initPatchNeighbourField
+            (
+                const Pstream::commsTypes commsType =
+                    Pstream::commsTypes::blocking
+            ) const
+            {}
+
             //- Return patchField on the opposite patch of a coupled patch
-            virtual tmp<Field<Type>> patchNeighbourField() const
+            virtual tmp<Field<Type>> patchNeighbourField
+            (
+                const Pstream::commsTypes commsType =
+                    Pstream::commsTypes::blocking
+            ) const
             {
                 NotImplemented;
                 return *this;
@@ -494,16 +530,8 @@ public:
                 return *this;
             }
 
-
             //- Manipulate matrix
             virtual void manipulateMatrix(fvMatrix<Type>& matrix);
-
-            //- Manipulate matrix with given weights
-            virtual void manipulateMatrix
-            (
-                fvMatrix<Type>& matrix,
-                const scalarField& weights
-            );
 
 
         // I-O
@@ -567,25 +595,18 @@ public:
 
 
 #define makeFvPatchField(fvPatchTypeField)                                     \
-                                                                               \
-defineNamedTemplateTypeNameAndDebug(fvPatchTypeField, 0);                      \
-template<>                                                                     \
-int fvPatchTypeField::disallowGenericFvPatchField                              \
-(                                                                              \
-    debug::debugSwitch("disallowGenericFvPatchField", 0)                       \
-);                                                                             \
-defineTemplateRunTimeSelectionTable(fvPatchTypeField, patch);                  \
-defineTemplateRunTimeSelectionTable(fvPatchTypeField, patchMapper);            \
-defineTemplateRunTimeSelectionTable(fvPatchTypeField, dictionary);
+    defineNamedTemplateTypeNameAndDebug(fvPatchTypeField, 0);                  \
+    template<>                                                                 \
+    int fvPatchTypeField::disallowGenericFvPatchField                          \
+    (                                                                          \
+        debug::debugSwitch("disallowGenericFvPatchField", 0)                   \
+    );                                                                         \
+    defineTemplateRunTimeSelectionTable(fvPatchTypeField, patch);              \
+    defineTemplateRunTimeSelectionTable(fvPatchTypeField, patchMapper);        \
+    defineTemplateRunTimeSelectionTable(fvPatchTypeField, dictionary);
 
 
 #define addToPatchFieldRunTimeSelection(PatchTypeField, typePatchTypeField)    \
-    addToRunTimeSelectionTable                                                 \
-    (                                                                          \
-        PatchTypeField,                                                        \
-        typePatchTypeField,                                                    \
-        patch                                                                  \
-    );                                                                         \
     addToRunTimeSelectionTable                                                 \
     (                                                                          \
         PatchTypeField,                                                        \
@@ -600,16 +621,23 @@ defineTemplateRunTimeSelectionTable(fvPatchTypeField, dictionary);
     );
 
 
-// Use with caution
-#define addRemovableToPatchFieldRunTimeSelection\
-(PatchTypeField, typePatchTypeField)                                           \
+#define addToNullConstructablePatchFieldRunTimeSelection(                      \
+    PatchTypeField, typePatchTypeField)                                        \
                                                                                \
-    addRemovableToRunTimeSelectionTable                                        \
+    addToPatchFieldRunTimeSelection(PatchTypeField, typePatchTypeField)        \
+                                                                               \
+    addToRunTimeSelectionTable                                                 \
     (                                                                          \
         PatchTypeField,                                                        \
         typePatchTypeField,                                                    \
         patch                                                                  \
-    );                                                                         \
+    );
+
+
+// Use with caution
+#define addRemovableToPatchFieldRunTimeSelection(                              \
+    PatchTypeField, typePatchTypeField)                                        \
+                                                                               \
     addRemovableToRunTimeSelectionTable                                        \
     (                                                                          \
         PatchTypeField,                                                        \
@@ -629,10 +657,22 @@ defineTemplateRunTimeSelectionTable(fvPatchTypeField, dictionary);
     defineTypeNameAndDebug(typePatchTypeField, 0);                             \
     addToPatchFieldRunTimeSelection(PatchTypeField, typePatchTypeField)
 
+
+// For null-constructable non-templated patch fields
+#define makeNullConstructablePatchTypeField(PatchTypeField, typePatchTypeField)\
+    defineTypeNameAndDebug(typePatchTypeField, 0);                             \
+    addToNullConstructablePatchFieldRunTimeSelection                           \
+    (                                                                          \
+        PatchTypeField,                                                        \
+        typePatchTypeField                                                     \
+    )
+
+
 // For non-templated patch fields - use with caution
 #define makeRemovablePatchTypeField(PatchTypeField, typePatchTypeField)        \
     defineTypeNameAndDebug(typePatchTypeField, 0);                             \
     addRemovableToPatchFieldRunTimeSelection(PatchTypeField, typePatchTypeField)
+
 
 // For templated patch fields
 #define makeTemplatePatchTypeField(fieldType, type)                            \
@@ -647,8 +687,28 @@ defineTemplateRunTimeSelectionTable(fvPatchTypeField, dictionary);
         CAT4(type, FvPatch, CAPITALIZE(fieldType), Field)                      \
     )
 
+
+// For null-constructable templated patch fields
+#define makeNullConstructableTemplatePatchTypeField(fieldType, type)           \
+    defineNamedTemplateTypeNameAndDebug                                        \
+    (                                                                          \
+        CAT4(type, FvPatch, CAPITALIZE(fieldType), Field),                     \
+        0                                                                      \
+    );                                                                         \
+    addToNullConstructablePatchFieldRunTimeSelection                           \
+    (                                                                          \
+        CAT3(fvPatch, CAPITALIZE(fieldType), Field),                           \
+        CAT4(type, FvPatch, CAPITALIZE(fieldType), Field)                      \
+    )
+
+
 #define makePatchFields(type)                                                  \
     FOR_ALL_FIELD_TYPES(makeTemplatePatchTypeField, type)
+
+
+#define makeNullConstructablePatchFields(type)                                 \
+    FOR_ALL_FIELD_TYPES(makeNullConstructableTemplatePatchTypeField, type)
+
 
 #define makePatchFieldTypeName(fieldType, type)                                \
     defineNamedTemplateTypeNameAndDebug                                        \
@@ -657,12 +717,15 @@ defineTemplateRunTimeSelectionTable(fvPatchTypeField, dictionary);
         0                                                                      \
     );
 
+
 #define makePatchFieldTypeNames(type)                                          \
     FOR_ALL_FIELD_TYPES(makePatchFieldTypeName, type)
+
 
 #define makePatchTypeFieldTypedef(fieldType, type)                             \
     typedef type##FvPatchField<fieldType>                                      \
         CAT4(type, FvPatch, CAPITALIZE(fieldType), Field);
+
 
 #define makePatchTypeFieldTypedefs(type)                                       \
     FOR_ALL_FIELD_TYPES(makePatchTypeFieldTypedef, type)

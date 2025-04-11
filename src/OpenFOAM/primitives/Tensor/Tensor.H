@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -54,6 +54,9 @@ namespace Foam
 template<class Cmpt>
 class SymmTensor;
 
+template<class Cmpt>
+class DiagTensor;
+
 /*---------------------------------------------------------------------------*\
                            Class Tensor Declaration
 \*---------------------------------------------------------------------------*/
@@ -90,7 +93,7 @@ public:
         //- Construct null
         inline Tensor();
 
-        //- Construct initialized to zero
+        //- Construct initialised to zero
         inline Tensor(const Foam::zero);
 
         //- Construct given MatrixSpace of the same rank
@@ -106,6 +109,9 @@ public:
 
         //- Construct given SymmTensor
         inline Tensor(const SymmTensor<Cmpt>&);
+
+        //- Construct given DiagTensor
+        inline Tensor(const DiagTensor<Cmpt>&);
 
         //- Construct given triad
         inline Tensor(const Vector<Vector<Cmpt>>&);
@@ -194,6 +200,9 @@ public:
 
         //- Assign to a SphericalTensor
         inline void operator=(const SphericalTensor<Cmpt>&);
+
+        //- Assign to a DiagTensor
+        inline void operator=(const DiagTensor<Cmpt>&);
 
         //- Assign to a SymmTensor
         inline void operator=(const SymmTensor<Cmpt>&);

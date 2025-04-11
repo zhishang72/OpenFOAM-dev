@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ Class
     Foam::MRFZoneList
 
 Description
-    List container for MRF zomes
+    List container for MRF zones
 
 SourceFiles
     MRFZoneList.C
@@ -81,41 +81,24 @@ public:
 
     // Member Functions
 
-        //- Return active status
-        bool active(const bool warn = false) const;
-
         //- Reset the source list
         void reset(const dictionary& dict);
 
-        //- Add the frame acceleration
-        void addAcceleration
-        (
-            const volVectorField& U,
-            volVectorField& ddtU
-        ) const;
-
-        //- Add the frame acceleration contribution to the momentum equation
-        void addAcceleration(fvVectorMatrix& UEqn) const;
-
-        //- Add the frame acceleration contribution to the momentum equation
-        void addAcceleration
-        (
-            const volScalarField& rho,
-            fvVectorMatrix& UEqn
-        ) const;
-
-        //- Return the frame acceleration
+        //- Return the Coriolis acceleration
         tmp<volVectorField> DDt
         (
             const volVectorField& U
         ) const;
 
-        //- Return the frame acceleration
+        //- Return the Coriolis acceleration
         tmp<volVectorField> DDt
         (
             const volScalarField& rho,
             const volVectorField& U
         ) const;
+
+        //- Return the centrifugal acceleration
+        tmp<volVectorField> centrifugalAcceleration() const;
 
         //- Make the given absolute velocity relative within the MRF region
         void makeRelative(volVectorField& U) const;
@@ -131,9 +114,9 @@ public:
 
         //- Return the given absolute boundary flux relative within
         //  the MRF region
-        tmp<FieldField<fvsPatchField, scalar>> relative
+        tmp<FieldField<surfaceMesh::PatchField, scalar>> relative
         (
-            const tmp<FieldField<fvsPatchField, scalar>>& tphi
+            const tmp<FieldField<surfaceMesh::PatchField, scalar>>&
         ) const;
 
         //- Return the given absolute patch flux relative within
@@ -170,23 +153,14 @@ public:
             surfaceScalarField& phi
         ) const;
 
-        //- Correct the boundary velocity for the rotation of the MRF region
-        void correctBoundaryVelocity(volVectorField& U) const;
-
-        //- Correct the boundary flux for the rotation of the MRF region
-        void correctBoundaryFlux
+        //- Return the given relative flux absolute within the MRF region
+        tmp<surfaceScalarField> absolute
         (
-            const volVectorField& U,
-            surfaceScalarField& phi
+            const tmp<surfaceScalarField>& phi,
+            const volScalarField& rho
         ) const;
 
-        //- Filter-out the MRF region contribution from the given field
-        // setting the corresponding values to zero
-        template<class Type>
-        tmp<GeometricField<Type, fvsPatchField, surfaceMesh>> zeroFilter
-        (
-            const tmp<GeometricField<Type, fvsPatchField, surfaceMesh>>& tphi
-        ) const;
+        void makeAbsolute(Field<vector>& Up, const label patchi) const;
 
         //- Update MRFZone faces if the mesh topology changes
         void update();
@@ -196,16 +170,6 @@ public:
 
             //- Read dictionary
             bool read(const dictionary& dict);
-
-            //- Write data to Ostream
-            bool writeData(Ostream& os) const;
-
-            //- Ostream operator
-            friend Ostream& operator<<
-            (
-                Ostream& os,
-                const MRFZoneList& models
-            );
 
 
     // Member Operators
@@ -218,12 +182,6 @@ public:
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 } // End namespace Foam
-
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-#ifdef NoRepository
-    #include "MRFZoneListTemplates.C"
-#endif
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

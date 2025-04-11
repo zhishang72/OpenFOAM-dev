@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -38,12 +38,13 @@ SourceFiles
 #include "polyMesh.H"
 #include "CompactListList.H"
 #include "decompositionConstraint.H"
+#include "IOdictionary.H"
 
 namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class decompositionMethod Declaration
+                     Class decompositionMethod Declaration
 \*---------------------------------------------------------------------------*/
 
 class decompositionMethod
@@ -52,11 +53,28 @@ protected:
 
     // Protected data
 
-        const dictionary& decompositionDict_;
         label nProcessors_;
 
         //- Optional constraints
         PtrList<decompositionConstraint> constraints_;
+
+
+    // Protected member functions
+
+        //- Return the number of weights per point
+        label nWeights
+        (
+            const pointField& points,
+            const scalarField& pointWeights
+        ) const;
+
+        //- Check the weights against the points
+        //  and return the number of weights per point
+        label checkWeights
+        (
+            const pointField& points,
+            const scalarField& pointWeights
+        ) const;
 
 
 public:
@@ -71,11 +89,24 @@ public:
         (
             autoPtr,
             decompositionMethod,
-            dictionary,
+            decomposer,
             (
-                const dictionary& decompositionDict
+                const dictionary& decompositionDict,
+                const dictionary& methodDict
             ),
-            (decompositionDict)
+            (decompositionDict, methodDict)
+        );
+
+        declareRunTimeSelectionTable
+        (
+            autoPtr,
+            decompositionMethod,
+            distributor,
+            (
+                const dictionary& decompositionDict,
+                const dictionary& methodDict
+            ),
+            (decompositionDict, methodDict)
         );
 
 
@@ -91,7 +122,13 @@ public:
     // Selectors
 
         //- Return a reference to the selected decomposition method
-        static autoPtr<decompositionMethod> New
+        static autoPtr<decompositionMethod> NewDecomposer
+        (
+            const dictionary& decompositionDict
+        );
+
+        //- Return a reference to the selected decomposition method
+        static autoPtr<decompositionMethod> NewDistributor
         (
             const dictionary& decompositionDict
         );
@@ -109,9 +146,8 @@ public:
             return nProcessors_;
         }
 
-        //- Is method parallel aware (i.e. does it synchronize domains across
-        //  proc boundaries)
-        virtual bool parallelAware() const = 0;
+        //- Read and return the decomposeParDict
+        static IOdictionary decomposeParDict(const Time& time);
 
 
         // No topology (implemented by geometric decomposers)
@@ -149,14 +185,12 @@ public:
             //- Like decompose but with uniform weights on the points
             virtual labelList decompose(const polyMesh&, const pointField&);
 
-
             //- Return for every coordinate the wanted processor number. Gets
             //  passed agglomeration map (from fine to coarse cells) and coarse
-            //  cell
-            //  location. Can be overridden by decomposers that provide this
-            //  functionality natively. Coarse cells are local to the processor
-            //  (if in parallel). If you want to have coarse cells spanning
-            //  processors use the globalCellCells instead.
+            //  cell location. Can be overridden by decomposers that provide
+            //  this functionality natively. Coarse cells are local to the
+            //  processor (if in parallel). If you want to have coarse cells
+            //  spanning processors use the globalCellCells instead.
             virtual labelList decompose
             (
                 const polyMesh& mesh,
@@ -186,19 +220,29 @@ public:
             virtual labelList decompose
             (
                 const labelListList& globalCellCells,
-                const pointField& cc,
-                const scalarField& cWeights
+                const pointField& cellCentres,
+                const scalarField& cellWeights
             ) = 0;
 
             //- Like decompose but with uniform weights on the cells
             virtual labelList decompose
             (
                 const labelListList& globalCellCells,
-                const pointField& cc
+                const pointField& cellCentres
             );
 
 
         // Other
+
+            //- Convert the given scalar weights to labels
+            //  in the range 0-labelMax/2
+            //  Removes 0 weights and updates nWeights accordingly
+            static labelList scaleWeights
+            (
+                const scalarField& weights,
+                label& nWeights,
+                const bool distributed = true
+            );
 
             //- Helper: determine (local or global) cellCells from mesh
             //  agglomeration. Agglomeration is local to the processor.
@@ -256,16 +300,17 @@ public:
                 labelList& finalDecomp
             );
 
-            // Decompose a mesh with constraints:
-            // - blockedFace : whether owner and neighbour should be on same
-            //   processor
-            // - specifiedProcessorFaces, specifiedProcessor : sets of faces
-            //   that should go to same processor (as specified in
-            //   specifiedProcessor, can be -1)
-            // - explicitConnections : connections between baffle faces
-            //   (blockedFace should be false on these). Owner and
-            //   neighbour on same processor.
-            // Set all to zero size to have unconstrained decomposition.
+            //- Decompose a mesh with constraints
+            //  Constraints:
+            //  - blockedFace : whether owner and neighbour should be on same
+            //    processor
+            //  - specifiedProcessorFaces, specifiedProcessor : sets of faces
+            //    that should go to same processor (as specified in
+            //    specifiedProcessor, can be -1)
+            //  - explicitConnections : connections between baffle faces
+            //    (blockedFace should be false on these). Owner and
+            //    neighbour on same processor.
+            //  Set all to zero size to have unconstrained decomposition.
             virtual labelList decompose
             (
                 const polyMesh& mesh,
@@ -275,7 +320,6 @@ public:
                 const labelList& specifiedProcessor,
                 const List<labelPair>& explicitConnections
             );
-
 
             //- Decompose a mesh. Apply all constraints from decomposeParDict
             //  ('preserveFaceZones' etc). Calls either
@@ -288,7 +332,7 @@ public:
             labelList decompose
             (
                 const polyMesh& mesh,
-                const scalarField& cWeights
+                const scalarField& cellWeights
             );
 
 

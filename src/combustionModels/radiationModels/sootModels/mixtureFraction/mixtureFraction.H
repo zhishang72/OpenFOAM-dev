@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -36,14 +36,14 @@ Description
     The soot is not considered into the thermodynamics of the system and it
     is not considered as an extra specie in the solver.
 
-    The spacial distribution is given by the normalization of the first product
+    The spatial distribution is given by the normalisation of the first product
     on the rhs of the reaction by default or it can be added as input.
 
     For example in the radiationProperties dictionary set:
 
-    sootModel mixtureFraction<psiReactionThermo,gasHThermoPhysics>;
+    sootModel mixtureFraction;
 
-    mixtureFractionSootCoeffs
+    mixtureFractionCoeffs
     {
         nuSoot              0.015;
         Wsoot               12;
@@ -70,10 +70,9 @@ namespace sootModels
 {
 
 /*---------------------------------------------------------------------------*\
-                     Class mixtureFraction Declaration
+                       Class mixtureFraction Declaration
 \*---------------------------------------------------------------------------*/
 
-template<class ReactionThermo, class ThermoType>
 class mixtureFraction
 :
     public sootModel
@@ -82,9 +81,6 @@ class mixtureFraction
 
          //- Soot mass fraction
         volScalarField soot_;
-
-        //- Soot model dictionary
-        dictionary coeffsDict_;
 
         //- Soot yield
         scalar nuSoot_;
@@ -145,12 +141,6 @@ public:
 } // End namespace sootModels
 } // End namespace radiationModels
 } // End namespace Foam
-
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-#ifdef NoRepository
-    #include "mixtureFraction.C"
-#endif
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

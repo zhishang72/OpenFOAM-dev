@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2018-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -23,7 +23,15 @@ License
 
 \*---------------------------------------------------------------------------*/
 
+#include "pimpleLoop.H"
+
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+inline bool Foam::pimpleNoLoopControl::moveMeshOuterCorrectors() const
+{
+    return moveMeshOuterCorrectors_;
+}
+
 
 inline bool Foam::pimpleNoLoopControl::simpleRho() const
 {
@@ -31,9 +39,33 @@ inline bool Foam::pimpleNoLoopControl::simpleRho() const
 }
 
 
-inline bool Foam::pimpleNoLoopControl::turbOnFinalIterOnly() const
+inline bool Foam::pimpleNoLoopControl::predictTransport() const
 {
-    return turbOnFinalIterOnly_;
+    return !transportPredictionFirst_ || firstIter();
+}
+
+
+inline bool Foam::pimpleNoLoopControl::correctTransport() const
+{
+    return !transportCorrectionFinal_ || finalIter();
+}
+
+
+inline Foam::label Foam::pimpleNoLoopControl::nCorr() const
+{
+    return pimpleLoopPtr_ ? pimpleLoopPtr_->nCorr() : 1;
+}
+
+
+inline bool Foam::pimpleNoLoopControl::firstIter() const
+{
+    return pimpleLoopPtr_ ? pimpleLoopPtr_->firstIter() : true;
+}
+
+
+inline bool Foam::pimpleNoLoopControl::finalIter() const
+{
+    return pimpleLoopPtr_ ? pimpleLoopPtr_->finalIter() : true;
 }
 
 

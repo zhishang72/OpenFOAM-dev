@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,18 +44,14 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                         Class nbrToCell Declaration
+                          Class nbrToCell Declaration
 \*---------------------------------------------------------------------------*/
 
 class nbrToCell
 :
     public topoSetSource
 {
-
     // Private Data
-
-        //- Add usage string
-        static addToUsageTable usage_;
 
         //- Number of internal faces on cell
         label minNbrs_;
@@ -71,6 +67,7 @@ public:
     //- Runtime type information
     TypeName("nbrToCell");
 
+
     // Constructors
 
         //- Construct from components
@@ -85,13 +82,6 @@ public:
         (
             const polyMesh& mesh,
             const dictionary& dict
-        );
-
-        //- Construct from Istream
-        nbrToCell
-        (
-            const polyMesh& mesh,
-            Istream&
         );
 
 
@@ -111,7 +101,6 @@ public:
             const topoSetSource::setAction action,
             topoSet&
         ) const;
-
 };
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -80,6 +80,8 @@ class objectRegistry
         //  available
         mutable HashSet<word> temporaryObjects_;
 
+        mutable List<regIOobject*> dependents_;
+
 
     // Private Member Functions
 
@@ -104,7 +106,7 @@ public:
 
         //- Construct the time objectRegistry given an initial estimate
         //  for the number of entries
-        explicit objectRegistry
+        objectRegistry
         (
             const Time& db,
             const label nIoObjects = 128
@@ -112,14 +114,26 @@ public:
 
         //- Construct a sub-registry given an IObject to describe the registry
         //  and an initial estimate for the number of entries
-        explicit objectRegistry
+        objectRegistry
+        (
+            const IOobject& io,
+            const fileName& dbDir,
+            const label nIoObjects = 128
+        );
+
+        //- Construct a sub-registry given an IObject to describe the registry
+        //  and an initial estimate for the number of entries
+        objectRegistry
         (
             const IOobject& io,
             const label nIoObjects = 128
         );
 
+        //- Move constructor
+        objectRegistry(objectRegistry&&) = default;
+
         //- Disallow default bitwise copy construction
-        objectRegistry(const objectRegistry&);
+        objectRegistry(const objectRegistry&) = delete;
 
 
     //- Destructor
@@ -143,34 +157,40 @@ public:
             }
 
             //- Local directory path of this objectRegistry relative to the time
-            virtual const fileName& dbDir() const
+            const fileName& dbDir() const
             {
                 return dbDir_;
             }
 
-            //- Return the list of names of the IOobjects
-            wordList names() const;
+            using regIOobject::path;
 
-            //- Return the sorted list of names of the IOobjects
-            wordList sortedNames() const;
+            //- Return complete path with alternative instance and local
+            fileName path
+            (
+                const word& instance,
+                const fileName& local = ""
+            ) const;
+
+            using HashTable<regIOobject*>::toc;
+            using HashTable<regIOobject*>::sortedToc;
 
             //- Return the list of names of IOobjects of given class name
-            wordList names(const word& className) const;
+            wordList toc(const word& className) const;
 
             //- Return the sorted list of names of IOobjects of given class name
-            wordList sortedNames(const word& className) const;
+            wordList sortedToc(const word& className) const;
 
             //- Return the list of names of the IOobjects of given type
             template<class Type>
-            wordList names() const;
+            wordList toc() const;
 
             //- Return the list of objects whose name matches the input regExp
             template<class Type>
-            wordList names(const wordRe& name) const;
+            wordList toc(const wordRe& name) const;
 
             //- Return the list of objects whose name matches the input regExp
             template<class Type>
-            wordList names(const wordReList& name) const;
+            wordList toc(const wordReList& name) const;
 
             //- Lookup and return a const sub-objectRegistry. Optionally create
             //  it if it does not exist.
@@ -188,11 +208,11 @@ public:
             template<class Type>
             HashTable<Type*> lookupClass(const bool strict = false);
 
-            //- Is the named Type found?
+            //- Is the named Type in registry
             template<class Type>
             bool foundObject(const word& name) const;
 
-            //- Lookup and return the object of the given Type
+            //- Lookup and return the object of the given Type and name
             template<class Type>
             const Type& lookupObject(const word& name) const;
 
@@ -200,8 +220,24 @@ public:
             template<class Type>
             Type& lookupObjectRef(const word& name) const;
 
+            //- Is the Type in registry
+            //  the name is derived from the type name and given group
+            template<class Type>
+            bool foundType(const word& group = word::null) const;
+
+            //- Lookup and return the object of the given Type
+            //  the name is derived from the type name and given group
+            template<class Type>
+            const Type& lookupType(const word& group = word::null) const;
+
             //- Return new event number.
             label getEvent() const;
+
+            //- Return the object registry
+            const objectRegistry& thisDb() const
+            {
+                return *this;
+            }
 
 
         // Edit
@@ -217,9 +253,6 @@ public:
 
             //- Remove all regIOobject owned by the registry
             void clear();
-
-            //- Add the given name to the set of temporary objects to cache
-            void addTemporaryObject(const word& name) const;
 
             //- Return true if given name is in the cacheTemporaryObjects set
             bool cacheTemporaryObject(const word& name) const;
@@ -242,21 +275,30 @@ public:
             //- Return true if any of the object's files have been modified
             virtual bool modified() const;
 
-            //- Read the objects that have been modified
-            void readModifiedObjects();
+            //- Cache pointers to objects who's dependencies have been modified
+            virtual bool dependenciesModified() const;
 
             //- Read object if modified
             virtual bool readIfModified();
 
+            //- Read dependent objects
+            virtual bool read();
+
+            //- Read the objects that have been modified
+            void readModifiedObjects();
+
 
         // Writing
 
+            //- Print the list of object names and their type
+            //  to the given stream
+            void printToc(Ostream& os) const;
+
             //- writeData function required by regIOobject but not used
-            //  for this class, write is used instead
+            //  for this class, writeObject is used instead
             virtual bool writeData(Ostream&) const
             {
                 NotImplemented;
-
                 return false;
             }
 

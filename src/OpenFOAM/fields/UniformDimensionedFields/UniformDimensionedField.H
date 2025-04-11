@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -39,24 +39,53 @@ SourceFiles
 
 #include "regIOobject.H"
 #include "dimensionedType.H"
+#include "UniformField.H"
+#include "OldTimeField.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
 {
 
+template<class Type>
+class UniformDimensionedField;
+
+template<class Type>
+struct OldTimeField0Type<UniformDimensionedField<Type>>
+{
+    typedef UniformDimensionedField<Type> type;
+};
+
+template<class Type>
+struct OldTimeOtherFieldType<UniformDimensionedField<Type>>
+{
+    template<template<class> class OtherPrimitiveField>
+    using type = UniformDimensionedField<Type>;
+};
+
 /*---------------------------------------------------------------------------*\
-                     Class UniformDimensionedField Declaration
+                   Class UniformDimensionedField Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
 class UniformDimensionedField
 :
     public regIOobject,
-    public dimensioned<Type>
+    public dimensioned<Type>,
+    public tmp<UniformDimensionedField<Type>>::refCount,
+    public OldTimeField<UniformDimensionedField<Type>>
 {
 
 public:
+
+    // Public Typedefs
+
+        //- Type of the non-dimensioned field
+        typedef UniformField<Type> FieldType;
+
+        //- Component type of the elements of the field
+        typedef typename UniformField<Type>::cmptType cmptType;
+
 
     //- Runtime type information
     TypeName("UniformDimensionedField");
@@ -87,31 +116,39 @@ public:
             return dimensioned<Type>::name();
         }
 
-        bool writeData(Ostream&) const;
-
         //- Is object global
         virtual bool global() const
         {
             return true;
         }
 
-        //- Return complete path + object name if the file exists
-        //  either in the case/processor or case otherwise null
-        virtual fileName filePath() const
-        {
-            return globalFilePath(type());
-        }
+        //- Return a reference to the value
+        Type& value();
+
+        //- Return a const-reference to the value
+        const Type& value() const;
+
+        //- Reset the field values to the given field
+        //  Equivalent to operator=
+        void reset(const UniformDimensionedField<Type>&);
+
+        //- WriteData function required for regIOobject write operation
+        bool writeData(Ostream&) const;
 
 
     // Member Operators
 
+        //- Assign to another field
+        void operator==(const UniformDimensionedField<Type>&);
+
+        //- Assign to another field
         void operator=(const UniformDimensionedField<Type>&);
+
+        //- Assign to a dimensioned type
         void operator=(const dimensioned<Type>&);
 
-        Type operator[](const label) const
-        {
-            return this->value();
-        }
+        //- Access by index
+        const Type& operator[](const label) const;
 };
 
 

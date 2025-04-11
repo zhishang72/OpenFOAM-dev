@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -43,7 +43,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                      Class calculatedFvsPatch Declaration
+                     Class calculatedFvsPatch Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -81,23 +81,11 @@ public:
             const calculatedFvsPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, surfaceMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
-        calculatedFvsPatchField
-        (
-            const calculatedFvsPatchField<Type>&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvsPatchField<Type>> clone() const
-        {
-            return tmp<fvsPatchField<Type>>
-            (
-                new calculatedFvsPatchField<Type>(*this)
-            );
-        }
+        //- Disallow copy without setting internal field reference
+        calculatedFvsPatchField(const calculatedFvsPatchField<Type>&) = delete;
 
         //- Copy constructor setting internal field reference
         calculatedFvsPatchField
@@ -118,18 +106,10 @@ public:
             );
         }
 
-
     // Member Functions
 
-        // Access
-
-            //- Return true if this patch field fixes a value.
-            //  Needed to check if a level has to be specified while solving
-            //  Poissons equations.
-            virtual bool fixesValue() const
-            {
-                return true;
-            }
+        //- Write
+        virtual void write(Ostream&) const;
 };
 
 

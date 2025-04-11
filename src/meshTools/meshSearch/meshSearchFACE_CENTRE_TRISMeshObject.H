@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,8 @@ Class
     Foam::meshSearchFACE_CENTRE_TRISMeshObject
 
 Description
-    MeshObject wrapper around meshSearch(mesh,  polyMesh::FACE_CENTRE_TRIS).
+    DemandDrivenMeshObject wrapper around
+    meshSearch(mesh,  polyMesh::FACE_CENTRE_TRIS).
 
 SourceFiles
 
@@ -34,7 +35,7 @@ SourceFiles
 #ifndef meshSearchFACE_CENTRE_TRISMeshObject_H
 #define meshSearchFACE_CENTRE_TRISMeshObject_H
 
-#include "MeshObject.H"
+#include "DemandDrivenMeshObject.H"
 #include "meshSearch.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -43,30 +44,39 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-              Class meshSearchFACE_CENTRE_TRISMeshObject Declaration
+            Class meshSearchFACE_CENTRE_TRISMeshObject Declaration
 \*---------------------------------------------------------------------------*/
 
 class meshSearchFACE_CENTRE_TRISMeshObject
 :
-    public MeshObject
+    public DemandDrivenMeshObject
     <
         polyMesh,
-        GeometricMeshObject,
+        DeletableMeshObject,
         meshSearchFACE_CENTRE_TRISMeshObject
     >,
     public meshSearch
 {
 
+protected:
+
+    friend class DemandDrivenMeshObject
+    <
+        polyMesh,
+        DeletableMeshObject,
+        meshSearchFACE_CENTRE_TRISMeshObject
+    >;
+
+    // Protected Constructors
+
+        //- Constructor given polyMesh
+        explicit meshSearchFACE_CENTRE_TRISMeshObject(const polyMesh& mesh);
+
+
 public:
 
     // Declare name of the class and its debug switch
     TypeName("meshSearchFACE_CENTRE_TRISMeshObject");
-
-
-    // Constructors
-
-        //- Constructor given polyMesh
-        explicit meshSearchFACE_CENTRE_TRISMeshObject(const polyMesh& mesh);
 
     //- Destructor
     virtual ~meshSearchFACE_CENTRE_TRISMeshObject()

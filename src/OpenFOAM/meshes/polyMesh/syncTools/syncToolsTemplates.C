@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -30,7 +30,6 @@ License
 #include "globalMeshData.H"
 #include "contiguous.H"
 #include "transform.H"
-#include "transformList.H"
 #include "SubField.H"
 
 // * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
@@ -90,7 +89,7 @@ void Foam::syncTools::syncPointMap
 {
     const polyBoundaryMesh& patches = mesh.boundaryMesh();
 
-    // Synchronize multiple shared points.
+    // Synchronise multiple shared points.
     const globalMeshData& pd = mesh.globalData();
 
     // Values on shared points. Keyed on global shared index.
@@ -147,7 +146,7 @@ void Foam::syncTools::syncPointMap
                 // Get data per patchPoint in neighbouring point numbers.
 
                 const labelList& meshPts = procPatch.meshPoints();
-                const labelList& nbrPts = procPatch.neighbPoints();
+                const labelList& nbrPts = procPatch.nbrPoints();
 
                 // Extract local values. Create map from nbrPoint to value.
                 // Note: how small initial size?
@@ -219,7 +218,7 @@ void Foam::syncTools::syncPointMap
             {
                 // Owner does all.
 
-                const cyclicPolyPatch& nbrPatch = cycPatch.neighbPatch();
+                const cyclicPolyPatch& nbrPatch = cycPatch.nbrPatch();
                 const edgeList& coupledPoints = cycPatch.coupledPoints();
                 const labelList& meshPtsA = cycPatch.meshPoints();
                 const labelList& meshPtsB = nbrPatch.meshPoints();
@@ -289,7 +288,7 @@ void Foam::syncTools::syncPointMap
         }
     }
 
-    // Synchronize multiple shared points.
+    // Synchronise multiple shared points.
     if (pd.nGlobalPoints() > 0)
     {
         // meshPoint per local index
@@ -429,7 +428,7 @@ void Foam::syncTools::syncEdgeMap
 
                 const edgeList& edges = procPatch.edges();
                 const labelList& meshPts = procPatch.meshPoints();
-                const labelList& nbrPts = procPatch.neighbPoints();
+                const labelList& nbrPts = procPatch.nbrPoints();
 
                 EdgeMap<T> patchInfo(edges.size() / 20);
 
@@ -516,7 +515,7 @@ void Foam::syncTools::syncEdgeMap
                 const edgeList& coupledEdges = cycPatch.coupledEdges();
                 const labelList& meshPtsA = cycPatch.meshPoints();
                 const edgeList& edgesA = cycPatch.edges();
-                const cyclicPolyPatch& nbrPatch = cycPatch.neighbPatch();
+                const cyclicPolyPatch& nbrPatch = cycPatch.nbrPatch();
                 const labelList& meshPtsB = nbrPatch.meshPoints();
                 const edgeList& edgesB = nbrPatch.edges();
 
@@ -602,7 +601,7 @@ void Foam::syncTools::syncEdgeMap
         }
     }
 
-    // Synchronize multiple shared points.
+    // Synchronise multiple shared points.
     // Problem is that we don't want to construct shared edges so basically
     // we do here like globalMeshData but then using sparse edge representation
     // (EdgeMap instead of mesh.edges())
@@ -791,7 +790,7 @@ void Foam::syncTools::syncEdgeMap
 //
 //    const polyBoundaryMesh& patches = mesh.boundaryMesh();
 //
-//    // Synchronize multiple shared points.
+//    // Synchronise multiple shared points.
 //    const globalMeshData& pd = mesh.globalData();
 //
 //    // Values on shared points.
@@ -830,7 +829,7 @@ void Foam::syncTools::syncEdgeMap
 //                Field<T> patchInfo(procPatch.nPoints());
 //
 //                const labelList& meshPts = procPatch.meshPoints();
-//                const labelList& nbrPts = procPatch.neighbPoints();
+//                const labelList& nbrPts = procPatch.nbrPoints();
 //
 //                forAll(nbrPts, pointi)
 //                {
@@ -892,7 +891,7 @@ void Foam::syncTools::syncEdgeMap
 //
 //                const edgeList& coupledPoints = cycPatch.coupledPoints();
 //                const labelList& meshPts = cycPatch.meshPoints();
-//                const cyclicPolyPatch& nbrPatch = cycPatch.neighbPatch();
+//                const cyclicPolyPatch& nbrPatch = cycPatch.nbrPatch();
 //                const labelList& nbrMeshPoints = nbrPatch.meshPoints();
 //
 //                Field<T> half0Values(coupledPoints.size());
@@ -923,7 +922,7 @@ void Foam::syncTools::syncEdgeMap
 //        }
 //    }
 //
-//    // Synchronize multiple shared points.
+//    // Synchronise multiple shared points.
 //    const globalMeshData& pd = mesh.globalData();
 //
 //    if (pd.nGlobalPoints() > 0)
@@ -1131,7 +1130,7 @@ void Foam::syncTools::syncPointList
 //        gd.globalTransforms(),
 //        cop,
 //        true,   // position?
-//        mapDistribute::transform()  // not used
+//        distributionMap::transform()  // not used
 //    );
 //
 //    forAll(meshPoints, i)
@@ -1167,7 +1166,7 @@ void Foam::syncTools::syncEdgeList
     const globalMeshData& gd = mesh.globalData();
     const labelList& meshEdges = gd.coupledPatchMeshEdges();
     const globalIndexAndTransform& git = gd.globalTransforms();
-    const mapDistribute& edgeMap = gd.globalEdgeSlavesMap();
+    const distributionMap& edgeMap = gd.globalEdgeSlavesMap();
 
     List<T> cppFld(UIndirectList<T>(edgeValues, meshEdges));
 
@@ -1210,7 +1209,7 @@ void Foam::syncTools::syncEdgeList
 //    const globalMeshData& gd = mesh.globalData();
 //    const labelList& meshEdges = gd.coupledPatchMeshEdges();
 //    const globalIndexAndTransform& git = gd.globalTransforms();
-//    const mapDistribute& map = gd.globalEdgeSlavesMap();
+//    const distributionMap& map = gd.globalEdgeSlavesMap();
 //
 //    List<point> cppFld(UIndirectList<point>(edgeValues, meshEdges));
 //
@@ -1223,7 +1222,7 @@ void Foam::syncTools::syncEdgeList
 //        git,
 //        cop,
 //        true,       // position?
-//        mapDistribute::transform()  // not used
+//        distributionMap::transform()  // not used
 //    );
 //
 //    // Extract back onto mesh
@@ -1381,7 +1380,7 @@ void Foam::syncTools::syncBoundaryFaceList
             if (cycPatch.owner())
             {
                 // Owner does all.
-                const cyclicPolyPatch& nbrPatch = cycPatch.neighbPatch();
+                const cyclicPolyPatch& nbrPatch = cycPatch.nbrPatch();
                 label ownStart = cycPatch.start()-mesh.nInternalFaces();
                 label nbrStart = nbrPatch.start()-mesh.nInternalFaces();
 
@@ -1506,7 +1505,7 @@ void Foam::syncTools::syncFaceList
             if (cycPatch.owner())
             {
                 // Owner does all.
-                const cyclicPolyPatch& nbrPatch = cycPatch.neighbPatch();
+                const cyclicPolyPatch& nbrPatch = cycPatch.nbrPatch();
 
                 for (label i = 0; i < cycPatch.size(); i++)
                 {

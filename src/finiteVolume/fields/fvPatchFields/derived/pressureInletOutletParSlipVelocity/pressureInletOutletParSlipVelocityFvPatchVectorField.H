@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,15 +44,15 @@ Usage
     <patchName>
     {
         type            pressureInletOutletParSlipVelocity;
-        value           uniform 0;
+        value           uniform (0 0 0);
     }
     \endverbatim
 
-Note
-    Sign conventions:
-    - positive flux (out of domain): apply zero-gradient condition
-    - negative flux (into of domain): derive from the flux with specified
-      direction
+    Note:
+        Sign conventions:
+      - positive flux (out of domain): apply zero-gradient condition
+      - negative flux (into of domain): derive from the flux with specified
+        direction
 
 See also
     Foam::mixedFvPatchVectorField
@@ -99,13 +99,6 @@ public:
 
     // Constructors
 
-        //- Construct from patch and internal field
-        pressureInletOutletParSlipVelocityFvPatchVectorField
-        (
-            const fvPatch&,
-            const DimensionedField<vector, volMesh>&
-        );
-
         //- Construct by mapping given
         //  pressureInletOutletParSlipVelocityFvPatchVectorField
         //  onto a new patch
@@ -114,7 +107,7 @@ public:
             const pressureInletOutletParSlipVelocityFvPatchVectorField&,
             const fvPatch&,
             const DimensionedField<vector, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
         //- Construct from patch, internal field and dictionary
@@ -125,23 +118,11 @@ public:
             const dictionary&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         pressureInletOutletParSlipVelocityFvPatchVectorField
         (
             const pressureInletOutletParSlipVelocityFvPatchVectorField&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchVectorField> clone() const
-        {
-            return tmp<fvPatchVectorField>
-            (
-                new pressureInletOutletParSlipVelocityFvPatchVectorField
-                (
-                    *this
-                )
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         pressureInletOutletParSlipVelocityFvPatchVectorField

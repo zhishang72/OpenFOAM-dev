@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -39,10 +39,10 @@ Usage
     }
     \endverbatim
 
-Note
-    This is used as a base for conditions such as the turbulence \c epsilon
-    wall function, which applies a near-wall constraint for high Reynolds
-    number flows.
+    Note:
+        This is used as a base for conditions such as the turbulence \c epsilon
+        wall function, which applies a near-wall constraint for high Reynolds
+        number flows.
 
 See also
     Foam::epsilonWallFunctionFvPatchScalarField
@@ -63,7 +63,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-              Class fixedInternalValueFvPatchField Declaration
+               Class fixedInternalValueFvPatchField Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -80,13 +80,6 @@ public:
 
     // Constructors
 
-        //- Construct from patch and internal field
-        fixedInternalValueFvPatchField
-        (
-            const fvPatch&,
-            const DimensionedField<Type, volMesh>&
-        );
-
         //- Construct from patch, internal field and dictionary
         fixedInternalValueFvPatchField
         (
@@ -102,23 +95,14 @@ public:
             const fixedInternalValueFvPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         fixedInternalValueFvPatchField
         (
             const fixedInternalValueFvPatchField<Type>&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchField<Type>> clone() const
-        {
-            return tmp<fvPatchField<Type>>
-            (
-                new fixedInternalValueFvPatchField<Type>(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         fixedInternalValueFvPatchField

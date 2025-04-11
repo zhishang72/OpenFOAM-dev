@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -26,6 +26,7 @@ License
 #include "MapLagrangianFields.H"
 #include "passiveParticleCloud.H"
 #include "meshSearch.H"
+#include "OSspecific.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -37,7 +38,11 @@ static const scalar perturbFactor = 1e-6;
 
 // Special version of findCell that generates a cell guaranteed to be
 // compatible with tracking.
-static label findCell(const Cloud<passiveParticle>& cloud, const point& pt)
+static label findCell
+(
+    const lagrangian::Cloud<passiveParticle>& cloud,
+    const point& pt
+)
 {
     label celli = -1;
     label tetFacei = -1;
@@ -104,7 +109,7 @@ void mapLagrangian(const meshToMesh0& meshToMesh0Interp)
     (
         readDir
         (
-            meshSource.time().timePath()/cloud::prefix,
+            meshSource.time().timePath()/lagrangian::cloud::prefix,
             fileType::directory
         )
     );
@@ -115,8 +120,8 @@ void mapLagrangian(const meshToMesh0& meshToMesh0Interp)
         IOobjectList objects
         (
             meshSource,
-            meshSource.time().timeName(),
-            cloud::prefix/cloudDirs[cloudI]
+            meshSource.time().name(),
+            lagrangian::cloud::prefix/cloudDirs[cloudI]
         );
 
         IOobject* positionsPtr = objects.lookup("positions");
@@ -159,7 +164,12 @@ void mapLagrangian(const meshToMesh0& meshToMesh0Interp)
             // This requires there to be no boundary in the way.
 
 
-            forAllConstIter(Cloud<passiveParticle>, sourceParcels, iter)
+            forAllConstIter
+            (
+                lagrangian::Cloud<passiveParticle>,
+                sourceParcels,
+                iter
+            )
             {
                 bool foundCell = false;
 
@@ -189,7 +199,13 @@ void mapLagrangian(const meshToMesh0& meshToMesh0Interp)
                         );
                         passiveParticle& newP = newPtr();
 
-                        newP.track(iter().position() - newP.position(), 0);
+                        newP.track
+                        (
+                            meshTarget,
+                            iter().position(meshSource)
+                          - newP.position(meshTarget),
+                            0
+                        );
 
                         if (!newP.onFace())
                         {
@@ -223,27 +239,43 @@ void mapLagrangian(const meshToMesh0& meshToMesh0Interp)
             {
                 sourceParticleI = 0;
 
-                forAllIter(Cloud<passiveParticle>, sourceParcels, iter)
+                forAllIter
+                (
+                    lagrangian::Cloud<passiveParticle>,
+                    sourceParcels,
+                    iter
+                )
                 {
                     if (unmappedSource.found(sourceParticleI))
                     {
                         label targetCell =
-                            findCell(targetParcels, iter().position());
+                            findCell
+                            (
+                                targetParcels,
+                                iter().position(meshSource)
+                            );
 
                         if (targetCell >= 0)
                         {
-                            unmappedSource.erase(sourceParticleI);
-                            addParticles.append(sourceParticleI);
-                            targetParcels.addParticle
+                            label nLocateBoundaryHits = 0;
+                            autoPtr<passiveParticle> pPtr
                             (
                                 new passiveParticle
                                 (
                                     meshTarget,
-                                    iter().position(),
-                                    targetCell
+                                    iter().position(meshSource),
+                                    targetCell,
+                                    nLocateBoundaryHits
                                 )
                             );
-                            sourceParcels.remove(&iter());
+
+                            if (nLocateBoundaryHits == 0)
+                            {
+                                unmappedSource.erase(sourceParticleI);
+                                addParticles.append(sourceParticleI);
+                                targetParcels.addParticle(pPtr.ptr());
+                                sourceParcels.remove(&iter());
+                            }
                         }
                     }
                     sourceParticleI++;

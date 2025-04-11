@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -37,6 +37,7 @@ SourceFiles
 #ifndef ArrheniusReactionRate_H
 #define ArrheniusReactionRate_H
 
+#include "speciesTable.H"
 #include "scalarField.H"
 #include "typeInfo.H"
 
@@ -60,8 +61,8 @@ class ArrheniusReactionRate
 {
     // Private Data
 
-        scalar A_;
         scalar beta_;
+        scalar A_;
         scalar Ta_;
 
 
@@ -81,6 +82,7 @@ public:
         inline ArrheniusReactionRate
         (
             const speciesTable& species,
+            const dimensionSet& dims,
             const dictionary& dict
         );
 
@@ -93,6 +95,13 @@ public:
             return "Arrhenius";
         }
 
+        //- Pre-evaluation hook
+        inline void preEvaluate() const;
+
+        //- Post-evaluation hook
+        inline void postEvaluate() const;
+
+        //- Return the rate
         inline scalar operator()
         (
             const scalar p,
@@ -101,6 +110,7 @@ public:
             const label li
         ) const;
 
+        //- The derivative of the rate w.r.t. temperature
         inline scalar ddT
         (
             const scalar p,
@@ -109,30 +119,17 @@ public:
             const label li
         ) const;
 
-        //- Third-body efficiencies (beta = 1-alpha)
-        //  non-empty only for third-body reactions
-        //  with enhanced molecularity (alpha != 1)
-        inline const List<Tuple2<label, scalar>>& beta() const;
+        //- Is the rate a function of concentration?
+        inline bool hasDdc() const;
 
-        //- Species concentration derivative of the pressure dependent term
-        //  By default this value is 1 as it multiplies the third-body term
-        inline void dcidc
+        //- The derivative of the rate w.r.t. concentration
+        inline void ddc
         (
             const scalar p,
             const scalar T,
             const scalarField& c,
             const label li,
-            scalarField& dcidc
-        ) const;
-
-        //- Temperature derivative of the pressure dependent term
-        //  By default this value is 0 since ddT of molecularity is approx.0
-        inline scalar dcidT
-        (
-            const scalar p,
-            const scalar T,
-            const scalarField& c,
-            const label li
+            scalarField& ddc
         ) const;
 
         //- Write to stream

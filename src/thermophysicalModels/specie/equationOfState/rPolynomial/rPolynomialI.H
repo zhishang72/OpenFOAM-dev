@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2019-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ License
 
 #include "rPolynomial.H"
 
-// * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
+// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class Specie>
 inline Foam::rPolynomial<Specie>::rPolynomial
@@ -38,8 +38,6 @@ inline Foam::rPolynomial<Specie>::rPolynomial
     C_(coeffs)
 {}
 
-
-// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class Specie>
 inline Foam::rPolynomial<Specie>::rPolynomial
@@ -61,17 +59,6 @@ Foam::rPolynomial<Specie>::clone() const
 }
 
 
-template<class Specie>
-inline Foam::autoPtr<Foam::rPolynomial<Specie>>
-Foam::rPolynomial<Specie>::New
-(
-    const dictionary& dict
-)
-{
-    return autoPtr<rPolynomial<Specie>>(new rPolynomial<Specie>(dict));
-}
-
-
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class Specie>
@@ -82,7 +69,7 @@ inline Foam::scalar Foam::rPolynomial<Specie>::rho(scalar p, scalar T) const
 
 
 template<class Specie>
-inline Foam::scalar Foam::rPolynomial<Specie>::H(scalar p, scalar T) const
+inline Foam::scalar Foam::rPolynomial<Specie>::h(scalar p, scalar T) const
 {
     return 0;
 }
@@ -96,7 +83,7 @@ inline Foam::scalar Foam::rPolynomial<Specie>::Cp(scalar p, scalar T) const
 
 
 template<class Specie>
-inline Foam::scalar Foam::rPolynomial<Specie>::E(scalar p, scalar T) const
+inline Foam::scalar Foam::rPolynomial<Specie>::e(scalar p, scalar T) const
 {
     return 0;
 }
@@ -110,8 +97,16 @@ inline Foam::scalar Foam::rPolynomial<Specie>::Cv(scalar p, scalar T) const
 
 
 template<class Specie>
-inline Foam::scalar Foam::rPolynomial<Specie>::S(scalar p, scalar T) const
+inline Foam::scalar Foam::rPolynomial<Specie>::sp(scalar p, scalar T) const
 {
+    return 0;
+}
+
+
+template<class Specie>
+inline Foam::scalar Foam::rPolynomial<Specie>::sv(scalar p, scalar T) const
+{
+    NotImplemented
     return 0;
 }
 
@@ -126,7 +121,7 @@ inline Foam::scalar Foam::rPolynomial<Specie>::psi(scalar p, scalar T) const
 template<class Specie>
 inline Foam::scalar Foam::rPolynomial<Specie>::Z(scalar p, scalar T) const
 {
-    return 1;
+    return p/(rho(p, T)*this->R()*T);
 }
 
 
@@ -134,6 +129,13 @@ template<class Specie>
 inline Foam::scalar Foam::rPolynomial<Specie>::CpMCv(scalar p, scalar T) const
 {
     return 0;
+}
+
+
+template<class Specie>
+inline Foam::scalar Foam::rPolynomial<Specie>::alphav(scalar p, scalar T) const
+{
+    return this->rho(p, T)*(C_[1] + 2*C_[2]*T - C_[4]*p);
 }
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2020 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,11 +44,14 @@ bool Foam::functionObjects::randomise::calc()
 {
     bool processed = false;
 
-    processed = processed || calcRandomised<scalar>();
-    processed = processed || calcRandomised<vector>();
-    processed = processed || calcRandomised<sphericalTensor>();
-    processed = processed || calcRandomised<symmTensor>();
-    processed = processed || calcRandomised<tensor>();
+    #define processType(fieldType, none)                                       \
+        processed = processed || calcRandomised<fieldType>();
+    FOR_ALL_FIELD_TYPES(processType)
+
+    if (!processed)
+    {
+        cannotFindObject(fieldName_);
+    }
 
     return processed;
 }
@@ -63,7 +66,7 @@ Foam::functionObjects::randomise::randomise
     const dictionary& dict
 )
 :
-    fieldExpression(name, runTime, dict, fieldName_ + "Random", fieldName_)
+    fieldExpression(name, runTime, dict, typeName)
 {
     read(dict);
 }

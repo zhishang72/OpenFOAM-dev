@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,92 +24,151 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "dimensionedConstants.H"
+#include "demandDrivenData.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
 {
-    dictionary* dimensionedConstantsPtr_(nullptr);
-}
 
+int dimensionedConstantsDebug(debug::debugSwitch("dimensionedConstants", 0));
 
-Foam::dictionary& Foam::dimensionedConstants()
+dictionary* dimensionedConstantsDictPtr_(nullptr);
+
+dictionary& dimensionedConstantsDict()
 {
-    return debug::switchSet
-    (
-        "DimensionedConstants",
-        dimensionedConstantsPtr_
-    );
-}
-
-
-void Foam::registerDimensionedConstant::lookup()
-{
-    dictionary& dict = dimensionedConstants();
-
-    // Check that the entries exist.
-    // Note: should make FatalError robust instead!
-
-    if (!dict.found("unitSet"))
+    if (!dimensionedConstantsDictPtr_)
     {
-        std::cerr<< "Cannot find unitSet in dictionary " << dict.name()
-            << std::endl;
-    }
+        dictionary* cachedPtr = nullptr;
 
-    const word unitSetCoeffs(word(dict.lookup("unitSet")) + "Coeffs");
-
-    if (!dict.found(unitSetCoeffs))
-    {
-        std::cerr<< "Cannot find " << unitSetCoeffs << " in dictionary "
-            << dict.name() << std::endl;
-    }
-
-    dimensionedScalar::operator=
-    (
-        dimensionedScalar
+        dimensionedConstantsDictPtr_ = new dictionary
         (
-            name(),
-            dimensions(),
-            dict.subDict(unitSetCoeffs).subDict(group_)
-        )
-    );
+            debug::switchSet
+            (
+                "DimensionedConstants",
+                cachedPtr
+            )
+        );
+    }
+
+    return *dimensionedConstantsDictPtr_;
+}
+
+// Delete the above data at the end of the run
+struct deleteDimensionedConstantsPtr
+{
+    ~deleteDimensionedConstantsPtr()
+    {
+        if (dimensionedConstantsDebug)
+        {
+            Info<< "DimensionedConstants" << dimensionedConstantsDict() << endl;
+        }
+
+        deleteDemandDrivenData(dimensionedConstantsDictPtr_);
+    }
+};
+
+deleteDimensionedConstantsPtr deleteDimensionedConstantsPtr_;
+
 }
 
 
-void Foam::registerDimensionedConstantWithDefault::lookup()
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+Foam::dimensionedScalar Foam::dimensionedConstant
+(
+    const char* const group,
+    const char* name,
+    const dimensionSet& dimensions
+)
 {
-    dictionary& dict = dimensionedConstants();
+    dictionary& dict = dimensionedConstantsDict();
 
-    const word unitSet(dict.lookup("unitSet"));
-    dictionary& unitDict(dict.subDict(unitSet + "Coeffs"));
+    const dimensionedScalar dimensionedValue
+    (
+        name,
+        dimensions,
+        dict.subDict(group).lookup(name)
+    );
 
-    if (unitDict.found(group_))
+    dict.subDict(group).set(name, dimensionedValue);
+
+    return dimensionedValue;
+}
+
+
+Foam::dimensionedScalar Foam::dimensionedConstant
+(
+    const char* const group,
+    const char* name,
+    const dimensionedScalar& valueNoName
+)
+{
+    return dimensionedConstant(group, name, name, valueNoName);
+}
+
+
+Foam::dimensionedScalar Foam::dimensionedConstant
+(
+    const char* const group,
+    const char* entryName,
+    const char* codeName,
+    const dimensionedScalar& valueNoName
+)
+{
+    dictionary& dict = dimensionedConstantsDict();
+
+    const dimensionedScalar dimensionedValue(codeName, valueNoName);
+
+    if (!dict.found(group))
     {
-        dictionary& groupDict = unitDict.subDict(group_);
-        if (groupDict.found(name()))
-        {
-            dimensionedScalar::operator=
-            (
-                dimensionedScalar
-                (
-                    name(),
-                    default_.dimensions(),
-                    groupDict.lookup(name())
-                )
-            );
-        }
-        else
-        {
-            groupDict.add(name(), default_);
-            dimensionedScalar::operator=(default_);
-        }
+        dict.add(group, dictionary::null);
     }
-    else
+
+    dict.subDict(group).add(entryName, dimensionedValue);
+
+    return dimensionedValue;
+}
+
+
+Foam::dimensionedScalar Foam::dimensionedConstant
+(
+    const char* const group,
+    const char* name,
+    const unitConversion& units,
+    const scalar value
+)
+{
+    return dimensionedConstant(group, name, name, units, value);
+}
+
+
+Foam::dimensionedScalar Foam::dimensionedConstant
+(
+    const char* const group,
+    const char* entryName,
+    const char* codeName,
+    const unitConversion& units,
+    const scalar value
+)
+{
+    dictionary& dict = dimensionedConstantsDict();
+
+    const dimensionedScalar dimensionedValue
+    (
+        codeName,
+        units.dimensions(),
+        units.toStandard(value)
+    );
+
+    if (!dict.found(group))
     {
-        unitDict.add(group_, dictionary::null);
-        unitDict.subDict(group_).add(name(), default_);
-        dimensionedScalar::operator=(default_);
+        dict.add(group, dictionary::null);
     }
+
+    dict.subDict(group).add(entryName, dimensionedValue);
+
+    return dimensionedValue;
 }
 
 

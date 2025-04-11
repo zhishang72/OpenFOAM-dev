@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -47,10 +47,10 @@ Description
 
     means point 93 on proc7 is connected to point 731 on proc4 and 114 on proc3.
     It then assigns the lowest numbered processor to be the local 'master' and
-    constructs a mapDistribute to send all data to this master.
+    constructs a distributionMap to send all data to this master.
 
     Algorithm:
-        - get meshPoints of all my points on processor patches and initialize
+        - get meshPoints of all my points on processor patches and initialise
           equivalence lists to this.
      loop
         - send to all neighbours in relative form:
@@ -92,10 +92,10 @@ class polyMesh;
 class polyBoundaryMesh;
 class cyclicPolyPatch;
 class polyPatch;
-class mapDistribute;
+class distributionMap;
 
 /*---------------------------------------------------------------------------*\
-                           Class globalPoints Declaration
+                        Class globalPoints Declaration
 \*---------------------------------------------------------------------------*/
 
 class globalPoints
@@ -123,17 +123,17 @@ class globalPoints
         Map<label> meshToProcPoint_;
 
 
-        // Calculated mapDistribute addressing
+        // Calculated distributionMap addressing
 
-            //- Non-transformed connected points per point (in mapDistribute
+            //- Non-transformed connected points per point (in distributionMap
             //  indices)
             labelListList pointPoints_;
 
-            //- Transformed points per point (in mapDistribute indices)
+            //- Transformed points per point (in distributionMap indices)
             labelListList transformedPointPoints_;
 
             //- Corresponding map
-            autoPtr<mapDistribute> map_;
+            autoPtr<distributionMap> map_;
 
 
 
@@ -218,7 +218,7 @@ class globalPoints
             const labelPairList& pointInfo
         ) const;
 
-        //- Initialize procPoints_ to my patch points. allPoints = true:
+        //- Initialise procPoints_ to my patch points. allPoints = true:
         //  seed with all patch points, = false: only boundaryPoints().
         void initOwnPoints
         (
@@ -315,40 +315,40 @@ public:
                 return globalTransforms_;
             }
 
-            //- Non-transformed connected points per point (in mapDistribute
+            //- Non-transformed connected points per point (in distributionMap
             //  indices)
             const labelListList& pointPoints() const
             {
                 return pointPoints_;
             }
 
-            //- Non-transformed connected points per point (in mapDistribute
+            //- Non-transformed connected points per point (in distributionMap
             //  indices)
             labelListList& pointPoints()
             {
                 return pointPoints_;
             }
 
-            //- Transformed points per point (in mapDistribute indices)
+            //- Transformed points per point (in distributionMap indices)
             const labelListList& transformedPointPoints() const
             {
                 return transformedPointPoints_;
             }
 
-            //- Transformed points per point (in mapDistribute indices)
+            //- Transformed points per point (in distributionMap indices)
             labelListList& transformedPointPoints()
             {
                 return transformedPointPoints_;
             }
 
             //- Corresponding map
-            const mapDistribute& map() const
+            const distributionMap& map() const
             {
                 return map_();
             }
 
             //- Corresponding map
-            mapDistribute& map()
+            distributionMap& map()
             {
                 return map_();
             }

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -28,6 +28,7 @@ InClass
 
 #include "renumberMethod.H"
 #include "decompositionMethod.H"
+#include "dlLibraryTable.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -46,7 +47,14 @@ Foam::autoPtr<Foam::renumberMethod> Foam::renumberMethod::New
 {
     const word methodType(renumberDict.lookup("method"));
 
-    // Info<< "Selecting renumberMethod " << methodType << endl;
+    Info<< "Selecting renumberMethod " << methodType << endl;
+
+    libs.open
+    (
+        renumberDict,
+        "libs",
+        dictionaryConstructorTablePtr_
+    );
 
     dictionaryConstructorTable::iterator cstrIter =
         dictionaryConstructorTablePtr_->find(methodType);
@@ -75,14 +83,14 @@ Foam::labelList Foam::renumberMethod::renumber
     decompositionMethod::calcCellCells
     (
         mesh,
-        identity(mesh.nCells()),
+        identityMap(mesh.nCells()),
         mesh.nCells(),
         false,                      // local only
         cellCells
     );
 
     // Renumber based on agglomerated points
-    return renumber(cellCells(), points);
+    return renumber(cellCells.list(), points);
 }
 
 
@@ -120,7 +128,7 @@ Foam::labelList Foam::renumberMethod::renumber
     (
         renumber
         (
-            coarseCellCells(),
+            coarseCellCells.list(),
             coarsePoints
         )
     );

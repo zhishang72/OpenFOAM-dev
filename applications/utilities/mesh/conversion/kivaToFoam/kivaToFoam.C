@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -41,8 +41,8 @@ Description
 #include "wallPolyPatch.H"
 #include "symmetryPolyPatch.H"
 #include "wedgePolyPatch.H"
-#include "oldCyclicPolyPatch.H"
-#include "unitConversion.H"
+#include "mergedCyclicPolyPatch.H"
+#include "polyMeshUnMergeCyclics.H"
 
 using namespace Foam;
 
@@ -78,7 +78,7 @@ int main(int argc, char *argv[])
     );
 
     #include "setRootCase.H"
-    #include "createTime.H"
+    #include "createTimeNoFunctionObjects.H"
 
     const fileName kivaFileName =
         args.optionLookupOrDefault<fileName>("file", "otape17");
@@ -98,12 +98,11 @@ int main(int argc, char *argv[])
         }
         else
         {
+            args.printUsage();
+
             FatalErrorInFunction
                 << "KIVA file version " << versionName << " not supported"
                 << exit(FatalError);
-
-            args.printUsage();
-            FatalError.exit(1);
         }
     }
 

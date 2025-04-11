@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,14 +25,17 @@ Class
     Foam::rotatingWallVelocityFvPatchVectorField
 
 Description
-    This boundary condition provides a rotational velocity condition.
+    Condition on velocity for a boundary consisting of a rotating solid of
+    revolution, e.g. cylinder. Calculates a tangential component of velocity
+    from the angular velocity and rotational axis and ensures a zero normal
+    component.
 
 Usage
     \table
         Property     | Description             | Required    | Default value
         origin       | origin of rotation in Cartesian co-ordinates | yes|
         axis         | axis of rotation        | yes         |
-        omega        | angular velocity of the frame [rad/s] | yes    |
+        omega        | angular velocity of the frame | no |
     \endtable
 
     Example of the boundary condition specification:
@@ -42,7 +45,7 @@ Usage
         type            rotatingWallVelocity;
         origin          (0 0 0);
         axis            (0 0 1);
-        omega           100;
+        omega           100 [rpm];
     }
     \endverbatim
 
@@ -61,7 +64,7 @@ SourceFiles
 #define rotatingWallVelocityFvPatchVectorField_H
 
 #include "fixedValueFvPatchFields.H"
-#include "Function1.H"
+#include "omega1.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -85,7 +88,7 @@ class rotatingWallVelocityFvPatchVectorField
         vector axis_;
 
         //- Rotational speed
-        autoPtr<Function1<scalar>> omega_;
+        Function1s::omega omega_;
 
 
 public:
@@ -95,13 +98,6 @@ public:
 
 
     // Constructors
-
-        //- Construct from patch and internal field
-        rotatingWallVelocityFvPatchVectorField
-        (
-            const fvPatch&,
-            const DimensionedField<vector, volMesh>&
-        );
 
         //- Construct from patch, internal field and dictionary
         rotatingWallVelocityFvPatchVectorField
@@ -118,23 +114,14 @@ public:
             const rotatingWallVelocityFvPatchVectorField&,
             const fvPatch&,
             const DimensionedField<vector, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         rotatingWallVelocityFvPatchVectorField
         (
             const rotatingWallVelocityFvPatchVectorField&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchVectorField> clone() const
-        {
-            return tmp<fvPatchVectorField>
-            (
-                new rotatingWallVelocityFvPatchVectorField(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         rotatingWallVelocityFvPatchVectorField
@@ -158,33 +145,6 @@ public:
 
 
     // Member Functions
-
-        // Access functions
-
-            //- Return the origin of the rotation
-            const vector& origin() const
-            {
-                return origin_;
-            }
-
-            //- Return the axis of the rotation
-            const vector& axis() const
-            {
-                return axis_;
-            }
-
-            //- Return non-const access to the origin of the rotation
-            vector& origin()
-            {
-                return origin_;
-            }
-
-            //- Return non-const access to the axis of the rotation
-            vector& axis()
-            {
-                return axis_;
-            }
-
 
         //- Update the coefficients associated with the patch field
         virtual void updateCoeffs();

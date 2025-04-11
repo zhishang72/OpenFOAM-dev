@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -27,6 +27,26 @@ License
 #include "specie.H"
 
 // * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
+
+template<class EquationOfState>
+inline const typename Foam::janafThermo<EquationOfState>::coeffArray&
+Foam::janafThermo<EquationOfState>::coeffs
+(
+    const scalar T
+) const
+{
+    if (T < Tcommon_)
+    {
+        return lowCpCoeffs_;
+    }
+    else
+    {
+        return highCpCoeffs_;
+    }
+}
+
+
+// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class EquationOfState>
 inline Foam::janafThermo<EquationOfState>::janafThermo
@@ -63,26 +83,6 @@ inline Foam::janafThermo<EquationOfState>::janafThermo
     }
 }
 
-
-template<class EquationOfState>
-inline const typename Foam::janafThermo<EquationOfState>::coeffArray&
-Foam::janafThermo<EquationOfState>::coeffs
-(
-    const scalar T
-) const
-{
-    if (T < Tcommon_)
-    {
-        return lowCpCoeffs_;
-    }
-    else
-    {
-        return highCpCoeffs_;
-    }
-}
-
-
-// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class EquationOfState>
 inline Foam::janafThermo<EquationOfState>::janafThermo
@@ -181,7 +181,18 @@ inline Foam::scalar Foam::janafThermo<EquationOfState>::Cp
 
 
 template<class EquationOfState>
-inline Foam::scalar Foam::janafThermo<EquationOfState>::Ha
+inline Foam::scalar Foam::janafThermo<EquationOfState>::hs
+(
+    const scalar p,
+    const scalar T
+) const
+{
+    return ha(p, T) - hf();
+}
+
+
+template<class EquationOfState>
+inline Foam::scalar Foam::janafThermo<EquationOfState>::ha
 (
     const scalar p,
     const scalar T
@@ -192,23 +203,12 @@ inline Foam::scalar Foam::janafThermo<EquationOfState>::Ha
     (
         ((((a[4]/5.0*T + a[3]/4.0)*T + a[2]/3.0)*T + a[1]/2.0)*T + a[0])*T
       + a[5]
-    ) + EquationOfState::H(p, T);
+    ) + EquationOfState::h(p, T);
 }
 
 
 template<class EquationOfState>
-inline Foam::scalar Foam::janafThermo<EquationOfState>::Hs
-(
-    const scalar p,
-    const scalar T
-) const
-{
-    return Ha(p, T) - Hc();
-}
-
-
-template<class EquationOfState>
-inline Foam::scalar Foam::janafThermo<EquationOfState>::Hc() const
+inline Foam::scalar Foam::janafThermo<EquationOfState>::hf() const
 {
     const coeffArray& a = lowCpCoeffs_;
     return
@@ -222,7 +222,7 @@ inline Foam::scalar Foam::janafThermo<EquationOfState>::Hc() const
 
 
 template<class EquationOfState>
-inline Foam::scalar Foam::janafThermo<EquationOfState>::S
+inline Foam::scalar Foam::janafThermo<EquationOfState>::s
 (
     const scalar p,
     const scalar T
@@ -233,12 +233,12 @@ inline Foam::scalar Foam::janafThermo<EquationOfState>::S
     (
         (((a[4]/4.0*T + a[3]/3.0)*T + a[2]/2.0)*T + a[1])*T + a[0]*log(T)
       + a[6]
-    ) + EquationOfState::S(p, T);
+    ) + EquationOfState::sp(p, T);
 }
 
 
 template<class EquationOfState>
-inline Foam::scalar Foam::janafThermo<EquationOfState>::Gstd
+inline Foam::scalar Foam::janafThermo<EquationOfState>::gStd
 (
     const scalar T
 ) const
@@ -253,18 +253,6 @@ inline Foam::scalar Foam::janafThermo<EquationOfState>::Gstd
         )*T
       + a[5]
     );
-}
-
-
-template<class EquationOfState>
-inline Foam::scalar Foam::janafThermo<EquationOfState>::dGdT
-(
-    const scalar p,
-    const scalar T
-) const
-{
-    const coeffArray& a = coeffs(T);
-    return -((a[0] + a[5]/T)/T + a[1]/2 + T*(a[2]/3 + T*(a[3]/4 + T*a[4]/5)));
 }
 
 

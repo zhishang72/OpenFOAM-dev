@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -27,12 +27,12 @@ Class
 Description
     An STL-conforming hash table.
 
-Note
-    Hashing index collisions are handled via chaining using a singly-linked
-    list with the colliding entry being added to the head of the linked
-    list. Thus copying the hash table (or indeed even resizing it) will
-    often result in a different hash order. Use a sorted table-of-contents
-    when the hash order is important.
+    Note:
+        Hashing index collisions are handled via chaining using a singly-linked
+        list with the colliding entry being added to the head of the linked
+        list. Thus copying the hash table (or indeed even resizing it) will
+        often result in a different hash order. Use a sorted table-of-contents
+        when the hash order is important.
 
 SourceFiles
     HashTableI.H
@@ -76,7 +76,7 @@ Ostream& operator<<(Ostream&, const HashTable<T, Key, Hash>&);
 
 
 /*---------------------------------------------------------------------------*\
-                         Class HashTableCore Declaration
+                        Class HashTableCore Declaration
 \*---------------------------------------------------------------------------*/
 
 //- Template-invariant bits for HashTable
@@ -118,7 +118,7 @@ struct HashTableCore
 
 
 /*---------------------------------------------------------------------------*\
-                           Class HashTable Declaration
+                          Class HashTable Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class T, class Key=word, class Hash=string::hash>
@@ -206,13 +206,17 @@ public:
         //- Construct from Istream
         HashTable(Istream&, const label size = 128);
 
+        //- Construct from a list of keys and list of elements
+        //  Lists must have equal length
+        HashTable(const UList<Key>& keyList, const UList<T>& elmtList);
+
         //- Copy constructor
         HashTable(const HashTable<T, Key, Hash>&);
 
         //- Move constructor
         HashTable(HashTable<T, Key, Hash>&&);
 
-        //- Construct from an initializer list
+        //- Construct from an initialiser list
         HashTable(std::initializer_list<Tuple2<Key, T>>);
 
 
@@ -250,6 +254,9 @@ public:
             //- Return the table of contents as a sorted list
             List<Key> sortedToc() const;
 
+            //- Return a sorted list of constant iterators
+            List<const_iterator> sorted() const;
+
             //- Print information
             Ostream& printInfo(Ostream&) const;
 
@@ -259,8 +266,15 @@ public:
             //- Insert a new hashedEntry
             inline bool insert(const Key&, const T& newElmt);
 
-            //- Assign a new hashedEntry, overwriting existing entries
+            //- Insert all the entries from the given HashTable
+            void insert(const HashTable<T, Key, Hash>&);
+
+            //- Set a new hashedEntry, overwriting existing entries
             inline bool set(const Key&, const T& newElmt);
+
+            //- Insert all the entries from the given HashTable,
+            //  overwriting existing entries
+            void set(const HashTable<T, Key, Hash>&);
 
             //- Erase a hashedEntry specified by given iterator
             //  This invalidates the iterator until the next operator++
@@ -315,7 +329,7 @@ public:
         //- Move assignment operator
         void operator=(HashTable<T, Key, Hash>&&);
 
-        //- Assignment to an initializer list
+        //- Assignment to an initialiser list
         void operator=(std::initializer_list<Tuple2<Key, T>>);
 
         //- Equality. Hash tables are equal if the keys and values are equal.

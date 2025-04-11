@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -60,6 +60,22 @@ namespace Foam
         lduInterfaceField,
         cyclicSlip
     );
+
+    // Add under name nonConformalCyclic
+    addNamedToRunTimeSelectionTable
+    (
+        GAMGInterfaceField,
+        cyclicGAMGInterfaceField,
+        lduInterface,
+        nonConformalCyclic
+    );
+    addNamedToRunTimeSelectionTable
+    (
+        GAMGInterfaceField,
+        cyclicGAMGInterfaceField,
+        lduInterfaceField,
+        nonConformalCyclic
+    );
 }
 
 
@@ -73,13 +89,11 @@ Foam::cyclicGAMGInterfaceField::cyclicGAMGInterfaceField
 :
     GAMGInterfaceField(GAMGCp, fineInterface),
     cyclicInterface_(refCast<const cyclicGAMGInterface>(GAMGCp)),
-    doTransform_(false),
     rank_(0)
 {
     const cyclicLduInterfaceField& p =
         refCast<const cyclicLduInterfaceField>(fineInterface);
 
-    doTransform_ = p.doTransform();
     rank_ = p.rank();
 }
 
@@ -87,13 +101,11 @@ Foam::cyclicGAMGInterfaceField::cyclicGAMGInterfaceField
 Foam::cyclicGAMGInterfaceField::cyclicGAMGInterfaceField
 (
     const GAMGInterface& GAMGCp,
-    const bool doTransform,
     const int rank
 )
 :
-    GAMGInterfaceField(GAMGCp, doTransform, rank),
+    GAMGInterfaceField(GAMGCp, rank),
     cyclicInterface_(refCast<const cyclicGAMGInterface>(GAMGCp)),
-    doTransform_(doTransform),
     rank_(rank)
 {}
 
@@ -118,7 +130,7 @@ void Foam::cyclicGAMGInterfaceField::updateInterfaceMatrix
     // Get neighbouring field
     scalarField pnf
     (
-        cyclicInterface_.neighbPatch().interfaceInternalField(psiInternal)
+        cyclicInterface_.nbrPatch().interfaceInternalField(psiInternal)
     );
 
     transformCoupleField(pnf, cmpt);

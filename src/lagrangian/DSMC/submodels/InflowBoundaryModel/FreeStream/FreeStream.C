@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -27,6 +27,7 @@ License
 #include "constants.H"
 #include "triPointRef.H"
 #include "tetIndices.H"
+#include "standardNormal.H"
 
 using namespace Foam::constant::mathematical;
 
@@ -116,7 +117,7 @@ Foam::FreeStream<CloudType>::~FreeStream()
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class CloudType>
-void Foam::FreeStream<CloudType>::autoMap(const mapPolyMesh& mapper)
+void Foam::FreeStream<CloudType>::topoChange()
 {
     CloudType& cloud(this->owner());
     const polyMesh& mesh(cloud.mesh());
@@ -145,7 +146,8 @@ void Foam::FreeStream<CloudType>::inflow()
 
     const scalar deltaT = mesh.time().deltaTValue();
 
-    Random& rndGen(cloud.rndGen());
+    randomGenerator& rndGen = cloud.rndGen();
+    distributions::standardNormal& stdNormal = cloud.stdNormal();
 
     scalar sqrtPi = sqrt(pi);
 
@@ -161,6 +163,7 @@ void Foam::FreeStream<CloudType>::inflow()
         cloud.boundaryU().boundaryField()
     );
 
+    label nLocateBoundaryHits = 0;
 
     forAll(patches_, p)
     {
@@ -204,14 +207,14 @@ void Foam::FreeStream<CloudType>::inflow()
 
             scalarField sCosTheta
             (
-                (boundaryU[patchi] & -patch.faceAreas()/mag(patch.faceAreas()))
+                (boundaryU[patchi] & -patch.faceAreas()/patch.magFaceAreas())
               / mostProbableSpeed
             );
 
             // From Bird eqn 4.22
 
             pFA[i] +=
-                mag(patch.faceAreas())*numberDensities_[i]*deltaT
+                patch.magFaceAreas()*numberDensities_[i]*deltaT
                *mostProbableSpeed
                *(
                    exp(-sqr(sCosTheta)) + sqrtPi*sCosTheta*(1 + erf(sCosTheta))
@@ -232,7 +235,7 @@ void Foam::FreeStream<CloudType>::inflow()
 
             const vector& fC = patch.faceCentres()[pFI];
 
-            scalar fA = mag(patch.faceAreas()[pFI]);
+            scalar fA = patch.magFaceAreas()[pFI];
 
             List<tetIndices> faceTets = polyMeshTetDecomposition::faceTetIndices
             (
@@ -387,10 +390,7 @@ void Foam::FreeStream<CloudType>::inflow()
 
                     vector U =
                         sqrt(physicoChemical::k.value()*faceTemperature/mass)
-                       *(
-                            rndGen.scalarNormal()*t1
-                          + rndGen.scalarNormal()*t2
-                        )
+                       *(stdNormal.sample()*t1 + stdNormal.sample()*t2)
                       + (t1 & faceVelocity)*t1
                       + (t2 & faceVelocity)*t2
                       + mostProbableSpeed*uNormal*n;
@@ -401,7 +401,15 @@ void Foam::FreeStream<CloudType>::inflow()
                         cloud.constProps(typeId).internalDegreesOfFreedom()
                     );
 
-                    cloud.addNewParcel(p, celli, U, Ei, typeId);
+                    cloud.addNewParcel
+                    (
+                        p,
+                        celli,
+                        nLocateBoundaryHits,
+                        U,
+                        Ei,
+                        typeId
+                    );
 
                     particlesInserted++;
                 }
@@ -409,11 +417,19 @@ void Foam::FreeStream<CloudType>::inflow()
         }
     }
 
+    reduce(nLocateBoundaryHits, sumOp<label>());
+    if (nLocateBoundaryHits != 0)
+    {
+        WarningInFunction
+            << "Freestream inflow  model for cloud " << this->owner().name()
+            << " did not accurately locate " << nLocateBoundaryHits
+            << " particles" << endl;
+    }
+
     reduce(particlesInserted, sumOp<label>());
 
     Info<< "    Particles inserted              = "
         << particlesInserted << endl;
-
 }
 
 

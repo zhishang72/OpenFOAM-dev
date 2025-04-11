@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,7 +24,7 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "patchWriter.H"
-#include "writeFuns.H"
+#include "vtkWriteFieldOps.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
@@ -41,20 +41,24 @@ Foam::patchWriter::patchWriter
     binary_(binary),
     nearCellValue_(nearCellValue),
     fName_(fName),
-    patchIDs_(patchIDs),
+    patchIndices_(patchIDs),
     os_(fName.c_str())
 {
     const fvMesh& mesh = vMesh_.mesh();
     const polyBoundaryMesh& patches = mesh.boundaryMesh();
 
     // Write header
-    if (patchIDs_.size() == 1)
+    if (patchIndices_.size() == 1)
     {
-        writeFuns::writeHeader(os_, binary_, patches[patchIDs_[0]].name());
+        vtkWriteOps::writeHeader
+        (
+            os_,
+            binary_, patches[patchIndices_[0]].name()
+        );
     }
     else
     {
-        writeFuns::writeHeader(os_, binary_, "patches");
+        vtkWriteOps::writeHeader(os_, binary_, "patches");
     }
     os_ << "DATASET POLYDATA" << std::endl;
 
@@ -63,9 +67,9 @@ Foam::patchWriter::patchWriter
     nFaces_ = 0;
     label nFaceVerts = 0;
 
-    forAll(patchIDs_, i)
+    forAll(patchIndices_, i)
     {
-        const polyPatch& pp = patches[patchIDs_[i]];
+        const polyPatch& pp = patches[patchIndices_[i]];
 
         nPoints_ += pp.nPoints();
         nFaces_ += pp.size();
@@ -80,13 +84,13 @@ Foam::patchWriter::patchWriter
 
     DynamicList<floatScalar> ptField(3*nPoints_);
 
-    forAll(patchIDs_, i)
+    forAll(patchIndices_, i)
     {
-        const polyPatch& pp = patches[patchIDs_[i]];
+        const polyPatch& pp = patches[patchIndices_[i]];
 
-        writeFuns::insert(pp.localPoints(), ptField);
+        vtkWriteOps::insert(pp.localPoints(), ptField);
     }
-    writeFuns::write(os_, binary_, ptField);
+    vtkWriteOps::write(os_, binary_, ptField);
 
     os_ << "POLYGONS " << nFaces_ << ' ' << nFaceVerts << std::endl;
 
@@ -94,26 +98,26 @@ Foam::patchWriter::patchWriter
 
     label offset = 0;
 
-    forAll(patchIDs_, i)
+    forAll(patchIndices_, i)
     {
-        const polyPatch& pp = patches[patchIDs_[i]];
+        const polyPatch& pp = patches[patchIndices_[i]];
 
         forAll(pp, facei)
         {
             const face& f = pp.localFaces()[facei];
 
             vertLabels.append(f.size());
-            writeFuns::insert(f + offset, vertLabels);
+            vtkWriteOps::insert(f + offset, vertLabels);
         }
         offset += pp.nPoints();
     }
-    writeFuns::write(os_, binary_, vertLabels);
+    vtkWriteOps::write(os_, binary_, vertLabels);
 }
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-void Foam::patchWriter::writePatchIDs()
+void Foam::patchWriter::writePatchIndices()
 {
     const fvMesh& mesh = vMesh_.mesh();
 
@@ -121,18 +125,18 @@ void Foam::patchWriter::writePatchIDs()
 
     os_ << "patchID 1 " << nFaces_ << " float" << std::endl;
 
-    forAll(patchIDs_, i)
+    forAll(patchIndices_, i)
     {
-        label patchi = patchIDs_[i];
+        label patchi = patchIndices_[i];
 
         const polyPatch& pp = mesh.boundaryMesh()[patchi];
 
         if (!isA<emptyPolyPatch>(pp))
         {
-            writeFuns::insert(scalarField(pp.size(), patchi), fField);
+            vtkWriteOps::insert(scalarField(pp.size(), patchi), fField);
         }
     }
-    writeFuns::write(os_, binary_, fField);
+    vtkWriteOps::write(os_, binary_, fField);
 }
 
 

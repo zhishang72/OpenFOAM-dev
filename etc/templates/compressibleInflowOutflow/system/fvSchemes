@@ -7,7 +7,6 @@
 \*---------------------------------------------------------------------------*/
 FoamFile
 {
-    version     2.0;
     format      ascii;
     class       dictionary;
     object      fvSchemes;
@@ -35,11 +34,15 @@ divSchemes
 {
     default         none;
 
-    // For transient, remove "bounded"
+    // For steady-state, use the bounded form of advection schemes
+#ifeq $!ddtSchemes/default steadyState
     div(phi,U)      bounded Gauss linearUpwind limited;
-
-    // For transient, remove "bounded"
     turbulence      bounded Gauss limitedLinear 1;
+#else
+    div(phi,U)      Gauss linearUpwind limited;
+    turbulence      Gauss limitedLinear 1;
+#endif
+
     div(phi,k)      $turbulence;
     div(phi,omega)  $turbulence;
     div(phi,epsilon) $turbulence;
@@ -50,7 +53,7 @@ divSchemes
     div(phi,Ekp)    $turbulence;
 
     div(phid,p)     Gauss upwind;
-    div((phi|interpolate(rho)),p)  bounded Gauss upwind;
+    div(phi,(p|rho)) bounded Gauss upwind;
 
     div(((rho*nuEff)*dev2(T(grad(U)))))    Gauss linear;
 }

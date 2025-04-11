@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,7 +44,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                 Class basicSymmetryFvPatchField Declaration
+                  Class basicSymmetryFvPatchField Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -79,23 +79,14 @@ public:
             const basicSymmetryFvPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         basicSymmetryFvPatchField
         (
             const basicSymmetryFvPatchField<Type>&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchField<Type>> clone() const
-        {
-            return tmp<fvPatchField<Type>>
-            (
-                new basicSymmetryFvPatchField<Type>(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         basicSymmetryFvPatchField
@@ -130,6 +121,11 @@ public:
 
         //- Return face-gradient transform diagonal
         virtual tmp<Field<Type>> snGradTransformDiag() const;
+
+
+    // Member Operators
+
+        using transformFvPatchField<Type>::operator=;
 };
 
 

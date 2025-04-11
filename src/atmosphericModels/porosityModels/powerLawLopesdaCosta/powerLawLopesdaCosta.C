@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2018-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2018-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -47,33 +47,42 @@ namespace Foam
 Foam::porosityModels::powerLawLopesdaCostaZone::powerLawLopesdaCostaZone
 (
     const word& name,
-    const word& modelType,
     const fvMesh& mesh,
-    const dictionary& dict
+    const dictionary& dict,
+    const dictionary& coeffDict
 )
 :
     zoneName_(name + ":porousZone")
 {
-    dictionary coeffs(dict.optionalSubDict(modelType + "Coeffs"));
-
     // Vertical direction within porous region
-    vector zDir(coeffs.lookup("zDir"));
+    vector zDir(coeffDict.lookup("zDir"));
 
     // Span of the search for the cells in the porous region
-    scalar searchSpan(coeffs.lookup<scalar>("searchSpan"));
+    scalar searchSpan(coeffDict.lookup<scalar>("searchSpan"));
 
     // Top surface file name defining the extent of the porous region
-    word topSurfaceFileName(coeffs.lookup("topSurface"));
+    word topSurfaceFileName(coeffDict.lookup("topSurface"));
 
     // List of the ground patches defining the lower surface
     // of the porous region
-    List<wordRe> groundPatches(coeffs.lookup("groundPatches"));
+    List<wordRe> groundPatches(coeffDict.lookup("groundPatches"));
 
     // Functional form of the porosity surface area per unit volume as a
-    // function of the normalized vertical position
-    autoPtr<Function1<scalar >> SigmaFunc
+    // function of the normalised vertical position
+    autoPtr<Function1<scalar>> AvFunc
     (
-        Function1<scalar>::New("Sigma", dict)
+        Function1<scalar>::New
+        (
+            dict.lookupEntryBackwardsCompatible
+            (
+                {"Av", "Sigma"},
+                false,
+                true
+            ).keyword(),
+            dimLength,
+            dimArea/dimVolume,
+            dict
+        )
     );
 
     // Searchable triSurface for the top of the porous region
@@ -83,7 +92,7 @@ Foam::porosityModels::powerLawLopesdaCostaZone::powerLawLopesdaCostaZone
         (
             topSurfaceFileName,
             mesh.time().constant(),
-            "triSurface",
+            searchableSurface::geometryDir(mesh.time()),
             mesh.time()
         )
     );
@@ -248,32 +257,22 @@ Foam::porosityModels::powerLawLopesdaCostaZone::powerLawLopesdaCostaZone
         }
     }
 
-    // Create the normalized height field
-    scalarField zNorm(zBottom/(zBottom + zTop));
+    // Create the normalised height field
+    const scalarField zNorm(zBottom/(zBottom + zTop));
 
     // Create the porosity surface area per unit volume zone field
-    Sigma_ = SigmaFunc->value(zNorm);
+    Av_ = AvFunc->value(zNorm);
 
     // Create the porous region cellZone and add to the mesh cellZones
-
-    cellZoneMesh& cellZones = const_cast<cellZoneMesh&>(mesh.cellZones());
-
-    label zoneID = cellZones.findZoneID(zoneName_);
-
-    if (zoneID == -1)
+    if (!mesh.cellZones().found(zoneName_))
     {
-        zoneID = cellZones.size();
-        cellZones.setSize(zoneID + 1);
-
-        cellZones.set
+        mesh.cellZones().append
         (
-            zoneID,
             new cellZone
             (
                 zoneName_,
                 porousCells,
-                zoneID,
-                cellZones
+                mesh.cellZones()
             )
         );
     }
@@ -290,24 +289,25 @@ Foam::porosityModels::powerLawLopesdaCostaZone::powerLawLopesdaCostaZone
 Foam::porosityModels::powerLawLopesdaCosta::powerLawLopesdaCosta
 (
     const word& name,
-    const word& modelType,
     const fvMesh& mesh,
     const dictionary& dict,
+    const dictionary& coeffDict,
     const word& dummyCellZoneName
 )
 :
-    powerLawLopesdaCostaZone(name, modelType, mesh, dict),
+    powerLawLopesdaCostaZone(name, mesh, dict, coeffDict),
     porosityModel
     (
         name,
-        modelType,
         mesh,
         dict,
+        coeffDict,
         powerLawLopesdaCostaZone::zoneName_
     ),
-    Cd_(coeffs_.lookup<scalar>("Cd")),
-    C1_(coeffs_.lookup<scalar>("C1")),
-    rhoName_(coeffs_.lookupOrDefault<word>("rho", "rho"))
+    coeffDict_(coeffDict),
+    Cd_(coeffDict.lookup<scalar>("Cd")),
+    C1_(coeffDict.lookup<scalar>("C1")),
+    rhoName_(coeffDict.lookupOrDefault<word>("rho", "rho"))
 {}
 
 
@@ -320,9 +320,9 @@ Foam::porosityModels::powerLawLopesdaCosta::~powerLawLopesdaCosta()
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 const Foam::scalarField&
-Foam::porosityModels::powerLawLopesdaCostaZone::Sigma() const
+Foam::porosityModels::powerLawLopesdaCostaZone::Av() const
 {
-    return Sigma_;
+    return Av_;
 }
 
 
@@ -404,15 +404,6 @@ void Foam::porosityModels::powerLawLopesdaCosta::correct
     {
         apply(AU, geometricOneField(), U);
     }
-}
-
-
-bool Foam::porosityModels::powerLawLopesdaCosta::writeData(Ostream& os) const
-{
-    os  << indent << name_ << endl;
-    dict_.write(os);
-
-    return true;
 }
 
 

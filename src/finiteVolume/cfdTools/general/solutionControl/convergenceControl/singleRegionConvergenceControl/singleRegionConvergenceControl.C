@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2018-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2018-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -34,28 +34,9 @@ namespace Foam
 }
 
 
-// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
+// * * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * * //
 
-Foam::singleRegionConvergenceControl::singleRegionConvergenceControl
-(
-    const singleRegionSolutionControl& control
-)
-:
-    convergenceControl(control),
-    mesh_(control.mesh()),
-    residualControl_()
-{}
-
-
-// * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
-
-Foam::singleRegionConvergenceControl::~singleRegionConvergenceControl()
-{}
-
-
-// * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * * //
-
-bool Foam::singleRegionConvergenceControl::readResidualControls()
+bool Foam::singleRegionConvergenceControl::read()
 {
     const dictionary residualDict
     (
@@ -112,6 +93,29 @@ bool Foam::singleRegionConvergenceControl::readResidualControls()
 }
 
 
+// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
+
+Foam::singleRegionConvergenceControl::singleRegionConvergenceControl
+(
+    const singleRegionSolutionControl& control
+)
+:
+    convergenceControl(control),
+    mesh_(control.mesh()),
+    residualControl_()
+{
+    read();
+}
+
+
+// * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
+
+Foam::singleRegionConvergenceControl::~singleRegionConvergenceControl()
+{}
+
+
+// * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * * //
+
 void Foam::singleRegionConvergenceControl::printResidualControls() const
 {
     Info<< nl;
@@ -136,15 +140,15 @@ bool Foam::singleRegionConvergenceControl::hasResidualControls() const
 }
 
 
-bool Foam::singleRegionConvergenceControl::criteriaSatisfied() const
+Foam::convergenceControl::convergenceData
+Foam::singleRegionConvergenceControl::criteriaSatisfied() const
 {
     if (!hasResidualControls())
     {
-        return false;
+        return {false, false};
     }
 
-    bool achieved = true;
-    bool checked = false; // ensure that some checks were actually performed
+    convergenceData cs{false, true};
 
     if (control_.debug)
     {
@@ -156,8 +160,7 @@ bool Foam::singleRegionConvergenceControl::criteriaSatisfied() const
     forAll(fieldNames, i)
     {
         const word& fieldName = fieldNames[i];
-        const label fieldi =
-            residualControlIndex(fieldName, residualControl_);
+        const label fieldi = residualControlIndex(fieldName, residualControl_);
         if (fieldi != -1)
         {
             scalar residual;
@@ -170,11 +173,11 @@ bool Foam::singleRegionConvergenceControl::criteriaSatisfied() const
                 residual
             );
 
-            checked = true;
+            cs.checked = true;
 
-            bool absCheck = residual < residualControl_[fieldi].absTol;
+            const bool absCheck = residual < residualControl_[fieldi].absTol;
 
-            achieved = achieved && absCheck;
+            cs.satisfied = cs.satisfied && absCheck;
 
             if (control_.debug)
             {
@@ -186,7 +189,7 @@ bool Foam::singleRegionConvergenceControl::criteriaSatisfied() const
         }
     }
 
-    return checked && achieved;
+    return cs;
 }
 
 

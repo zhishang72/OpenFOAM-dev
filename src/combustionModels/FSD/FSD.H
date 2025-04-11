@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,6 @@ Class
     Foam::combustionModels::FSD
 
 Description
-
     Flame Surface Density (FDS) combustion model.
 
     The fuel source term is given by mgft*pc*omegaFuelBar.
@@ -40,7 +39,7 @@ Description
     omegaEq. This omegaEq is obtained from the flamelet solution for
     different strain rates and fit using a exponential distribution.
 
-    The spacial distribution of the consumption speed (omega) is obtained also
+    The spatial distribution of the consumption speed (omega) is obtained also
     from a strained flamelet solution and it is assumed to have a gaussian
     distribution.
 
@@ -74,13 +73,12 @@ namespace combustionModels
 {
 
 /*---------------------------------------------------------------------------*\
-                          Class FSD Declaration
+                             Class FSD Declaration
 \*---------------------------------------------------------------------------*/
 
-template<class ReactionThermo, class ThermoType>
 class FSD
 :
-    public singleStepCombustion <ReactionThermo, ThermoType>
+    public singleStepCombustion
 {
     // Private Data
 
@@ -93,7 +91,7 @@ class FSD
         //- Fuel mass concentration on the fuel stream
         dimensionedScalar YFuelFuelStream_;
 
-        //- Oxygen mass concentration on the oxidizer stream
+        //- Oxygen mass concentration on the oxidiser stream
         dimensionedScalar YO2OxiStream_;
 
         //- Similarity constant for the sub-grid ft fluctuations
@@ -111,7 +109,7 @@ class FSD
         //- Dimension of the ft space. Used to integrate the beta-pdf
         scalar ftDim_;
 
-        //- Minimum mixture freaction variance to calculate pdf
+        //- Minimum mixture fraction variance to calculate pdf
         scalar ftVarMin_;
 
 
@@ -133,13 +131,13 @@ public:
         FSD
         (
             const word& modelType,
-            const ReactionThermo& thermo,
-            const compressibleTurbulenceModel& turb,
+            const fluidMulticomponentThermo& thermo,
+            const compressibleMomentumTransportModel& turb,
             const word& combustionProperties
         );
 
         //- Disallow default bitwise copy construction
-        FSD(const FSD&);
+        FSD(const FSD&) = delete;
 
 
     //- Destructor
@@ -166,12 +164,6 @@ public:
 
 } // End namespace combustionModels
 } // End namespace Foam
-
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-#ifdef NoRepository
-    #include "FSD.C"
-#endif
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

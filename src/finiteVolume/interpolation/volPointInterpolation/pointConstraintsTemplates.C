@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -42,7 +42,7 @@ void Foam::pointConstraints::syncUntransformedData
     const indirectPrimitivePatch& cpp = gmd.coupledPatch();
     const labelList& meshPoints = cpp.meshPoints();
 
-    const mapDistribute& slavesMap = gmd.globalCoPointSlavesMap();
+    const distributionMap& slavesMap = gmd.globalCoPointSlavesMap();
     const labelListList& slaves = gmd.globalCoPointSlaves();
 
     List<Type> elems(slavesMap.constructSize());
@@ -88,10 +88,10 @@ void Foam::pointConstraints::syncUntransformedData
 template<class Type>
 void Foam::pointConstraints::setPatchFields
 (
-    GeometricField<Type, pointPatchField, pointMesh>& pf
+    PointField<Type>& pf
 )
 {
-    typename GeometricField<Type, pointPatchField, pointMesh>::
+    typename PointField<Type>::
         Boundary& pfbf = pf.boundaryFieldRef();
 
     forAll(pfbf, patchi)
@@ -110,7 +110,7 @@ void Foam::pointConstraints::setPatchFields
 template<class Type>
 void Foam::pointConstraints::constrainCorners
 (
-    GeometricField<Type, pointPatchField, pointMesh>& pf
+    PointField<Type>& pf
 ) const
 {
     forAll(patchPatchPointConstraintPoints_, pointi)
@@ -127,7 +127,7 @@ void Foam::pointConstraints::constrainCorners
 template<class Type>
 void Foam::pointConstraints::constrain
 (
-    GeometricField<Type, pointPatchField, pointMesh>& pf,
+    PointField<Type>& pf,
     const bool overrideFixedValue
 ) const
 {

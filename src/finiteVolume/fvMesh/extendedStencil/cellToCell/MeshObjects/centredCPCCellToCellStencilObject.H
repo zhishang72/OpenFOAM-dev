@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -35,7 +35,7 @@ SourceFiles
 
 #include "extendedCentredCellToCellStencil.H"
 #include "CPCCellToCellStencil.H"
-#include "MeshObject.H"
+#include "DemandDrivenMeshObject.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -48,20 +48,25 @@ namespace Foam
 
 class centredCPCCellToCellStencilObject
 :
-    public MeshObject
+    public DemandDrivenMeshObject
     <
         fvMesh,
-        TopologicalMeshObject,
+        MoveableMeshObject,
         centredCPCCellToCellStencilObject
     >,
     public extendedCentredCellToCellStencil
 {
 
-public:
+protected:
 
-    TypeName("centredCPCCellToCellStencil");
+    friend class DemandDrivenMeshObject
+    <
+        fvMesh,
+        MoveableMeshObject,
+        centredCPCCellToCellStencilObject
+    >;
 
-    // Constructors
+    // Protected Constructors
 
         //- Construct from uncompacted cell stencil
         explicit centredCPCCellToCellStencilObject
@@ -69,19 +74,29 @@ public:
             const fvMesh& mesh
         )
         :
-            MeshObject
+            DemandDrivenMeshObject
             <
                 fvMesh,
-                Foam::TopologicalMeshObject,
+                MoveableMeshObject,
                 centredCPCCellToCellStencilObject
             >(mesh),
             extendedCentredCellToCellStencil(CPCCellToCellStencil(mesh))
         {}
 
 
+public:
+
+    TypeName("centredCPCCellToCellStencil");
+
     //- Destructor
     virtual ~centredCPCCellToCellStencilObject()
     {}
+
+    //- Update for mesh motion
+    virtual bool movePoints()
+    {
+        return true;
+    }
 };
 
 

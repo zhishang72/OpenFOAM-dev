@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -22,15 +22,18 @@ License
     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
 
 Application
-    testPassiveParticle
+    Test-passiveParticle
 
 Description
     Test cloud of passive particles.
 
 \*---------------------------------------------------------------------------*/
 
-#include "fvCFD.H"
+#include "argList.H"
+#include "fvMesh.H"
 #include "passiveParticleCloud.H"
+
+using namespace Foam;
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -38,9 +41,8 @@ int main(int argc, char *argv[])
 {
     argList::validArgs.append("cloudName");
     #include "setRootCase.H"
-    #include "createTime.H"
+    #include "createTimeNoFunctionObjects.H"
     #include "createMesh.H"
-    runTime.functionObjects().off();
 
     const word cloudName = args[1];
 
@@ -55,11 +57,15 @@ int main(int argc, char *argv[])
         Pout<< "Starting particles:" << particles.size() << endl;
 
         Pout<< "Adding a particle." << endl;
-        particles.addParticle(new passiveParticle(mesh, Zero, -1));
+        label nLocateBoundaryHits = 0;
+        particles.addParticle
+        (
+            new passiveParticle(mesh, Zero, -1, nLocateBoundaryHits)
+        );
 
         forAllConstIter(passiveParticleCloud, particles, iter)
         {
-            Pout<< "    " << iter().position() << " cell:" << iter().cell()
+            Pout<< "    " << iter().position(mesh) << " cell:" << iter().cell()
                 << " origProc:" << iter().origProc()
                 << " origId:" << iter().origId()
                 << endl;
@@ -70,19 +76,19 @@ int main(int argc, char *argv[])
             << nl << endl;
 
         runTime++;
-        Pout<< "Writing particles to time " << runTime.timeName() << endl;
+        Pout<< "Writing particles to time " << runTime.name() << endl;
         particles.write();
     }
 
     {
-        Pout<< "Rereading particles from time " << runTime.timeName()
+        Pout<< "Rereading particles from time " << runTime.name()
             << endl;
         passiveParticleCloud particles(mesh, cloudName);
         Pout<< "Reread particles:" << particles.size() << endl;
 
         forAllConstIter(passiveParticleCloud, particles, iter)
         {
-            Pout<< "    " << iter().position() << " cell:" << iter().cell()
+            Pout<< "    " << iter().position(mesh) << " cell:" << iter().cell()
                 << " origProc:" << iter().origProc()
                 << " origId:" << iter().origId()
                 << endl;

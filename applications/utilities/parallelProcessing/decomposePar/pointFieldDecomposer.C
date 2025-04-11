@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,84 +24,98 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "pointFieldDecomposer.H"
+#include "fvMesh.H"
+
+// * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
+
+Foam::labelList Foam::pointFieldDecomposer::patchFieldDecomposer::addressing
+(
+    const pointPatch& completePatch,
+    const pointPatch& procPatch,
+    const labelList& pointProcAddressing
+)
+{
+    const labelList& completePatchPoints = completePatch.meshPoints();
+    const labelList& procPatchPoints = procPatch.meshPoints();
+
+    // Create a map from complete mesh point index to complete patch point index
+    labelList map(completePatch.boundaryMesh().mesh().size(), -1);
+    forAll(completePatchPoints, pointi)
+    {
+        map[completePatchPoints[pointi]] = pointi;
+    }
+
+    // Determine the complete patch point for every proc patch point, going via
+    // the complete mesh point index and using the above map
+    labelList result(procPatch.size(), -1);
+    forAll(procPatchPoints, pointi)
+    {
+        result[pointi] = map[pointProcAddressing[procPatchPoints[pointi]]];
+    }
+
+    // Check that all the patch point addresses are set
+    if (result.size() && min(result) < 0)
+    {
+        FatalErrorInFunction
+            << "Incomplete patch point addressing"
+            << abort(FatalError);
+    }
+
+    return result;
+}
+
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 Foam::pointFieldDecomposer::patchFieldDecomposer::patchFieldDecomposer
 (
-    const pointPatch& completeMeshPatch,
-    const pointPatch& procMeshPatch,
-    const labelList& directAddr
+    const pointPatch& completePatch,
+    const pointPatch& procPatch,
+    const labelList& pointProcAddressing
 )
 :
-    pointPatchFieldMapperPatchRef
-    (
-        completeMeshPatch,
-        procMeshPatch
-    ),
-    directAddressing_(procMeshPatch.size(), -1),
-    hasUnmapped_(false)
-{
-    // Create the inverse-addressing of the patch point labels.
-    labelList pointMap(completeMeshPatch.boundaryMesh().mesh().size(), -1);
-
-    const labelList& completeMeshPatchPoints = completeMeshPatch.meshPoints();
-
-    forAll(completeMeshPatchPoints, pointi)
-    {
-        pointMap[completeMeshPatchPoints[pointi]] = pointi;
-    }
-
-    // Use the inverse point addressing to create the addressing table for this
-    // patch
-    const labelList& procMeshPatchPoints = procMeshPatch.meshPoints();
-
-    forAll(procMeshPatchPoints, pointi)
-    {
-        directAddressing_[pointi] =
-            pointMap[directAddr[procMeshPatchPoints[pointi]]];
-    }
-
-    // Check that all the patch point addresses are set
-    if (directAddressing_.size() && min(directAddressing_) < 0)
-    {
-        hasUnmapped_ = true;
-
-        FatalErrorInFunction
-            << "Incomplete patch point addressing"
-            << abort(FatalError);
-    }
-}
+    labelList(addressing(completePatch, procPatch, pointProcAddressing)),
+    forwardFieldMapper(static_cast<const labelList&>(*this))
+{}
 
 
 Foam::pointFieldDecomposer::pointFieldDecomposer
 (
     const pointMesh& completeMesh,
-    const pointMesh& procMesh,
-    const labelList& pointAddressing,
-    const labelList& boundaryAddressing
+    const PtrList<fvMesh>& procMeshes,
+    const labelListList& pointProcAddressing
 )
 :
     completeMesh_(completeMesh),
-    procMesh_(procMesh),
-    pointAddressing_(pointAddressing),
-    boundaryAddressing_(boundaryAddressing),
-    patchFieldDecomposerPtrs_
-    (
-        procMesh_.boundary().size(),
-        static_cast<patchFieldDecomposer*>(nullptr)
-    )
+    procMeshes_(procMeshes),
+    pointProcAddressing_(pointProcAddressing),
+    patchFieldDecomposers_(procMeshes_.size())
 {
-    forAll(boundaryAddressing_, patchi)
+    forAll(procMeshes_, proci)
     {
-        if (boundaryAddressing_[patchi] >= 0)
+        const pointMesh& procMesh = pointMesh::New(procMeshes_[proci]);
+
+        patchFieldDecomposers_.set
+        (
+            proci,
+            new PtrList<patchFieldDecomposer>(procMesh.boundary().size())
+        );
+
+        forAll(procMesh.boundary(), procPatchi)
         {
-            patchFieldDecomposerPtrs_[patchi] = new patchFieldDecomposer
-            (
-                completeMesh_.boundary()[boundaryAddressing_[patchi]],
-                procMesh_.boundary()[patchi],
-                pointAddressing_
-            );
+            if (procPatchi < completeMesh_.boundary().size())
+            {
+                patchFieldDecomposers_[proci].set
+                (
+                    procPatchi,
+                    new patchFieldDecomposer
+                    (
+                        completeMesh_.boundary()[procPatchi],
+                        procMesh.boundary()[procPatchi],
+                        pointProcAddressing_[proci]
+                    )
+                );
+            }
         }
     }
 }
@@ -110,17 +124,23 @@ Foam::pointFieldDecomposer::pointFieldDecomposer
 // * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
 
 Foam::pointFieldDecomposer::~pointFieldDecomposer()
+{}
+
+
+// * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+
+bool Foam::pointFieldDecomposer::decomposes(const IOobjectList& objects)
 {
-    forAll(patchFieldDecomposerPtrs_, patchi)
-    {
-        if (patchFieldDecomposerPtrs_[patchi])
-        {
-            delete patchFieldDecomposerPtrs_[patchi];
-        }
-    }
+    bool result = false;
+
+    #define DO_POINT_FIELDS_TYPE(Type, nullArg)                                \
+        result = result                                                        \
+         || !objects.lookupClass(PointField<Type>::typeName).empty();
+    FOR_ALL_FIELD_TYPES(DO_POINT_FIELDS_TYPE)
+    #undef DO_POINT_FIELDS_TYPE
+
+    return result;
 }
 
-
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 // ************************************************************************* //

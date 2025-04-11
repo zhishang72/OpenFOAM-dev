@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2015-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2015-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -33,9 +33,7 @@ License
 template<class Type>
 void Foam::functionObjects::residuals::writeFileHeader(const word& fieldName)
 {
-    typedef GeometricField<Type, fvPatchField, volMesh> fieldType;
-
-    if (obr_.foundObject<fieldType>(fieldName))
+    if (obr_.foundObject<VolField<Type>>(fieldName))
     {
         typename pTraits<Type>::labelType validComponents
         (
@@ -60,11 +58,18 @@ void Foam::functionObjects::residuals::writeFileHeader(const word& fieldName)
 template<class Type>
 void Foam::functionObjects::residuals::writeResidual(const word& fieldName)
 {
-    typedef GeometricField<Type, fvPatchField, volMesh> fieldType;
-
-    if (obr_.foundObject<fieldType>(fieldName))
+    if (obr_.foundObject<VolField<Type>>(fieldName))
     {
-        if (Residuals<Type>::found(mesh_, fieldName))
+        typename pTraits<Type>::labelType validComponents
+        (
+            mesh_.validComponents<Type>()
+        );
+
+        if
+        (
+            mesh_.foundObject<Residuals<Type>>(Residuals<Type>::typeName)
+         && Residuals<Type>::found(mesh_, fieldName)
+        )
         {
             const DynamicList<SolverPerformance<Type>>& sp
             (
@@ -72,11 +77,6 @@ void Foam::functionObjects::residuals::writeResidual(const word& fieldName)
             );
 
             const Type& residual = sp.first().initialResidual();
-
-            typename pTraits<Type>::labelType validComponents
-            (
-                mesh_.validComponents<Type>()
-            );
 
             for (direction cmpt=0; cmpt<pTraits<Type>::nComponents; cmpt++)
             {
@@ -88,7 +88,13 @@ void Foam::functionObjects::residuals::writeResidual(const word& fieldName)
         }
         else
         {
-            file() << tab << "N/A";
+            for (direction cmpt=0; cmpt<pTraits<Type>::nComponents; cmpt++)
+            {
+                if (component(validComponents, cmpt) != -1)
+                {
+                    writeTabbed(file(), "N/A");
+                }
+            }
         }
     }
 }

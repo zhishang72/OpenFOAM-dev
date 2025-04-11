@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,13 +25,11 @@ Class
     Foam::slicedFvPatchField
 
 Description
-    Specialization of fvPatchField which creates the underlying
+    Specialisation of fvPatchField which creates the underlying
     fvPatchField as a slice of the given complete field.
 
     The destructor is wrapped to avoid deallocation of the storage of the
     complete fields when this is destroyed.
-
-    Should only used as a template argument for SlicedGeometricField.
 
 See also
     Foam::fvPatchField
@@ -81,32 +79,12 @@ public:
         slicedFvPatchField
         (
             const fvPatch&,
-            const DimensionedField<Type, volMesh>&
-        );
-
-        //- Construct from patch, internal field and dictionary
-        slicedFvPatchField
-        (
-            const fvPatch&,
             const DimensionedField<Type, volMesh>&,
-            const dictionary&
+            const fvPatchField<Type>&
         );
 
-        //- Construct by mapping the given slicedFvPatchField<Type>
-        //  onto a new patch
-        slicedFvPatchField
-        (
-            const slicedFvPatchField<Type>&,
-            const fvPatch&,
-            const DimensionedField<Type, volMesh>&,
-            const fvPatchFieldMapper&
-        );
-
-        //- Copy constructor
-        slicedFvPatchField(const slicedFvPatchField<Type>&);
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchField<Type>> clone() const;
+        //- Disallow copy without setting internal field reference
+        slicedFvPatchField(const slicedFvPatchField<Type>&) = delete;
 
         //- Copy constructor setting internal field reference
         slicedFvPatchField
@@ -119,11 +97,17 @@ public:
         virtual tmp<fvPatchField<Type>> clone
         (
             const DimensionedField<Type, volMesh>& iF
-        ) const;
+        ) const
+        {
+            return tmp<fvPatchField<Type>>
+            (
+                new slicedFvPatchField<Type>(*this, iF)
+            );
+        };
 
 
     //- Destructor
-    virtual ~slicedFvPatchField<Type>();
+    virtual ~slicedFvPatchField();
 
 
     // Member Functions
@@ -153,22 +137,6 @@ public:
             //- Update the coefficients associated with the patch field
             //  Sets Updated to true
             virtual void updateCoeffs();
-
-            //- Return internal field next to patch as patch field
-            virtual tmp<Field<Type>> patchInternalField() const;
-
-            //- Return internal field next to patch as patch field
-            virtual void patchInternalField(Field<Type>&) const;
-
-            //- Return neighbour coupled given internal cell data
-            virtual tmp<Field<Type>> patchNeighbourField
-            (
-                const Field<Type>& iField
-            ) const;
-
-            //- Return patchField of the values on the patch or on the
-            //  opposite patch
-            virtual tmp<Field<Type>> patchNeighbourField() const;
 
             //- Initialise the evaluation of the patch field
             virtual void initEvaluate

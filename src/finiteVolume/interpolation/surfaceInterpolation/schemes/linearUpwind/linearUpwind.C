@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,112 +24,8 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "linearUpwind.H"
-#include "fvMesh.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-template<class Type>
-Foam::tmp<Foam::GeometricField<Type, Foam::fvsPatchField, Foam::surfaceMesh>>
-Foam::linearUpwind<Type>::correction
-(
-    const GeometricField<Type, fvPatchField, volMesh>& vf
-) const
-{
-    const fvMesh& mesh = this->mesh();
-
-    tmp<GeometricField<Type, fvsPatchField, surfaceMesh>> tsfCorr
-    (
-        GeometricField<Type, fvsPatchField, surfaceMesh>::New
-        (
-            "linearUpwind::correction(" + vf.name() + ')',
-            mesh,
-            dimensioned<Type>(vf.name(), vf.dimensions(), Zero)
-        )
-    );
-
-    GeometricField<Type, fvsPatchField, surfaceMesh>& sfCorr = tsfCorr.ref();
-
-    const surfaceScalarField& faceFlux = this->faceFlux_;
-
-    const labelList& owner = mesh.owner();
-    const labelList& neighbour = mesh.neighbour();
-
-    const volVectorField& C = mesh.C();
-    const surfaceVectorField& Cf = mesh.Cf();
-
-    tmp<fv::gradScheme<scalar>> gradScheme_
-    (
-        fv::gradScheme<scalar>::New
-        (
-            mesh,
-            mesh.gradScheme(gradSchemeName_)
-        )
-    );
-
-    for (direction cmpt = 0; cmpt < pTraits<Type>::nComponents; cmpt++)
-    {
-        tmp<volVectorField> tgradVf =
-            gradScheme_().grad(vf.component(cmpt), gradSchemeName_);
-
-        const volVectorField& gradVf = tgradVf();
-
-        forAll(faceFlux, facei)
-        {
-            const label celli =
-                (faceFlux[facei] > 0) ? owner[facei] : neighbour[facei];
-
-            setComponent(sfCorr[facei], cmpt) =
-                (Cf[facei] - C[celli]) & gradVf[celli];
-        }
-
-        typename GeometricField<Type, fvsPatchField, surfaceMesh>::
-            Boundary& bSfCorr = sfCorr.boundaryFieldRef();
-
-        forAll(bSfCorr, patchi)
-        {
-            fvsPatchField<Type>& pSfCorr = bSfCorr[patchi];
-
-            if (pSfCorr.coupled())
-            {
-                const labelUList& pOwner = mesh.boundary()[patchi].faceCells();
-                const vectorField& pCf = Cf.boundaryField()[patchi];
-                const scalarField& pFaceFlux = faceFlux.boundaryField()[patchi];
-
-                const vectorField pGradVfNei
-                (
-                    gradVf.boundaryField()[patchi].patchNeighbourField()
-                );
-
-                // Build the d-vectors
-                const vectorField pd
-                (
-                    Cf.boundaryField()[patchi].patch().delta()
-                );
-
-                forAll(pOwner, facei)
-                {
-                    label own = pOwner[facei];
-
-                    if (pFaceFlux[facei] > 0)
-                    {
-                        setComponent(pSfCorr[facei], cmpt) =
-                            (pCf[facei] - C[own])
-                          & gradVf[own];
-                    }
-                    else
-                    {
-                        setComponent(pSfCorr[facei], cmpt) =
-                            (pCf[facei] - pd[facei] - C[own])
-                          & pGradVfNei[facei];
-                    }
-                }
-            }
-        }
-    }
-
-    return tsfCorr;
-}
-
 
 template<>
 Foam::tmp<Foam::surfaceVectorField>
@@ -165,7 +61,7 @@ Foam::linearUpwind<Foam::vector>::correction
         fv::gradScheme<vector>::New
         (
             mesh,
-            mesh.gradScheme(gradSchemeName_)
+            mesh.schemes().grad(gradSchemeName_)
         )
     );
 
@@ -220,6 +116,8 @@ Foam::linearUpwind<Foam::vector>::correction
     return tsfCorr;
 }
 
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
 {

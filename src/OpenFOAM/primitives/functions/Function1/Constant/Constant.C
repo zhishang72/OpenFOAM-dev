@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,16 +25,43 @@ License
 
 #include "Constant.H"
 
+// * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
+
+template<class Type>
+Type Foam::Function1s::Constant<Type>::readValue
+(
+    const unitConversions& defaultUnits,
+    Istream& is
+)
+{
+    // Read the units if they are before the value
+    unitConversion units(defaultUnits.value);
+    const bool haveUnits = units.readIfPresent(is);
+
+    // Read the value
+    const Type value = pTraits<Type>(is);
+
+    // Read the units if they are after the value
+    if (!haveUnits && !is.eof())
+    {
+        units.readIfPresent(is);
+    }
+
+    // Modify the value by the unit conversion and return
+    return units.toStandard(value);
+}
+
+
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class Type>
 Foam::Function1s::Constant<Type>::Constant
 (
-    const word& entryName,
+    const word& name,
     const Type& val
 )
 :
-    FieldFunction1<Type, Constant<Type>>(entryName),
+    FieldFunction1<Type, Constant<Type>>(name),
     value_(val)
 {}
 
@@ -42,42 +69,26 @@ Foam::Function1s::Constant<Type>::Constant
 template<class Type>
 Foam::Function1s::Constant<Type>::Constant
 (
-    const word& entryName,
+    const word& name,
+    const unitConversions& units,
     const dictionary& dict
 )
 :
-    FieldFunction1<Type, Constant<Type>>(entryName),
-    value_(Zero)
-{
-    if (!dict.found(entryName))
-    {
-        dict.lookup("value") >> value_;
-    }
-    else
-    {
-        Istream& is(dict.lookup(entryName));
-        word entryType(is);
-        if (is.eof())
-        {
-            dict.lookup("value") >> value_;
-        }
-        else
-        {
-            is  >> value_;
-        }
-    }
-}
+    FieldFunction1<Type, Constant<Type>>(name),
+    value_(dict.lookup<Type>("value", units.value))
+{}
 
 
 template<class Type>
 Foam::Function1s::Constant<Type>::Constant
 (
-    const word& entryName,
+    const word& name,
+    const unitConversions& units,
     Istream& is
 )
 :
-    FieldFunction1<Type, Constant<Type>>(entryName),
-    value_(pTraits<Type>(is))
+    FieldFunction1<Type, Constant<Type>>(name),
+    value_(readValue(units, is))
 {}
 
 
@@ -99,11 +110,13 @@ Foam::Function1s::Constant<Type>::~Constant()
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class Type>
-void Foam::Function1s::Constant<Type>::writeData(Ostream& os) const
+void Foam::Function1s::Constant<Type>::write
+(
+    Ostream& os,
+    const unitConversions& units
+) const
 {
-    Function1<Type>::writeData(os);
-
-    os  << token::SPACE << value_ << token::END_STATEMENT << nl;
+    writeEntry(os, "value", units.value, value_);
 }
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -26,7 +26,7 @@ License
 #include "fixedGradientFvPatchField.H"
 #include "dictionary.H"
 
-// * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class Type>
 Foam::fixedGradientFvPatchField<Type>::fixedGradientFvPatchField
@@ -36,7 +36,7 @@ Foam::fixedGradientFvPatchField<Type>::fixedGradientFvPatchField
 )
 :
     fvPatchField<Type>(p, iF),
-    gradient_(p.size(), Zero)
+    gradient_(p.size())
 {}
 
 
@@ -45,13 +45,34 @@ Foam::fixedGradientFvPatchField<Type>::fixedGradientFvPatchField
 (
     const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
-    const dictionary& dict
+    const dictionary& dict,
+    const bool gradientRequired
 )
 :
     fvPatchField<Type>(p, iF, dict, false),
-    gradient_("gradient", dict, p.size())
+    gradient_(p.size())
 {
-    evaluate();
+    if (gradientRequired)
+    {
+        if (dict.found("gradient"))
+        {
+            gradient_ =
+                Field<Type>
+                (
+                    "gradient",
+                    iF.dimensions()/dimLength,
+                    dict,
+                    p.size()
+                );
+            evaluate();
+        }
+        else
+        {
+            FatalIOErrorInFunction(dict)
+                << "Essential entry 'gradient' missing"
+                << exit(FatalIOError);
+        }
+    }
 }
 
 
@@ -61,33 +82,18 @@ Foam::fixedGradientFvPatchField<Type>::fixedGradientFvPatchField
     const fixedGradientFvPatchField<Type>& ptf,
     const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper,
+    const bool mappingRequired
 )
 :
-    fvPatchField<Type>(ptf, p, iF, mapper),
-    gradient_(mapper(ptf.gradient_))
+    fvPatchField<Type>(ptf, p, iF, mapper, mappingRequired),
+    gradient_(p.size())
 {
-    if (notNull(iF) && mapper.hasUnmapped())
+    if (mappingRequired)
     {
-        WarningInFunction
-            << "On field " << iF.name() << " patch " << p.name()
-            << " patchField " << this->type()
-            << " : mapper does not map all values." << nl
-            << "    To avoid this warning fully specify the mapping in derived"
-            << " patch fields." << endl;
+        mapper(gradient_, ptf.gradient_);
     }
 }
-
-
-template<class Type>
-Foam::fixedGradientFvPatchField<Type>::fixedGradientFvPatchField
-(
-    const fixedGradientFvPatchField<Type>& ptf
-)
-:
-    fvPatchField<Type>(ptf),
-    gradient_(ptf.gradient_)
-{}
 
 
 template<class Type>
@@ -105,29 +111,33 @@ Foam::fixedGradientFvPatchField<Type>::fixedGradientFvPatchField
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class Type>
-void Foam::fixedGradientFvPatchField<Type>::autoMap
-(
-    const fvPatchFieldMapper& m
-)
-{
-    fvPatchField<Type>::autoMap(m);
-    m(gradient_, gradient_);
-}
-
-
-template<class Type>
-void Foam::fixedGradientFvPatchField<Type>::rmap
+void Foam::fixedGradientFvPatchField<Type>::map
 (
     const fvPatchField<Type>& ptf,
-    const labelList& addr
+    const fieldMapper& mapper
 )
 {
-    fvPatchField<Type>::rmap(ptf, addr);
+    fvPatchField<Type>::map(ptf, mapper);
 
     const fixedGradientFvPatchField<Type>& fgptf =
         refCast<const fixedGradientFvPatchField<Type>>(ptf);
 
-    gradient_.rmap(fgptf.gradient_, addr);
+    mapper(gradient_, fgptf.gradient_);
+}
+
+
+template<class Type>
+void Foam::fixedGradientFvPatchField<Type>::reset
+(
+    const fvPatchField<Type>& ptf
+)
+{
+    fvPatchField<Type>::reset(ptf);
+
+    const fixedGradientFvPatchField<Type>& fgptf =
+        refCast<const fixedGradientFvPatchField<Type>>(ptf);
+
+    gradient_.reset(fgptf.gradient_);
 }
 
 

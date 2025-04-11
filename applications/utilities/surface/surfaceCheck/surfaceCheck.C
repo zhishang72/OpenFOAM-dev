@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,7 +44,6 @@ using namespace Foam;
 // Does face use valid vertices?
 bool validTri
 (
-    const bool verbose,
     const triSurface& surf,
     const label facei
 )
@@ -242,6 +241,10 @@ int main(int argc, char *argv[])
         Info<< nl << "// end blockMeshDict info" << nl << endl;
     }
 
+    if (verbose)
+    {
+        return 0;
+    }
 
     // Region sizes
     // ~~~~~~~~~~~~
@@ -286,7 +289,7 @@ int main(int argc, char *argv[])
 
         forAll(surf, facei)
         {
-            if (!validTri(verbose, surf, facei))
+            if (!validTri(surf, facei))
             {
                 illegalFaces.append(facei);
             }
@@ -629,15 +632,15 @@ int main(int argc, char *argv[])
                     faces[i] = surf[i].triFaceFace();
                 }
 
-                vtkSurfaceWriter().write
+                vtkSurfaceWriter(IOstream::ASCII, IOstream::UNCOMPRESSED).write
                 (
                     surfFileName.path(),
-                    surfFileNameBase,
+                    "zone_" + surfFileNameBase,
                     surf.points(),
                     faces,
+                    false,              // face based data
                     "zone",
-                    scalarFaceZone,
-                    false               // face based data
+                    scalarFaceZone
                 );
             }
 

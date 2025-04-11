@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -37,10 +37,10 @@ Usage
     }
     \endverbatim
 
-Note
-    The patches must be topologically similar, i.e. if the owner patch is
-    transformed to the neighbour patch, the patches should be identical (or
-    very similar).
+    Note:
+        The patches must be topologically similar, i.e. if the owner patch is
+        transformed to the neighbour patch, the patches should be identical (or
+        very similar).
 
 SourceFiles
     cyclicFvPatchField.C
@@ -104,23 +104,11 @@ public:
             const cyclicFvPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
-        cyclicFvPatchField
-        (
-            const cyclicFvPatchField<Type>&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchField<Type>> clone() const
-        {
-            return tmp<fvPatchField<Type>>
-            (
-                new cyclicFvPatchField<Type>(*this)
-            );
-        }
+        //- Disallow copy without setting internal field reference
+        cyclicFvPatchField(const cyclicFvPatchField<Type>&) = delete;
 
         //- Copy constructor setting internal field reference
         cyclicFvPatchField
@@ -156,10 +144,13 @@ public:
         // Evaluation functions
 
             //- Return neighbour coupled internal cell data
-            tmp<Field<Type>> patchNeighbourField() const;
+            virtual tmp<Field<Type>> patchNeighbourField
+            (
+                const Pstream::commsTypes commsType
+            ) const;
 
             //- Return reference to neighbour patchField
-            const cyclicFvPatchField<Type>& neighbourPatchField() const;
+            const cyclicFvPatchField<Type>& nbrPatchField() const;
 
             //- Update result field based on interface functionality
             virtual void updateInterfaceMatrix
@@ -183,22 +174,10 @@ public:
 
         // Cyclic coupled interface functions
 
-            //- Does the patch field perform the transformation
-            virtual bool doTransform() const
+            //- Return transformation between the coupled patches
+            virtual const transformer& transform() const
             {
-                return !(cyclicPatch_.parallel() || pTraits<Type>::rank == 0);
-            }
-
-            //- Return face transformation tensor
-            virtual const tensorField& forwardT() const
-            {
-                return cyclicPatch_.forwardT();
-            }
-
-            //- Return neighbour-cell transformation tensor
-            virtual const tensorField& reverseT() const
-            {
-                return cyclicPatch_.reverseT();
+                return cyclicPatch_.transform();
             }
 
             //- Return rank of component for transform

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2018-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2018-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -46,7 +46,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                         Class convergenceControl Declaration
+                     Class convergenceControl Declaration
 \*---------------------------------------------------------------------------*/
 
 class convergenceControl
@@ -60,6 +60,13 @@ public:
         {
             wordRe name;
             scalar absTol;
+        };
+
+        //- Convergence data structure
+        struct convergenceData
+        {
+            bool checked;
+            bool satisfied;
         };
 
 
@@ -151,7 +158,7 @@ public:
             virtual bool hasResidualControls() const = 0;
 
             //- Return true if all convergence checks are satisfied
-            virtual bool criteriaSatisfied() const = 0;
+            virtual convergenceData criteriaSatisfied() const = 0;
 
             //- Flag to indicate whether convergence has been reached
             bool converged();

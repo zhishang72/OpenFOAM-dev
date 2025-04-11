@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,6 +25,8 @@ License
 
 #include "error.H"
 #include "sootModel.H"
+#include "noSoot.H"
+#include "basicThermo.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
@@ -35,32 +37,44 @@ Foam::radiationModels::sootModel::New
     const fvMesh& mesh
 )
 {
-    word modelType("none");
-
-    if (dict.found("sootModel"))
+    // Get the soot model type name
+    word modelType(sootModels::noSoot::typeName);
+    if (dict.found(sootModel::typeName))
     {
-        dict.lookup("sootModel") >> modelType;
-
-        Info<< "Selecting sootModel " << modelType << endl;
+        dict.lookup(sootModel::typeName) >> modelType;
+        Info<< "Selecting soot model " << modelType << endl;
     }
 
-    dictionaryConstructorTable::iterator cstrIter =
-            dictionaryConstructorTablePtr_->find(modelType);
+    // Backwards compatibility check
+    const wordList cmpts(basicThermo::splitThermoName(modelType, 3));
+    if (cmpts.size() == 3)
+    {
+        modelType = cmpts[0];
+
+        WarningInFunction
+            << "Template parameters are no longer required when selecting a "
+            << sootModel::typeName << ". This information is now "
+            << "obtained directly from the thermodynamics. Actually selecting "
+            << "combustion model " << modelType << "." << endl;
+    }
+
+    typename dictionaryConstructorTable::iterator cstrIter =
+        dictionaryConstructorTablePtr_->find(modelType);
 
     if (cstrIter == dictionaryConstructorTablePtr_->end())
     {
-        FatalErrorInFunction
-            << "Unknown sootModel type "
+        FatalIOErrorInFunction(dict)
+            << "Unknown " << sootModel::typeName << " type "
             << modelType << nl << nl
-            << "Valid sootModel types are :" << nl
-            << dictionaryConstructorTablePtr_->sortedToc() << exit(FatalError);
+            << "Valid " << sootModel::typeName << " types are:" << nl
+            << dictionaryConstructorTablePtr_->sortedToc()
+            << exit(FatalIOError);
     }
 
-    const label tempOpen = modelType.find('<');
-
-    const word className = modelType(0, tempOpen);
-
-    return autoPtr<sootModel>(cstrIter()(dict, mesh, className));
+    return autoPtr<sootModel>
+    (
+        cstrIter()(dict.optionalSubDict(modelType + "Coeffs"), mesh, modelType)
+    );
 }
 
 

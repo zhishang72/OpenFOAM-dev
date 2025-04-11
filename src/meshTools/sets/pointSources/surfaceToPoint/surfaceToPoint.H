@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -51,18 +51,14 @@ namespace Foam
 class triSurfaceSearch;
 
 /*---------------------------------------------------------------------------*\
-                           Class surfaceToPoint Declaration
+                       Class surfaceToPoint Declaration
 \*---------------------------------------------------------------------------*/
 
 class surfaceToPoint
 :
     public topoSetSource
 {
-
     // Private Data
-
-        //- Add usage string
-        static addToUsageTable usage_;
 
         //- Name of surface file
         fileName surfName_;
@@ -85,10 +81,12 @@ class surfaceToPoint
         //- Check settings at construction time.
         void checkSettings() const;
 
+
 public:
 
     //- Runtime type information
     TypeName("surfaceToPoint");
+
 
     // Constructors
 
@@ -109,13 +107,6 @@ public:
             const dictionary& dict
         );
 
-        //- Construct from Istream
-        surfaceToPoint
-        (
-            const polyMesh& mesh,
-            Istream&
-        );
-
 
     //- Destructor
     virtual ~surfaceToPoint();
@@ -133,7 +124,6 @@ public:
             const topoSetSource::setAction action,
             topoSet&
         ) const;
-
 };
 
 

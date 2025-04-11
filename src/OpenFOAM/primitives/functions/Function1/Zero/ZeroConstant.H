@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -27,9 +27,9 @@ Class
 Description
     Templated function that returns the corresponding 0 (zero).
 
-    Usage:
+Usage
     \verbatim
-        <entryName> zero;
+        <name> zero;
     \endverbatim
 
 SourceFiles
@@ -50,7 +50,7 @@ namespace Function1s
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class ZeroConstant Declaration
+                        Class ZeroConstant Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -67,8 +67,16 @@ public:
 
     // Constructors
 
-        //- Construct from entry name and dictionary
-        ZeroConstant(const word& entryName, const dictionary& dict);
+        //- Construct from name
+        ZeroConstant(const word& name);
+
+        //- Construct from name and dictionary
+        ZeroConstant
+        (
+            const word& name,
+            const unitConversions& units,
+            const dictionary& dict
+        );
 
 
     //- Destructor
@@ -81,10 +89,10 @@ public:
         virtual inline Type value(const scalar) const;
 
         //- Integrate between two values
-        virtual inline Type integrate(const scalar x1, const scalar x2) const;
+        virtual inline Type integral(const scalar x1, const scalar x2) const;
 
         //- Write in dictionary format
-        virtual void writeData(Ostream& os) const;
+        virtual void write(Ostream& os, const unitConversions& units) const;
 
 
     // Member Operators

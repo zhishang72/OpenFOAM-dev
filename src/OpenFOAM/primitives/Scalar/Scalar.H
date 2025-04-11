@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -76,6 +76,7 @@ public:
         static const Scalar min;
         static const Scalar rootMax;
         static const Scalar rootMin;
+        static const Scalar nan;
 
 
     // Constructors
@@ -275,6 +276,20 @@ inline Scalar pow025(const Scalar s)
 inline Scalar inv(const Scalar s)
 {
     return 1.0/s;
+}
+
+
+template<class Type>
+inline Type dot(const Scalar s, const Type& t)
+{
+    return s*t;
+}
+
+
+template<class Type>
+inline Type dot(const Type& t, const Scalar s)
+{
+    return t*s;
 }
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -27,46 +27,38 @@ License
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
-template <class Function1Type>
-void Foam::Function1s::Ramp<Function1Type>::read(const dictionary& coeffs)
-{
-    start_ = coeffs.lookupOrDefault<scalar>("start", 0);
-    duration_ = coeffs.lookup<scalar>("duration");
-}
-
-
-template <class Function1Type>
+template<class Function1Type>
 Foam::Function1s::Ramp<Function1Type>::Ramp
 (
-    const word& entryName,
+    const word& name,
+    const unitConversions& units,
     const dictionary& dict
 )
 :
-    FieldFunction1<scalar, Function1Type>(entryName)
-{
-    read(dict);
-}
+    FieldFunction1<scalar, Function1Type>(name),
+    start_(dict.lookupOrDefault<scalar>("start", units.x, 0)),
+    duration_(dict.lookup<scalar>("duration", units.x))
+{}
 
 
 // * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
 
-template <class Function1Type>
+template<class Function1Type>
 Foam::Function1s::Ramp<Function1Type>::~Ramp()
 {}
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-template <class Function1Type>
-void Foam::Function1s::Ramp<Function1Type>::writeData(Ostream& os) const
+template<class Function1Type>
+void Foam::Function1s::Ramp<Function1Type>::write
+(
+    Ostream& os,
+    const unitConversions& units
+) const
 {
-    Function1<scalar>::writeData(os);
-    os  << token::END_STATEMENT << nl;
-    os  << indent << word(this->name() + "Coeffs") << nl;
-    os  << indent << token::BEGIN_BLOCK << incrIndent << nl;
-    writeEntry(os, "start", start_);
-    writeEntry(os, "duration", duration_);
-    os  << decrIndent << indent << token::END_BLOCK << endl;
+    writeEntry(os, "start", units.x, start_);
+    writeEntry(os, "duration", units.x, duration_);
 }
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2015-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2015-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -31,7 +31,10 @@ License
 template<class Specie>
 inline Foam::Boussinesq<Specie>::Boussinesq
 (
-    const Specie& sp, const scalar rho0, const scalar T0, const scalar beta
+    const Specie& sp,
+    const scalar rho0,
+    const scalar T0,
+    const scalar beta
 )
 :
     Specie(sp),
@@ -66,20 +69,6 @@ Foam::Boussinesq<Specie>::clone() const
 }
 
 
-template<class Specie>
-inline Foam::autoPtr<Foam::Boussinesq<Specie>>
-Foam::Boussinesq<Specie>::New
-(
-    const dictionary& dict
-)
-{
-    return autoPtr<Boussinesq<Specie>>
-    (
-        new Boussinesq<Specie>(dict)
-    );
-}
-
-
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class Specie>
@@ -94,7 +83,7 @@ inline Foam::scalar Foam::Boussinesq<Specie>::rho
 
 
 template<class Specie>
-inline Foam::scalar Foam::Boussinesq<Specie>::H(scalar p, scalar T) const
+inline Foam::scalar Foam::Boussinesq<Specie>::h(scalar p, scalar T) const
 {
     return p/this->rho(p, T);
 }
@@ -108,7 +97,7 @@ inline Foam::scalar Foam::Boussinesq<Specie>::Cp(scalar p, scalar T) const
 
 
 template<class Specie>
-inline Foam::scalar Foam::Boussinesq<Specie>::E(scalar p, scalar T) const
+inline Foam::scalar Foam::Boussinesq<Specie>::e(scalar p, scalar T) const
 {
     return 0;
 }
@@ -122,12 +111,24 @@ inline Foam::scalar Foam::Boussinesq<Specie>::Cv(scalar p, scalar T) const
 
 
 template<class Specie>
-inline Foam::scalar Foam::Boussinesq<Specie>::S
+inline Foam::scalar Foam::Boussinesq<Specie>::sp
 (
     scalar p,
     scalar T
 ) const
 {
+    return 0;
+}
+
+
+template<class Specie>
+inline Foam::scalar Foam::Boussinesq<Specie>::sv
+(
+    scalar p,
+    scalar T
+) const
+{
+    NotImplemented;
     return 0;
 }
 
@@ -150,7 +151,7 @@ inline Foam::scalar Foam::Boussinesq<Specie>::Z
     scalar T
 ) const
 {
-    return 0;
+    return p/(rho(p, T)*this->R()*T);
 }
 
 
@@ -165,21 +166,18 @@ inline Foam::scalar Foam::Boussinesq<Specie>::CpMCv
 }
 
 
-// * * * * * * * * * * * * * * * Member Operators  * * * * * * * * * * * * * //
-
 template<class Specie>
-inline void Foam::Boussinesq<Specie>::operator=
+inline Foam::scalar Foam::Boussinesq<Specie>::alphav
 (
-    const Boussinesq<Specie>& b
-)
+    scalar p,
+    scalar T
+) const
 {
-    Specie::operator=(b);
-
-    rho0_ = b.rho0_;
-    T0_ = b.T0_;
-    beta_ = b.beta_;
+    return rho0_/this->rho(p, T)*beta_;
 }
 
+
+// * * * * * * * * * * * * * * * Member Operators  * * * * * * * * * * * * * //
 
 template<class Specie>
 inline void Foam::Boussinesq<Specie>::operator+=
@@ -187,7 +185,7 @@ inline void Foam::Boussinesq<Specie>::operator+=
     const Boussinesq<Specie>& b
 )
 {
-    NotImplemented;
+    noCoefficientMixing(Boussinesq);
 }
 
 
@@ -207,7 +205,7 @@ inline Foam::Boussinesq<Specie> Foam::operator+
     const Boussinesq<Specie>& b2
 )
 {
-    NotImplemented;
+    noCoefficientMixing(Boussinesq);
     return b1;
 }
 
@@ -236,7 +234,7 @@ inline Foam::Boussinesq<Specie> Foam::operator==
     const Boussinesq<Specie>& b2
 )
 {
-    NotImplemented;
+    noCoefficientMixing(Boussinesq);
     return b1;
 }
 

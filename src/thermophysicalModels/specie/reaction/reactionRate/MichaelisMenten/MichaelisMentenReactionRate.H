@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2018-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2018-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -57,7 +57,7 @@ Ostream& operator<<(Ostream&, const MichaelisMentenReactionRate&);
 
 
 /*---------------------------------------------------------------------------*\
-               Class MichaelisMentenReactionRate Declaration
+                 Class MichaelisMentenReactionRate Declaration
 \*---------------------------------------------------------------------------*/
 
 class MichaelisMentenReactionRate
@@ -77,8 +77,6 @@ class MichaelisMentenReactionRate
         //- The substrate specie index
         label s_;
 
-        List<Tuple2<label, scalar>> beta_;
-
 
 public:
 
@@ -88,6 +86,7 @@ public:
         inline MichaelisMentenReactionRate
         (
             const speciesTable& species,
+            const dimensionSet& dims,
             const dictionary& dict
         );
 
@@ -100,6 +99,13 @@ public:
             return "MichaelisMenten";
         }
 
+        //- Pre-evaluation hook
+        inline void preEvaluate() const;
+
+        //- Post-evaluation hook
+        inline void postEvaluate() const;
+
+        //- Return the rate
         inline scalar operator()
         (
             const scalar p,
@@ -108,6 +114,7 @@ public:
             const label li
         ) const;
 
+        //- The derivative of the rate w.r.t. temperature
         inline scalar ddT
         (
             const scalar p,
@@ -116,28 +123,17 @@ public:
             const label li
         ) const;
 
-        //- Third-body efficiencies (beta = 1-alpha)
-        //  non-empty only for third-body reactions
-        //  with enhanced molecularity (alpha != 1)
-        inline const List<Tuple2<label, scalar>>& beta() const;
+        //- Is the rate a function of concentration?
+        inline bool hasDdc() const;
 
-        //- Species concentration derivative of the pressure dependent term
-        inline void dcidc
+        //- The derivative of the rate w.r.t. concentration
+        inline void ddc
         (
             const scalar p,
             const scalar T,
             const scalarField& c,
             const label li,
-            scalarField& dcidc
-        ) const;
-
-        //- Temperature derivative of the pressure dependent term
-        inline scalar dcidT
-        (
-            const scalar p,
-            const scalar T,
-            const scalarField& c,
-            const label li
+            scalarField& ddc
         ) const;
 
         //- Write to stream

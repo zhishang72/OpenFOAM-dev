@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,24 +24,37 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "infinitelyFastChemistry.H"
+#include "addToRunTimeSelectionTable.H"
+
+
+// * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
 namespace Foam
 {
 namespace combustionModels
 {
+    defineTypeNameAndDebug(infinitelyFastChemistry, 0);
+    addToRunTimeSelectionTable
+    (
+        combustionModel,
+        infinitelyFastChemistry,
+        dictionary
+    );
+}
+}
+
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
-template<class ReactionThermo, class ThermoType>
-infinitelyFastChemistry<ReactionThermo, ThermoType>::infinitelyFastChemistry
+Foam::combustionModels::infinitelyFastChemistry::infinitelyFastChemistry
 (
     const word& modelType,
-    const ReactionThermo& thermo,
-    const compressibleTurbulenceModel& turb,
+    const fluidMulticomponentThermo& thermo,
+    const compressibleMomentumTransportModel& turb,
     const word& combustionProperties
 )
 :
-    singleStepCombustion<ReactionThermo, ThermoType>
+    singleStepCombustion
     (
         modelType,
         thermo,
@@ -54,15 +67,13 @@ infinitelyFastChemistry<ReactionThermo, ThermoType>::infinitelyFastChemistry
 
 // * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
 
-template<class ReactionThermo, class ThermoType>
-infinitelyFastChemistry<ReactionThermo, ThermoType>::~infinitelyFastChemistry()
+Foam::combustionModels::infinitelyFastChemistry::~infinitelyFastChemistry()
 {}
 
 
 // * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * * //
 
-template<class ReactionThermo, class ThermoType>
-void infinitelyFastChemistry<ReactionThermo, ThermoType>::correct()
+void Foam::combustionModels::infinitelyFastChemistry::correct()
 {
     this->wFuel_ ==
         dimensionedScalar(dimMass/pow3(dimLength)/dimTime, 0);
@@ -71,13 +82,13 @@ void infinitelyFastChemistry<ReactionThermo, ThermoType>::correct()
 
     const label fuelI = this->fuelIndex();
 
-    const volScalarField& YFuel = this->thermo().composition().Y()[fuelI];
+    const volScalarField& YFuel = this->thermo().Y()[fuelI];
 
     const dimensionedScalar s = this->s();
 
-    if (this->thermo().composition().contains("O2"))
+    if (this->thermo().containsSpecie("O2"))
     {
-        const volScalarField& YO2 = this->thermo().composition().Y("O2");
+        const volScalarField& YO2 = this->thermo().Y("O2");
 
         this->wFuel_ ==
             this->rho()/(this->mesh().time().deltaT()*C_)
@@ -86,10 +97,9 @@ void infinitelyFastChemistry<ReactionThermo, ThermoType>::correct()
 }
 
 
-template<class ReactionThermo, class ThermoType>
-bool infinitelyFastChemistry<ReactionThermo, ThermoType>::read()
+bool Foam::combustionModels::infinitelyFastChemistry::read()
 {
-    if (singleStepCombustion<ReactionThermo, ThermoType>::read())
+    if (singleStepCombustion::read())
     {
         this->coeffs().lookup("C") >> C_ ;
         return true;
@@ -101,9 +111,4 @@ bool infinitelyFastChemistry<ReactionThermo, ThermoType>::read()
 }
 
 
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-} // End namespace combustionModels
-} // End namespace Foam
-
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+// ************************************************************************* //

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -61,7 +61,7 @@ Ostream& operator<<(Ostream&, const polyPatch&);
 
 
 /*---------------------------------------------------------------------------*\
-                           Class polyPatch Declaration
+                          Class polyPatch Declaration
 \*---------------------------------------------------------------------------*/
 
 class polyPatch
@@ -91,19 +91,19 @@ protected:
 
     // Protected Member Functions
 
-        //- Inherit movePoints from primitivePatch
-        using primitivePatch::movePoints;
-
         // The polyPatch geometry initialisation is called by polyBoundaryMesh
         friend class polyBoundaryMesh;
 
         //- Initialise the calculation of the patch geometry
-        virtual void initGeometry(PstreamBuffers&)
+        virtual void initCalcGeometry(PstreamBuffers&)
         {}
 
         //- Calculate the patch geometry
         virtual void calcGeometry(PstreamBuffers&)
         {}
+
+        //- Correct patches after moving points
+        virtual void movePoints(const pointField& p);
 
         //- Initialise the patches for moving points
         virtual void initMovePoints(PstreamBuffers&, const pointField&)
@@ -113,14 +113,20 @@ protected:
         virtual void movePoints(PstreamBuffers&, const pointField& p);
 
         //- Initialise the update of the patch topology
-        virtual void initUpdateMesh(PstreamBuffers&)
+        virtual void initTopoChange(PstreamBuffers&)
         {}
 
         //- Update of the patch topology
-        virtual void updateMesh(PstreamBuffers&);
+        virtual void topoChange(PstreamBuffers&);
 
         //- Clear geometry
         virtual void clearGeom();
+
+        //- Reset the patch name
+        virtual void rename(const wordList& newNames);
+
+        //- Reset the patch index
+        virtual void reorder(const labelUList& newToOldIndex);
 
 
 public:
@@ -203,21 +209,8 @@ public:
             const label newStart
         );
 
-        //- Construct given the original patch and a map
-        polyPatch
-        (
-            const polyPatch& pp,
-            const polyBoundaryMesh& bm,
-            const label index,
-            const labelUList& mapAddressing,
-            const label newStart
-        );
-
         //- Copy constructor
         polyPatch(const polyPatch&);
-
-        // To avoid irritating warnings from clang
-        using primitivePatch::clone;
 
         //- Construct and return a clone, resetting the boundary mesh
         virtual autoPtr<polyPatch> clone(const polyBoundaryMesh& bm) const
@@ -238,22 +231,6 @@ public:
             return autoPtr<polyPatch>
             (
                 new polyPatch(*this, bm, index, newSize, newStart)
-            );
-        }
-
-        //- Construct and return a clone, resetting the face list
-        //  and boundary mesh
-        virtual autoPtr<polyPatch> clone
-        (
-            const polyBoundaryMesh& bm,
-            const label index,
-            const labelUList& mapAddressing,
-            const label newStart
-        ) const
-        {
-            return autoPtr<polyPatch>
-            (
-                new polyPatch(*this, bm, index, mapAddressing, newStart)
             );
         }
 
@@ -356,8 +333,11 @@ public:
             //- Return face centres
             const vectorField::subField faceCentres() const;
 
-            //- Return face normals
+            //- Return face areas
             const vectorField::subField faceAreas() const;
+
+            //- Return face area magnitudes
+            const scalarField::subField magFaceAreas() const;
 
             //- Return face cell centres
             tmp<vectorField> faceCellCentres() const;
@@ -384,7 +364,7 @@ public:
             }
 
 
-        //- Initialize ordering for primitivePatch. Does not
+        //- Initialise ordering for primitivePatch. Does not
         //  refer to *this (except for name() and type() etc.)
         virtual void initOrder(PstreamBuffers&, const primitivePatch&) const;
 

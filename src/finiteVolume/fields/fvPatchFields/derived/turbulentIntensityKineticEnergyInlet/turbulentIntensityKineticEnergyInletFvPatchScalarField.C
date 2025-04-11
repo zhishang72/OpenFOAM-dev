@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,41 +25,11 @@ License
 
 #include "turbulentIntensityKineticEnergyInletFvPatchScalarField.H"
 #include "addToRunTimeSelectionTable.H"
-#include "fvPatchFieldMapper.H"
+#include "fieldMapper.H"
 #include "surfaceFields.H"
 #include "volFields.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
-
-Foam::turbulentIntensityKineticEnergyInletFvPatchScalarField::
-turbulentIntensityKineticEnergyInletFvPatchScalarField
-(
-    const fvPatch& p,
-    const DimensionedField<scalar, volMesh>& iF
-)
-:
-    inletOutletFvPatchScalarField(p, iF),
-    intensity_(0.0),
-    UName_("U")
-{
-    this->refValue() = 0.0;
-    this->refGrad() = 0.0;
-    this->valueFraction() = 0.0;
-}
-
-Foam::turbulentIntensityKineticEnergyInletFvPatchScalarField::
-turbulentIntensityKineticEnergyInletFvPatchScalarField
-(
-    const turbulentIntensityKineticEnergyInletFvPatchScalarField& ptf,
-    const fvPatch& p,
-    const DimensionedField<scalar, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
-)
-:
-    inletOutletFvPatchScalarField(ptf, p, iF, mapper),
-    intensity_(ptf.intensity_),
-    UName_(ptf.UName_)
-{}
 
 Foam::turbulentIntensityKineticEnergyInletFvPatchScalarField::
 turbulentIntensityKineticEnergyInletFvPatchScalarField
@@ -70,7 +40,7 @@ turbulentIntensityKineticEnergyInletFvPatchScalarField
 )
 :
     inletOutletFvPatchScalarField(p, iF),
-    intensity_(dict.lookup<scalar>("intensity")),
+    intensity_(dict.lookup<scalar>("intensity", unitFraction)),
     UName_(dict.lookupOrDefault<word>("U", "U"))
 {
     this->phiName_ = dict.lookupOrDefault<word>("phi", "phi");
@@ -87,20 +57,27 @@ turbulentIntensityKineticEnergyInletFvPatchScalarField
             << exit(FatalError);
     }
 
-    fvPatchScalarField::operator=(scalarField("value", dict, p.size()));
+    fvPatchScalarField::operator=
+    (
+        scalarField("value", iF.dimensions(), dict, p.size())
+    );
 
     this->refValue() = 0.0;
     this->refGrad() = 0.0;
     this->valueFraction() = 0.0;
 }
 
+
 Foam::turbulentIntensityKineticEnergyInletFvPatchScalarField::
 turbulentIntensityKineticEnergyInletFvPatchScalarField
 (
-    const turbulentIntensityKineticEnergyInletFvPatchScalarField& ptf
+    const turbulentIntensityKineticEnergyInletFvPatchScalarField& ptf,
+    const fvPatch& p,
+    const DimensionedField<scalar, volMesh>& iF,
+    const fieldMapper& mapper
 )
 :
-    inletOutletFvPatchScalarField(ptf),
+    inletOutletFvPatchScalarField(ptf, p, iF, mapper),
     intensity_(ptf.intensity_),
     UName_(ptf.UName_)
 {}
@@ -136,7 +113,7 @@ updateCoeffs()
         patch().lookupPatchField<surfaceScalarField, scalar>(this->phiName_);
 
     this->refValue() = 1.5*sqr(intensity_)*magSqr(Up);
-    this->valueFraction() = 1.0 - pos0(phip);
+    this->valueFraction() = neg(phip);
 
     inletOutletFvPatchScalarField::updateCoeffs();
 }

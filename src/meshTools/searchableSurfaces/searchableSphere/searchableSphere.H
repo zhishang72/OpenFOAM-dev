@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,22 @@ Class
     Foam::searchableSphere
 
 Description
-    Searching on sphere
+    Surface geometry with a sphere shape, which can be used with
+    snappyHexMesh.
+
+Usage
+    \table
+        Property  | Description         | Required
+        centre    | Sphere centre       | yes
+        radius    | Sphere radius       | yes
+    \endtable
+
+    Example specification in snappyHexMeshDict/geometry:
+    \verbatim
+        type       searchableSphere;
+        centre     (10  10  10);
+        radius     5;
+    \endverbatim
 
 SourceFiles
     searchableSphere.C
@@ -46,7 +61,7 @@ namespace Foam
 // Forward declaration of classes
 
 /*---------------------------------------------------------------------------*\
-                           Class searchableSphere Declaration
+                      Class searchableSphere Declaration
 \*---------------------------------------------------------------------------*/
 
 class searchableSphere

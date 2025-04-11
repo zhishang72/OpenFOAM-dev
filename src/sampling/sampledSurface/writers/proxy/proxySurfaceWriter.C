@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,6 @@ License
 
 #include "proxySurfaceWriter.H"
 #include "MeshedSurfaceProxy.H"
-#include "makeSurfaceWriterMethods.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -39,7 +38,7 @@ namespace Foam
 
 Foam::proxySurfaceWriter::proxySurfaceWriter(const word& ext)
 :
-    surfaceWriter(),
+    surfaceWriter(IOstream::ASCII, IOstream::UNCOMPRESSED),
     ext_(ext)
 {}
 
@@ -58,7 +57,12 @@ void Foam::proxySurfaceWriter::write
     const fileName& surfaceName,
     const pointField& points,
     const faceList& faces,
-    const bool verbose
+    const wordList& fieldNames,
+    const bool writePointValues
+    #define FieldTypeValuesConstArg(Type, nullArg) \
+        , const UPtrList<const Field<Type>>& field##Type##Values
+    FOR_ALL_FIELD_TYPES(FieldTypeValuesConstArg)
+    #undef FieldTypeValuesConstArg
 ) const
 {
     // avoid bad values
@@ -74,7 +78,7 @@ void Foam::proxySurfaceWriter::write
 
     fileName outName(outputDir/surfaceName + "." + ext_);
 
-    if (verbose)
+    if (debug)
     {
         Info<< "Writing geometry to " << outName << endl;
     }

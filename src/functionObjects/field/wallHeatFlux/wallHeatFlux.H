@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -47,13 +47,15 @@ Usage
     \table
         Property | Description                | Required   | Default value
         type     | type name: wallHeatFlux    | yes        |
+        patch    | patch to process           | no         |
         patches  | list of patches to process | no         | all wall patches
         region   | region to be evaluated     | no         | default region
     \endtable
 
-Note
-    Writing field 'wallHeatFlux' is done by default, but it can be overridden by
-    defining an empty \c objects list. For details see writeLocalObjects.
+    Note:
+        Writing field 'wallHeatFlux' is done by default, but it can be
+        overridden by defining an empty \c objects list. For details see
+        writeLocalObjects.
 
 See also
     Foam::functionObject
@@ -75,6 +77,7 @@ SourceFiles
 #include "writeLocalObjects.H"
 #include "HashSet.H"
 #include "volFieldsFwd.H"
+#include "surfaceFieldsFwd.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -84,7 +87,7 @@ namespace functionObjects
 {
 
 /*---------------------------------------------------------------------------*\
-                       Class wallHeatFlux Declaration
+                        Class wallHeatFlux Declaration
 \*---------------------------------------------------------------------------*/
 
 class wallHeatFlux
@@ -93,26 +96,22 @@ class wallHeatFlux
     public logFiles,
     public writeLocalObjects
 {
+    // Private Data
 
-protected:
-
-    // Protected data
+        //- The name of the phase
+        word phaseName_;
 
         //- Optional list of patches to process
         labelHashSet patchSet_;
 
 
-    // Protected Member Functions
+    // Private Member Functions
 
         //- File header information
         virtual void writeFileHeader(const label i);
 
         //- Calculate the heat-flux
-        tmp<volScalarField> calcWallHeatFlux
-        (
-            const volScalarField& alpha,
-            const volScalarField& he
-        );
+        tmp<volScalarField> calcWallHeatFlux(const surfaceScalarField& q);
 
 
 public:
@@ -143,6 +142,12 @@ public:
 
         //- Read the wallHeatFlux data
         virtual bool read(const dictionary&);
+
+        //- Return the list of fields required
+        virtual wordList fields() const
+        {
+            return wordList::null();
+        }
 
         //- Calculate the wall heat-flux
         virtual bool execute();

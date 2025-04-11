@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -90,6 +90,12 @@ Foam::wordList Foam::fvPatch::constraintTypes()
 }
 
 
+const Foam::objectRegistry& Foam::fvPatch::db() const
+{
+    return boundaryMesh().mesh();
+}
+
+
 const Foam::labelUList& Foam::fvPatch::faceCells() const
 {
     return polyPatch_.faceCells();
@@ -147,18 +153,24 @@ Foam::tmp<Foam::vectorField> Foam::fvPatch::delta() const
 }
 
 
+Foam::tmp<Foam::scalarField> Foam::fvPatch::polyFaceFraction() const
+{
+    return
+        boundaryMesh().mesh().conformal()
+      ? tmp<scalarField>(new scalarField(size(), scalar(1)))
+      : magSf()
+       /scalarField
+        (
+            boundaryMesh().mesh().magFaceAreas(),
+            boundaryMesh().mesh().polyFacesBf()[patch().index()]
+        );
+}
+
+
 void Foam::fvPatch::makeWeights(scalarField& w) const
 {
     w = 1.0;
 }
-
-
-void Foam::fvPatch::initMovePoints()
-{}
-
-
-void Foam::fvPatch::movePoints()
-{}
 
 
 const Foam::scalarField& Foam::fvPatch::deltaCoeffs() const

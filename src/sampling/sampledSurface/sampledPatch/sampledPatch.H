@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -27,6 +27,24 @@ Class
 Description
     A sampledSurface on patches. Non-triangulated by default.
 
+    Example:
+    \verbatim
+    {
+        type        patch;
+        patches     (walls);
+        triangulate no;
+        interpolate yes;
+    }
+    \endverbatim
+
+Usage
+    \table
+        Property     | Description             | Required    | Default value
+        patches      | the names of patches on which to sample | yes |
+        triangulate  | triangulate the output  | no          | no
+        interpolate  | interpolate values to the surface points | no | no
+    \endtable
+
 SourceFiles
     sampledPatch.C
 
@@ -46,7 +64,7 @@ namespace sampledSurfaces
 {
 
 /*---------------------------------------------------------------------------*\
-                       Class patch Declaration
+                            Class patch Declaration
 \*---------------------------------------------------------------------------*/
 
 class patch
@@ -65,7 +83,7 @@ class patch
         const wordReList patchNames_;
 
         //- Corresponding patchIDs
-        mutable labelList patchIDs_;
+        mutable labelList patchIndices_;
 
         //- Triangulated faces or keep faces as is
         bool triangulate_;
@@ -89,14 +107,14 @@ class patch
         template<class Type>
         tmp<Field<Type>> sampleField
         (
-            const GeometricField<Type, fvPatchField, volMesh>& vField
+            const VolField<Type>& vField
         ) const;
 
         //- Sample surface field on faces
         template<class Type>
         tmp<Field<Type>> sampleField
         (
-            const GeometricField<Type, fvsPatchField, surfaceMesh>& sField
+            const SurfaceField<Type>& sField
         ) const;
 
         template<class Type>
@@ -113,7 +131,7 @@ protected:
             return patchNames_;
         }
 
-        const labelList& patchIDs() const;
+        const labelList& patchIndices() const;
 
         const labelList& patchStart() const
         {

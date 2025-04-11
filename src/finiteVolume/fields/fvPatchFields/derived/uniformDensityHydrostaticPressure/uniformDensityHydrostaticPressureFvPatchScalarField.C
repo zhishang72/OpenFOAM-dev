@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ License
 
 #include "uniformDensityHydrostaticPressureFvPatchScalarField.H"
 #include "addToRunTimeSelectionTable.H"
-#include "fvPatchFieldMapper.H"
+#include "fieldMapper.H"
 #include "volFields.H"
 #include "surfaceFields.H"
 #include "uniformDimensionedFields.H"
@@ -36,36 +36,21 @@ Foam::uniformDensityHydrostaticPressureFvPatchScalarField::
 uniformDensityHydrostaticPressureFvPatchScalarField
 (
     const fvPatch& p,
-    const DimensionedField<scalar, volMesh>& iF
-)
-:
-    fixedValueFvPatchScalarField(p, iF),
-    rho_(0.0),
-    pRef_(0.0),
-    pRefPointSpecified_(false),
-    pRefPoint_(Zero)
-{}
-
-
-Foam::uniformDensityHydrostaticPressureFvPatchScalarField::
-uniformDensityHydrostaticPressureFvPatchScalarField
-(
-    const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF,
     const dictionary& dict
 )
 :
     fixedValueFvPatchScalarField(p, iF, dict, false),
-    rho_(dict.lookup<scalar>("rhoRef")),
-    pRef_(dict.lookup<scalar>("pRef")),
+    rho_(dict.lookup<scalar>("rhoRef", dimDensity)),
+    pRef_(dict.lookup<scalar>("pRef", dimPressure)),
     pRefPointSpecified_(dict.found("pRefPoint")),
-    pRefPoint_(dict.lookupOrDefault<vector>("pRefPoint", Zero))
+    pRefPoint_(dict.lookupOrDefault<vector>("pRefPoint", dimLength, Zero))
 {
     if (dict.found("value"))
     {
         fvPatchScalarField::operator=
         (
-            scalarField("value", dict, p.size())
+            scalarField("value", iF.dimensions(), dict, p.size())
         );
     }
     else
@@ -81,24 +66,10 @@ uniformDensityHydrostaticPressureFvPatchScalarField
     const uniformDensityHydrostaticPressureFvPatchScalarField& ptf,
     const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     fixedValueFvPatchScalarField(ptf, p, iF, mapper),
-    rho_(ptf.rho_),
-    pRef_(ptf.pRef_),
-    pRefPointSpecified_(ptf.pRefPointSpecified_),
-    pRefPoint_(ptf.pRefPoint_)
-{}
-
-
-Foam::uniformDensityHydrostaticPressureFvPatchScalarField::
-uniformDensityHydrostaticPressureFvPatchScalarField
-(
-    const uniformDensityHydrostaticPressureFvPatchScalarField& ptf
-)
-:
-    fixedValueFvPatchScalarField(ptf),
     rho_(ptf.rho_),
     pRef_(ptf.pRef_),
     pRefPointSpecified_(ptf.pRefPointSpecified_),

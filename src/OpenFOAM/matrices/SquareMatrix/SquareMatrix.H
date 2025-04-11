@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -80,20 +80,39 @@ public:
         inline SquareMatrix(const MatrixBlock<MatrixType>&);
 
         //- Construct given number of rows/columns
-        //  initializing all elements to zero
+        //  initialising all elements to zero
         inline SquareMatrix(const label n, const zero);
 
-        //- Construct given number of rows and columns (checked to be equal)
-        //  initializing all elements to zero
+        //- Construct given number of rows/columns (checked to be equal)
+        //  initialising all elements to zero
         inline SquareMatrix(const label m, const label n, const zero);
 
         //- Construct given number of rows/columns
-        //  Initializing to the identity matrix
+        //  initialising to the identity matrix
         inline SquareMatrix(const label n, const Identity<Type>);
 
-        //- Construct with given number of rows and rows
-        //  initializing all elements to the given value
+        //- Construct with given number of rows/columns
+        //  initialising all elements to the given value
         inline SquareMatrix(const label n, const Type&);
+
+        //- Construct with given number of rows/columns
+        //  and start and end iterators
+        template<class InputIterator>
+        inline SquareMatrix
+        (
+            const label n,
+            InputIterator first,
+            InputIterator last
+        );
+
+        //- Construct with given number of rows/columns and initialiser list
+        inline SquareMatrix(const label n, std::initializer_list<Type>);
+
+        //- Construct from an initialiser list
+        inline SquareMatrix(std::initializer_list<Type>);
+
+        //- Construct from initialiser list list
+        inline SquareMatrix(std::initializer_list<std::initializer_list<Type>>);
 
         //- Construct as copy of a RectangularMatrix
         //  which is checked to be square
@@ -107,6 +126,12 @@ public:
 
 
     // Member Functions
+
+        //- Return the instantiated type name
+        static word typeName()
+        {
+            return word("SquareMatrix<") + pTraits<Type>::typeName + '>';
+        }
 
         // Edit
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2019-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,25 +24,13 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "adsorptionMassFractionFvPatchScalarField.H"
-#include "addToRunTimeSelectionTable.H"
 #include "volFields.H"
 #include "surfaceFields.H"
-#include "turbulentFluidThermoModel.H"
-#include "psiReactionThermo.H"
-#include "rhoReactionThermo.H"
+#include "fluidThermophysicalTransportModel.H"
+#include "fluidMulticomponentThermo.H"
+#include "addToRunTimeSelectionTable.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
-
-Foam::adsorptionMassFractionFvPatchScalarField::
-adsorptionMassFractionFvPatchScalarField
-(
-    const fvPatch& p,
-    const DimensionedField<scalar, volMesh>& iF
-)
-:
-    specieTransferMassFractionFvPatchScalarField(p, iF)
-{}
-
 
 Foam::adsorptionMassFractionFvPatchScalarField::
 adsorptionMassFractionFvPatchScalarField
@@ -62,20 +50,10 @@ adsorptionMassFractionFvPatchScalarField
     const adsorptionMassFractionFvPatchScalarField& ptf,
     const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     specieTransferMassFractionFvPatchScalarField(ptf, p, iF, mapper)
-{}
-
-
-Foam::adsorptionMassFractionFvPatchScalarField::
-adsorptionMassFractionFvPatchScalarField
-(
-    const adsorptionMassFractionFvPatchScalarField& ptf
-)
-:
-    specieTransferMassFractionFvPatchScalarField(ptf)
 {}
 
 
@@ -103,28 +81,28 @@ Foam::adsorptionMassFractionFvPatchScalarField::calcPhiYp() const
     const word& YName = internalField().name();
 
     const fluidThermo& thermo =
-        db().lookupObject<fluidThermo>(fluidThermo::dictName);
+        db().lookupObject<fluidThermo>(physicalProperties::typeName);
 
     // Get the cell-mass fraction
     const scalarField Yc(patchInternalField());
 
     // Get the patch delta coefficients multiplied by the diffusivity
-    const compressible::turbulenceModel& turb =
-        db().lookupObject<compressible::turbulenceModel>
-        (
-            turbulenceModel::propertiesName
-        );
-    const scalarField alphaEffDeltap
+    const fluidThermophysicalTransportModel& ttm =
+        db().lookupType<fluidThermophysicalTransportModel>();
+
+    const volScalarField& Yi = refCast<const volScalarField>(internalField());
+
+    const scalarField DEffDeltap
     (
-        turb.alphaEff(patch().index())*patch().deltaCoeffs()
+        ttm.DEff(Yi, patch().index())*patch().deltaCoeffs()
     );
 
     // Get the specie molecular weight, if needed
     scalar Wi = NaN;
     if (property_ != massFraction)
     {
-        const basicSpecieMixture& mixture = composition(db());
-        Wi = mixture.Wi(mixture.species()[YName]);
+        const fluidMulticomponentThermo& thermo = this->thermo(db());
+        Wi = thermo.Wi(thermo.species()[YName]).value();
     }
 
     // Get the mixture molecular weights, if needed
@@ -161,7 +139,7 @@ Foam::adsorptionMassFractionFvPatchScalarField::calcPhiYp() const
     // represent this limiting.
     return
         patch().magSf()
-       /(1/c_ + k/alphaEffDeltap)
+       /(1/c_ + k/DEffDeltap)
        *k*Yc;
 }
 

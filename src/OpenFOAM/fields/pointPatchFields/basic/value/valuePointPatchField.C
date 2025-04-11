@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,7 +24,7 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "valuePointPatchField.H"
-#include "pointPatchFieldMapper.H"
+#include "fieldMapper.H"
 
 // * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
 
@@ -72,7 +72,7 @@ Foam::valuePointPatchField<Type>::valuePointPatchField
     {
         Field<Type>::operator=
         (
-            Field<Type>("value", dict, p.size())
+            Field<Type>("value", iF.dimensions(), dict, p.size())
         );
     }
     else if (!valueRequired)
@@ -81,10 +81,8 @@ Foam::valuePointPatchField<Type>::valuePointPatchField
     }
     else
     {
-        FatalIOErrorInFunction
-        (
-            dict
-        )   << "Essential entry 'value' missing"
+        FatalIOErrorInFunction(dict)
+            << "Essential entry 'value' missing"
             << exit(FatalIOError);
     }
 }
@@ -96,7 +94,7 @@ Foam::valuePointPatchField<Type>::valuePointPatchField
     const valuePointPatchField<Type>& ptf,
     const pointPatch& p,
     const DimensionedField<Type, pointMesh>& iF,
-    const pointPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     pointPatchField<Type>(ptf, p, iF, mapper),
@@ -119,30 +117,26 @@ Foam::valuePointPatchField<Type>::valuePointPatchField
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class Type>
-void Foam::valuePointPatchField<Type>::autoMap
+void Foam::valuePointPatchField<Type>::map
 (
-    const pointPatchFieldMapper& m
+    const pointPatchField<Type>& ptf,
+    const fieldMapper& mapper
 )
 {
-    m(*this, *this);
+    const valuePointPatchField<Type>& vptf =
+        refCast<const valuePointPatchField<Type>>(ptf);
+
+    mapper(*this, vptf);
 }
 
 
 template<class Type>
-void Foam::valuePointPatchField<Type>::rmap
+void Foam::valuePointPatchField<Type>::reset
 (
-    const pointPatchField<Type>& ptf,
-    const labelList& addr
+    const pointPatchField<Type>& ptf
 )
 {
-    Field<Type>::rmap
-    (
-        refCast<const valuePointPatchField<Type>>
-        (
-            ptf
-        ),
-        addr
-    );
+    Field<Type>::reset(refCast<const valuePointPatchField<Type>>(ptf));
 }
 
 
@@ -157,7 +151,7 @@ void Foam::valuePointPatchField<Type>::updateCoeffs()
     // Get internal field to insert values into
     Field<Type>& iF = const_cast<Field<Type>&>(this->primitiveField());
 
-    this->setInInternalField(iF, *this);
+    this->setInternalField(iF, *this);
 
     pointPatchField<Type>::updateCoeffs();
 }
@@ -169,7 +163,7 @@ void Foam::valuePointPatchField<Type>::evaluate(const Pstream::commsTypes)
     // Get internal field to insert values into
     Field<Type>& iF = const_cast<Field<Type>&>(this->primitiveField());
 
-    this->setInInternalField(iF, *this);
+    this->setInternalField(iF, *this);
 
     pointPatchField<Type>::evaluate();
 }

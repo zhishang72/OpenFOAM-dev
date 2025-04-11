@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,15 +44,16 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                        Class pointToFace Declaration
+                         Class pointToFace Declaration
 \*---------------------------------------------------------------------------*/
 
 class pointToFace
 :
     public topoSetSource
 {
-
 public:
+
+    // Public Enumerations
 
         //- Enumeration defining the valid options
         enum pointAction
@@ -62,13 +63,13 @@ public:
             EDGE
         };
 
+        //- Names of the valid options
+        static const NamedEnum<pointAction, 3> pointActionNames_;
+
 
 private:
 
-        //- Add usage string
-        static addToUsageTable usage_;
-
-        static const NamedEnum<pointAction, 3> pointActionNames_;
+    // Private Data
 
         //- Name of set to use
         word setName_;
@@ -88,6 +89,7 @@ public:
     //- Runtime type information
     TypeName("pointToFace");
 
+
     // Constructors
 
         //- Construct from components
@@ -103,13 +105,6 @@ public:
         (
             const polyMesh& mesh,
             const dictionary& dict
-        );
-
-        //- Construct from Istream
-        pointToFace
-        (
-            const polyMesh& mesh,
-            Istream&
         );
 
 
@@ -129,7 +124,6 @@ public:
             const topoSetSource::setAction action,
             topoSet&
         ) const;
-
 };
 
 

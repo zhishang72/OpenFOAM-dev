@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,11 +25,11 @@ Class
     Foam::waveSurfacePressureFvPatchScalarField
 
 Description
-    This is a pressure boundary condition, whose value is calculated as
+    This is a pressure boundary condition, the value of which is calculated as
     the hydrostatic pressure based on a given displacement:
 
         \f[
-            p = -\rho*g*\zeta
+            p_rgh = pref - \rho*g*\zeta
         \f]
 
     \vartable
@@ -57,7 +57,7 @@ Usage
         phi             phi;
         rho             rho;
         zeta            zeta;
-        value           uniform 0;  // place holder
+        value           uniform 0;  // Initial value
     }
     \endverbatim
 
@@ -129,13 +129,6 @@ public:
 
     // Constructors
 
-        //- Construct from patch and internal field
-        waveSurfacePressureFvPatchScalarField
-        (
-            const fvPatch&,
-            const DimensionedField<scalar, volMesh>&
-        );
-
         //- Construct from patch, internal field and dictionary
         waveSurfacePressureFvPatchScalarField
         (
@@ -151,23 +144,14 @@ public:
             const waveSurfacePressureFvPatchScalarField&,
             const fvPatch&,
             const DimensionedField<scalar, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         waveSurfacePressureFvPatchScalarField
         (
             const waveSurfacePressureFvPatchScalarField&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchScalarField> clone() const
-        {
-            return tmp<fvPatchScalarField>
-            (
-                new waveSurfacePressureFvPatchScalarField(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         waveSurfacePressureFvPatchScalarField

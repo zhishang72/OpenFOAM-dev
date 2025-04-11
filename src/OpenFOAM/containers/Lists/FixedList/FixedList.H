@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -71,7 +71,7 @@ template<class T>
 using SLList = LList<SLListBase, T>;
 
 /*---------------------------------------------------------------------------*\
-                           Class FixedList Declaration
+                          Class FixedList Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class T, unsigned Size>
@@ -129,7 +129,7 @@ public:
         template<class InputIterator>
         inline FixedList(InputIterator first, InputIterator last);
 
-        //- Construct from an initializer list
+        //- Construct from an initialiser list
         inline FixedList(std::initializer_list<T>);
 
         //- Construct from UList
@@ -156,7 +156,6 @@ public:
             //- Return the reverse circular index, i.e. the previous index
             //  which returns to the last at the beginning of the list
             inline label rcIndex(const label i) const;
-
 
             //- Return a const pointer to the first data element,
             //  similar to the STL front() method and the string::data() method
@@ -225,7 +224,7 @@ public:
         //- Assignment to SLList operator. Takes linear time
         inline void operator=(const SLList<T>&);
 
-        //- Assignment to an initializer list. Takes linear time
+        //- Assignment to an initialiser list. Takes linear time
         inline void operator=(std::initializer_list<T>);
 
         //- Assignment of all entries to the given value
@@ -286,7 +285,7 @@ public:
     // STL reverse_iterator
 
         //- Reverse iterator for reverse traversal of FixedList
-        typedef T* reverse_iterator;
+        typedef std::reverse_iterator<iterator> reverse_iterator;
 
         //- Return reverse_iterator to begin reverse traversing the FixedList
         inline reverse_iterator rbegin();
@@ -298,7 +297,7 @@ public:
     // STL const_reverse_iterator
 
         //- Reverse iterator for reverse traversal of constant FixedList
-        typedef const T* const_reverse_iterator;
+        typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
 
         //- Return const_reverse_iterator to begin reverse traversing FixedList
         inline const_reverse_iterator crbegin() const;

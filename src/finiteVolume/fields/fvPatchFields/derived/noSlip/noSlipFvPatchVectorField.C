@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,6 +24,7 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "noSlipFvPatchVectorField.H"
+#include "fvcMeshPhi.H"
 #include "addToRunTimeSelectionTable.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
@@ -58,22 +59,13 @@ Foam::noSlipFvPatchVectorField::noSlipFvPatchVectorField
     const noSlipFvPatchVectorField& ptf,
     const fvPatch& p,
     const DimensionedField<vector, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     fixedValueFvPatchVectorField(ptf, p, iF, mapper, false) // Don't map
 {
-    operator==(Zero);
+    mapper(*this, ptf, vector::zero);
 }
-
-
-Foam::noSlipFvPatchVectorField::noSlipFvPatchVectorField
-(
-    const noSlipFvPatchVectorField& mwvpvf
-)
-:
-    fixedValueFvPatchVectorField(mwvpvf)
-{}
 
 
 Foam::noSlipFvPatchVectorField::noSlipFvPatchVectorField
@@ -88,6 +80,42 @@ Foam::noSlipFvPatchVectorField::noSlipFvPatchVectorField
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
+void Foam::noSlipFvPatchVectorField::map
+(
+    const fvPatchVectorField& ptf,
+    const fieldMapper& mapper
+)
+{
+    mapper(*this, ptf, vector::zero);
+}
+
+
+void Foam::noSlipFvPatchVectorField::updateCoeffs()
+{
+    if (updated())
+    {
+        return;
+    }
+
+    const fvMesh& mesh = patch().boundaryMesh().mesh();
+
+    if (mesh.moving())
+    {
+        const fvPatch& p = patch();
+
+        const volVectorField& U =
+            static_cast<const volVectorField&>(internalField());
+
+        const vectorField n(p.nf());
+        tmp<scalarField> Un = fvc::meshPhi(U, p.index())/(p.magSf() + vSmall);
+
+        vectorField::operator=(n*Un);
+    }
+
+    fixedValueFvPatchVectorField::updateCoeffs();
+}
+
+
 void Foam::noSlipFvPatchVectorField::write(Ostream& os) const
 {
     fvPatchVectorField::write(os);
@@ -98,7 +126,7 @@ void Foam::noSlipFvPatchVectorField::write(Ostream& os) const
 
 namespace Foam
 {
-    makePatchTypeField
+    makeNullConstructablePatchTypeField
     (
         fvPatchVectorField,
         noSlipFvPatchVectorField

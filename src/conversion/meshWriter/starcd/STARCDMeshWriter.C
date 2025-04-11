@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,10 +24,9 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "STARCDMeshWriter.H"
-
 #include "Time.H"
-#include "SortableList.H"
 #include "OFstream.H"
+#include "OSspecific.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -505,11 +504,11 @@ bool Foam::meshWriters::STARCD::write(const fileName& meshName) const
 
         if
         (
-            mesh_.time().timeName() != "0"
-         && mesh_.time().timeName() != mesh_.time().constant()
+            mesh_.time().name() != "0"
+         && mesh_.time().name() != mesh_.time().constant()
         )
         {
-            baseName += "_" + mesh_.time().timeName();
+            baseName += "_" + mesh_.time().name();
         }
     }
 

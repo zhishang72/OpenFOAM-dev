@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -30,27 +30,11 @@ Description
     wave modelling parameters are obtained from a centrally registered
     waveSuperposition class.
 
-    Flow reversal will occur in the event that the amplitude of the velocity
-    oscillation is greater than the mean flow. This triggers special handling,
-    the form of which depends on the inletOutlet flag and whether a wave
-    pressure condition is being used.
-
-    If a wave pressure condition is not being used, the inletOutlet switches
-    between a fixedValue and an inletOutlet condition, with the value given by
-    the wave model. If fixedValue, the result may be more accurate, but it
-    might also be unstable.
-
-    If a wave pressure condition is being used, then the normal phase fraction
-    condition becomes fixedGradient on outlet faces. This gradient is
-    calculated numerically by evaluating the wave model on both the patch face
-    and the adjacent cell.
-
 Usage
     \table
-        Property  | Description             | Req'd? | Default
-        U         | name of the velocity field | no  | U
-        liquid    | is the alpha field that of the liquid | no | true
-        inletOutlet | does the condition behave like inletOutlet | no | true
+        Property  | Description                            | Required? | Default
+        phi       | Name of the flux field                 | no        | phi
+        liquid    | Is the alpha field that of the liquid? | no        | true
     \endtable
 
     Example of the boundary condition specification:
@@ -58,9 +42,8 @@ Usage
     <patchName>
     {
         type        waveAlpha;
-        U           U;
+        libs        ("libwaves.so");
         liquid      true;
-        inletOutlet true;
     }
     \endverbatim
 
@@ -75,12 +58,15 @@ SourceFiles
 #ifndef waveAlphaFvPatchScalarField_H
 #define waveAlphaFvPatchScalarField_H
 
-#include "mixedFvPatchFields.H"
+#include "fixedValueInletOutletFvPatchFields.H"
+#include "waveSuperposition.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
 {
+
+class fvMeshSubset;
 
 /*---------------------------------------------------------------------------*\
                  Class waveAlphaFvPatchScalarField Declaration
@@ -88,18 +74,18 @@ namespace Foam
 
 class waveAlphaFvPatchScalarField
 :
-    public mixedFvPatchScalarField
+    public fixedValueInletOutletFvPatchField<scalar>
 {
     // Private Data
-
-        //- Name of the velocity field
-        const word UName_;
 
         //- Is this alpha field that of the liquid under the wave?
         const Switch liquid_;
 
-        //- Act as an inlet/outlet patch?
-        const Switch inletOutlet_;
+        //- Mesh subset corresponding to the patch adjacent cells
+        mutable autoPtr<fvMeshSubset> faceCellSubset_;
+
+        //- Time index for keeping the subset up to date
+        mutable label faceCellSubsetTimeIndex_;
 
 
 public:
@@ -110,13 +96,6 @@ public:
 
     // Constructors
 
-        //- Construct from patch and internal field
-        waveAlphaFvPatchScalarField
-        (
-            const fvPatch&,
-            const DimensionedField<scalar, volMesh>&
-        );
-
         //- Construct from patch, internal field and dictionary
         waveAlphaFvPatchScalarField
         (
@@ -125,29 +104,21 @@ public:
             const dictionary&
         );
 
-        //- Construct by mapping given mixedTypeFvPatchField onto a new patch
+        //- Construct by mapping given fixedValueTypeFvPatchField onto a new
+        //  patch
         waveAlphaFvPatchScalarField
         (
             const waveAlphaFvPatchScalarField&,
             const fvPatch&,
             const DimensionedField<scalar, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         waveAlphaFvPatchScalarField
         (
             const waveAlphaFvPatchScalarField&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchScalarField> clone() const
-        {
-            return tmp<fvPatchScalarField>
-            (
-                new waveAlphaFvPatchScalarField(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         waveAlphaFvPatchScalarField
@@ -179,15 +150,19 @@ public:
                 return liquid_;
             }
 
+            //- Access the face-cell subset
+            const fvMeshSubset& faceCellSubset() const;
+
 
         // Evaluation functions
 
-            //- Return the current modelled phase fraction field
-            tmp<scalarField> alpha() const;
+            //- Return the current modelled phase fraction field on the patch
+            //  faces at the given time
+            tmp<scalarField> alpha(const scalar t) const;
 
             //- Return the current modelled phase fraction field in the
-            //  neighbour cell
-            tmp<scalarField> alphan() const;
+            //  neighbour cells at the given time
+            tmp<scalarField> alphan(const scalar t) const;
 
             //- Update the coefficients associated with the patch field
             virtual void updateCoeffs();

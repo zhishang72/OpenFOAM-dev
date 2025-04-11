@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2014-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2014-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -29,7 +29,6 @@ License
 #include "valuePointPatchFields.H"
 #include "PointEdgeWave.H"
 #include "meshRefinement.H"
-#include "unitConversion.H"
 #include "PatchTools.H"
 #include "OBJstream.H"
 #include "pointData.H"
@@ -77,7 +76,7 @@ Foam::labelList Foam::medialAxisMeshMover::getFixedValueBCs
         }
     }
 
-    return Foam::move(adaptPatchIDs);
+    return adaptPatchIDs;
 }
 
 
@@ -225,7 +224,7 @@ void Foam::medialAxisMeshMover::smoothNormals
 
 
     // Correspondence between local edges/points and mesh edges/points
-    const labelList meshPoints(identity(mesh().nPoints()));
+    const labelList meshPoints(identityMap(mesh().nPoints()));
 
     // Calculate inverse sum of weights
 
@@ -288,7 +287,7 @@ void Foam::medialAxisMeshMover::smoothNormals
 bool Foam::medialAxisMeshMover::isMaxEdge
 (
     const List<pointData>& pointWallDist,
-    const label edgeI,
+    const label edgei,
     const scalar minCos
 ) const
 {
@@ -296,7 +295,7 @@ bool Foam::medialAxisMeshMover::isMaxEdge
 
     // Do not mark edges with one side on moving wall.
 
-    const edge& e = mesh().edges()[edgeI];
+    const edge& e = mesh().edges()[edgei];
 
     vector v0(points[e[0]] - pointWallDist[e[0]].origin());
     scalar magV0(mag(v0));
@@ -362,27 +361,28 @@ void Foam::medialAxisMeshMover::update(const dictionary& coeffDict)
         coeffDict.lookup<label>("nSmoothSurfaceNormals");
 
     //- When is medial axis
-    word angleKey = "minMedialAxisAngle";
-    if (!coeffDict.found(angleKey))
-    {
-        // Backwards compatibility
-        angleKey = "minMedianAxisAngle";
-    }
-    scalar minMedialAxisAngleCos = Foam::cos
-    (
-        degToRad(coeffDict.lookup<scalar>(angleKey))
-    );
+    const scalar minMedialAxisAngleCos =
+        Foam::cos
+        (
+            coeffDict.lookupBackwardsCompatible<scalar>
+            (
+                {"minMedialAxisAngle", "minMedianAxisAngle"},
+                unitDegrees
+            )
+        );
 
     //- Feature angle when to stop adding layers
-    const scalar featureAngle = coeffDict.lookup<scalar>("featureAngle");
+    const scalar featureAngle =
+        coeffDict.lookup<scalar>("featureAngle", unitDegrees);
 
     //- When to slip along wall
     const scalar slipFeatureAngle =
-    (
-        coeffDict.found("slipFeatureAngle")
-      ? coeffDict.lookup<scalar>("slipFeatureAngle")
-      : 0.5*featureAngle
-    );
+        coeffDict.lookupOrDefault
+        (
+            "slipFeatureAngle",
+            unitDegrees,
+            featureAngle/2
+        );
 
     //- Smooth internal normals
     const label nSmoothNormals =
@@ -531,9 +531,9 @@ void Foam::medialAxisMeshMover::update(const dictionary& coeffDict)
 
         const edgeList& edges = mesh().edges();
 
-        forAll(edges, edgeI)
+        forAll(edges, edgei)
         {
-            const edge& e = edges[edgeI];
+            const edge& e = edges[edgei];
 
             if
             (
@@ -564,7 +564,7 @@ void Foam::medialAxisMeshMover::update(const dictionary& coeffDict)
                 }
 
             }
-            else if (isMaxEdge(pointWallDist, edgeI, minMedialAxisAngleCos))
+            else if (isMaxEdge(pointWallDist, edgei, minMedialAxisAngleCos))
             {
                 // Both end points of edge have very different nearest wall
                 // point. Mark both points as medial axis points.
@@ -626,7 +626,7 @@ void Foam::medialAxisMeshMover::update(const dictionary& coeffDict)
         // 2. Seed non-adapt patches
         const polyBoundaryMesh& patches = mesh().boundaryMesh();
 
-        labelHashSet adaptPatches(adaptPatchIDs_);
+        labelHashSet adaptPatches(adaptPatchIndices_);
 
 
         forAll(patches, patchi)
@@ -686,12 +686,9 @@ void Foam::medialAxisMeshMover::update(const dictionary& coeffDict)
                     Info<< typeName
                         << " : Inserting points on patch " << pp.name()
                         << " if angle to nearest layer patch > "
-                        << slipFeatureAngle << " degrees." << endl;
+                        << radToDeg(slipFeatureAngle) << " degrees." << endl;
 
-                    scalar slipFeatureAngleCos = Foam::cos
-                    (
-                        degToRad(slipFeatureAngle)
-                    );
+                    scalar slipFeatureAngleCos = Foam::cos(slipFeatureAngle);
                     pointField pointNormals
                     (
                         PatchTools::pointNormals(mesh(), pp)
@@ -892,8 +889,6 @@ void Foam::medialAxisMeshMover::syncPatchDisplacement
     const indirectPrimitivePatch& pp = adaptPatchPtr_();
     const labelList& meshPoints = pp.meshPoints();
 
-    label nChangedTotal = 0;
-
     while (true)
     {
         label nChanged = 0;
@@ -920,81 +915,11 @@ void Foam::medialAxisMeshMover::syncPatchDisplacement
             }
         }
 
-        // labelList syncPatchNLayers(patchNLayers);
-        //
-        // syncTools::syncPointList
-        //(
-        //    mesh(),
-        //    meshPoints,
-        //    syncPatchNLayers,
-        //    minEqOp<label>(),
-        //    labelMax            // null value
-        //);
-        //
-        //// Reset if differs
-        //// 1. take max
-        // forAll(syncPatchNLayers, i)
-        //{
-        //    if (syncPatchNLayers[i] != patchNLayers[i])
-        //    {
-        //        if
-        //        (
-        //            unmarkExtrusion
-        //            (
-        //                i,
-        //                patchDisp,
-        //                patchNLayers,
-        //                extrudeStatus
-        //            )
-        //        )
-        //        {
-        //            nChanged++;
-        //        }
-        //    }
-        //}
-        //
-        // syncTools::syncPointList
-        //(
-        //    mesh(),
-        //    meshPoints,
-        //    syncPatchNLayers,
-        //    maxEqOp<label>(),
-        //    labelMin            // null value
-        //);
-        //
-        //// Reset if differs
-        //// 2. take min
-        // forAll(syncPatchNLayers, i)
-        //{
-        //    if (syncPatchNLayers[i] != patchNLayers[i])
-        //    {
-        //        if
-        //        (
-        //            unmarkExtrusion
-        //            (
-        //                i,
-        //                patchDisp,
-        //                patchNLayers,
-        //                extrudeStatus
-        //            )
-        //        )
-        //        {
-        //            nChanged++;
-        //        }
-        //    }
-        //}
-
-        nChangedTotal += nChanged;
-
         if (!returnReduce(nChanged, sumOp<label>()))
         {
             break;
         }
     }
-
-    // Info<< "Prevented extrusion on "
-    //    << returnReduce(nChangedTotal, sumOp<label>())
-    //    << " coupled patch points during syncPatchDisplacement." << endl;
 }
 
 
@@ -1120,17 +1045,17 @@ handleFeatureAngleLayerTerminations
     const labelListList& edgeFaces = pp.edgeFaces();
     const vectorField& faceNormals = pp.faceNormals();
 
-    forAll(edgeFaces, edgeI)
+    forAll(edgeFaces, edgei)
     {
-        const labelList& eFaces = edgeFaces[edgeI];
+        const labelList& eFaces = edgeFaces[edgei];
 
-        edgeFaceNormals[edgeI].setSize(eFaces.size());
-        edgeFaceExtrude[edgeI].setSize(eFaces.size());
+        edgeFaceNormals[edgei].setSize(eFaces.size());
+        edgeFaceExtrude[edgei].setSize(eFaces.size());
         forAll(eFaces, i)
         {
             label facei = eFaces[i];
-            edgeFaceNormals[edgeI][i] = faceNormals[facei];
-            edgeFaceExtrude[edgeI][i] = extrudedFaces[facei];
+            edgeFaceNormals[edgei][i] = faceNormals[facei];
+            edgeFaceExtrude[edgei][i] = extrudedFaces[facei];
         }
     }
 
@@ -1153,14 +1078,14 @@ handleFeatureAngleLayerTerminations
     );
 
 
-    forAll(edgeFaceNormals, edgeI)
+    forAll(edgeFaceNormals, edgei)
     {
-        const List<point>& eFaceNormals = edgeFaceNormals[edgeI];
-        const List<bool>& eFaceExtrude = edgeFaceExtrude[edgeI];
+        const List<point>& eFaceNormals = edgeFaceNormals[edgei];
+        const List<bool>& eFaceExtrude = edgeFaceExtrude[edgei];
 
         if (eFaceNormals.size() == 2)
         {
-            const edge& e = pp.edges()[edgeI];
+            const edge& e = pp.edges()[edgei];
             label v0 = e[0];
             label v1 = e[1];
 
@@ -1236,7 +1161,7 @@ void Foam::medialAxisMeshMover::findIsolatedRegions
             (
                 mesh().time().path()
               / "islandExcludePoints_"
-              + mesh().time().timeName()
+              + mesh().time().name()
               + ".obj"
             )
         );
@@ -1408,11 +1333,11 @@ void Foam::medialAxisMeshMover::findIsolatedRegions
 
     labelList isolatedPoint(pp.nPoints(),0);
 
-    forAll(edges, edgeI)
+    forAll(edges, edgei)
     {
-        if (isPatchMasterEdge[edgeI])
+        if (isPatchMasterEdge[edgei])
         {
-            const edge& e = edges[edgeI];
+            const edge& e = edges[edgei];
 
             label v0 = e[0];
             label v1 = e[1];
@@ -1507,7 +1432,7 @@ void Foam::medialAxisMeshMover::smoothLambdaMuDisplacement
     const edgeList& edges = mesh().edges();
 
     // Correspondence between local edges/points and mesh edges/points
-    const labelList meshPoints(identity(mesh().nPoints()));
+    const labelList meshPoints(identityMap(mesh().nPoints()));
 
     // Calculate inverse sum of weights
     scalarField edgeWeights(mesh().nEdges());
@@ -1598,14 +1523,14 @@ Foam::medialAxisMeshMover::medialAxisMeshMover
 )
 :
     externalDisplacementMeshMover(dict, baffles, pointDisplacement),
-    adaptPatchIDs_(getFixedValueBCs(pointDisplacement)),
-    adaptPatchPtr_(getPatch(mesh(), adaptPatchIDs_)),
+    adaptPatchIndices_(getFixedValueBCs(pointDisplacement)),
+    adaptPatchPtr_(getPatch(mesh(), adaptPatchIndices_)),
     scale_
     (
         IOobject
         (
             "scale",
-            pointDisplacement.time().timeName(),
+            pointDisplacement.time().name(),
             pointDisplacement.db(),
             IOobject::NO_READ,
             IOobject::AUTO_WRITE
@@ -1622,7 +1547,7 @@ Foam::medialAxisMeshMover::medialAxisMeshMover
         pointDisplacement,
         scale_,
         oldPoints_,
-        adaptPatchIDs_,
+        adaptPatchIndices_,
         dict
     ),
     dispVec_
@@ -1630,7 +1555,7 @@ Foam::medialAxisMeshMover::medialAxisMeshMover
         IOobject
         (
             "dispVec",
-            pointDisplacement.time().timeName(),
+            pointDisplacement.time().name(),
             pointDisplacement.db(),
             IOobject::NO_READ,
             IOobject::NO_WRITE,
@@ -1644,7 +1569,7 @@ Foam::medialAxisMeshMover::medialAxisMeshMover
         IOobject
         (
             "medialRatio",
-            pointDisplacement.time().timeName(),
+            pointDisplacement.time().name(),
             pointDisplacement.db(),
             IOobject::NO_READ,
             IOobject::NO_WRITE,
@@ -1658,7 +1583,7 @@ Foam::medialAxisMeshMover::medialAxisMeshMover
         IOobject
         (
             "pointMedialDist",
-            pointDisplacement.time().timeName(),
+            pointDisplacement.time().name(),
             pointDisplacement.db(),
             IOobject::NO_READ,
             IOobject::NO_WRITE,
@@ -1672,7 +1597,7 @@ Foam::medialAxisMeshMover::medialAxisMeshMover
         IOobject
         (
             "medialVec",
-            pointDisplacement.time().timeName(),
+            pointDisplacement.time().name(),
             pointDisplacement.db(),
             IOobject::NO_READ,
             IOobject::NO_WRITE,
@@ -1723,13 +1648,11 @@ void Foam::medialAxisMeshMover::calculateDisplacement
         coeffDict.lookup<scalar>("maxThicknessToMedialRatio");
 
     //- Feature angle when to stop adding layers
-    const scalar featureAngle = coeffDict.lookup<scalar>("featureAngle");
+    const scalar featureAngle =
+        coeffDict.lookup<scalar>("featureAngle", unitDegrees);
 
     //- Stop layer growth where mesh wraps around sharp edge
-    const scalar minCosLayerTermination = Foam::cos
-    (
-        degToRad(0.5*featureAngle)
-    );
+    const scalar minCosLayerTermination = Foam::cos(featureAngle/2);
 
     //- Smoothing wanted patch thickness
     const label nSmoothPatchThickness =
@@ -1808,7 +1731,7 @@ void Foam::medialAxisMeshMover::calculateDisplacement
             (
                 mesh().time().path()
               / "thicknessRatioExcludePoints_"
-              + mesh().time().timeName()
+              + mesh().time().name()
               + ".obj"
             )
         );
@@ -1826,7 +1749,7 @@ void Foam::medialAxisMeshMover::calculateDisplacement
             (
                 mesh().time().path()
               / "thicknessRatioExcludeMedialVec_"
-              + mesh().time().timeName()
+              + mesh().time().name()
               + ".obj"
             )
         );
@@ -2036,16 +1959,13 @@ bool Foam::medialAxisMeshMover::shrinkMesh
 (
     const dictionary& meshQualityDict,
     const label nAllowableErrors,
-    labelList& checkFaces
+    const labelList& checkFaces
 )
 {
     //- Number of attempts shrinking the mesh
     const label nSnap  = meshQualityDict.lookup<label>("nRelaxIter");
 
-
-
-
-    // Make sure displacement boundary conditions is uptodate with
+    // Make sure displacement boundary conditions is up-to-date with
     // internal field
     meshMover_.setDisplacementPatchFields();
 
@@ -2100,7 +2020,7 @@ bool Foam::medialAxisMeshMover::move
 (
     const dictionary& moveDict,
     const label nAllowableErrors,
-    labelList& checkFaces
+    const labelList& checkFaces
 )
 {
     // Read a few settings
@@ -2172,7 +2092,7 @@ void Foam::medialAxisMeshMover::movePoints(const pointField& p)
     externalDisplacementMeshMover::movePoints(p);
 
     // Update local data for new geometry
-    adaptPatchPtr_().movePoints(p);
+    adaptPatchPtr_().clearGeom();
 
     // Update motionSmoother for new geometry
     meshMover_.movePoints();

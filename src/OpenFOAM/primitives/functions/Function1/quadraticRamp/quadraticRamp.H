@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ Class
     Foam::Function1s::quadraticRamp
 
 Description
-    Quadratic ramp function starting from 0 and increasing quadraticRampally
+    Quadratic ramp function starting from 0 and increasing quadratically
     to 1 from \c t_0 over the \c duration and remaining at 1 thereafter.
 
 See also
@@ -49,7 +49,7 @@ namespace Function1s
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class quadraticRamp Declaration
+                        Class quadraticRamp Declaration
 \*---------------------------------------------------------------------------*/
 
 class quadraticRamp
@@ -65,10 +65,11 @@ public:
 
     // Constructors
 
-        //- Construct from entry name and dictionary
+        //- Construct from name and dictionary
         quadraticRamp
         (
-            const word& entryName,
+            const word& name,
+            const unitConversions& units,
             const dictionary& dict
         );
 
@@ -83,7 +84,7 @@ public:
         virtual inline scalar value(const scalar t) const;
 
         //- Return the integral between times t1 and t2
-        virtual inline scalar integrate
+        virtual inline scalar integral
         (
             const scalar t1,
             const scalar t2

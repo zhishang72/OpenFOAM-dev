@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -23,19 +23,19 @@ License
 
 \*---------------------------------------------------------------------------*/
 
+#include "powerSeriesReactionRate.H"
+
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 inline Foam::powerSeriesReactionRate::powerSeriesReactionRate
 (
     const scalar A,
     const scalar beta,
-    const scalar Ta,
     const FixedList<scalar, nCoeff_> coeffs
 )
 :
-    A_(A),
     beta_(beta),
-    Ta_(Ta),
+    A_(A),
     coeffs_(coeffs)
 {}
 
@@ -43,17 +43,25 @@ inline Foam::powerSeriesReactionRate::powerSeriesReactionRate
 inline Foam::powerSeriesReactionRate::powerSeriesReactionRate
 (
     const speciesTable&,
+    const dimensionSet& dims,
     const dictionary& dict
 )
 :
-    A_(dict.lookup<scalar>("A")),
-    beta_(dict.lookup<scalar>("beta")),
-    Ta_(dict.lookup<scalar>("Ta")),
+    beta_(dict.lookup<scalar>("beta", dimless)),
+    A_(dict.lookup<scalar>("A", dims/pow(dimTemperature, beta_))),
     coeffs_(dict.lookup("coeffs"))
 {}
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+
+inline void Foam::powerSeriesReactionRate::preEvaluate() const
+{}
+
+
+inline void Foam::powerSeriesReactionRate::postEvaluate() const
+{}
+
 
 inline Foam::scalar Foam::powerSeriesReactionRate::operator()
 (
@@ -114,33 +122,22 @@ inline Foam::scalar Foam::powerSeriesReactionRate::ddT
 }
 
 
-inline const Foam::List<Foam::Tuple2<Foam::label, Foam::scalar>>&
-Foam::powerSeriesReactionRate::beta() const
+inline bool Foam::powerSeriesReactionRate::hasDdc() const
 {
-    return NullObjectRef<List<Tuple2<label, scalar>>>();
+    return false;
 }
 
 
-inline void Foam::powerSeriesReactionRate::dcidc
+inline void Foam::powerSeriesReactionRate::ddc
 (
     const scalar p,
     const scalar T,
     const scalarField& c,
     const label li,
-    scalarField& dcidc
-) const
-{}
-
-
-inline Foam::scalar Foam::powerSeriesReactionRate::dcidT
-(
-    const scalar p,
-    const scalar T,
-    const scalarField& c,
-    const label li
+    scalarField& ddc
 ) const
 {
-    return 0;
+    ddc = 0;
 }
 
 
@@ -148,7 +145,6 @@ inline void Foam::powerSeriesReactionRate::write(Ostream& os) const
 {
     writeEntry(os, "A", A_);
     writeEntry(os, "beta", beta_);
-    writeEntry(os, "Ta", Ta_);
     writeEntry(os, "coeffs", coeffs_);
 }
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -70,6 +70,7 @@ void interpolateFields
 
 int main(int argc, char *argv[])
 {
+    #include "addMeshOption.H"
     // constant, not false
     timeSelector::addOptions(true, false);
     argList::addBoolOption
@@ -83,9 +84,9 @@ int main(int argc, char *argv[])
 
     const bool fields = !args.optionFound("noFields");
 
-    instantList timeDirs = timeSelector::select0(runTime, args);
+    const instantList timeDirs = timeSelector::select0(runTime, args);
 
-    #include "createNamedMesh.H"
+    #include "createSpecifiedMeshNoChangers.H"
 
     if (regionName == singleCellName)
     {
@@ -112,28 +113,16 @@ int main(int argc, char *argv[])
             mesh
         )
     );
-    // For convenience create any fv* files
-    if (!exists(scMesh().fvSolution::objectPath()))
-    {
-        mkDir(scMesh().fvSolution::path());
-        ln("../fvSolution", scMesh().fvSolution::objectPath());
-    }
-    if (!exists(scMesh().fvSchemes::objectPath()))
-    {
-        mkDir(scMesh().fvSolution::path());
-        ln("../fvSchemes", scMesh().fvSchemes::objectPath());
-    }
-
 
     forAll(timeDirs, timeI)
     {
         runTime.setTime(timeDirs[timeI], timeI);
 
-        Info<< nl << "Time = " << runTime.timeName() << endl;
+        Info<< nl << "Time = " << runTime.name() << endl;
 
 
         // Check for new mesh
-        if (mesh.readUpdate() != polyMesh::UNCHANGED)
+        if (mesh.readUpdate() != fvMesh::UNCHANGED)
         {
             Info<< "Detected changed mesh. Recreating singleCell mesh." << endl;
             scMesh.clear(); // remove any registered objects
@@ -156,7 +145,7 @@ int main(int argc, char *argv[])
 
 
         // Read objects in time directory
-        IOobjectList objects(mesh, runTime.timeName());
+        IOobjectList objects(mesh, runTime.name());
 
         if (fields) Info<< "Reading geometric fields" << nl << endl;
 
@@ -171,7 +160,7 @@ int main(int argc, char *argv[])
 
 
         // Write
-        Info<< "Writing mesh to time " << runTime.timeName() << endl;
+        Info<< "Writing mesh to time " << runTime.name() << endl;
         scMesh().write();
     }
 

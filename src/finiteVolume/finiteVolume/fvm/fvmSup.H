@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -36,7 +36,6 @@ SourceFiles
 #define fvmSup_H
 
 #include "volFieldsFwd.H"
-#include "fvMatrix.H"
 #include "zeroField.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -44,8 +43,10 @@ SourceFiles
 namespace Foam
 {
 
+template<class Type> class fvMatrix;
+
 /*---------------------------------------------------------------------------*\
-                     Namespace fvm functions Declaration
+                      Namespace fvm functions Declaration
 \*---------------------------------------------------------------------------*/
 
 namespace fvm
@@ -56,28 +57,28 @@ namespace fvm
         tmp<fvMatrix<Type>> Su
         (
             const DimensionedField<Type, volMesh>&,
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         );
 
         template<class Type>
         tmp<fvMatrix<Type>> Su
         (
             const tmp<DimensionedField<Type, volMesh>>&,
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         );
 
         template<class Type>
         tmp<fvMatrix<Type>> Su
         (
-            const tmp<GeometricField<Type, fvPatchField, volMesh>>&,
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const tmp<VolField<Type>>&,
+            const VolField<Type>&
         );
 
         template<class Type>
         zeroField Su
         (
             const zero&,
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         );
 
 
@@ -87,21 +88,21 @@ namespace fvm
         tmp<fvMatrix<Type>> Sp
         (
             const volScalarField::Internal&,
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         );
 
         template<class Type>
         tmp<fvMatrix<Type>> Sp
         (
             const tmp<volScalarField::Internal>&,
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         );
 
         template<class Type>
         tmp<fvMatrix<Type>> Sp
         (
             const tmp<volScalarField>&,
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         );
 
 
@@ -109,7 +110,7 @@ namespace fvm
         tmp<fvMatrix<Type>> Sp
         (
             const dimensionedScalar&,
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         );
 
 
@@ -117,7 +118,7 @@ namespace fvm
         zeroField Sp
         (
             const zero&,
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         );
 
 
@@ -127,28 +128,38 @@ namespace fvm
         tmp<fvMatrix<Type>> SuSp
         (
             const volScalarField::Internal&,
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         );
 
         template<class Type>
         tmp<fvMatrix<Type>> SuSp
         (
             const tmp<volScalarField::Internal>&,
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         );
 
         template<class Type>
         tmp<fvMatrix<Type>> SuSp
         (
             const tmp<volScalarField>&,
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         );
 
         template<class Type>
         zeroField SuSp
         (
             const zero&,
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
+        );
+
+
+    // Explicit and implicit sources provided as a pair
+
+        template<class Type>
+        tmp<fvMatrix<Type>> S
+        (
+            const Pair<tmp<volScalarField::Internal>>&,
+            const VolField<Type>&
         );
 }
 

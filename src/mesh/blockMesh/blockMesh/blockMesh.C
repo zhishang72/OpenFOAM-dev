@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,6 +25,7 @@ License
 
 #include "blockMesh.H"
 #include "Time.H"
+#include "cyclicTransform.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -38,7 +39,12 @@ Foam::Switch Foam::blockMesh::checkBlockFaceOrientation(true);
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
-Foam::blockMesh::blockMesh(const IOdictionary& dict, const word& regionName)
+Foam::blockMesh::blockMesh
+(
+    const IOdictionary& dict,
+    const fileName& meshPath,
+    const word& regionName
+)
 :
     meshDict_(dict),
     verboseOutput(meshDict_.lookupOrDefault<Switch>("verbose", true)),
@@ -50,10 +56,10 @@ Foam::blockMesh::blockMesh(const IOdictionary& dict, const word& regionName)
     (
         IOobject
         (
-            "geometry",                 // dummy name
-            meshDict_.time().constant(),     // instance
-            "geometry",                 // local
-            meshDict_.time(),                // registry
+            "geometry",
+            meshDict_.time().constant(),
+            searchableSurface::geometryDir(),
+            meshDict_.time(),
             IOobject::MUST_READ,
             IOobject::NO_WRITE
         ),
@@ -69,7 +75,7 @@ Foam::blockMesh::blockMesh(const IOdictionary& dict, const word& regionName)
         blockVertex::iNew(meshDict_, geometry_)
     ),
     vertices_(Foam::vertices(blockVertices_)),
-    topologyPtr_(createTopology(meshDict_, regionName))
+    topologyPtr_(createTopology(meshDict_, meshPath, regionName))
 {
     Switch fastMerge(meshDict_.lookupOrDefault<Switch>("fastMerge", false));
 
@@ -127,11 +133,22 @@ Foam::PtrList<Foam::dictionary> Foam::blockMesh::patchDicts() const
 
     forAll(patchTopologies, patchi)
     {
+        autoPtr<polyPatch> ppPtr =
+            patchTopologies[patchi].clone(topology().boundaryMesh());
+
+        if (isA<cyclicTransform>(ppPtr()))
+        {
+            refCast<cyclicTransform>(ppPtr()) =
+                transformer::scaling(scaleFactor_*tensor::I)
+              & refCast<cyclicTransform>(ppPtr());
+        }
+
         OStringStream os;
-        patchTopologies[patchi].write(os);
+        ppPtr->write(os);
         IStringStream is(os.str());
         patchDicts.set(patchi, new dictionary(is));
     }
+
     return patchDicts;
 }
 
@@ -179,18 +196,6 @@ Foam::wordList Foam::blockMesh::patchNames() const
 {
     return topology().boundaryMesh().names();
 }
-
-
-//Foam::wordList Foam::blockMesh::patchTypes() const
-//{
-//    return topology().boundaryMesh().types();
-//}
-//
-//
-//Foam::wordList Foam::blockMesh::patchPhysicalTypes() const
-//{
-//    return topology().boundaryMesh().physicalTypes();
-//}
 
 
 Foam::label Foam::blockMesh::numZonedBlocks() const

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -31,7 +31,7 @@ License
 #include "fvcGrad.H"
 #include "surfaceInterpolate.H"
 #include "fvcLaplacian.H"
-#include "mapPolyMesh.H"
+#include "polyTopoChangeMap.H"
 #include "volPointInterpolation.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
@@ -53,18 +53,19 @@ namespace Foam
 
 Foam::displacementSBRStressFvMotionSolver::displacementSBRStressFvMotionSolver
 (
+    const word& name,
     const polyMesh& mesh,
     const dictionary& dict
 )
 :
-    displacementMotionSolver(mesh, dict, typeName),
+    displacementMotionSolver(name, mesh, dict, typeName),
     fvMotionSolver(mesh),
     cellDisplacement_
     (
         IOobject
         (
             "cellDisplacement",
-            mesh.time().timeName(),
+            mesh.time().name(),
             mesh,
             IOobject::READ_IF_PRESENT,
             IOobject::AUTO_WRITE
@@ -78,9 +79,10 @@ Foam::displacementSBRStressFvMotionSolver::displacementSBRStressFvMotionSolver
         ),
         cellMotionBoundaryTypes<vector>(pointDisplacement().boundaryField())
     ),
+    diffusivityType_(dict.lookup("diffusivity")),
     diffusivityPtr_
     (
-        motionDiffusivity::New(fvMesh_, coeffDict().lookup("diffusivity"))
+        motionDiffusivity::New(fvMesh_, diffusivityType_)
     )
 {}
 
@@ -178,20 +180,40 @@ void Foam::displacementSBRStressFvMotionSolver::solve()
 }
 
 
-void Foam::displacementSBRStressFvMotionSolver::updateMesh
+void Foam::displacementSBRStressFvMotionSolver::topoChange
 (
-    const mapPolyMesh& mpm
+    const polyTopoChangeMap& map
 )
 {
-    displacementMotionSolver::updateMesh(mpm);
+    displacementMotionSolver::topoChange(map);
 
     // Update diffusivity. Note two stage to make sure old one is de-registered
     // before creating/registering new one.
     diffusivityPtr_.reset(nullptr);
+    diffusivityType_.rewind();
     diffusivityPtr_ = motionDiffusivity::New
     (
         fvMesh_,
-        coeffDict().lookup("diffusivity")
+        diffusivityType_
+    );
+}
+
+
+void Foam::displacementSBRStressFvMotionSolver::mapMesh
+(
+    const polyMeshMap& map
+)
+{
+    displacementMotionSolver::mapMesh(map);
+
+    // Update diffusivity. Note two stage to make sure old one is de-registered
+    // before creating/registering new one.
+    diffusivityPtr_.reset(nullptr);
+    diffusivityType_.rewind();
+    diffusivityPtr_ = motionDiffusivity::New
+    (
+        fvMesh_,
+        diffusivityType_
     );
 }
 

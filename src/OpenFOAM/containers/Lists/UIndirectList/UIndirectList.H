@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -62,7 +62,7 @@ class UIndirectList
     // Private Data
 
         UList<T>& completeList_;
-        const labelUList& addressing_;
+        const UList<label>& addressing_;
 
 
 public:
@@ -70,7 +70,7 @@ public:
     // Constructors
 
         //- Construct given the complete list and the addressing array
-        inline UIndirectList(const UList<T>&, const labelUList&);
+        inline UIndirectList(const UList<T>&, const UList<label>&);
 
         //- Copy constructor
         UIndirectList(const UIndirectList<T>&) = default;
@@ -98,6 +98,14 @@ public:
             //- Return the last element of the list.
             inline const T& last() const;
 
+            //- Return the forward circular index, i.e. the next index
+            //  which returns to the first at the end of the list
+            inline label fcIndex(const label i) const;
+
+            //- Return the reverse circular index, i.e. the previous index
+            //  which returns to the last at the beginning of the list
+            inline label rcIndex(const label i) const;
+
             //- Return the complete list
             inline const UList<T>& completeList() const;
 
@@ -124,6 +132,12 @@ public:
 
             //- Assignment of all entries to the given value
             inline void operator=(const T&);
+
+            //- Equality comparison. Compares element-by-element.
+            inline bool operator==(const UIndirectList<T>&) const;
+
+            //- Inequality comparison. Compares element-by-element.
+            inline bool operator!=(const UIndirectList<T>&) const;
 
 
     // STL type definitions

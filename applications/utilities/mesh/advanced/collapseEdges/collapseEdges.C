@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -53,6 +53,7 @@ Usage
 #include "fvMesh.H"
 #include "polyMeshFilter.H"
 #include "faceSet.H"
+#include "systemDict.H"
 
 using namespace Foam;
 
@@ -82,22 +83,17 @@ int main(int argc, char *argv[])
 
     #include "addDictOption.H"
     #include "addOverwriteOption.H"
+    #include "addMeshOption.H"
+    #include "addRegionOption.H"
     #include "setRootCase.H"
-    #include "createTime.H"
+    #include "createTimeNoFunctionObjects.H"
+    const instantList timeDirs = timeSelector::selectIfPresent(runTime, args);
 
-    runTime.functionObjects().off();
-    instantList timeDirs = timeSelector::selectIfPresent(runTime, args);
-
-    #include "createMesh.H"
+    #include "createSpecifiedMeshNoChangers.H"
 
     const word oldInstance = mesh.pointsInstance();
 
-    const word dictName("collapseDict");
-    #include "setSystemMeshDictionaryIO.H"
-
-    Info<< "Reading " << dictName << nl << endl;
-
-    IOdictionary collapseDict(dictIO);
+    const dictionary collapseDict(systemDict("collapseDict", args, mesh));
 
     const bool overwrite = args.optionFound("overwrite");
 
@@ -132,7 +128,7 @@ int main(int argc, char *argv[])
         IOobject
         (
             "pointPriority",
-            runTime.timeName(),
+            runTime.name(),
             runTime,
             IOobject::READ_IF_PRESENT,
             IOobject::AUTO_WRITE
@@ -143,7 +139,7 @@ int main(int argc, char *argv[])
     {
         runTime.setTime(timeDirs[timeI], timeI);
 
-        Info<< "Time = " << runTime.timeName() << endl;
+        Info<< "Time = " << runTime.userTimeName() << endl;
 
         autoPtr<polyMeshFilter> meshFilterPtr;
 
@@ -178,7 +174,7 @@ int main(int argc, char *argv[])
             {
                 polyTopoChange meshMod(newMesh());
 
-                meshMod.changeMesh(mesh, false);
+                meshMod.changeMesh(mesh);
 
                 polyMeshFilter::copySets(newMesh(), mesh);
             }
@@ -202,7 +198,7 @@ int main(int argc, char *argv[])
             {
                 polyTopoChange meshMod(newMesh);
 
-                meshMod.changeMesh(mesh, false);
+                meshMod.changeMesh(mesh);
 
                 polyMeshFilter::copySets(newMesh(), mesh);
             }
@@ -226,7 +222,7 @@ int main(int argc, char *argv[])
             {
                 polyTopoChange meshMod(newMesh);
 
-                meshMod.changeMesh(mesh, false);
+                meshMod.changeMesh(mesh);
 
                 polyMeshFilter::copySets(newMesh(), mesh);
             }
@@ -245,7 +241,7 @@ int main(int argc, char *argv[])
         }
 
         Info<< nl << "Writing collapsed mesh to time "
-            << runTime.timeName() << nl << endl;
+            << runTime.name() << nl << endl;
 
         mesh.write();
         pointPriority.write();

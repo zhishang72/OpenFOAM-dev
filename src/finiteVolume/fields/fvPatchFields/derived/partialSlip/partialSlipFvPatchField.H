@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -63,7 +63,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                  Class partialSlipFvPatchField Declaration
+                   Class partialSlipFvPatchField Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -77,13 +77,9 @@ class partialSlipFvPatchField
         scalarField valueFraction_;
 
 
-public:
+protected:
 
-    //- Runtime type information
-    TypeName("partialSlip");
-
-
-    // Constructors
+    // Protected functions
 
         //- Construct from patch and internal field
         partialSlipFvPatchField
@@ -91,6 +87,15 @@ public:
             const fvPatch&,
             const DimensionedField<Type, volMesh>&
         );
+
+
+public:
+
+    //- Runtime type information
+    TypeName("partialSlip");
+
+
+    // Constructors
 
         //- Construct from patch, internal field and dictionary
         partialSlipFvPatchField
@@ -106,23 +111,11 @@ public:
             const partialSlipFvPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
-        partialSlipFvPatchField
-        (
-            const partialSlipFvPatchField<Type>&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchField<Type>> clone() const
-        {
-            return tmp<fvPatchField<Type>>
-            (
-                new partialSlipFvPatchField<Type>(*this)
-            );
-        }
+        //- Disallow copy without setting internal field reference
+        partialSlipFvPatchField(const partialSlipFvPatchField<Type>&) = delete;
 
         //- Copy constructor setting internal field reference
         partialSlipFvPatchField
@@ -157,13 +150,12 @@ public:
 
         // Mapping functions
 
-            //- Map (and resize as needed) from self given a mapping object
-            //  Used to update fields following mesh topology change
-            virtual void autoMap(const fvPatchFieldMapper&);
+            //- Map the given fvPatchField onto this fvPatchField
+            virtual void map(const fvPatchField<Type>&, const fieldMapper&);
 
-            //- Reverse map the given fvPatchField onto this fvPatchField
-            //  Used to reconstruct fields
-            virtual void rmap(const fvPatchField<Type>&, const labelList&);
+            //- Reset the fvPatchField to the given fvPatchField
+            //  Used for mesh to mesh mapping
+            virtual void reset(const fvPatchField<Type>&);
 
 
         // Return defining fields

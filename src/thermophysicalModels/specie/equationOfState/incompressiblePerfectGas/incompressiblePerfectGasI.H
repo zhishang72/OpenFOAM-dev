@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -31,7 +31,8 @@ License
 template<class Specie>
 inline Foam::incompressiblePerfectGas<Specie>::incompressiblePerfectGas
 (
-    const Specie& sp,  const scalar pRef
+    const Specie& sp,
+    const scalar pRef
 )
 :
     Specie(sp),
@@ -62,20 +63,6 @@ Foam::incompressiblePerfectGas<Specie>::clone() const
 }
 
 
-template<class Specie>
-inline Foam::autoPtr<Foam::incompressiblePerfectGas<Specie>>
-Foam::incompressiblePerfectGas<Specie>::New
-(
-    const dictionary& dict
-)
-{
-    return autoPtr<incompressiblePerfectGas<Specie>>
-    (
-        new incompressiblePerfectGas<Specie>(dict)
-    );
-}
-
-
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class Specie>
@@ -90,13 +77,13 @@ inline Foam::scalar Foam::incompressiblePerfectGas<Specie>::rho
 
 
 template<class Specie>
-inline Foam::scalar Foam::incompressiblePerfectGas<Specie>::H
+inline Foam::scalar Foam::incompressiblePerfectGas<Specie>::h
 (
     scalar p,
     scalar T
 ) const
 {
-    return p/this->rho(p, T);
+    return (p - pRef_)/this->rho(p, T);
 }
 
 
@@ -112,7 +99,7 @@ inline Foam::scalar Foam::incompressiblePerfectGas<Specie>::Cp
 
 
 template<class Specie>
-inline Foam::scalar Foam::incompressiblePerfectGas<Specie>::E
+inline Foam::scalar Foam::incompressiblePerfectGas<Specie>::e
 (
     scalar p,
     scalar T
@@ -134,7 +121,18 @@ inline Foam::scalar Foam::incompressiblePerfectGas<Specie>::Cv
 
 
 template<class Specie>
-inline Foam::scalar Foam::incompressiblePerfectGas<Specie>::S
+inline Foam::scalar Foam::incompressiblePerfectGas<Specie>::sp
+(
+    scalar p,
+    scalar T
+) const
+{
+    return 0;
+}
+
+
+template<class Specie>
+inline Foam::scalar Foam::incompressiblePerfectGas<Specie>::sv
 (
     scalar p,
     scalar T
@@ -162,7 +160,7 @@ inline Foam::scalar Foam::incompressiblePerfectGas<Specie>::Z
     scalar T
 ) const
 {
-    return 0;
+    return p/(rho(p, T)*this->R()*T);
 }
 
 
@@ -173,7 +171,18 @@ inline Foam::scalar Foam::incompressiblePerfectGas<Specie>::CpMCv
     scalar T
 ) const
 {
-    return 0;
+    return this->R();
+}
+
+
+template<class Specie>
+inline Foam::scalar Foam::incompressiblePerfectGas<Specie>::alphav
+(
+    scalar p,
+    scalar T
+) const
+{
+    return 1/T;
 }
 
 

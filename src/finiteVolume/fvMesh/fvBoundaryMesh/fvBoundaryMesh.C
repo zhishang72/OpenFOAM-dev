@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -70,7 +70,7 @@ Foam::fvBoundaryMesh::fvBoundaryMesh
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-Foam::label Foam::fvBoundaryMesh::findPatchID(const word& patchName) const
+Foam::label Foam::fvBoundaryMesh::findIndex(const word& patchName) const
 {
     const fvPatchList& patches = *this;
 
@@ -89,25 +89,11 @@ Foam::label Foam::fvBoundaryMesh::findPatchID(const word& patchName) const
 
 Foam::labelList Foam::fvBoundaryMesh::findIndices
 (
-    const keyType& key,
+    const wordRe& key,
     const bool usePatchGroups
 ) const
 {
     return mesh().boundaryMesh().findIndices(key, usePatchGroups);
-}
-
-
-void Foam::fvBoundaryMesh::movePoints()
-{
-    forAll(*this, patchi)
-    {
-        operator[](patchi).initMovePoints();
-    }
-
-    forAll(*this, patchi)
-    {
-        operator[](patchi).movePoints();
-    }
 }
 
 
@@ -158,7 +144,7 @@ const Foam::fvPatch& Foam::fvBoundaryMesh::operator[]
     const word& patchName
 ) const
 {
-    const label patchi = findPatchID(patchName);
+    const label patchi = findIndex(patchName);
 
     if (patchi < 0)
     {
@@ -176,7 +162,7 @@ Foam::fvPatch& Foam::fvBoundaryMesh::operator[]
     const word& patchName
 )
 {
-    const label patchi = findPatchID(patchName);
+    const label patchi = findIndex(patchName);
 
     if (patchi < 0)
     {

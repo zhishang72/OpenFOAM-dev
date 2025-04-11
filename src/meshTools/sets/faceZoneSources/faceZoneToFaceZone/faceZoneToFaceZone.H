@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -43,7 +43,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                        Class faceZoneToFaceZone Declaration
+                     Class faceZoneToFaceZone Declaration
 \*---------------------------------------------------------------------------*/
 
 class faceZoneToFaceZone
@@ -52,16 +52,15 @@ class faceZoneToFaceZone
 {
     // Private Data
 
-        //- Add usage string
-        static addToUsageTable usage_;
-
         //- Name of set to use
         word setName_;
+
 
 public:
 
     //- Runtime type information
     TypeName("faceZoneToFaceZone");
+
 
     // Constructors
 
@@ -77,13 +76,6 @@ public:
         (
             const polyMesh& mesh,
             const dictionary& dict
-        );
-
-        //- Construct from Istream
-        faceZoneToFaceZone
-        (
-            const polyMesh& mesh,
-            Istream&
         );
 
 
@@ -103,7 +95,6 @@ public:
             const topoSetSource::setAction action,
             topoSet&
         ) const;
-
 };
 
 

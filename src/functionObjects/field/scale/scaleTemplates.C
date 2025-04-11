@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2018-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -31,24 +31,25 @@ License
 template<class Type>
 bool Foam::functionObjects::scale::calcScale()
 {
-    typedef GeometricField<Type, fvPatchField, volMesh> VolFieldType;
-    typedef GeometricField<Type, fvsPatchField, surfaceMesh> SurfaceFieldType;
+    if (foundObject<VolField<Type>>(fieldName_))
+    {
+        store
+        (
+            resultName_,
+            scale_*lookupObject<VolField<Type>>(fieldName_)
+        );
 
-    if (foundObject<VolFieldType>(fieldName_))
-    {
-        return store
-        (
-            resultName_,
-            scale_*lookupObject<VolFieldType>(fieldName_)
-        );
+        return true;
     }
-    else if (foundObject<SurfaceFieldType>(fieldName_))
+    else if (foundObject<SurfaceField<Type>>(fieldName_))
     {
-        return store
+        store
         (
             resultName_,
-            scale_*lookupObject<SurfaceFieldType>(fieldName_)
+            scale_*lookupObject<SurfaceField<Type>>(fieldName_)
         );
+
+        return true;
     }
     else
     {

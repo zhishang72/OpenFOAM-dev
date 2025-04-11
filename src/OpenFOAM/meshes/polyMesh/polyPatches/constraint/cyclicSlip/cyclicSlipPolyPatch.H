@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,7 +44,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                      Class cyclicSlipPolyPatch Declaration
+                     Class cyclicSlipPolyPatch Declaration
 \*---------------------------------------------------------------------------*/
 
 class cyclicSlipPolyPatch
@@ -68,11 +68,10 @@ public:
             const label start,
             const label index,
             const polyBoundaryMesh& bm,
-            const word& patchType,
-            const transformType transform = UNKNOWN
+            const word& patchType
         )
         :
-            cyclicPolyPatch(name, size, start, index, bm, patchType, transform)
+            cyclicPolyPatch(name, size, start, index, bm, patchType)
         {}
 
         //- Construct from dictionary
@@ -107,26 +106,11 @@ public:
             const label index,
             const label newSize,
             const label newStart,
-            const word& neighbPatchName
+            const word& nbrPatchName
         )
         :
-            cyclicPolyPatch(pp, bm, index, newSize, newStart, neighbPatchName)
+            cyclicPolyPatch(pp, bm, index, newSize, newStart, nbrPatchName)
         {}
-
-
-        //- Construct given the original patch and a map
-        cyclicSlipPolyPatch
-        (
-            const cyclicPolyPatch& pp,
-            const polyBoundaryMesh& bm,
-            const label index,
-            const labelUList& mapAddressing,
-            const label newStart
-        )
-        :
-            cyclicPolyPatch(pp, bm, index, mapAddressing, newStart)
-        {}
-
 
         //- Construct and return a clone, resetting the boundary mesh
         virtual autoPtr<polyPatch> clone(const polyBoundaryMesh& bm) const
@@ -153,41 +137,15 @@ public:
                     index,
                     newSize,
                     newStart,
-                    neighbPatchName()
-                )
-            );
-        }
-
-        //- Construct and return a clone, resetting the face list
-        //  and boundary mesh
-        virtual autoPtr<polyPatch> clone
-        (
-            const polyBoundaryMesh& bm,
-            const label index,
-            const labelUList& mapAddressing,
-            const label newStart
-        ) const
-        {
-            return autoPtr<polyPatch>
-            (
-                new cyclicSlipPolyPatch
-                (
-                    *this,
-                    bm,
-                    index,
-                    mapAddressing,
-                    newStart
+                    nbrPatchName()
                 )
             );
         }
 
 
-    // Destructor
-
-        virtual ~cyclicSlipPolyPatch()
-        {}
-
-
+    //- Destructor
+    virtual ~cyclicSlipPolyPatch()
+    {}
 };
 
 

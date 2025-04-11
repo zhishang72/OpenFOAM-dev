@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -45,7 +45,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class zeroField Declaration
+                          Class zeroField Declaration
 \*---------------------------------------------------------------------------*/
 
 class zeroField
@@ -53,6 +53,11 @@ class zeroField
     public zero
 {
 public:
+
+    // Public Typedefs
+
+        typedef zeroField FieldType;
+
 
     // Constructors
 
@@ -65,7 +70,7 @@ public:
 
         inline scalar operator[](const label) const;
 
-        inline zeroField field() const;
+        inline zeroField primitiveField() const;
 
         inline zeroField operator()() const;
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -31,38 +31,22 @@ template<class Type>
 Foam::turbulentInletFvPatchField<Type>::turbulentInletFvPatchField
 (
     const fvPatch& p,
-    const DimensionedField<Type, volMesh>& iF
-)
-:
-    fixedValueFvPatchField<Type>(p, iF),
-    ranGen_(label(0)),
-    fluctuationScale_(Zero),
-    referenceField_(p.size()),
-    alpha_(0.1),
-    curTimeIndex_(-1)
-{}
-
-
-template<class Type>
-Foam::turbulentInletFvPatchField<Type>::turbulentInletFvPatchField
-(
-    const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
     const dictionary& dict
 )
 :
     fixedValueFvPatchField<Type>(p, iF, dict, false),
     ranGen_(label(0)),
-    fluctuationScale_(pTraits<Type>(dict.lookup("fluctuationScale"))),
-    referenceField_("referenceField", dict, p.size()),
-    alpha_(dict.lookupOrDefault<scalar>("alpha", 0.1)),
+    fluctuationScale_(dict.lookup<Type>("fluctuationScale", unitFraction)),
+    referenceField_("referenceField", iF.dimensions(), dict, p.size()),
+    alpha_(dict.lookupOrDefault<scalar>("alpha", unitFraction, 0.1)),
     curTimeIndex_(-1)
 {
     if (dict.found("value"))
     {
         fixedValueFvPatchField<Type>::operator==
         (
-            Field<Type>("value", dict, p.size())
+            Field<Type>("value", iF.dimensions(), dict, p.size())
         );
     }
     else
@@ -78,28 +62,13 @@ Foam::turbulentInletFvPatchField<Type>::turbulentInletFvPatchField
     const turbulentInletFvPatchField<Type>& ptf,
     const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     fixedValueFvPatchField<Type>(ptf, p, iF, mapper),
     ranGen_(label(0)),
     fluctuationScale_(ptf.fluctuationScale_),
     referenceField_(mapper(ptf.referenceField_)),
-    alpha_(ptf.alpha_),
-    curTimeIndex_(-1)
-{}
-
-
-template<class Type>
-Foam::turbulentInletFvPatchField<Type>::turbulentInletFvPatchField
-(
-    const turbulentInletFvPatchField<Type>& ptf
-)
-:
-    fixedValueFvPatchField<Type>(ptf),
-    ranGen_(ptf.ranGen_),
-    fluctuationScale_(ptf.fluctuationScale_),
-    referenceField_(ptf.referenceField_),
     alpha_(ptf.alpha_),
     curTimeIndex_(-1)
 {}
@@ -124,29 +93,33 @@ Foam::turbulentInletFvPatchField<Type>::turbulentInletFvPatchField
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class Type>
-void Foam::turbulentInletFvPatchField<Type>::autoMap
-(
-    const fvPatchFieldMapper& m
-)
-{
-    fixedValueFvPatchField<Type>::autoMap(m);
-    m(referenceField_, referenceField_);
-}
-
-
-template<class Type>
-void Foam::turbulentInletFvPatchField<Type>::rmap
+void Foam::turbulentInletFvPatchField<Type>::map
 (
     const fvPatchField<Type>& ptf,
-    const labelList& addr
+    const fieldMapper& mapper
 )
 {
-    fixedValueFvPatchField<Type>::rmap(ptf, addr);
+    fixedValueFvPatchField<Type>::map(ptf, mapper);
 
     const turbulentInletFvPatchField<Type>& tiptf =
         refCast<const turbulentInletFvPatchField<Type>>(ptf);
 
-    referenceField_.rmap(tiptf.referenceField_, addr);
+    mapper(referenceField_, tiptf.referenceField_);
+}
+
+
+template<class Type>
+void Foam::turbulentInletFvPatchField<Type>::reset
+(
+    const fvPatchField<Type>& ptf
+)
+{
+    fixedValueFvPatchField<Type>::reset(ptf);
+
+    const turbulentInletFvPatchField<Type>& tiptf =
+        refCast<const turbulentInletFvPatchField<Type>>(ptf);
+
+    referenceField_.reset(tiptf.referenceField_);
 }
 
 

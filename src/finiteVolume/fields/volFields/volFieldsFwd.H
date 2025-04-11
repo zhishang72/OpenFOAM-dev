@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -34,6 +34,7 @@ SourceFiles
 #ifndef volFieldsFwd_H
 #define volFieldsFwd_H
 
+#include "GeometricFieldFwd.H"
 #include "fieldTypes.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -48,15 +49,21 @@ class volMesh;
 template<class Type>
 class fvPatchField;
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-class GeometricField;
+template<class Type>
+class fvFieldSource;
 
-typedef GeometricField<scalar, fvPatchField, volMesh> volScalarField;
-typedef GeometricField<vector, fvPatchField, volMesh> volVectorField;
-typedef GeometricField<sphericalTensor, fvPatchField, volMesh>
-    volSphericalTensorField;
-typedef GeometricField<symmTensor, fvPatchField, volMesh> volSymmTensorField;
-typedef GeometricField<tensor, fvPatchField, volMesh> volTensorField;
+template<class Type>
+using VolField = GeometricField<Type, volMesh, Field>;
+
+template<class Type>
+using VolInternalField = typename VolField<Type>::Internal;
+
+typedef VolField<label> volLabelField;
+typedef VolField<scalar> volScalarField;
+typedef VolField<vector> volVectorField;
+typedef VolField<sphericalTensor> volSphericalTensorField;
+typedef VolField<symmTensor> volSymmTensorField;
+typedef VolField<tensor> volTensorField;
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

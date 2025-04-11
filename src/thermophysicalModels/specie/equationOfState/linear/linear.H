@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ Class
     Foam::linear
 
 Description
-    Linear equation of state with constant compressibility
+    Linear equation of state with constant compressibility:
 
     \verbatim
         rho = rho0 + psi*p
@@ -33,6 +33,22 @@ Description
 
     Coefficient mixing is very inaccurate and not supported,
     so this equation of state is not applicable to mixtures.
+
+Usage
+    \table
+        Property     | Description
+        rho0         | Reference density
+        psi          | Constant compressibility
+    \endtable
+
+    Example specification of the linear equation of state:
+    \verbatim
+    equationOfState
+    {
+        rho0        1000;
+        psi         1e-5;
+    }
+    \endverbatim
 
 SourceFiles
     linearI.H
@@ -113,17 +129,14 @@ public:
             const scalar rho0
         );
 
-        //- Construct from dictionary
-        linear(const dictionary& dict);
+        //- Construct from name and dictionary
+        linear(const word& name, const dictionary& dict);
 
         //- Construct as named copy
         inline linear(const word& name, const linear&);
 
         //- Construct and return a clone
         inline autoPtr<linear> clone() const;
-
-        // Selector from dictionary
-        inline static autoPtr<linear> New(const dictionary& dict);
 
 
     // Member Functions
@@ -146,20 +159,23 @@ public:
             //- Return density [kg/m^3]
             inline scalar rho(scalar p, scalar T) const;
 
-            //- Return enthalpy departure [J/kg]
-            inline scalar H(const scalar p, const scalar T) const;
+            //- Return enthalpy contribution [J/kg]
+            inline scalar h(const scalar p, const scalar T) const;
 
-            //- Return Cp departure [J/(kg K]
+            //- Return Cp contribution [J/(kg K]
             inline scalar Cp(scalar p, scalar T) const;
 
-            //- Return internal energy departure [J/kg]
-            inline scalar E(const scalar p, const scalar T) const;
+            //- Return internal energy contribution [J/kg]
+            inline scalar e(const scalar p, const scalar T) const;
 
-            //- Return Cv departure [J/(kg K]
+            //- Return Cv contribution [J/(kg K]
             inline scalar Cv(scalar p, scalar T) const;
 
-            //- Return entropy [J/kg/K]
-            inline scalar S(const scalar p, const scalar T) const;
+            //- Return entropy contribution to the integral of Cp/T [J/kg/K]
+            inline scalar sp(const scalar p, const scalar T) const;
+
+            //- Return entropy contribution to the integral of Cv/T [J/kg/K]
+            inline scalar sv(const scalar p, const scalar T) const;
 
             //- Return compressibility [s^2/m^2]
             inline scalar psi(scalar p, scalar T) const;
@@ -169,6 +185,9 @@ public:
 
             //- Return (Cp - Cv) [J/(kg K]
             inline scalar CpMCv(scalar p, scalar T) const;
+
+            //- Return volumetric coefficient of thermal expansion [1/T]
+            inline scalar alphav(const scalar p, const scalar T) const;
 
 
         // IO

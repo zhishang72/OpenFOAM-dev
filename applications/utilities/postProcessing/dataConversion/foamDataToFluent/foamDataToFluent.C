@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -29,10 +29,13 @@ Description
 
 \*---------------------------------------------------------------------------*/
 
-#include "fvCFD.H"
+#include "argList.H"
+#include "timeSelector.H"
 #include "writeFluentFields.H"
 #include "OFstream.H"
 #include "IOobjectList.H"
+
+using namespace Foam;
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -44,9 +47,9 @@ int main(int argc, char *argv[])
     #include "setRootCase.H"
     #include "createTime.H"
 
-    instantList timeDirs = timeSelector::select0(runTime, args);
+    const instantList timeDirs = timeSelector::select0(runTime, args);
 
-    #include "createMesh.H"
+    #include "createMeshNoChangers.H"
 
     // make a directory called proInterface in the case
     mkDir(runTime.rootPath()/runTime.caseName()/"fluentInterface");
@@ -55,7 +58,7 @@ int main(int argc, char *argv[])
     {
         runTime.setTime(timeDirs[timeI], timeI);
 
-        Info<< "Time = " << runTime.timeName() << endl;
+        Info<< "Time = " << runTime.userTimeName() << endl;
 
         if (mesh.readUpdate())
         {
@@ -71,7 +74,7 @@ int main(int argc, char *argv[])
             runTime.rootPath()/
             runTime.caseName()/
             "fluentInterface"/
-            runTime.caseName() + runTime.timeName() + ".dat"
+            runTime.caseName() + runTime.name() + ".dat"
         );
 
         fluentDataFile
@@ -103,7 +106,7 @@ int main(int argc, char *argv[])
 
 
         // Search for list of objects for this time
-        IOobjectList objects(mesh, runTime.timeName());
+        IOobjectList objects(mesh, runTime.name());
 
 
         // Converting volScalarField
@@ -117,13 +120,10 @@ int main(int argc, char *argv[])
             // Read field
             volScalarField field(*iter(), mesh);
 
-            // lookup field from dictionary and convert field
-            label unitNumber;
-            if
-            (
-                foamDataToFluentDict.readIfPresent(field.name(), unitNumber)
-             && unitNumber > 0
-            )
+            // Lookup field from dictionary and convert field
+            const label unitNumber =
+                foamDataToFluentDict.lookupOrDefault<label>(field.name(), 0);
+            if (unitNumber > 0)
             {
                 Info<< "    Converting field " << field.name() << endl;
                 writeFluentField(field, unitNumber, fluentDataFile);
@@ -142,13 +142,10 @@ int main(int argc, char *argv[])
             // Read field
             volVectorField field(*iter(), mesh);
 
-            // lookup field from dictionary and convert field
-            label unitNumber;
-            if
-            (
-                foamDataToFluentDict.readIfPresent(field.name(), unitNumber)
-             && unitNumber > 0
-            )
+            // Lookup field from dictionary and convert field
+            const label unitNumber =
+                foamDataToFluentDict.lookupOrDefault<label>(field.name(), 0);
+            if (unitNumber > 0)
             {
                 Info<< "    Converting field " << field.name() << endl;
                 writeFluentField(field, unitNumber, fluentDataFile);

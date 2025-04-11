@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -80,7 +80,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-      Class fixedPressureCompressibleDensityFvPatchScalarField Declaration
+     Class fixedPressureCompressibleDensityFvPatchScalarField Declaration
 \*---------------------------------------------------------------------------*/
 
 class fixedPressureCompressibleDensityFvPatchScalarField
@@ -101,13 +101,6 @@ public:
 
     // Constructors
 
-        //- Construct from patch and internal field
-        fixedPressureCompressibleDensityFvPatchScalarField
-        (
-            const fvPatch&,
-            const DimensionedField<scalar, volMesh>&
-        );
-
         //- Construct from patch, internal field and dictionary
         fixedPressureCompressibleDensityFvPatchScalarField
         (
@@ -124,23 +117,14 @@ public:
             const fixedPressureCompressibleDensityFvPatchScalarField&,
             const fvPatch&,
             const DimensionedField<scalar, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         fixedPressureCompressibleDensityFvPatchScalarField
         (
             const fixedPressureCompressibleDensityFvPatchScalarField&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchScalarField> clone() const
-        {
-            return tmp<fvPatchScalarField>
-            (
-                new fixedPressureCompressibleDensityFvPatchScalarField(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         fixedPressureCompressibleDensityFvPatchScalarField

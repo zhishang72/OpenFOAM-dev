@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,12 +24,12 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "codeStream.H"
-#include "addToMemberFunctionSelectionTable.H"
-#include "IStringStream.H"
-#include "OStringStream.H"
 #include "dynamicCode.H"
 #include "dynamicCodeContext.H"
 #include "Time.H"
+#include "OSspecific.H"
+#include "PstreamReduceOps.H"
+#include "addToMemberFunctionSelectionTable.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -54,10 +54,19 @@ namespace functionEntries
         execute,
         primitiveEntryIstream
     );
-
 }
 }
 
+
+const Foam::wordList Foam::functionEntries::codeStream::codeKeys
+(
+    {"code", "codeInclude", "localCode"}
+);
+
+const Foam::wordList Foam::functionEntries::codeStream::codeDictVars
+(
+    {"dict", word::null, word::null}
+);
 
 const Foam::word Foam::functionEntries::codeStream::codeTemplateC =
     "codeStreamTemplate.C";
@@ -65,104 +74,66 @@ const Foam::word Foam::functionEntries::codeStream::codeTemplateC =
 
 // * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
 
-Foam::dlLibraryTable& Foam::functionEntries::codeStream::libs
-(
-    const dictionary& dict
-)
-{
-    const baseIOdictionary& d = static_cast<const baseIOdictionary&>
-    (
-        dict.topDict()
-    );
-    return const_cast<Time&>(d.time()).libs();
-}
-
-
-bool Foam::functionEntries::codeStream::doingMasterOnlyReading
+bool Foam::functionEntries::codeStream::masterOnlyRead
 (
     const dictionary& dict
 )
 {
     const dictionary& topDict = dict.topDict();
 
-    if (isA<baseIOdictionary>(topDict))
+    if (debug)
     {
-        const baseIOdictionary& d = static_cast<const baseIOdictionary&>
-        (
-            topDict
-        );
-
-        if (debug)
-        {
-            Pout<< "codeStream : baseIOdictionary:" << dict.name()
-                << " master-only-reading:" << d.global()
-                << endl;
-        }
-
-        return d.global();
+        Pout<< "codeStream : dictionary:" << dict.name()
+            << " master-only-reading:" << topDict.global()
+            << endl;
     }
-    else
-    {
-        if (debug)
-        {
-            Pout<< "codeStream : not a baseIOdictionary:" << dict.name()
-                << " master-only-reading:" << false
-                << endl;
-        }
 
-        // Fall back to false
-        return false;
-    }
+    return topDict.global();
 }
 
 
 Foam::functionEntries::codeStream::streamingFunctionType
 Foam::functionEntries::codeStream::getFunction
 (
-    const dictionary& parentDict,
+    const dictionary& contextDict,
     const dictionary& codeDict
 )
 {
-    // get code, codeInclude, ...
-    dynamicCodeContext context(codeDict, {"code", "codeInclude", "localCode"});
+    // Get code, codeInclude, ...
+    const dynamicCodeContext context
+    (
+        contextDict,
+        codeDict,
+        codeKeys,
+        codeDictVars
+    );
 
     // codeName: codeStream + _<sha1>
     // codeDir : _<sha1>
-    std::string sha1Str(context.sha1().str(true));
+    const std::string sha1Str(context.sha1().str(true));
     dynamicCode dynCode("codeStream" + sha1Str, sha1Str);
 
     // Load library if not already loaded
     // Version information is encoded in the libPath (encoded with the SHA1)
     const fileName libPath = dynCode.libPath();
 
-    // see if library is loaded
-    void* lib = nullptr;
+    // See if library is loaded
+    void* lib = libs.findLibrary(libPath);
 
-    const dictionary& topDict = parentDict.topDict();
-    if (isA<baseIOdictionary>(topDict))
-    {
-        lib = libs(parentDict).findLibrary(libPath);
-    }
-
-    if (!lib)
+    if (debug && !lib)
     {
         Info<< "Using #codeStream with " << libPath << endl;
     }
 
-
-    // nothing loaded
+    // Nothing loaded
     // avoid compilation if possible by loading an existing library
     if (!lib)
     {
-        if (isA<baseIOdictionary>(topDict))
+        // Cached access to dl libs.
+        // Guarantees clean up upon destruction of Time.
+        if (libs.open(libPath, false))
         {
-            // Cached access to dl libs. Guarantees clean up upon destruction
-            // of Time.
-            dlLibraryTable& dlLibs = libs(parentDict);
-            if (dlLibs.open(libPath, false))
-            {
-                lib = dlLibs.findLibrary(libPath);
-            }
+            lib = libs.findLibrary(libPath);
         }
         else
         {
@@ -171,11 +142,10 @@ Foam::functionEntries::codeStream::getFunction
         }
     }
 
-
-    // create library if required
+    // Create library if required
     if (!lib)
     {
-        bool create =
+        const bool create =
             Pstream::master()
          || (regIOobject::fileModificationSkew <= 0);   // not NFS
 
@@ -183,13 +153,13 @@ Foam::functionEntries::codeStream::getFunction
         {
             if (!dynCode.upToDate(context))
             {
-                // filter with this context
+                // Filter with this context
                 dynCode.reset(context);
 
-                // compile filtered C template
+                // Compile filtered C template
                 dynCode.addCompileFile(codeTemplateC);
 
-                // define Make/options
+                // Define Make/options
                 dynCode.setMakeOptions
                 (
                     "EXE_INC = -g \\\n"
@@ -203,7 +173,7 @@ Foam::functionEntries::codeStream::getFunction
                 {
                     FatalIOErrorInFunction
                     (
-                        parentDict
+                        contextDict
                     )   << "Failed writing files for" << nl
                         << dynCode.libRelPath() << nl
                         << exit(FatalIOError);
@@ -214,24 +184,23 @@ Foam::functionEntries::codeStream::getFunction
             {
                 FatalIOErrorInFunction
                 (
-                    parentDict
+                    contextDict
                 )   << "Failed wmake " << dynCode.libRelPath() << nl
                     << exit(FatalIOError);
             }
         }
 
-        //- Only block if we're not doing master-only reading. (flag set by
-        //  regIOobject::read, baseIOdictionary constructor)
+        // Only block if not master only reading of a global dictionary
         if
         (
-           !doingMasterOnlyReading(topDict)
+           !masterOnlyRead(contextDict)
          && regIOobject::fileModificationSkew > 0
         )
         {
-            //- Since the library has only been compiled on the master the
-            //  other nodes need to pick this library up through NFS
-            //  We do this by just polling a few times using the
-            //  fileModificationSkew.
+            // Since the library has only been compiled on the master the
+            // other nodes need to pick this library up through NFS
+            // We do this by just polling a few times using the
+            // fileModificationSkew.
 
             off_t mySize = Foam::fileSize(libPath);
             off_t masterSize = mySize;
@@ -266,7 +235,7 @@ Foam::functionEntries::codeStream::getFunction
                 {
                     FatalIOErrorInFunction
                     (
-                        parentDict
+                        contextDict
                     )   << "Cannot read (NFS mounted) library " << nl
                         << libPath << nl
                         << "on processor " << Pstream::myProcNo()
@@ -289,29 +258,14 @@ Foam::functionEntries::codeStream::getFunction
             }
         }
 
-        if (isA<baseIOdictionary>(topDict))
+        if (libs.open(libPath, false))
         {
-            // Cached access to dl libs. Guarantees clean up upon destruction
-            // of Time.
-            dlLibraryTable& dlLibs = libs(parentDict);
-
             if (debug)
             {
                 Pout<< "Opening cached dictionary:" << libPath << endl;
             }
 
-            if (!dlLibs.open(libPath, false))
-            {
-                FatalIOErrorInFunction
-                (
-                    parentDict
-                )   << "Failed loading library " << libPath << nl
-                    << "Did you add all libraries to the 'libs' entry"
-                    << " in system/controlDict?"
-                    << exit(FatalIOError);
-            }
-
-            lib = dlLibs.findLibrary(libPath);
+            lib = libs.findLibrary(libPath);
         }
         else
         {
@@ -320,12 +274,24 @@ Foam::functionEntries::codeStream::getFunction
             {
                 Pout<< "Opening uncached dictionary:" << libPath << endl;
             }
+
             lib = dlOpen(libPath, true);
         }
     }
 
+    if (!lib)
+    {
+        FatalIOErrorInFunction
+        (
+            contextDict
+        )   << "Failed loading library " << libPath << nl
+            << "Did you add all libraries to the 'libs' entry"
+            << " in system/controlDict?"
+            << exit(FatalIOError);
+    }
+
     bool haveLib = lib;
-    if (!doingMasterOnlyReading(topDict))
+    if (!masterOnlyRead(contextDict))
     {
         reduce(haveLib, andOp<bool>());
     }
@@ -334,7 +300,7 @@ Foam::functionEntries::codeStream::getFunction
     {
         FatalIOErrorInFunction
         (
-            parentDict
+            contextDict
         )   << "Failed loading library " << libPath
             << " on some processors."
             << exit(FatalIOError);
@@ -342,7 +308,7 @@ Foam::functionEntries::codeStream::getFunction
 
 
     // Find the function handle in the library
-    streamingFunctionType function =
+    const streamingFunctionType function =
         reinterpret_cast<streamingFunctionType>
         (
             dlSym(lib, dynCode.codeName())
@@ -353,7 +319,7 @@ Foam::functionEntries::codeStream::getFunction
     {
         FatalIOErrorInFunction
         (
-            parentDict
+            contextDict
         )   << "Failed looking up symbol " << dynCode.codeName()
             << " in library " << lib << exit(FatalIOError);
     }
@@ -364,28 +330,31 @@ Foam::functionEntries::codeStream::getFunction
 
 Foam::string Foam::functionEntries::codeStream::run
 (
-    const dictionary& parentDict,
+    const dictionary& contextDict,
     Istream& is
 )
 {
-    Info<< "Using #codeStream at line " << is.lineNumber()
-        << " in file " <<  parentDict.name() << endl;
+    if (debug)
+    {
+        Info<< "Using #codeStream at line " << is.lineNumber()
+            << " in file " <<  contextDict.name() << endl;
+    }
 
     dynamicCode::checkSecurity
     (
         "functionEntries::codeStream::execute(..)",
-        parentDict
+        contextDict
     );
 
-    // get code dictionary
-    // must reference parent for stringOps::expand to work nicely
-    dictionary codeDict("#codeStream", parentDict, is);
+    // Construct codeDict for codeStream
+    // Parent dictionary provided for string expansion and variable substitution
+    const dictionary codeDict("#codeStream", contextDict, is);
 
-    streamingFunctionType function = getFunction(parentDict, codeDict);
+    const streamingFunctionType function = getFunction(contextDict, codeDict);
 
-    // use function to write stream
+    // Use function to write stream
     OStringStream os(is.format());
-    (*function)(os, parentDict);
+    (*function)(os, contextDict);
 
     // Return the string containing the results of the code execution
     return os.str();
@@ -396,22 +365,22 @@ Foam::string Foam::functionEntries::codeStream::run
 
 bool Foam::functionEntries::codeStream::execute
 (
-    dictionary& parentDict,
+    dictionary& contextDict,
     Istream& is
 )
 {
-    return insert(parentDict, run(parentDict, is));
+    return insert(contextDict, run(contextDict, is));
 }
 
 
 bool Foam::functionEntries::codeStream::execute
 (
-    const dictionary& parentDict,
+    const dictionary& contextDict,
     primitiveEntry& thisEntry,
     Istream& is
 )
 {
-    return insert(parentDict, thisEntry, run(parentDict, is));
+    return insert(contextDict, thisEntry, run(contextDict, is));
 }
 
 

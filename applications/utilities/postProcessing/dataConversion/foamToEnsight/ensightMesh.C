@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -34,7 +34,7 @@ License
 #include "IOmanip.H"
 #include "itoa.H"
 #include "globalIndex.H"
-#include "mapDistribute.H"
+#include "distributionMap.H"
 #include "stringListOps.H"
 
 #include "ensightBinaryStream.H"
@@ -261,7 +261,7 @@ void Foam::ensightMesh::correct()
     // faceZones
     if (faceZones_)
     {
-        wordList faceZoneNamesAll = mesh_.faceZones().names();
+        wordList faceZoneNamesAll = mesh_.faceZones().toc();
         // Need to sort the list of all face zones since the index may vary
         // from processor to processor...
         sort(faceZoneNamesAll);
@@ -305,7 +305,7 @@ void Foam::ensightMesh::correct()
         forAll(faceZoneNamesAll, zoneI)
         {
             const word& zoneName = faceZoneNamesAll[zoneI];
-            const label faceZoneId = mesh_.faceZones().findZoneID(zoneName);
+            const label faceZoneId = mesh_.faceZones().findIndex(zoneName);
 
             const faceZone& fz = mesh_.faceZones()[faceZoneId];
 
@@ -361,7 +361,7 @@ void Foam::ensightMesh::correct()
         {
             const word& zoneName = faceZoneNamesAll[zoneI];
             nFacePrimitives nfp;
-            const label faceZoneId = mesh_.faceZones().findZoneID(zoneName);
+            const label faceZoneId = mesh_.faceZones().findIndex(zoneName);
 
             if (faceZoneNames_.found(zoneName))
             {
@@ -1249,7 +1249,7 @@ void Foam::ensightMesh::write
     {
         const word& faceZoneName = iter.key();
 
-        label faceID = mesh_.faceZones().findZoneID(faceZoneName);
+        label faceID = mesh_.faceZones().findIndex(faceZoneName);
 
         const faceZone& fz = mesh_.faceZones()[faceID];
 
@@ -1267,8 +1267,8 @@ void Foam::ensightMesh::write
             autoPtr<globalIndex> globalPointsPtr =
                 mesh_.globalData().mergePoints
                 (
-                    fz().meshPoints(),
-                    fz().meshPointMap(),
+                    fz.patch().meshPoints(),
+                    fz.patch().meshPointMap(),
                     pointToGlobal,
                     uniqueMeshPointLabels
                 );
@@ -1277,7 +1277,7 @@ void Foam::ensightMesh::write
 
             // Find the list of master faces belonging to the faceZone,
             // in local numbering
-            faceList faceZoneFaces(fz().localFaces());
+            faceList faceZoneFaces(fz.patch().localFaces());
 
             // Count how many master faces belong to the faceZone. Is there
             // a better way of doing this?

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -37,6 +37,7 @@ SourceFiles
 
 #include "IOdictionary.H"
 #include "scalarField.H"
+#include "fluidMulticomponentThermo.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -44,7 +45,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                      Class chemistrySolver Declaration
+                       Class chemistrySolver Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class ChemistryModel>
@@ -58,7 +59,7 @@ public:
     // Constructors
 
         //- Construct from thermo
-        chemistrySolver(const typename ChemistryModel::reactionThermo& thermo);
+        chemistrySolver(const fluidMulticomponentThermo& thermo);
 
 
     //- Destructor

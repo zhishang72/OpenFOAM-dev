@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -78,8 +78,8 @@ Usage
       - \par -noLinks
         (in parallel) do not link processor files to master
 
-      - \par poly
-        write polyhedral cells without tet/pyramid decomposition
+      - \par -polyhedra
+        Which cell types to write as polyhedra - 'none', 'polyhedra', or 'all'
 
       - \par -allPatches
         Combine all patches into a single file
@@ -96,61 +96,62 @@ Usage
       - \par -useTimeName
         use the time index in the VTK file name instead of the time index
 
-Note
-    mesh subset is handled by vtkMesh. Slight inconsistency in
-    interpolation: on the internal field it interpolates the whole volField
-    to the whole-mesh pointField and then selects only those values it
-    needs for the subMesh (using the fvMeshSubset cellMap(), pointMap()
-    functions). For the patches however it uses the
-    fvMeshSubset.interpolate function to directly interpolate the
-    whole-mesh values onto the subset patch.
+    Note:
+        mesh subset is handled by vtkMesh. Slight inconsistency in
+        interpolation: on the internal field it interpolates the whole volField
+        to the whole-mesh pointField and then selects only those values it
+        needs for the subMesh (using the fvMeshSubset cellMap(), pointMap()
+        functions). For the patches however it uses the
+        fvMeshSubset.interpolate function to directly interpolate the
+        whole-mesh values onto the subset patch.
 
-Note
-    \par new file format:
-    no automatic timestep recognition.
-    However can have .pvd file format which refers to time simulation
-    if XML *.vtu files are available:
+        \par new file format:
+        no automatic timestep recognition.
+        However can have .pvd file format which refers to time simulation
+        if XML *.vtu files are available:
 
-    \verbatim
-      <?xml version="1.0"?>
-      <VTKFile type="Collection"
-           version="0.1"
-           byte_order="LittleEndian"
-           compressor="vtkZLibDataCompressor">
-        <Collection>
-          <DataSet timestep="50" file="pitzDaily_2.vtu"/>
-          <DataSet timestep="100" file="pitzDaily_3.vtu"/>
-          <DataSet timestep="150" file="pitzDaily_4.vtu"/>
-          <DataSet timestep="200" file="pitzDaily_5.vtu"/>
-          <DataSet timestep="250" file="pitzDaily_6.vtu"/>
-          <DataSet timestep="300" file="pitzDaily_7.vtu"/>
-          <DataSet timestep="350" file="pitzDaily_8.vtu"/>
-          <DataSet timestep="400" file="pitzDaily_9.vtu"/>
-          <DataSet timestep="450" file="pitzDaily_10.vtu"/>
-          <DataSet timestep="500" file="pitzDaily_11.vtu"/>
-        </Collection>
-      </VTKFile>
-    \endverbatim
+        \verbatim
+          <?xml version="1.0"?>
+          <VTKFile type="Collection"
+               version="0.1"
+               byte_order="LittleEndian"
+               compressor="vtkZLibDataCompressor">
+            <Collection>
+              <DataSet timestep="50" file="pitzDaily_2.vtu"/>
+              <DataSet timestep="100" file="pitzDaily_3.vtu"/>
+              <DataSet timestep="150" file="pitzDaily_4.vtu"/>
+              <DataSet timestep="200" file="pitzDaily_5.vtu"/>
+              <DataSet timestep="250" file="pitzDaily_6.vtu"/>
+              <DataSet timestep="300" file="pitzDaily_7.vtu"/>
+              <DataSet timestep="350" file="pitzDaily_8.vtu"/>
+              <DataSet timestep="400" file="pitzDaily_9.vtu"/>
+              <DataSet timestep="450" file="pitzDaily_10.vtu"/>
+              <DataSet timestep="500" file="pitzDaily_11.vtu"/>
+            </Collection>
+          </VTKFile>
+        \endverbatim
 
 \*---------------------------------------------------------------------------*/
 
-#include "fvCFD.H"
+#include "argList.H"
+#include "timeSelector.H"
 #include "pointMesh.H"
 #include "volPointInterpolation.H"
 #include "emptyPolyPatch.H"
+#include "nonConformalPolyPatch.H"
 #include "labelIOField.H"
 #include "scalarIOField.H"
 #include "sphericalTensorIOField.H"
 #include "symmTensorIOField.H"
 #include "tensorIOField.H"
-#include "faceZoneMesh.H"
+#include "faceZoneList.H"
 #include "Cloud.H"
 #include "passiveParticle.H"
 #include "stringListOps.H"
 
 #include "vtkMesh.H"
 #include "readFields.H"
-#include "writeFuns.H"
+#include "vtkWriteOps.H"
 
 #include "internalWriter.H"
 #include "patchWriter.H"
@@ -161,6 +162,7 @@ Note
 #include "surfaceMeshWriter.H"
 #include "writeSurfFields.H"
 
+using namespace Foam;
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -205,12 +207,13 @@ labelList getSelectedPatches
 
         if
         (
-            isType<emptyPolyPatch>(pp)
+            isA<emptyPolyPatch>(pp)
+         || isA<nonConformalPolyPatch>(pp)
          || (Pstream::parRun() && isType<processorPolyPatch>(pp))
         )
         {
-            Info<< "    discarding empty/processor patch " << patchi
-                << " " << pp.name() << endl;
+            Info<< "    discarding empty/nonConformal/processor patch "
+                << patchi << " " << pp.name() << endl;
         }
         else if (findStrings(excludePatches, pp.name()))
         {
@@ -223,6 +226,7 @@ labelList getSelectedPatches
             Info<< "    patch " << patchi << " " << pp.name() << endl;
         }
     }
+
     return patchIDs.shrink();
 }
 
@@ -267,10 +271,11 @@ int main(int argc, char *argv[])
         "ascii",
         "write in ASCII format instead of binary"
     );
-    argList::addBoolOption
+    argList::addOption
     (
-        "poly",
-        "write polyhedral cells without tet/pyramid decomposition"
+        "polyhedra",
+        "types",
+        "cell types to write as polyhedra - 'none', 'polyhedra', or 'all'"
     );
     argList::addBoolOption
     (
@@ -327,9 +332,15 @@ int main(int argc, char *argv[])
     const bool doLinks         = !args.optionFound("noLinks");
     bool binary                = !args.optionFound("ascii");
     const bool useTimeName     = args.optionFound("useTimeName");
-
-    // Decomposition of polyhedral cells into tets/pyramids cells
-    vtkTopo::decomposePoly     = !args.optionFound("poly");
+    const vtkTopo::vtkPolyhedra polyhedra =
+        vtkTopo::vtkPolyhedraNames_
+        [
+            args.optionLookupOrDefault<word>
+            (
+                "polyhedra",
+                vtkTopo::vtkPolyhedraNames_[vtkTopo::vtkPolyhedra::none]
+            )
+        ];
 
     if (binary && (sizeof(floatScalar) != 4 || sizeof(label) != 4))
     {
@@ -391,9 +402,9 @@ int main(int argc, char *argv[])
 
 
 
-    instantList timeDirs = timeSelector::select0(runTime, args);
+    const instantList timeDirs = timeSelector::select0(runTime, args);
 
-    #include "createNamedMesh.H"
+    #include "createRegionMeshNoChangers.H"
 
     // VTK/ directory in the case
     fileName fvPath(runTime.path()/"VTK");
@@ -433,7 +444,7 @@ int main(int argc, char *argv[])
 
 
     // Mesh wrapper; does subsetting and decomposition
-    vtkMesh vMesh(mesh, cellSetName);
+    vtkMesh vMesh(mesh, polyhedra, cellSetName);
 
 
     // Scan for all possible lagrangian clouds
@@ -445,7 +456,7 @@ int main(int argc, char *argv[])
         (
             readDir
             (
-                runTime.timePath()/regionPrefix/cloud::prefix,
+                runTime.timePath()/regionPrefix/lagrangian::cloud::prefix,
                 fileType::directory
             )
         );
@@ -454,8 +465,8 @@ int main(int argc, char *argv[])
             IOobjectList sprayObjs
             (
                 mesh,
-                runTime.timeName(),
-                cloud::prefix/cloudDirs[i]
+                runTime.name(),
+                lagrangian::cloud::prefix/cloudDirs[i]
             );
 
             IOobject* positionsPtr = sprayObjs.lookup(word("positions"));
@@ -464,7 +475,7 @@ int main(int argc, char *argv[])
             {
                 if (allCloudDirs.insert(cloudDirs[i]))
                 {
-                    Info<< "At time: " << runTime.timeName()
+                    Info<< "At time: " << runTime.name()
                         << " detected cloud directory : " << cloudDirs[i]
                         << endl;
                 }
@@ -477,22 +488,18 @@ int main(int argc, char *argv[])
     {
         runTime.setTime(timeDirs[timeI], timeI);
 
-        Info<< "Time: " << runTime.timeName() << endl;
+        Info<< "Time: " << runTime.name() << endl;
 
         word timeDesc =
-            useTimeName ? runTime.timeName() : Foam::name(runTime.timeIndex());
+            useTimeName ? runTime.name() : Foam::name(runTime.timeIndex());
 
         // Check for new polyMesh/ and update mesh, fvMeshSubset and cell
         // decomposition.
-        polyMesh::readUpdateState meshState = vMesh.readUpdate();
+        fvMesh::readUpdateState meshState = vMesh.readUpdate();
 
         const fvMesh& mesh = vMesh.mesh();
 
-        if
-        (
-            meshState == polyMesh::TOPO_CHANGE
-         || meshState == polyMesh::TOPO_PATCH_CHANGE
-        )
+        if (meshState >= fvMesh::TOPO_CHANGE)
         {
             Info<< "    Read new mesh" << nl << endl;
         }
@@ -547,7 +554,7 @@ int main(int argc, char *argv[])
 
 
         // Search for list of objects for this time
-        IOobjectList objects(mesh, runTime.timeName());
+        IOobjectList objects(mesh, runTime.name());
 
         HashSet<word> selectedFields;
         bool specifiedFields = args.optionReadIfPresent
@@ -746,7 +753,7 @@ int main(int argc, char *argv[])
             internalWriter writer(vMesh, binary, vtkFileName);
 
             // cellID + volFields::Internal + VolFields
-            writeFuns::writeCellDataHeader
+            vtkWriteOps::writeCellDataHeader
             (
                 writer.os(),
                 vMesh.nFieldCells(),
@@ -754,7 +761,7 @@ int main(int argc, char *argv[])
             );
 
             // Write cellID field
-            writer.writeCellIDs();
+            writer.writeCellIndices();
 
             // Write volFields::Internal
             writer.write(visf);
@@ -772,7 +779,7 @@ int main(int argc, char *argv[])
 
             if (!noPointValues)
             {
-                writeFuns::writePointDataHeader
+                vtkWriteOps::writePointDataHeader
                 (
                     writer.os(),
                     vMesh.nFieldPoints(),
@@ -787,7 +794,11 @@ int main(int argc, char *argv[])
                 writer.write(ptf);
 
                 // Interpolated volFields
-                volPointInterpolation pInterp(mesh);
+                const volPointInterpolation& pInterp
+                (
+                    volPointInterpolation::New(mesh)
+                );
+
                 writer.write(pInterp, vsf);
                 writer.write(pInterp, vvf);
                 writer.write(pInterp, vsptf);
@@ -874,6 +885,8 @@ int main(int argc, char *argv[])
 
         const polyBoundaryMesh& patches = mesh.boundaryMesh();
 
+        const labelList patchIDs(getSelectedPatches(patches, excludePatches));
+
         if (allPatches)
         {
             mkDir(fvPath/"allPatches");
@@ -909,7 +922,7 @@ int main(int argc, char *argv[])
             );
 
             // VolFields + patchID
-            writeFuns::writeCellDataHeader
+            vtkWriteOps::writeCellDataHeader
             (
                 writer.os(),
                 writer.nFaces(),
@@ -917,7 +930,7 @@ int main(int argc, char *argv[])
             );
 
             // Write patchID field
-            writer.writePatchIDs();
+            writer.writePatchIndices();
 
             // Write volFields
             writer.write(vsf);
@@ -928,7 +941,7 @@ int main(int argc, char *argv[])
 
             if (!noPointValues)
             {
-                writeFuns::writePointDataHeader
+                vtkWriteOps::writePointDataHeader
                 (
                     writer.os(),
                     writer.nPoints(),
@@ -945,94 +958,88 @@ int main(int argc, char *argv[])
         }
         else
         {
-            forAll(patches, patchi)
+            forAll(patchIDs, i)
             {
-                const polyPatch& pp = patches[patchi];
+                const polyPatch& pp = patches[patchIDs[i]];
 
-                if (!findStrings(excludePatches, pp.name()))
+                mkDir(fvPath/pp.name());
+
+                fileName patchFileName;
+
+                if (vMesh.useSubMesh())
                 {
-                    mkDir(fvPath/pp.name());
+                    patchFileName =
+                        fvPath/pp.name()/cellSetName
+                      + "_"
+                      + timeDesc
+                      + ".vtk";
+                }
+                else
+                {
+                    patchFileName =
+                        fvPath/pp.name()/pp.name()
+                      + "_"
+                      + timeDesc
+                      + ".vtk";
+                }
 
-                    fileName patchFileName;
+                Info<< "    Patch     : " << patchFileName << endl;
 
-                    if (vMesh.useSubMesh())
-                    {
-                        patchFileName =
-                            fvPath/pp.name()/cellSetName
-                          + "_"
-                          + timeDesc
-                          + ".vtk";
-                    }
-                    else
-                    {
-                        patchFileName =
-                            fvPath/pp.name()/pp.name()
-                          + "_"
-                          + timeDesc
-                          + ".vtk";
-                    }
+                patchWriter writer
+                (
+                    vMesh,
+                    binary,
+                    nearCellValue,
+                    patchFileName,
+                    labelList(1, patchIDs[i])
+                );
 
-                    Info<< "    Patch     : " << patchFileName << endl;
+                // VolFields + patchID
+                vtkWriteOps::writeCellDataHeader
+                (
+                    writer.os(),
+                    writer.nFaces(),
+                    1 + nVolFields
+                );
 
-                    patchWriter writer
+                // Write patchID field
+                writer.writePatchIndices();
+
+                // Write volFields
+                writer.write(vsf);
+                writer.write(vvf);
+                writer.write(vsptf);
+                writer.write(vsytf);
+                writer.write(vtf);
+
+                if (!noPointValues)
+                {
+                    vtkWriteOps::writePointDataHeader
                     (
-                        vMesh,
-                        binary,
-                        nearCellValue,
-                        patchFileName,
-                        labelList(1, patchi)
+                        writer.os(),
+                        writer.nPoints(),
+                        nVolFields
+                      + nPointFields
                     );
 
-                    if (!isA<emptyPolyPatch>(pp))
-                    {
-                        // VolFields + patchID
-                        writeFuns::writeCellDataHeader
-                        (
-                            writer.os(),
-                            writer.nFaces(),
-                            1 + nVolFields
-                        );
+                    // Write pointFields
+                    writer.write(psf);
+                    writer.write(pvf);
+                    writer.write(psptf);
+                    writer.write(psytf);
+                    writer.write(ptf);
 
-                        // Write patchID field
-                        writer.writePatchIDs();
+                    PrimitivePatchInterpolation<primitivePatch> pInter
+                    (
+                        pp
+                    );
 
-                        // Write volFields
-                        writer.write(vsf);
-                        writer.write(vvf);
-                        writer.write(vsptf);
-                        writer.write(vsytf);
-                        writer.write(vtf);
-
-                        if (!noPointValues)
-                        {
-                            writeFuns::writePointDataHeader
-                            (
-                                writer.os(),
-                                writer.nPoints(),
-                                nVolFields
-                              + nPointFields
-                            );
-
-                            // Write pointFields
-                            writer.write(psf);
-                            writer.write(pvf);
-                            writer.write(psptf);
-                            writer.write(psytf);
-                            writer.write(ptf);
-
-                            PrimitivePatchInterpolation<primitivePatch> pInter
-                            (
-                                pp
-                            );
-
-                            // Write interpolated volFields
-                            writer.write(pInter, vsf);
-                            writer.write(pInter, vvf);
-                            writer.write(pInter, vsptf);
-                            writer.write(pInter, vsytf);
-                            writer.write(pInter, vtf);
-                        }
-                    }
+                    // Write interpolated volFields
+                    writer.write(pInter, vsf);
+                    writer.write(pInter, vvf);
+                    writer.write(pInter, vsptf);
+                    writer.write(pInter, vsytf);
+                    writer.write(pInter, vtf);
                 }
             }
         }
@@ -1067,7 +1074,7 @@ int main(int argc, char *argv[])
             );
             print("    surfVectorFields  :", Info, svf);
 
-            const faceZoneMesh& zones = mesh.faceZones();
+            const faceZoneList& zones = mesh.faceZones();
 
             forAll(zones, zoneI)
             {
@@ -1111,7 +1118,7 @@ int main(int argc, char *argv[])
                 );
 
                 // Number of fields
-                writeFuns::writeCellDataHeader
+                vtkWriteOps::writeCellDataHeader
                 (
                     writer.os(),
                     pp.size(),
@@ -1136,11 +1143,11 @@ int main(int argc, char *argv[])
             const fileName& cloudName = iter.key();
 
             // Always create the cloud directory.
-            mkDir(fvPath/cloud::prefix/cloudName);
+            mkDir(fvPath/lagrangian::cloud::prefix/cloudName);
 
             fileName lagrFileName
             (
-                fvPath/cloud::prefix/cloudName/cloudName
+                fvPath/lagrangian::cloud::prefix/cloudName/cloudName
               + "_" + timeDesc + ".vtk"
             );
 
@@ -1150,8 +1157,8 @@ int main(int argc, char *argv[])
             IOobjectList sprayObjs
             (
                 mesh,
-                runTime.timeName(),
-                cloud::prefix/cloudName
+                runTime.name(),
+                lagrangian::cloud::prefix/cloudName
             );
 
             IOobject* positionsPtr = sprayObjs.lookup(word("positions"));
@@ -1204,7 +1211,7 @@ int main(int argc, char *argv[])
                 );
 
                 // Write number of fields
-                writer.writeParcelHeader
+                writer.writeFieldsHeader
                 (
                     labelNames.size()
                   + scalarNames.size()
@@ -1234,7 +1241,7 @@ int main(int argc, char *argv[])
                 );
 
                 // Write number of fields
-                writer.writeParcelHeader(0);
+                writer.writeFieldsHeader(0);
             }
         }
     }
@@ -1248,10 +1255,10 @@ int main(int argc, char *argv[])
 
     if (Pstream::parRun() && doLinks)
     {
-        mkDir(runTime.path()/".."/"VTK");
-        chDir(runTime.path()/".."/"VTK");
+        mkDir(runTime.globalPath()/"VTK");
+        chDir(runTime.globalPath()/"VTK");
 
-        Info<< "Linking all processor files to " << runTime.path()/".."/"VTK"
+        Info<< "Linking all processor files to " << runTime.globalPath()/"VTK"
             << endl;
 
         // Get list of vtk files
@@ -1277,21 +1284,14 @@ int main(int argc, char *argv[])
 
                 if (exists(procFile))
                 {
-                    string cmd
+                    ln
                     (
-                        "ln -s "
-                      + procFile
-                      + " "
-                      + "processor"
+                        procFile,
+                        "processor"
                       + name(Pstream::myProcNo())
                       + "_"
                       + procFile.name()
                     );
-                    if (system(cmd.c_str()) == -1)
-                    {
-                        WarningInFunction
-                            << "Could not execute command " << cmd << endl;
-                    }
                 }
             }
         }

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -35,6 +35,10 @@ Description
         Split the near-wall cells of patch Wall in the middle
             refineWallLayer "(Wall)" 0.5
 
+        Split the near-wall cells of patch Wall in the middle
+        within the cellSet box
+            refineWallLayer "(Wall)" 0.5 -inSet box
+
         Split the near-wall cells of patches Wall1 and Wall2 in the middle
             refineWallLayer "(Wall1 Wall2)" 0.5
 
@@ -58,6 +62,7 @@ using namespace Foam;
 int main(int argc, char *argv[])
 {
     #include "addOverwriteOption.H"
+    #include "addOverwriteOption.H"
     #include "addRegionOption.H"
     argList::noParallel();
     argList::validArgs.append("patches");
@@ -65,19 +70,18 @@ int main(int argc, char *argv[])
 
     argList::addOption
     (
-        "useSet",
+        "inSet",
         "name",
-        "restrict cells to refine based on specified cellSet name"
+        "Restrict cells to refine to those in specified cellSet"
     );
 
     #include "setRootCase.H"
-    #include "createTime.H"
-    runTime.functionObjects().off();
+    #include "createTimeNoFunctionObjects.H"
 
     Foam::word meshRegionName = polyMesh::defaultRegion;
     args.optionReadIfPresent("region", meshRegionName);
 
-    #include "createNamedPolyMesh.H"
+    #include "createSpecifiedPolyMesh.H"
     const word oldInstance = mesh.pointsInstance();
 
     // Find set of patches from the list of regular expressions provided
@@ -119,7 +123,7 @@ int main(int argc, char *argv[])
 
         forAll(meshPoints, pointi)
         {
-            label meshPointi = meshPoints[pointi];
+            const label meshPointi = meshPoints[pointi];
 
             const labelList& pCells = mesh.pointCells()[meshPointi];
 
@@ -130,25 +134,25 @@ int main(int argc, char *argv[])
         }
     }
 
-    // Edit list of cells to refine according to specified set
     word setName;
-    if (args.optionReadIfPresent("useSet", setName))
+    if (args.optionReadIfPresent("inSet", setName))
     {
-        Info<< "Subsetting cells to cut based on cellSet"
-            << setName << nl << endl;
+        Info<< "Restrict cells to refine to those in cellSet "
+            << setName << endl;
 
-        cellSet cells(mesh, setName);
+        const cellSet cellsToRefine(mesh, setName);
 
-        Info<< "Read " << cells.size() << " cells from cellSet "
-            << cells.instance()/cells.local()/cells.name()
+        Info<< "    Read " << cellsToRefine.size()
+            << " cells from cellSet " << cellsToRefine.relativeObjectPath()
             << nl << endl;
 
-        forAllConstIter(cellSet, cells, iter)
+        forAllIter(labelHashSet, cutCells, iter)
         {
-            cutCells.erase(iter.key());
+            if (!cellsToRefine.found(iter.key()))
+            {
+                cutCells.erase(iter);
+            }
         }
-        Info<< "Removed from cells to cut all the ones not in set "
-            << setName << nl << endl;
     }
 
     // Mark all mesh points on patch
@@ -172,7 +176,7 @@ int main(int argc, char *argv[])
 
         forAll(meshPoints, pointi)
         {
-            label meshPointi = meshPoints[pointi];
+            const label meshPointi = meshPoints[pointi];
 
             const labelList& pEdges = mesh.pointEdges()[meshPointi];
 
@@ -236,15 +240,10 @@ int main(int argc, char *argv[])
         runTime++;
     }
 
-    autoPtr<mapPolyMesh> morphMap = meshMod.changeMesh(mesh, false);
-
-    if (morphMap().hasMotionPoints())
-    {
-        mesh.movePoints(morphMap().preMotionPoints());
-    }
+    autoPtr<polyTopoChangeMap> map = meshMod.changeMesh(mesh);
 
     // Update stored labels on meshCutter.
-    cutter.updateMesh(morphMap());
+    cutter.topoChange(map());
 
     Info<< "Finished refining" << endl;
 
@@ -254,7 +253,7 @@ int main(int argc, char *argv[])
     }
 
     // Write resulting mesh
-    Info<< "Writing refined mesh to time " << runTime.timeName() << endl;
+    Info<< "Writing refined mesh to time " << runTime.name() << endl;
 
     mesh.write();
 

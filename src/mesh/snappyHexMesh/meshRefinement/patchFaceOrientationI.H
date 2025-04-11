@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -23,8 +23,6 @@ License
 
 \*---------------------------------------------------------------------------*/
 
-#include "polyMesh.H"
-#include "transform.H"
 #include "orientedSurface.H"
 
 // * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
@@ -89,7 +87,7 @@ inline bool Foam::patchFaceOrientation::updateEdge
 (
     const polyMesh& mesh,
     const indirectPrimitivePatch& patch,
-    const label edgeI,
+    const label edgei,
     const label facei,
     const patchFaceOrientation& faceInfo,
     const scalar tol,
@@ -102,11 +100,7 @@ inline bool Foam::patchFaceOrientation::updateEdge
     }
 
     const face& f = patch.localFaces()[facei];
-    const edge& e = patch.edges()[edgeI];
-
-    // Pout<< "Updating edge:" << edgeI << " verts:" << e << nl
-    //    << "    start:" << patch.localPoints()[e[0]] << nl
-    //    << "      end:" << patch.localPoints()[e[1]] << endl;
+    const edge& e = patch.edges()[edgei];
 
     patchFaceOrientation consistentInfo(faceInfo);
 
@@ -118,6 +112,7 @@ inline bool Foam::patchFaceOrientation::updateEdge
     }
 
     operator=(consistentInfo);
+
     return true;
 }
 
@@ -127,7 +122,7 @@ inline bool Foam::patchFaceOrientation::updateEdge
 (
     const polyMesh& mesh,
     const indirectPrimitivePatch& patch,
-    const patchFaceOrientation& edgeInfo,
+    const patchFaceOrientation& edgeinfo,
     const bool sameOrientation,
     const scalar tol,
     TrackingData& td
@@ -138,8 +133,8 @@ inline bool Foam::patchFaceOrientation::updateEdge
         return false;
     }
 
-    // Create (flipped/unflipped) version of edgeInfo
-    patchFaceOrientation consistentInfo(edgeInfo);
+    // Create (flipped/unflipped) version of edgeinfo
+    patchFaceOrientation consistentInfo(edgeinfo);
 
     if (!sameOrientation)
     {
@@ -147,6 +142,7 @@ inline bool Foam::patchFaceOrientation::updateEdge
     }
 
     operator=(consistentInfo);
+
     return true;
 }
 
@@ -157,8 +153,8 @@ inline bool Foam::patchFaceOrientation::updateFace
     const polyMesh& mesh,
     const indirectPrimitivePatch& patch,
     const label facei,
-    const label edgeI,
-    const patchFaceOrientation& edgeInfo,
+    const label edgei,
+    const patchFaceOrientation& edgeinfo,
     const scalar tol,
     TrackingData& td
 )
@@ -170,18 +166,10 @@ inline bool Foam::patchFaceOrientation::updateFace
 
     // Transfer flip to face
     const face& f = patch.localFaces()[facei];
-    const edge& e = patch.edges()[edgeI];
+    const edge& e = patch.edges()[edgei];
 
-
-    // Pout<< "Updating face:" << facei << nl
-    //    << "    verts:" << f << nl
-    //    << " with edge:" << edgeI << nl
-    //    << "    start:" << patch.localPoints()[e[0]] << nl
-    //    << "      end:" << patch.localPoints()[e[1]] << endl;
-
-
-    // Create (flipped/unflipped) version of edgeInfo
-    patchFaceOrientation consistentInfo(edgeInfo);
+    // Create (flipped/unflipped) version of edgeinfo
+    patchFaceOrientation consistentInfo(edgeinfo);
 
     if (f.edgeDirection(e) > 0)
     {
@@ -189,6 +177,7 @@ inline bool Foam::patchFaceOrientation::updateFace
     }
 
     operator=(consistentInfo);
+
     return true;
 }
 

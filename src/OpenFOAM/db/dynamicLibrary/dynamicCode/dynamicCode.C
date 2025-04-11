@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -126,15 +126,44 @@ void Foam::dynamicCode::copyAndFilter
     string line;
     do
     {
-        is.getLine(line);
+        // Read the next line without continuation
+        is.getLine(line, false);
 
         // Expand according to mapping.
         // Expanding according to env variables might cause too many
         // surprises
-        stringOps::inplaceExpand(line, mapping);
+        stringOps::inplaceExpandCodeTemplate(line, mapping);
         os.writeQuoted(line, false) << nl;
     }
     while (is.good());
+}
+
+
+Foam::fileName Foam::dynamicCode::resolveTemplate
+(
+    const fileName& templateName
+)
+{
+    // Try to get template from FOAM_CODESTREAM_TEMPLATES
+    const fileName templateDir(Foam::getEnv(codeTemplateEnvName));
+
+    fileName file;
+    if (!templateDir.empty() && isDir(templateDir))
+    {
+        file = templateDir/templateName;
+        if (!isFile(file, false, false))
+        {
+            file.clear();
+        }
+    }
+
+    // Not found - fallback to ~OpenFOAM expansion
+    if (file.empty())
+    {
+        file = findEtcFile(codeTemplateDirName/templateName);
+    }
+
+    return file;
 }
 
 
@@ -190,8 +219,8 @@ bool Foam::dynamicCode::writeCommentSHA1(Ostream& os) const
 
     if (hasSHA1)
     {
-        os  << "/* dynamicCode:\n * SHA1 = ";
-        os.writeQuoted(filterVars_["SHA1sum"], false) << "\n */\n";
+        os  << "# dynamicCode:\n# SHA1 = ";
+        os.writeQuoted(filterVars_["SHA1sum"], false) << "\n\n";
     }
 
     return hasSHA1;
@@ -225,7 +254,7 @@ bool Foam::dynamicCode::createMakeFiles() const
     // Write compile files
     forAll(compileFiles_, fileI)
     {
-        os.writeQuoted(compileFiles_[fileI], false) << nl;
+        os.writeQuoted(compileFiles_[fileI].name(), false) << nl;
     }
 
     os  << nl
@@ -293,8 +322,8 @@ bool Foam::dynamicCode::writeDigest(const std::string& sha1) const
 
 Foam::dynamicCode::dynamicCode(const word& codeName, const word& codeDirName)
 :
-    codeRoot_(stringOps::expand("$FOAM_CASE")/topDirName),
-    libSubDir_(stringOps::expand("platforms/$WM_OPTIONS/lib")),
+    codeRoot_(stringOps::expandEnvVar("$FOAM_CASE")/topDirName),
+    libSubDir_(stringOps::expandEnvVar("platforms/$WM_OPTIONS/lib")),
     codeName_(codeName),
     codeDirName_(codeDirName)
 {
@@ -430,7 +459,9 @@ bool Foam::dynamicCode::copyOrCreateFiles(const bool verbose) const
     forAll(resolvedFiles, fileI)
     {
         const fileName& srcFile = resolvedFiles[fileI];
-        const fileName  dstFile(outputDir/srcFile.name());
+        const fileName dstFile(outputDir/srcFile.name());
+
+        Info << srcFile << " " << dstFile << endl;
 
         IFstream is(srcFile);
         // Info<< "Reading from " << is.name() << endl;
@@ -460,7 +491,7 @@ bool Foam::dynamicCode::copyOrCreateFiles(const bool verbose) const
     {
         const fileName dstFile
         (
-            outputDir/stringOps::expand(createFiles_[fileI].first())
+            outputDir/stringOps::expandEnvVar(createFiles_[fileI].first())
         );
 
         mkDir(dstFile.path());

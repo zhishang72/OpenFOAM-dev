@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2015-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2015-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -31,43 +31,17 @@ template<class Type>
 Foam::fixedProfileFvPatchField<Type>::fixedProfileFvPatchField
 (
     const fvPatch& p,
-    const DimensionedField<Type, volMesh>& iF
-)
-:
-    fixedValueFvPatchField<Type>(p, iF),
-    profile_(),
-    origin_(0),
-    direction_(Zero)
-{}
-
-
-template<class Type>
-Foam::fixedProfileFvPatchField<Type>::fixedProfileFvPatchField
-(
-    const fvPatch& p,
-    const DimensionedField<Type, volMesh>& iF,
-    const Field<Type>& fld
-)
-:
-    fixedValueFvPatchField<Type>(p, iF, fld),
-    profile_(),
-    origin_(0),
-    direction_(Zero)
-{}
-
-
-template<class Type>
-Foam::fixedProfileFvPatchField<Type>::fixedProfileFvPatchField
-(
-    const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
     const dictionary& dict
 )
 :
     fixedValueFvPatchField<Type>(p, iF, dict, false),
-    profile_(Function1<Type>::New("profile", dict)),
-    origin_(dict.lookup<scalar>("origin")),
-    direction_(dict.lookup("direction"))
+    profile_
+    (
+        Function1<Type>::New("profile", dimLength, iF.dimensions(), dict)
+    ),
+    origin_(dict.lookup<scalar>("origin", dimLength)),
+    direction_(dict.lookup<vector>("direction", dimless))
 {
     if (mag(direction_) == 0)
     {
@@ -90,7 +64,7 @@ Foam::fixedProfileFvPatchField<Type>::fixedProfileFvPatchField
     const fixedProfileFvPatchField<Type>& ptf,
     const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     fixedValueFvPatchField<Type>(p, iF), // Don't map
@@ -101,19 +75,6 @@ Foam::fixedProfileFvPatchField<Type>::fixedProfileFvPatchField
     // Evaluate profile since value not mapped
     this->evaluate();
 }
-
-
-template<class Type>
-Foam::fixedProfileFvPatchField<Type>::fixedProfileFvPatchField
-(
-    const fixedProfileFvPatchField<Type>& ptf
-)
-:
-    fixedValueFvPatchField<Type>(ptf),
-    profile_(ptf.profile_, false),
-    origin_(ptf.origin_),
-    direction_(ptf.direction_)
-{}
 
 
 template<class Type>

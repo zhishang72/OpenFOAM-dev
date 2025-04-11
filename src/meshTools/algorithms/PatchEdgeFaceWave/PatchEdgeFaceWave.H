@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -40,7 +40,7 @@ SourceFiles
 #include "scalarField.H"
 #include "PackedBoolList.H"
 #include "PrimitivePatch.H"
-#include "vectorTensorTransform.H"
+#include "transformer.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -58,29 +58,25 @@ TemplateName(PatchEdgeFaceWave);
 
 
 /*---------------------------------------------------------------------------*\
-                           Class PatchEdgeFaceWave Declaration
+                      Class PatchEdgeFaceWave Declaration
 \*---------------------------------------------------------------------------*/
 
 template
 <
     class PrimitivePatchType,
     class Type,
-    class TrackingData = label
+    class TrackingData = int
 >
 class PatchEdgeFaceWave
 :
     public PatchEdgeFaceWaveName
 {
-  // Private static data
+    // Private static data
 
         //- Relative tolerance. Stop propagation if relative changes
         //  less than this tolerance (responsibility for checking this is
         //  up to Type implementation)
         static scalar propagationTol_;
-
-        //- Used as default trackdata value to satisfy default template
-        //  argument.
-        static label dummyTrackData_;
 
 
     // Private Data
@@ -132,7 +128,7 @@ class PatchEdgeFaceWave
         //  statistics.
         bool updateEdge
         (
-            const label edgeI,
+            const label edgei,
             const label neighbourFacei,
             const Type& neighbourInfo,
             Type& edgeInfo
@@ -153,6 +149,12 @@ class PatchEdgeFaceWave
 
 
 public:
+
+    // Static Data
+
+        //- Default tracking data to go with default template argument
+        static int defaultTrackingData_;
+
 
     // Static Functions
 
@@ -185,7 +187,7 @@ public:
             UList<Type>& allEdgeInfo,
             UList<Type>& allFaceInfo,
             const label maxIter,
-            TrackingData& td = dummyTrackData_
+            TrackingData& td = defaultTrackingData_
         );
 
         //- Construct from patch. Use setEdgeInfo and iterate() to do
@@ -196,7 +198,7 @@ public:
             const PrimitivePatchType& patch,
             UList<Type>& allEdgeInfo,
             UList<Type>& allFaceInfo,
-            TrackingData& td = dummyTrackData_
+            TrackingData& td = defaultTrackingData_
         );
 
         //- Disallow default bitwise copy construction
@@ -333,7 +335,7 @@ public:
 
     void operator()
     (
-        const vectorTensorTransform& vt,
+        const transformer& vt,
         const bool forward,
         List<Type>& fld
     ) const
@@ -342,14 +344,14 @@ public:
         {
             forAll(fld, i)
             {
-                fld[i].transform(mesh_, patch_, vt.R(), tol_, td_);
+                fld[i].transform(mesh_, patch_, vt.T(), tol_, td_);
             }
         }
         else
         {
             forAll(fld, i)
             {
-                fld[i].transform(mesh_, patch_, vt.R().T(), tol_, td_);
+                fld[i].transform(mesh_, patch_, vt.T().T(), tol_, td_);
             }
         }
     }

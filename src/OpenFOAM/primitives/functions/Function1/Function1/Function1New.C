@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,79 +25,166 @@ License
 
 #include "Constant.H"
 
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+// * * * * * * * * * * * * * * * * Selectors * * * * * * * * * * * * * * * * //
 
 template<class Type>
 Foam::autoPtr<Foam::Function1<Type>> Foam::Function1<Type>::New
 (
-    const word& entryName,
+    const word& name,
+    const Function1s::unitConversions& units,
     const dictionary& dict
 )
 {
-    if (dict.isDict(entryName))
+    // If the function is a dictionary (preferred) then read straightforwardly
+    if (dict.isDict(name))
     {
-        const dictionary& coeffsDict(dict.subDict(entryName));
+        const dictionary& coeffDict(dict.subDict(name));
 
-        const word Function1Type(coeffsDict.lookup("type"));
+        const word Function1Type(coeffDict.lookup("type"));
 
         typename dictionaryConstructorTable::iterator cstrIter =
             dictionaryConstructorTablePtr_->find(Function1Type);
 
         if (cstrIter == dictionaryConstructorTablePtr_->end())
         {
-            FatalErrorInFunction
+            FatalIOErrorInFunction(dict)
                 << "Unknown Function1 type "
                 << Function1Type << " for Function1 "
-                << entryName << nl << nl
+                << name << nl << nl
                 << "Valid Function1 types are:" << nl
                 << dictionaryConstructorTablePtr_->sortedToc() << nl
-                << exit(FatalError);
+                << exit(FatalIOError);
         }
 
-        return cstrIter()(entryName, coeffsDict);
+        return cstrIter()(name, units, coeffDict);
     }
-    else
+
+    // Find the entry
+    Istream& is(dict.lookup(name));
+
+    // Peek at the first token
+    token firstToken(is);
+    is.putBack(firstToken);
+
+    // Read the type, or assume constant
+    const word Function1Type =
+        firstToken.isWord() ? word(is) : Function1s::Constant<Type>::typeName;
+
+    // If the entry is not a type followed by a end statement then
+    // construct the function from the stream
+    if (!firstToken.isWord() || !is.eof())
     {
-        Istream& is(dict.lookup(entryName, false));
+        return New(name, units, Function1Type, is);
+    }
 
-        token firstToken(is);
-        word Function1Type;
+    // Otherwise, construct from the current or coeffs dictionary
+    typename dictionaryConstructorTable::iterator dictCstrIter =
+        dictionaryConstructorTablePtr_->find(Function1Type);
 
-        if (!firstToken.isWord())
-        {
-            is.putBack(firstToken);
-            return autoPtr<Function1<Type>>
-            (
-                new Function1s::Constant<Type>(entryName, is)
-            );
-        }
-        else
-        {
-            Function1Type = firstToken.wordToken();
-        }
+    if (dictCstrIter == dictionaryConstructorTablePtr_->end())
+    {
+        FatalIOErrorInFunction(dict)
+            << "Unknown Function1 type "
+            << Function1Type << " for Function1 "
+            << name << nl << nl
+            << "Valid Function1 types are:" << nl
+            << dictionaryConstructorTablePtr_->sortedToc() << nl
+            << exit(FatalIOError);
+    }
 
-        typename dictionaryConstructorTable::iterator cstrIter =
-            dictionaryConstructorTablePtr_->find(Function1Type);
+    const bool haveCoeffsDict = dict.found(name + "Coeffs");
 
-        if (cstrIter == dictionaryConstructorTablePtr_->end())
-        {
-            FatalErrorInFunction
-                << "Unknown Function1 type "
-                << Function1Type << " for Function1 "
-                << entryName << nl << nl
-                << "Valid Function1 types are:" << nl
-                << dictionaryConstructorTablePtr_->sortedToc() << nl
-                << exit(FatalError);
-        }
-
-        return cstrIter()
+    autoPtr<Function1<Type>> funcPtr
+    (
+        dictCstrIter()
         (
-            entryName,
-            dict.found(entryName + "Coeffs")
-          ? dict.subDict(entryName + "Coeffs")
-          : dict
-        );
+            name,
+            units,
+            haveCoeffsDict ? dict.subDict(name + "Coeffs") : dict
+        )
+    );
+
+    if (haveCoeffsDict)
+    {
+        IOWarningInFunction(dict)
+            << "Using deprecated "
+            << (name + "Coeffs") << " sub-dictionary."<< nl
+            << "    Please use the simpler form" << endl;
+        funcPtr->write(Info, units);
     }
+
+    return funcPtr;
+}
+
+
+template<class Type>
+Foam::autoPtr<Foam::Function1<Type>> Foam::Function1<Type>::New
+(
+    const word& name,
+    const unitConversion& xUnits,
+    const unitConversion& valueUnits,
+    const dictionary& dict
+)
+{
+    return New(name, {xUnits, valueUnits}, dict);
+}
+
+
+template<class Type>
+Foam::autoPtr<Foam::Function1<Type>> Foam::Function1<Type>::New
+(
+    const word& name,
+    const Function1s::unitConversions& units,
+    const word& Function1Type,
+    Istream& is
+)
+{
+    typename dictionaryConstructorTable::iterator dictCstrIter =
+        dictionaryConstructorTablePtr_->find(Function1Type);
+    const bool haveDictCstrIter =
+        dictCstrIter != dictionaryConstructorTablePtr_->end();
+
+    typename IstreamConstructorTable::iterator isCstrIter =
+        IstreamConstructorTablePtr_->find(Function1Type);
+    const bool haveIstreamCstrIter =
+        isCstrIter != IstreamConstructorTablePtr_->end();
+
+    if (!haveDictCstrIter && !haveIstreamCstrIter)
+    {
+        FatalErrorInFunction
+            << "Unknown Function1 type "
+            << Function1Type << " for Function1 "
+            << name << nl << nl
+            << "Valid Function1 types are:" << nl
+            << dictionaryConstructorTablePtr_->sortedToc() << nl
+            << exit(FatalError);
+    }
+
+    if (!haveIstreamCstrIter)
+    {
+        FatalErrorInFunction
+            << "Function1 type "
+            << Function1Type << " for Function1 "
+            << name << " cannot be specified inline" << nl << nl
+            << "Make " << name << " a sub-dictionary"
+            << exit(FatalError);
+    }
+
+    return isCstrIter()(name, units, is);
+}
+
+
+template<class Type>
+Foam::autoPtr<Foam::Function1<Type>> Foam::Function1<Type>::New
+(
+    const word& name,
+    const unitConversion& xUnits,
+    const unitConversion& valueUnits,
+    const word& Function1Type,
+    Istream& is
+)
+{
+    return New(name, {xUnits, valueUnits}, Function1Type, is);
 }
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,8 @@ License
 
 #include "timeControlFunctionObject.H"
 #include "polyMesh.H"
-#include "mapPolyMesh.H"
+#include "polyTopoChangeMap.H"
+#include "polyMeshMap.H"
 #include "addToRunTimeSelectionTable.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
@@ -41,27 +42,9 @@ namespace functionObjects
 
 // * * * * * * * * * * * * * * * Private Members * * * * * * * * * * * * * * //
 
-void Foam::functionObjects::timeControl::readControls()
-{
-    if (!dict_.readIfPresent("startTime", startTime_))
-    {
-        dict_.readIfPresent("timeStart", startTime_);
-    }
-
-    if (!dict_.readIfPresent("endTime", endTime_))
-    {
-        dict_.readIfPresent("timeEnd", endTime_);
-    }
-
-    dict_.readIfPresent("nStepsToStartTimeChange", nStepsToStartTimeChange_);
-}
-
-
 bool Foam::functionObjects::timeControl::active() const
 {
-    return
-        time_.value() >= startTime_
-     && time_.value() <= endTime_;
+    return executeControl_.active() || writeControl_.active();
 }
 
 
@@ -74,24 +57,24 @@ Foam::functionObjects::timeControl::timeControl
     const dictionary& dict
 )
 :
-    functionObject(name),
+    functionObject(name, t),
     time_(t),
-    dict_(dict),
-    startTime_(-vGreat),
-    endTime_(vGreat),
-    nStepsToStartTimeChange_
-    (
-        dict.lookupOrDefault("nStepsToStartTimeChange", 3)
-    ),
     executeControl_(t, dict, "execute"),
     writeControl_(t, dict, "write"),
-    foPtr_(functionObject::New(name, t, dict_))
+    foPtr_(functionObject::New(name, t, dict))
 {
-    readControls();
+    writeControl_.read(dict);
+    executeControl_.read(dict);
 }
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+
+Foam::wordList Foam::functionObjects::timeControl::fields() const
+{
+    return foPtr_->fields();
+}
+
 
 bool Foam::functionObjects::timeControl::executeAtStart() const
 {
@@ -103,7 +86,7 @@ bool Foam::functionObjects::timeControl::execute()
 {
     if
     (
-        active()
+        executeControl_.active()
      && (
             postProcess
          || executeControl_.execute()
@@ -122,7 +105,7 @@ bool Foam::functionObjects::timeControl::write()
 {
     if
     (
-        active()
+        writeControl_.active()
      && (
             postProcess
          || writeControl_.execute()
@@ -139,7 +122,7 @@ bool Foam::functionObjects::timeControl::write()
 
 bool Foam::functionObjects::timeControl::end()
 {
-    if (active() && (executeControl_.execute() || writeControl_.execute()))
+    if (executeControl_.execute() || writeControl_.execute())
     {
         foPtr_->end();
     }
@@ -148,74 +131,71 @@ bool Foam::functionObjects::timeControl::end()
 }
 
 
-
-Foam::scalar Foam::functionObjects::timeControl::timeToNextWrite()
+Foam::scalar Foam::functionObjects::timeControl::timeToNextAction()
 {
-    if
+    return min
     (
-        active()
-     && writeControl_.control() ==
-        Foam::timeControl::timeControls::adjustableRunTime
-    )
-    {
-        const label  writeTimeIndex = writeControl_.executionIndex();
-        const scalar writeInterval = writeControl_.interval();
-
-        return
-            max
-            (
-                0.0,
-                (writeTimeIndex + 1)*writeInterval
-              - (time_.value() - time_.startTime().value())
-            );
-    }
-
-    return vGreat;
+        executeControl_.timeToNextAction(),
+        writeControl_.timeToNextAction()
+    );
 }
 
 
-bool Foam::functionObjects::timeControl::read
-(
-    const dictionary& dict
-)
+bool Foam::functionObjects::timeControl::read(const dictionary& dict)
 {
-    if (dict != dict_)
-    {
-        dict_ = dict;
+    writeControl_.read(dict);
+    executeControl_.read(dict);
 
-        writeControl_.read(dict);
-        executeControl_.read(dict);
-        readControls();
-
-        return true;
-    }
-    else
-    {
-        return false;
-    }
-}
-
-
-void Foam::functionObjects::timeControl::updateMesh
-(
-    const mapPolyMesh& mpm
-)
-{
     if (active())
     {
-        foPtr_->updateMesh(mpm);
+        foPtr_->read(dict);
     }
+
+    return true;
 }
 
 
-void Foam::functionObjects::timeControl::movePoints
-(
-    const polyMesh& mesh
-)
+void Foam::functionObjects::timeControl::movePoints(const polyMesh& mesh)
 {
     if (active())
     {
         foPtr_->movePoints(mesh);
+    }
+}
+
+
+void Foam::functionObjects::timeControl::topoChange
+(
+    const polyTopoChangeMap& map
+)
+{
+    if (active())
+    {
+        foPtr_->topoChange(map);
+    }
+}
+
+
+void Foam::functionObjects::timeControl::mapMesh
+(
+    const polyMeshMap& map
+)
+{
+    if (active())
+    {
+        foPtr_->mapMesh(map);
+    }
+}
+
+
+void Foam::functionObjects::timeControl::distribute
+(
+    const polyDistributionMap& map
+)
+{
+    if (active())
+    {
+        foPtr_->distribute(map);
     }
 }
 

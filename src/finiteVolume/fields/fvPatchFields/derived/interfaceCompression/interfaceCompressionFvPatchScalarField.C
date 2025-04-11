@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,20 +25,9 @@ License
 
 #include "interfaceCompressionFvPatchScalarField.H"
 #include "addToRunTimeSelectionTable.H"
-#include "fvPatchFieldMapper.H"
+#include "fieldMapper.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
-
-Foam::interfaceCompressionFvPatchScalarField::
-interfaceCompressionFvPatchScalarField
-(
-    const fvPatch& p,
-    const DimensionedField<scalar, volMesh>& iF
-)
-:
-    fixedValueFvPatchScalarField(p, iF)
-{}
-
 
 Foam::interfaceCompressionFvPatchScalarField::
 interfaceCompressionFvPatchScalarField
@@ -60,20 +49,10 @@ interfaceCompressionFvPatchScalarField
     const interfaceCompressionFvPatchScalarField& ptf,
     const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     fixedValueFvPatchScalarField(ptf, p, iF, mapper)
-{}
-
-
-Foam::interfaceCompressionFvPatchScalarField::
-interfaceCompressionFvPatchScalarField
-(
-    const interfaceCompressionFvPatchScalarField& ptf
-)
-:
-    fixedValueFvPatchScalarField(ptf)
 {}
 
 

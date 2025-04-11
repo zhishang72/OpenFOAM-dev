@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -47,7 +47,7 @@ class pointMesh;
 class polyBoundaryMesh;
 
 /*---------------------------------------------------------------------------*\
-                       Class pointBoundaryMesh Declaration
+                      Class pointBoundaryMesh Declaration
 \*---------------------------------------------------------------------------*/
 
 class pointBoundaryMesh
@@ -94,23 +94,24 @@ public:
         }
 
         //- Find patch index given a name
-        label findPatchID(const word& patchName) const;
+        label findIndex(const word& patchName) const;
 
         //- Find patch indices given a name
-        labelList findIndices(const keyType&, const bool useGroups) const;
+        labelList findIndices(const wordRe&, const bool useGroups) const;
 
         //- Correct pointBoundaryMesh after moving points
         void movePoints(const pointField&);
 
         //- Correct pointBoundaryMesh after topology update
-        void updateMesh();
+        void topoChange();
 
-        //- Create pointBoundaryMesh from polyBoundaryMesh
-        void reset(const polyBoundaryMesh&);
+        //- Reset pointBoundaryMesh with respect to the updated polyBoundaryMesh
+        //  For run-time mesh replacement and mesh to mesh mapping
+        void reset();
 
         //- Reorders patches. Ordering does not have to be done in
         //  ascending or descending order. Reordering has to be unique.
-        //  (is shuffle). If validBoundary calls updateMesh()
+        //  (is shuffle). If validBoundary calls topoChange()
         //  after reordering to recalculate data (so call needs to be parallel
         //  sync in that case)
         void shuffle(const labelUList& newToOld, const bool validBoundary);

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,7 +44,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class ITstream Declaration
+                          Class ITstream Declaration
 \*---------------------------------------------------------------------------*/
 
 class ITstream
@@ -70,11 +70,12 @@ public:
         (
             const string& name,
             const UList<token>& tokens,
-            streamFormat format=ASCII,
-            versionNumber version=currentVersion
+            const streamFormat format = ASCII,
+            const versionNumber version = currentVersion,
+            const bool global = false
         )
         :
-            Istream(format, version),
+            Istream(format, version, UNCOMPRESSED, global),
             tokenList(tokens),
             name_(name),
             tokenIndex_(0)
@@ -89,11 +90,12 @@ public:
         (
             const string& name,
             List<token>&& tokens,
-            streamFormat format=ASCII,
-            versionNumber version=currentVersion
+            const streamFormat format = ASCII,
+            const versionNumber version = currentVersion,
+            const bool global = false
         )
         :
-            Istream(format, version),
+            Istream(format, version, UNCOMPRESSED, global),
             tokenList(move(tokens)),
             name_(name),
             tokenIndex_(0)
@@ -176,8 +178,17 @@ public:
             // Read a string (including enclosing double-quotes)
             virtual Istream& read(string&);
 
-            //- Read a label
-            virtual Istream& read(label&);
+            //- Read an int32_t
+            virtual Istream& read(int32_t&);
+
+            //- Read an int64_t
+            virtual Istream& read(int64_t&);
+
+            //- Read a uint32_t
+            virtual Istream& read(uint32_t&);
+
+            //- Read a uint64_t
+            virtual Istream& read(uint64_t&);
 
             //- Read a floatScalar
             virtual Istream& read(floatScalar&);

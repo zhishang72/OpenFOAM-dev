@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -35,7 +35,7 @@ SourceFiles
 
 #include "extendedUpwindCellToFaceStencil.H"
 #include "CFCCellToFaceStencil.H"
-#include "MeshObject.H"
+#include "DemandDrivenMeshObject.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -48,20 +48,25 @@ namespace Foam
 
 class upwindCFCCellToFaceStencilObject
 :
-    public MeshObject
+    public DemandDrivenMeshObject
     <
         fvMesh,
-        TopologicalMeshObject,
+        MoveableMeshObject,
         upwindCFCCellToFaceStencilObject
     >,
     public extendedUpwindCellToFaceStencil
 {
 
-public:
+protected:
 
-    TypeName("upwindCFCCellToFaceStencil");
+    friend class DemandDrivenMeshObject
+    <
+        fvMesh,
+        MoveableMeshObject,
+        upwindCFCCellToFaceStencilObject
+    >;
 
-    // Constructors
+    // Protected Constructors
 
         //- Construct from uncompacted face stencil
         upwindCFCCellToFaceStencilObject
@@ -71,10 +76,10 @@ public:
             const scalar minOpposedness
         )
         :
-            MeshObject
+            DemandDrivenMeshObject
             <
                 fvMesh,
-                Foam::TopologicalMeshObject,
+                MoveableMeshObject,
                 upwindCFCCellToFaceStencilObject
             >(mesh),
             extendedUpwindCellToFaceStencil
@@ -93,9 +98,19 @@ public:
         }
 
 
+public:
+
+    TypeName("upwindCFCCellToFaceStencil");
+
     //- Destructor
     virtual ~upwindCFCCellToFaceStencilObject()
     {}
+
+    //- Update for mesh motion
+    virtual bool movePoints()
+    {
+        return true;
+    }
 };
 
 

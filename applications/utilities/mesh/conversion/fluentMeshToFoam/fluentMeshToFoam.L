@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -46,7 +46,7 @@ License
 
 #include "readHexLabel.H"
 #include "cellShapeRecognition.H"
-#include "repatchPolyTopoChanger.H"
+#include "repatcher.H"
 
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -1516,7 +1516,7 @@ int main(int argc, char *argv[])
 
     // Use facePatchIDs map to reorder boundary faces into compact regions
 
-    repatchPolyTopoChanger repatcher(pShapeMesh);
+    repatcher repatcher(pShapeMesh);
 
     // Add new list of patches
     repatcher.changePatches(newPatches);
@@ -1524,8 +1524,7 @@ int main(int argc, char *argv[])
     // Change patch ids
     forAll(facePatchID, idI)
     {
-        label facei = idI + pShapeMesh.nInternalFaces();
-
+        const label facei = idI + pShapeMesh.nInternalFaces();
         repatcher.changePatchID(facei, facePatchID[idI]);
     }
     repatcher.repatch();
@@ -1611,7 +1610,7 @@ int main(int argc, char *argv[])
             // Mark zone cells, used for finding faces
             boolList zoneCell(pShapeMesh.nCells(), false);
 
-            // shift cell indizes by 1
+            // Shift cell indices by 1
             label nr=0;
             for (label celli = (start() - 1); celli < end(); celli++)
             {
@@ -1624,7 +1623,6 @@ int main(int argc, char *argv[])
             (
                 name,
                 cls,
-                cnt,
                 pShapeMesh.cellZones()
             );
 
@@ -1648,7 +1646,6 @@ int main(int argc, char *argv[])
                 name,
                 zoneFaces,
                 boolList(zoneFaces.size(), false),
-                cnt,
                 pShapeMesh.faceZones()
             );
 
@@ -1731,7 +1728,7 @@ int main(int argc, char *argv[])
 
                 cellSet internal(pShapeMesh, name, end() - start());
 
-                // shift cell indizes by 1
+                // Shift cell indices by 1
                 for (label celli = start() - 1; celli <= end() - 1; celli++)
                 {
                     internal.insert(celli);

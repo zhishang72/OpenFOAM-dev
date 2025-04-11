@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -45,6 +45,30 @@ inline Foam::DynamicField<T, SizeInc, SizeMult, SizeDiv>::DynamicField
     // we could also enforce SizeInc granularity when (!SizeMult || !SizeDiv)
     Field<T>::size(0);
 }
+
+
+template<class T, unsigned SizeInc, unsigned SizeMult, unsigned SizeDiv>
+inline Foam::DynamicField<T, SizeInc, SizeMult, SizeDiv>::DynamicField
+(
+    const label nElem,
+    const T& t
+)
+:
+    Field<T>(nElem, t),
+    capacity_(Field<T>::size())
+{}
+
+
+template<class T, unsigned SizeInc, unsigned SizeMult, unsigned SizeDiv>
+inline Foam::DynamicField<T, SizeInc, SizeMult, SizeDiv>::DynamicField
+(
+    const label nElem,
+    const zero
+)
+:
+    Field<T>(nElem, Zero),
+    capacity_(Field<T>::size())
+{}
 
 
 template<class T, unsigned SizeInc, unsigned SizeMult, unsigned SizeDiv>
@@ -103,6 +127,20 @@ inline Foam::DynamicField<T, SizeInc, SizeMult, SizeDiv>::DynamicField
     Field<T>(lst),
     capacity_(lst.capacity_)
 {}
+
+
+template<class T, unsigned SizeInc, unsigned SizeMult, unsigned SizeDiv>
+inline Foam::DynamicField<T, SizeInc, SizeMult, SizeDiv>::DynamicField
+(
+    DynamicField<T, SizeInc, SizeMult, SizeDiv>& lst,
+    const bool reuse
+)
+:
+    Field<T>(lst, reuse),
+    capacity_(lst.capacity_)
+{
+    lst.capacity_ = 0;
+}
 
 
 template<class T, unsigned SizeInc, unsigned SizeMult, unsigned SizeDiv>
@@ -274,6 +312,26 @@ inline void Foam::DynamicField<T, SizeInc, SizeMult, SizeDiv>::clearStorage()
 {
     Field<T>::clear();
     capacity_ = 0;
+}
+
+
+template<class T, unsigned SizeInc, unsigned SizeMult, unsigned SizeDiv>
+inline void Foam::DynamicField<T, SizeInc, SizeMult, SizeDiv>::reset
+(
+    const DynamicField<T, SizeInc, SizeMult, SizeDiv>& lst
+)
+{
+    this->operator=(lst);
+}
+
+
+template<class T, unsigned SizeInc, unsigned SizeMult, unsigned SizeDiv>
+inline void Foam::DynamicField<T, SizeInc, SizeMult, SizeDiv>::reset
+(
+    const UList<T>& lst
+)
+{
+    this->operator=(lst);
 }
 
 

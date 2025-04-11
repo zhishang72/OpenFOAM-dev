@@ -14,7 +14,7 @@ for (label i=0; i < nTypes; i++)
         IOobject fieldObject
         (
             fieldName,
-            runTime.timeName(),
+            runTime.name(),
             mesh,
             IOobject::MUST_READ,
             IOobject::NO_WRITE
@@ -60,28 +60,31 @@ for (label i=0; i < nTypes; i++)
 
     }
 
-    if (fieldTypes[i] == cloud::prefix)
+    if (fieldTypes[i] == lagrangian::cloud::prefix)
     {
         IOobject lagrangianHeader
         (
             "positions",
-            runTime.timeName(),
-            cloud::prefix,
+            runTime.name(),
+            lagrangian::cloud::prefix,
             mesh,
             IOobject::NO_READ
         );
 
-        if
-        (
-            lagrangianHeader.typeHeaderOk<IOPosition<Cloud<passiveParticle>>>
-            (
-                false
-            )
-        )
+        if (lagrangianHeader.headerOk())
         {
-            Cloud<passiveParticle> particles(mesh, cloud::defaultName);
+            lagrangian::Cloud<passiveParticle> particles
+            (
+                mesh,
+                lagrangian::cloud::defaultName
+            );
 
-            IOobjectList objects(mesh, runTime.timeName(), cloud::prefix);
+            IOobjectList objects
+            (
+                mesh,
+                runTime.name(),
+                lagrangian::cloud::prefix
+            );
 
             wordList lagrangianScalarNames = objects.names("scalarField");
             wordList lagrangianVectorNames = objects.names("vectorField");

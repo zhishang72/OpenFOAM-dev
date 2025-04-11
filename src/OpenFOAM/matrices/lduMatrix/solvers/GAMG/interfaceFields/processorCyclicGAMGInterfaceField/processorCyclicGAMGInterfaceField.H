@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -43,25 +43,13 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-               Class processorCyclicGAMGInterfaceField Declaration
+              Class processorCyclicGAMGInterfaceField Declaration
 \*---------------------------------------------------------------------------*/
 
 class processorCyclicGAMGInterfaceField
 :
     public processorGAMGInterfaceField
 {
-    // Private Member Functions
-
-        //- Disallow default bitwise copy construction
-        processorCyclicGAMGInterfaceField
-        (
-            const processorCyclicGAMGInterfaceField&
-        );
-
-        //- Disallow default bitwise assignment
-        void operator=(const processorCyclicGAMGInterfaceField&) = delete;
-
-
 public:
 
     //- Runtime type information
@@ -81,14 +69,25 @@ public:
         processorCyclicGAMGInterfaceField
         (
             const GAMGInterface& GAMGCp,
-            const bool doTransform,
             const int rank
         );
+
+        //- Disallow default bitwise copy construction
+        processorCyclicGAMGInterfaceField
+        (
+            const processorCyclicGAMGInterfaceField&
+        ) = delete;
 
 
     // Destructor
 
         virtual ~processorCyclicGAMGInterfaceField();
+
+
+    // Member Operators
+
+        //- Disallow default bitwise assignment
+        void operator=(const processorCyclicGAMGInterfaceField&) = delete;
 };
 
 

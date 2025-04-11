@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -38,7 +38,7 @@ SourceFiles
 #ifndef zoneCombustion_H
 #define zoneCombustion_H
 
-#include "CombustionModel.H"
+#include "combustionModel.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -48,18 +48,17 @@ namespace combustionModels
 {
 
 /*---------------------------------------------------------------------------*\
-                            Class zoneCombustion Declaration
+                       Class zoneCombustion Declaration
 \*---------------------------------------------------------------------------*/
 
-template<class ReactionThermo>
 class zoneCombustion
 :
-    public CombustionModel<ReactionThermo>
+    public combustionModel
 {
     // Private Data
 
         //- The combustion model to be zone-filtered
-        autoPtr<CombustionModel<ReactionThermo>> combustionModelPtr_;
+        autoPtr<combustionModel> combustionModelPtr_;
 
         //- List of zone names in which the reactions are active
         wordList zoneNames_;
@@ -71,7 +70,8 @@ class zoneCombustion
         tmp<fvScalarMatrix> filter(const tmp<fvScalarMatrix>& tR) const;
 
         //- Filter the given field on the cellZones
-        tmp<volScalarField> filter(const tmp<volScalarField>& tS) const;
+        template<class GeoField>
+        inline tmp<GeoField> filter(const tmp<GeoField>& tS) const;
 
 
 public:
@@ -86,13 +86,13 @@ public:
         zoneCombustion
         (
             const word& modelType,
-            const ReactionThermo& thermo,
-            const compressibleTurbulenceModel& turb,
+            const fluidMulticomponentThermo& thermo,
+            const compressibleMomentumTransportModel& turb,
             const word& combustionProperties
         );
 
         //- Disallow default bitwise copy construction
-        zoneCombustion(const zoneCombustion&);
+        zoneCombustion(const zoneCombustion&) = delete;
 
 
     //- Destructor
@@ -101,13 +101,13 @@ public:
 
     // Member Functions
 
-        //- Return const access to the thermo package
-        virtual const ReactionThermo& thermo() const;
-
         //- Correct combustion rate
         virtual void correct();
 
-        //- Fuel consumption rate matrix.
+        //- Specie consumption rate field
+        virtual tmp<volScalarField::Internal> R(const label speciei) const;
+
+        //- Specie consumption rate matrix
         virtual tmp<fvScalarMatrix> R(volScalarField& Y) const;
 
         //- Heat release rate [kg/m/s^3]
@@ -128,12 +128,6 @@ public:
 
 } // End namespace combustionModels
 } // End namespace Foam
-
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-#ifdef NoRepository
-    #include "zoneCombustion.C"
-#endif
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

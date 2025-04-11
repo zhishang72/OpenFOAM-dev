@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -276,10 +276,10 @@ void Foam::singleCellFvMesh::agglomerateMesh
     // actually change the mesh
     resetPrimitives
     (
-        move(boundaryPoints),
-        move(patchFaces),
-        move(owner),
-        move(neighbour),
+        std::move(boundaryPoints),
+        std::move(patchFaces),
+        std::move(owner),
+        std::move(neighbour),
         patchSizes,
         patchStarts,
         true                // syncPar
@@ -292,25 +292,16 @@ void Foam::singleCellFvMesh::agglomerateMesh
     {
         forAll(mesh.cellZones(), zoneI)
         {
-            const cellZone& oldFz = mesh.cellZones()[zoneI];
+            const cellZone& oldCz = mesh.cellZones()[zoneI];
 
             DynamicList<label> newAddressing;
-
-            // Note: uncomment if you think it makes sense. Note that value
-            // of cell0 is the average.
-            //// Was old cell0 in this cellZone?
-            // if (oldFz.localID(0) != -1)
-            //{
-            //    newAddressing.append(0);
-            //}
 
             cellZones().set
             (
                 zoneI,
-                oldFz.clone
+                oldCz.clone
                 (
                     newAddressing,
-                    zoneI,
                     cellZones()
                 )
             );
@@ -345,7 +336,6 @@ void Foam::singleCellFvMesh::agglomerateMesh
                 (
                     newAddressing,
                     newFlipMap,
-                    zoneI,
                     faceZones()
                 )
             );
@@ -358,13 +348,13 @@ void Foam::singleCellFvMesh::agglomerateMesh
     {
         forAll(mesh.pointZones(), zoneI)
         {
-            const pointZone& oldFz = mesh.pointZones()[zoneI];
+            const pointZone& oldPz = mesh.pointZones()[zoneI];
 
-            DynamicList<label> newAddressing(oldFz.size());
+            DynamicList<label> newAddressing(oldPz.size());
 
-            forAll(oldFz, i)
+            forAll(oldPz, i)
             {
-                label newPointi  = reversePointMap_[oldFz[i]];
+                label newPointi  = reversePointMap_[oldPz[i]];
                 if (newPointi != -1)
                 {
                     newAddressing.append(newPointi);
@@ -374,11 +364,10 @@ void Foam::singleCellFvMesh::agglomerateMesh
             pointZones().set
             (
                 zoneI,
-                oldFz.clone
+                oldPz.clone
                 (
-                    pointZones(),
-                    zoneI,
-                    newAddressing
+                    newAddressing,
+                    pointZones()
                 )
             );
         }
@@ -414,7 +403,7 @@ Foam::singleCellFvMesh::singleCellFvMesh
             io.readOpt(),
             io.writeOpt()
         ),
-        0
+        label(0)
     ),
     patchFaceMap_
     (
@@ -475,7 +464,7 @@ Foam::singleCellFvMesh::singleCellFvMesh
 
     forAll(oldPatches, patchi)
     {
-        agglom[patchi] = identity(oldPatches[patchi].size());
+        agglom[patchi] = identityMap(oldPatches[patchi].size());
     }
 
     agglomerateMesh(mesh, agglom);

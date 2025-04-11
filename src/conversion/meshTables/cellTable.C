@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -399,7 +399,7 @@ void Foam::cellTable::operator=(const polyMesh& mesh)
     // create cellTableId and cellTable based on cellZones
     label nZoneCells = 0;
 
-    wordList zoneNames = mesh.cellZones().names();
+    wordList zoneNames = mesh.cellZones().toc();
     label unZonedType = zoneNames.size() + 1;
 
     // do cell zones
@@ -470,7 +470,7 @@ void Foam::cellTable::addCellZones
     }
     zoneUsed.setSize(nZone);
 
-    cellZoneMesh& czMesh = mesh.cellZones();
+    cellZoneList& czMesh = mesh.cellZones();
 
     czMesh.clear();
     if (nZone <= 1)
@@ -495,7 +495,6 @@ void Foam::cellTable::addCellZones
             (
                 zoneNames[origZoneI],
                 zoneCells[origZoneI],
-                zoneI,
                 czMesh
             )
         );
@@ -512,7 +511,7 @@ void Foam::cellTable::combine(const dictionary& mapDict, labelList& tableIds)
     }
 
     Map<word> origNames(names());
-    labelList mapping(identity(max(origNames.toc()) + 1));
+    labelList mapping(identityMap(max(origNames.toc()) + 1));
 
     bool remap = false;
     forAllConstIter(dictionary, mapDict, iter)

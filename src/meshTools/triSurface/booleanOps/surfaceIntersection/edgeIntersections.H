@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -51,11 +51,11 @@ namespace Foam
 // Forward declaration of classes
 class triSurface;
 class triSurfaceSearch;
-class Random;
+class randomGenerator;
 class edge;
 
 /*---------------------------------------------------------------------------*\
-                           Class edgeIntersections Declaration
+                      Class edgeIntersections Declaration
 \*---------------------------------------------------------------------------*/
 
 class edgeIntersections
@@ -98,7 +98,7 @@ class edgeIntersections
             const triSurface& surf1,
             const scalarField& surf1PointTol,
             const label edgeI,
-            Random& rndGen,
+            randomGenerator& rndGen,
             pointField& points1,
             boolList& affectedEdges
         ) const;
@@ -110,7 +110,7 @@ class edgeIntersections
             const triSurface& surf1,
             const scalarField& surf1PointTol,
             const label edgeI,
-            Random& rndGen,
+            randomGenerator& rndGen,
             pointField& points1,
             boolList& affectedEdges
         ) const;
@@ -125,7 +125,7 @@ class edgeIntersections
             const triSurface& surf2,
             const label edgeI,
 
-            Random& rndGen,
+            randomGenerator& rndGen,
             pointField& points1,
             boolList& affectedEdges
         ) const;

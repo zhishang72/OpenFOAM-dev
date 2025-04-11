@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -28,8 +28,14 @@ Description
     Incompressible, polynomial form of equation of state, using a polynomial
     function for density.
 
-    Coefficient mixing is very inaccurate and not supported,
-    so this equation of state is not applicable to mixtures.
+    Coefficient mixing is very inaccurate and not supported, so this equation of
+    state is not applicable to mixtures.
+
+    The polynomial expression is evaluated from:
+
+    \verbatim
+            rho = 1000 - 0.05*T + 0.003*sqr(T)
+    \endverbatim
 
 Usage
     \table
@@ -37,19 +43,13 @@ Usage
         rhoCoeffs<8> | Density polynomial coefficients
     \endtable
 
-    Example of the specification of the equation of state:
+    Example specification of the icoPolynomial equation of state:
     \verbatim
     equationOfState
     {
         rhoCoeffs<8>    ( 1000 -0.05 0.003 0 0 0 0 0 );
     }
     \endverbatim
-
-    The polynomial expression is evaluated as so:
-
-        \f[
-            \rho = 1000 - 0.05 T + 0.003 T^2
-        \f]
 
 SourceFiles
     icoPolynomialI.H
@@ -131,17 +131,14 @@ public:
             const Polynomial<PolySize>& rhoPoly
         );
 
-        //- Construct from dictionary
-        icoPolynomial(const dictionary& dict);
+        //- Construct from name and dictionary
+        icoPolynomial(const word& name, const dictionary& dict);
 
         //- Construct as named copy
         inline icoPolynomial(const word& name, const icoPolynomial&);
 
         //- Construct and return a clone
         inline autoPtr<icoPolynomial> clone() const;
-
-        // Selector from dictionary
-        inline static autoPtr<icoPolynomial> New(const dictionary& dict);
 
 
     // Member Functions
@@ -164,20 +161,23 @@ public:
             //- Return density [kg/m^3]
             inline scalar rho(scalar p, scalar T) const;
 
-            //- Return enthalpy departure [J/kg]
-            inline scalar H(const scalar p, const scalar T) const;
+            //- Return enthalpy contribution [J/kg]
+            inline scalar h(const scalar p, const scalar T) const;
 
-            //- Return Cp departure [J/(kg K]
+            //- Return Cp contribution [J/(kg K]
             inline scalar Cp(scalar p, scalar T) const;
 
-            //- Return internal energy departure [J/kg]
-            inline scalar E(const scalar p, const scalar T) const;
+            //- Return internal energy contribution [J/kg]
+            inline scalar e(const scalar p, const scalar T) const;
 
-            //- Return Cv departure [J/(kg K]
+            //- Return Cv contribution [J/(kg K]
             inline scalar Cv(scalar p, scalar T) const;
 
-            //- Return entropy [J/kg/K]
-            inline scalar S(const scalar p, const scalar T) const;
+            //- Return entropy contribution to the integral of Cp/T [J/kg/K]
+            inline scalar sp(const scalar p, const scalar T) const;
+
+            //- Return entropy contribution to the integral of Cv/T [J/kg/K]
+            inline scalar sv(const scalar p, const scalar T) const;
 
             //- Return compressibility [s^2/m^2]
             inline scalar psi(scalar p, scalar T) const;
@@ -187,6 +187,9 @@ public:
 
             //- Return (Cp - Cv) [J/(kg K]
             inline scalar CpMCv(scalar p, scalar T) const;
+
+            //- Return volumetric coefficient of thermal expansion [1/T]
+            inline scalar alphav(const scalar p, const scalar T) const;
 
 
         // IO
@@ -235,17 +238,6 @@ public:
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 } // End namespace Foam
-
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-#define makeIcoPolynomial(PolySize)                                            \
-                                                                               \
-defineTemplateTypeNameAndDebugWithName                                         \
-(                                                                              \
-    icoPolynomial<Specie, PolySize>,                                           \
-    "icoPolynomial<"#PolySize">",                                              \
-    0                                                                          \
-);
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

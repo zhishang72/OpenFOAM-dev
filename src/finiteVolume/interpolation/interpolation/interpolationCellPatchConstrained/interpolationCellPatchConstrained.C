@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -31,10 +31,20 @@ License
 template<class Type>
 Foam::interpolationCellPatchConstrained<Type>::interpolationCellPatchConstrained
 (
-    const GeometricField<Type, fvPatchField, volMesh>& psi
+    const VolField<Type>& psi
 )
 :
-    interpolation<Type>(psi)
+    fieldInterpolation<Type, interpolationCellPatchConstrained<Type>>(psi)
+{}
+
+
+template<class Type>
+Foam::interpolationCellPatchConstrained<Type>::interpolationCellPatchConstrained
+(
+    const interpolationCellPatchConstrained<Type>& i
+)
+:
+    fieldInterpolation<Type, interpolationCellPatchConstrained<Type>>(i)
 {}
 
 
@@ -52,8 +62,9 @@ Type Foam::interpolationCellPatchConstrained<Type>::interpolate
     {
         // Use boundary value
         const polyBoundaryMesh& pbm = this->psi_.mesh().boundaryMesh();
-        label patchi = pbm.patchID()[facei-this->psi_.mesh().nInternalFaces()];
-        label patchFacei = pbm[patchi].whichFace(facei);
+        const label patchi =
+            pbm.patchIndices()[facei-this->psi_.mesh().nInternalFaces()];
+        const label patchFacei = pbm[patchi].whichFace(facei);
 
         return this->psi_.boundaryField()[patchi][patchFacei];
     }

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -31,10 +31,10 @@ Description
 
     Addressing arrays must be supplied for the upper and lower triangles.
 
-Note
-    It might be better if this class were organised as a hierarchy starting
-    from an empty matrix, then deriving diagonal, symmetric and asymmetric
-    matrices.
+    Note:
+        It might be better if this class were organised as a hierarchy starting
+        from an empty matrix, then deriving diagonal, symmetric and asymmetric
+        matrices.
 
 SourceFiles
     LduMatrixATmul.C
@@ -78,7 +78,7 @@ Ostream& operator<<
 
 
 /*---------------------------------------------------------------------------*\
-                           Class LduMatrix Declaration
+                          Class LduMatrix Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type, class DType, class LUType>
@@ -472,7 +472,7 @@ public:
         //- Copy constructor
         LduMatrix(const LduMatrix<Type, DType, LUType>&);
 
-        //- Copy constructor or re-use as specified.
+        //- Copy constructor or reuse as specified.
         LduMatrix(LduMatrix<Type, DType, LUType>&, bool reuse);
 
         //- Construct given an LDU addressed mesh and an Istream
@@ -576,17 +576,44 @@ public:
 
             bool diagonal() const
             {
-                return (diagPtr_ && !lowerPtr_ && !upperPtr_);
+                return
+                (
+                    diagPtr_
+                 && Pstream::parRun()
+                    ?
+                        !lowerPtr_ && !upperPtr_
+                    :
+                        !(lowerPtr_ && lowerPtr_->size())
+                     && !(upperPtr_ && upperPtr_->size())
+                );
             }
 
             bool symmetric() const
             {
-                return (diagPtr_ && (!lowerPtr_ && upperPtr_));
+                return
+                (
+                    diagPtr_
+                 && Pstream::parRun()
+                    ?
+                        !lowerPtr_ && upperPtr_
+                    :
+                        !(lowerPtr_ && lowerPtr_->size())
+                     && (upperPtr_ && upperPtr_->size())
+                );
             }
 
             bool asymmetric() const
             {
-                return (diagPtr_ && lowerPtr_ && upperPtr_);
+                return
+                (
+                    diagPtr_
+                 && Pstream::parRun()
+                    ?
+                        lowerPtr_ && upperPtr_
+                    :
+                        (lowerPtr_ && lowerPtr_->size())
+                     && (upperPtr_ && upperPtr_->size())
+                );
             }
 
 

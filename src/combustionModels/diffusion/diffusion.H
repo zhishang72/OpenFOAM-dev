@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -47,13 +47,12 @@ namespace combustionModels
 {
 
 /*---------------------------------------------------------------------------*\
-                         Class diffusion Declaration
+                          Class diffusion Declaration
 \*---------------------------------------------------------------------------*/
 
-template<class ReactionThermo, class ThermoType>
 class diffusion
 :
-    public singleStepCombustion<ReactionThermo, ThermoType>
+    public singleStepCombustion
 {
     // Private Data
 
@@ -76,13 +75,13 @@ public:
         diffusion
         (
             const word& modelType,
-            const ReactionThermo& thermo,
-            const compressibleTurbulenceModel& turb,
+            const fluidMulticomponentThermo& thermo,
+            const compressibleMomentumTransportModel& turb,
             const word& combustionProperties
         );
 
         //- Disallow default bitwise copy construction
-        diffusion(const diffusion&);
+        diffusion(const diffusion&) = delete;
 
 
     //- Destructor
@@ -109,13 +108,6 @@ public:
 
 } // End namespace combustionModels
 } // End namespace Foam
-
-
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-#ifdef NoRepository
-    #include "diffusion.C"
-#endif
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

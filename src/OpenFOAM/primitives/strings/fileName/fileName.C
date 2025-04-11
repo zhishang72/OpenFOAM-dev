@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -55,6 +55,18 @@ Foam::fileType Foam::fileName::type
 ) const
 {
     return ::Foam::type(*this, checkVariants, followLink);
+}
+
+
+bool Foam::fileName::isName() const
+{
+    return find('/') == npos;
+}
+
+
+bool Foam::fileName::hasPath() const
+{
+    return find('/') != npos;
 }
 
 
@@ -210,6 +222,25 @@ Foam::string Foam::fileName::caseName() const
     else
     {
         return cName.replace(i, caseStr.size(), string("$FOAM_CASE"));
+    }
+}
+
+
+Foam::string Foam::fileName::relativePath() const
+{
+    string cName = *this;
+
+    const string caseStr(getEnv("FOAM_CASE"));
+
+    const size_type i = find(caseStr);
+
+    if (i == npos)
+    {
+        return cName;
+    }
+    else
+    {
+        return cName.erase(i, caseStr.size() + 1);
     }
 }
 
@@ -374,6 +405,12 @@ void Foam::fileName::operator=(const char* str)
 {
     string::operator=(str);
     stripInvalid();
+}
+
+
+void Foam::fileName::operator/=(const string& str)
+{
+    operator=(operator/(*this, str));
 }
 
 

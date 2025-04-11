@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -23,44 +23,23 @@ License
 
 \*---------------------------------------------------------------------------*/
 
-#include "Constant.H"
-#include "Uniform.H"
-#include "ZeroConstant.H"
-#include "OneConstant.H"
-#include "PolynomialEntry.H"
-#include "Sine.H"
-#include "Square.H"
-#include "Table.H"
-#include "TableFile.H"
-#include "Scale.H"
-
+#include "makeFunction1s.H"
 #include "fieldTypes.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-#define makeFunction1s(Type)                                                   \
-    makeFunction1(Type);                                                       \
-    makeFunction1Type(Constant, Type);                                         \
-    makeFunction1Type(Uniform, Type);                                          \
-    makeFunction1Type(ZeroConstant, Type);                                     \
-    makeFunction1Type(OneConstant, Type);                                      \
-    makeFunction1Type(Polynomial, Type);                                       \
-    makeFunction1Type(Sine, Type);                                             \
-    makeFunction1Type(Square, Type);                                           \
-    makeFunction1Type(Table, Type);                                            \
-    makeFunction1Type(TableFile, Type);                                        \
-    makeFunction1Type(Scale, Type);
-
 namespace Foam
 {
-    makeFunction1(label);
-    makeFunction1Type(Constant, label);
+    defineFunction1(label);
 
-    makeFunction1s(scalar);
-    makeFunction1s(vector);
-    makeFunction1s(sphericalTensor);
-    makeFunction1s(symmTensor);
-    makeFunction1s(tensor);
+    namespace Function1s
+    {
+        addFunction1(None, label);
+        addFunction1(Constant, label);
+    }
+
+    FOR_ALL_FIELD_TYPES(makeFunction1s);
+    makeFunction1s(vector2D, );
 }
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -38,7 +38,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                       Class sensibleEnthalpy Declaration
+                      Class sensibleEnthalpy Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Thermo>
@@ -62,7 +62,13 @@ public:
             return "sensibleEnthalpy";
         }
 
+
         // Fundamental properties
+
+            static bool enthalpy()
+            {
+                return true;
+            }
 
             static word energyName()
             {
@@ -80,31 +86,20 @@ public:
                 return thermo.Cp(p, T);
             }
 
-            //- Cp/Cp []
-            scalar CpByCpv
-            (
-                const Thermo& thermo,
-                const scalar p,
-                const scalar T
-            ) const
-            {
-                return 1;
-            }
-
             // Sensible enthalpy [J/kg]
-            scalar HE
+            scalar he
             (
                 const Thermo& thermo,
                 const scalar p,
                 const scalar T
             ) const
             {
-                return thermo.Hs(p, T);
+                return thermo.hs(p, T);
             }
 
             //- Temperature from sensible enthalpy
             //  given an initial temperature T0
-            scalar THE
+            scalar The
             (
                 const Thermo& thermo,
                 const scalar h,

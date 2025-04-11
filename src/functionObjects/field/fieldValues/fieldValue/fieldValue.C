@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -51,12 +51,10 @@ Foam::functionObjects::fieldValue::fieldValue
 :
     fvMeshFunctionObject(name, runTime, dict),
     logFiles(obr_, name),
-    dict_(dict),
-    regionName_(word::null),
-    resultDict_(fileName("name"), dictionary::null)
+    valueType_(valueType),
+    resultDict_("result")
 {
     read(dict);
-    resetName(valueType);
 }
 
 
@@ -68,14 +66,12 @@ Foam::functionObjects::fieldValue::fieldValue
     const word& valueType
 )
 :
-    fvMeshFunctionObject(name, obr, dict),
+    fvMeshFunctionObject(name, obr),
     logFiles(obr_, name),
-    dict_(dict),
-    regionName_(word::null),
-    resultDict_(fileName("name"), dictionary::null)
+    valueType_(valueType),
+    resultDict_("result")
 {
     read(dict);
-    resetName(valueType);
 }
 
 
@@ -89,15 +85,12 @@ Foam::functionObjects::fieldValue::~fieldValue()
 
 bool Foam::functionObjects::fieldValue::read(const dictionary& dict)
 {
-    if (dict != dict_)
-    {
-        dict_ = dict;
-    }
-
     fvMeshFunctionObject::read(dict);
 
     dict.lookup("fields") >> fields_;
     dict.lookup("writeFields") >> writeFields_;
+
+    resetName(valueType_);
 
     return true;
 }

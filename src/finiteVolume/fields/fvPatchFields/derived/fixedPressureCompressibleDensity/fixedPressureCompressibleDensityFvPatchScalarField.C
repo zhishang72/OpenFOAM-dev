@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,37 +25,11 @@ License
 
 #include "fixedPressureCompressibleDensityFvPatchScalarField.H"
 #include "addToRunTimeSelectionTable.H"
-#include "fvPatchFieldMapper.H"
+#include "fieldMapper.H"
 #include "surfaceFields.H"
 #include "volFields.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
-
-Foam::fixedPressureCompressibleDensityFvPatchScalarField::
-fixedPressureCompressibleDensityFvPatchScalarField
-(
-    const fvPatch& p,
-    const DimensionedField<scalar, volMesh>& iF
-)
-:
-    fixedValueFvPatchField<scalar>(p, iF),
-    pName_("p")
-{}
-
-
-Foam::fixedPressureCompressibleDensityFvPatchScalarField::
-fixedPressureCompressibleDensityFvPatchScalarField
-(
-    const fixedPressureCompressibleDensityFvPatchScalarField& ptf,
-    const fvPatch& p,
-    const DimensionedField<scalar, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
-)
-:
-    fixedValueFvPatchField<scalar>(ptf, p, iF, mapper),
-    pName_(ptf.pName_)
-{}
-
 
 Foam::fixedPressureCompressibleDensityFvPatchScalarField::
 fixedPressureCompressibleDensityFvPatchScalarField
@@ -73,10 +47,13 @@ fixedPressureCompressibleDensityFvPatchScalarField
 Foam::fixedPressureCompressibleDensityFvPatchScalarField::
 fixedPressureCompressibleDensityFvPatchScalarField
 (
-    const fixedPressureCompressibleDensityFvPatchScalarField& ptf
+    const fixedPressureCompressibleDensityFvPatchScalarField& ptf,
+    const fvPatch& p,
+    const DimensionedField<scalar, volMesh>& iF,
+    const fieldMapper& mapper
 )
 :
-    fixedValueFvPatchField<scalar>(ptf),
+    fixedValueFvPatchField<scalar>(ptf, p, iF, mapper),
     pName_(ptf.pName_)
 {}
 

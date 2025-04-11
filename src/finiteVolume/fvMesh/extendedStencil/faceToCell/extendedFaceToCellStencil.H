@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -37,7 +37,7 @@ SourceFiles
 #ifndef extendedFaceToCellStencil_H
 #define extendedFaceToCellStencil_H
 
-#include "mapDistribute.H"
+#include "distributionMap.H"
 #include "volFields.H"
 #include "surfaceFields.H"
 
@@ -71,22 +71,22 @@ public:
     // Member Functions
 
         //- Use map to get the data into stencil order
-        template<class T>
+        template<class Type>
         static void collectData
         (
-            const mapDistribute& map,
+            const distributionMap& map,
             const labelListList& stencil,
-            const GeometricField<T, fvsPatchField, surfaceMesh>& fld,
-            List<List<T>>& stencilFld
+            const SurfaceField<Type>& fld,
+            List<List<Type>>& stencilFld
         );
 
         //- Sum surface field contributions to create cell values
         template<class Type>
-        static tmp<GeometricField<Type, fvPatchField, volMesh>> weightedSum
+        static tmp<VolField<Type>> weightedSum
         (
-            const mapDistribute& map,
+            const distributionMap& map,
             const labelListList& stencil,
-            const GeometricField<Type, fvsPatchField, surfaceMesh>& fld,
+            const SurfaceField<Type>& fld,
             const List<List<scalar>>& stencilWeights
         );
 };

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -45,19 +45,6 @@ Foam::cellMotionFvPatchField<Type>::cellMotionFvPatchField
 template<class Type>
 Foam::cellMotionFvPatchField<Type>::cellMotionFvPatchField
 (
-    const cellMotionFvPatchField<Type>& ptf,
-    const fvPatch& p,
-    const DimensionedField<Type, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
-)
-:
-    fixedValueFvPatchField<Type>(ptf, p, iF, mapper)
-{}
-
-
-template<class Type>
-Foam::cellMotionFvPatchField<Type>::cellMotionFvPatchField
-(
     const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
     const dictionary& dict
@@ -70,10 +57,13 @@ Foam::cellMotionFvPatchField<Type>::cellMotionFvPatchField
 template<class Type>
 Foam::cellMotionFvPatchField<Type>::cellMotionFvPatchField
 (
-    const cellMotionFvPatchField<Type>& ptf
+    const cellMotionFvPatchField<Type>& ptf,
+    const fvPatch& p,
+    const DimensionedField<Type, volMesh>& iF,
+    const fieldMapper& mapper
 )
 :
-    fixedValueFvPatchField<Type>(ptf)
+    fixedValueFvPatchField<Type>(ptf, p, iF, mapper)
 {}
 
 
@@ -106,9 +96,9 @@ void Foam::cellMotionFvPatchField<Type>::updateCoeffs()
     word pfName = this->internalField().name();
     pfName.replace("cell", "point");
 
-    const GeometricField<Type, pointPatchField, pointMesh>& pointMotion =
+    const PointField<Type>& pointMotion =
         this->db().objectRegistry::template
-            lookupObject<GeometricField<Type, pointPatchField, pointMesh>>
+            lookupObject<PointField<Type>>
             (pfName);
 
     forAll(p, i)

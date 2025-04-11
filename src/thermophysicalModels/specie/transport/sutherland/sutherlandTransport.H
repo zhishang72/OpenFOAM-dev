@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,15 +25,33 @@ Class
     Foam::sutherlandTransport
 
 Description
-    Transport package using Sutherland's formula.
+    Transport package using Sutherland's formula for viscosity:
 
-    Templated into a given thermodynamics package (needed for thermal
-    conductivity).
+    \verbatim
+        mu = As*sqrt(T)/(1 + Ts/T)
+    \endverbatim
 
-    Dynamic viscosity [kg/m.s]
-    \f[
-        \mu = A_s \frac{\sqrt{T}}{1 + T_s / T}
-    \f]
+    and the thermal conductivity (for gases) is obtained from:
+
+    \verbatim
+        kappa = mu*Cv*(1.32 + 1.77*R/Cv)
+    \endverbatim
+
+Usage
+    \table
+        Property     | Description
+        As           | Sutherland constant kg/(ms K^1/2)
+        Ts           | Sutherland temperature [K]
+    \endtable
+
+    Example specification of sutherlandTransport for air:
+    \verbatim
+    transport
+    {
+        As              1.458e-06;
+        Ts              110.4;
+    }
+    \endverbatim
 
 SourceFiles
     sutherlandTransportI.H
@@ -76,7 +94,7 @@ Ostream& operator<<
 
 
 /*---------------------------------------------------------------------------*\
-                    Class sutherlandTransport Declaration
+                     Class sutherlandTransport Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Thermo>
@@ -96,8 +114,10 @@ class sutherlandTransport
         //  given two viscosities and temperatures
         inline void calcCoeffs
         (
-            const scalar mu1, const scalar T1,
-            const scalar mu2, const scalar T2
+            const scalar mu1,
+            const scalar T1,
+            const scalar mu2,
+            const scalar T2
         );
 
         //- Read coefficient from dictionary
@@ -120,24 +140,23 @@ public:
         inline sutherlandTransport
         (
             const Thermo& t,
-            const scalar mu1, const scalar T1,
-            const scalar mu2, const scalar T2
+            const scalar mu1,
+            const scalar T1,
+            const scalar mu2,
+            const scalar T2
         );
 
         //- Construct as named copy
         inline sutherlandTransport(const word&, const sutherlandTransport&);
 
-        //- Construct from dictionary
-        sutherlandTransport(const dictionary& dict);
+        //- Construct from name and dictionary
+        sutherlandTransport(const word& name, const dictionary& dict);
 
         //- Construct from base thermo and dictionary
         sutherlandTransport(const Thermo& t,const dictionary& dict);
 
         //- Construct and return a clone
         inline autoPtr<sutherlandTransport> clone() const;
-
-        // Selector from dictionary
-        inline static autoPtr<sutherlandTransport> New(const dictionary& dict);
 
 
     // Member Functions
@@ -153,12 +172,6 @@ public:
 
         //- Thermal conductivity [W/m/K]
         inline scalar kappa(const scalar p, const scalar T) const;
-
-        //- Thermal diffusivity of enthalpy [kg/m/s]
-        inline scalar alphah(const scalar p, const scalar T) const;
-
-        // Species diffusivity
-        // inline scalar D(const scalar p, const scalar T) const;
 
         //- Write to Ostream
         void write(Ostream& os) const;

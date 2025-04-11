@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2014-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2014-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -53,7 +53,7 @@ namespace Foam
 class pointData;
 
 /*---------------------------------------------------------------------------*\
-             Class medialAxisMeshMover Declaration
+                     Class medialAxisMeshMover Declaration
 \*---------------------------------------------------------------------------*/
 
 class medialAxisMeshMover
@@ -62,7 +62,7 @@ class medialAxisMeshMover
 {
     // Private Data
 
-        const labelList adaptPatchIDs_;
+        const labelList adaptPatchIndices_;
 
         autoPtr<indirectPrimitivePatch> adaptPatchPtr_;
 
@@ -134,7 +134,7 @@ class medialAxisMeshMover
             bool isMaxEdge
             (
                 const List<pointData>& pointWallDist,
-                const label edgeI,
+                const label edgei,
                 const scalar minCos
             ) const;
 
@@ -221,7 +221,7 @@ class medialAxisMeshMover
         (
             const dictionary& meshQualityDict,
             const label nAllowableErrors,
-            labelList& checkFaces
+            const labelList& checkFaces
         );
 
 
@@ -259,14 +259,14 @@ public:
         (
             const dictionary&,
             const label nAllowableErrors,
-            labelList& checkFaces
+            const labelList& checkFaces
         );
 
         //- Update local data for geometry changes
         virtual void movePoints(const pointField&);
 
         //-  Update local data for topology changes
-        virtual void updateMesh(const mapPolyMesh&)
+        virtual void topoChange(const polyTopoChangeMap&)
         {
             NotImplemented;
         }

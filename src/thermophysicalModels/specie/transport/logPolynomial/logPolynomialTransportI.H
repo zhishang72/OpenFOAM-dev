@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -65,17 +65,6 @@ Foam::logPolynomialTransport<Thermo, PolySize>::clone() const
 }
 
 
-template<class Thermo, int PolySize>
-inline Foam::autoPtr<Foam::logPolynomialTransport<Thermo, PolySize>>
-Foam::logPolynomialTransport<Thermo, PolySize>::New(const dictionary& dict)
-{
-    return autoPtr<logPolynomialTransport<Thermo, PolySize>>
-    (
-        new logPolynomialTransport<Thermo, PolySize>(dict)
-    );
-}
-
-
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class Thermo, int PolySize>
@@ -97,17 +86,6 @@ inline Foam::scalar Foam::logPolynomialTransport<Thermo, PolySize>::kappa
 ) const
 {
     return exp(kappaCoeffs_.value(log(T)));
-}
-
-
-template<class Thermo, int PolySize>
-inline Foam::scalar Foam::logPolynomialTransport<Thermo, PolySize>::alphah
-(
-    const scalar p,
-    const scalar T
-) const
-{
-    return kappa(p, T)/this->Cp(p, T);
 }
 
 

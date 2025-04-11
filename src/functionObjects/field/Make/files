@@ -3,7 +3,6 @@ fieldAverage/fieldAverageItem/fieldAverageItem.C
 fieldAverage/fieldAverageItem/fieldAverageItemIO.C
 
 fieldCoordinateSystemTransform/fieldCoordinateSystemTransform.C
-fieldMinMax/fieldMinMax.C
 
 fieldValues/fieldValue/fieldValue.C
 fieldValues/fieldValue/fieldValueNew.C
@@ -13,16 +12,17 @@ fieldValues/surfaceFieldValue/surfaceFieldValue.C
 
 nearWallFields/nearWallFields.C
 nearWallFields/findCellParticle.C
-nearWallFields/findCellParticleCloud.C
 
 processorField/processorField.C
 readFields/readFields.C
 
-streamLine/streamLine.C
-streamLine/streamLineParticle.C
-streamLine/streamLineParticleCloud.C
+streamlines/streamlines.C
+streamlines/streamlinesParticle.C
+streamlines/streamlinesCloud.C
 
 surfaceInterpolate/surfaceInterpolate.C
+
+volField/volField.C
 
 regionSizeDistribution/regionSizeDistribution.C
 histogram/histogram.C
@@ -47,28 +47,48 @@ PecletNo/PecletNo.C
 blendingFactor/blendingFactor.C
 pressure/pressure.C
 MachNo/MachNo.C
+shearStress/shearStress.C
+totalEnthalpy/totalEnthalpy.C
+reconstruct/reconstruct.C
+power/power.C
+tr/tr.C
 
 turbulenceFields/turbulenceFields.C
 yPlus/yPlus.C
 turbulenceIntensity/turbulenceIntensity.C
 wallShearStress/wallShearStress.C
 wallHeatFlux/wallHeatFlux.C
+specieFlux/specieFlux.C
+
 wallHeatTransferCoeff/wallHeatTransferCoeff.C
+wallHeatTransferCoeff/wallHeatTransferCoeffModels/wallHeatTransferCoeffModel/wallHeatTransferCoeffModel.C
+wallHeatTransferCoeff/wallHeatTransferCoeffModels/kappaEff/kappaEff.C
+wallHeatTransferCoeff/wallHeatTransferCoeffModels/ReynoldsAnalogy/ReynoldsAnalogy.C
 
 writeCellCentres/writeCellCentres.C
 writeCellVolumes/writeCellVolumes.C
 
+bXiProgress/bXiProgress.C
 XiReactionRate/XiReactionRate.C
 streamFunction/streamFunction.C
 
 fieldsExpression/fieldsExpression.C
 add/add.C
 subtract/subtract.C
+multiply/multiply.C
+divide/divide.C
 
 interfaceHeight/interfaceHeight.C
 
 age/age.C
 
 comfort/comfort.C
+
+cylindrical/cylindricalFunctionObject.C
+
+uniform/uniform.C
+
+layerAverage/layerAverage.C
+patchCutLayerAverage/patchCutLayerAverage.C
 
 LIB = $(FOAM_LIBBIN)/libfieldFunctionObjects

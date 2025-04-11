@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -36,17 +36,7 @@ namespace Foam
 {
     defineTypeNameAndDebug(regionToCell, 0);
     addToRunTimeSelectionTable(topoSetSource, regionToCell, word);
-    addToRunTimeSelectionTable(topoSetSource, regionToCell, istream);
 }
-
-
-Foam::topoSetSource::addToUsageTable Foam::regionToCell::usage_
-(
-    regionToCell::typeName,
-    "\n    Usage: regionToCell subCellSet (pt0 .. ptn)\n\n"
-    "    Select all cells in the connected region containing"
-    " points (pt0..ptn).\n"
-);
 
 
 // * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
@@ -304,7 +294,6 @@ void Foam::regionToCell::erode
 
         // Select all cells using these points
 
-        label nChanged = 0;
         forAll(boundaryPoint, pointi)
         {
             if (boundaryPoint[pointi])
@@ -316,7 +305,6 @@ void Foam::regionToCell::erode
                     if (!removeCell[celli])
                     {
                         removeCell[celli] = true;
-                        nChanged++;
                     }
                 }
             }
@@ -402,24 +390,11 @@ Foam::regionToCell::regionToCell
     setName_(dict.lookupOrDefault<word>("set", "none")),
     insidePoints_
     (
-        dict.found("insidePoints")
-      ? dict.lookup("insidePoints")
-      : dict.lookup("insidePoint")
+        dict.found("insidePoint")
+      ? List<point>(1, dict.lookup<point>("insidePoint", dimLength))
+      : dict.lookup<List<point>>("insidePoints", dimLength)
     ),
     nErode_(dict.lookupOrDefault("nErode", 0))
-{}
-
-
-Foam::regionToCell::regionToCell
-(
-    const polyMesh& mesh,
-    Istream& is
-)
-:
-    topoSetSource(mesh),
-    setName_(checkIs(is)),
-    insidePoints_(checkIs(is)),
-    nErode_(0)
 {}
 
 

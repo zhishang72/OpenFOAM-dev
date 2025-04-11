@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -45,9 +45,9 @@ Usage
     }
     \endverbatim
 
-Note
-    Sign conventions:
-    - the value is positive for outward-pointing vectors
+    Note:
+        Sign conventions:
+      - the value is positive for outward-pointing vectors
 
 See also
     Foam::fixedValueFvPatchField
@@ -89,13 +89,6 @@ public:
 
     // Constructors
 
-        //- Construct from patch and internal field
-        surfaceNormalFixedValueFvPatchVectorField
-        (
-            const fvPatch&,
-            const DimensionedField<vector, volMesh>&
-        );
-
         //- Construct from patch, internal field and dictionary
         surfaceNormalFixedValueFvPatchVectorField
         (
@@ -112,23 +105,14 @@ public:
             const surfaceNormalFixedValueFvPatchVectorField&,
             const fvPatch&,
             const DimensionedField<vector, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         surfaceNormalFixedValueFvPatchVectorField
         (
             const surfaceNormalFixedValueFvPatchVectorField&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchVectorField> clone() const
-        {
-            return tmp<fvPatchVectorField>
-            (
-                new surfaceNormalFixedValueFvPatchVectorField(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         surfaceNormalFixedValueFvPatchVectorField
@@ -158,13 +142,12 @@ public:
 
         // Mapping functions
 
-            //- Map (and resize as needed) from self given a mapping object
-            //  Used to update fields following mesh topology change
-            virtual void autoMap(const fvPatchFieldMapper&);
+            //- Map the given fvPatchField onto this fvPatchField
+            virtual void map(const fvPatchVectorField&, const fieldMapper&);
 
-            //- Reverse map the given fvPatchField onto this fvPatchField
-            //  Used to reconstruct fields
-            virtual void rmap(const fvPatchVectorField&, const labelList&);
+            //- Reset the fvPatchField to the given fvPatchField
+            //  Used for mesh to mesh mapping
+            virtual void reset(const fvPatchVectorField&);
 
 
         // Evaluation functions

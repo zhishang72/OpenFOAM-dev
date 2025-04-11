@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -67,23 +67,24 @@ inline const Foam::vector& Foam::pointData::v() const
 template<class TrackingData>
 inline void Foam::pointData::transform
 (
-    const tensor& rotTensor,
+    const polyPatch& patch,
+    const label patchFacei,
+    const transformer& transform,
     TrackingData& td
 )
 {
-    pointEdgePoint::transform(rotTensor, td);
-    v_ = Foam::transform(rotTensor, v_);
+    pointEdgePoint::transform(patch, patchFacei, transform, td);
+    v_ = transform.transform(v_);
 }
 
 
-// Update this with information from connected edge
 template<class TrackingData>
 inline bool Foam::pointData::updatePoint
 (
     const polyMesh& mesh,
     const label pointi,
-    const label edgeI,
-    const pointData& edgeInfo,
+    const label edgei,
+    const pointData& edgeinfo,
     const scalar tol,
     TrackingData& td
 )
@@ -94,15 +95,15 @@ inline bool Foam::pointData::updatePoint
         (
             mesh,
             pointi,
-            edgeI,
-            edgeInfo,
+            edgei,
+            edgeinfo,
             tol,
             td
         )
     )
     {
-        s_ = edgeInfo.s_;
-        v_ = edgeInfo.v_;
+        s_ = edgeinfo.s_;
+        v_ = edgeinfo.v_;
         return true;
     }
     else
@@ -111,7 +112,7 @@ inline bool Foam::pointData::updatePoint
     }
 }
 
-// Update this with new information on same point
+
 template<class TrackingData>
 inline bool Foam::pointData::updatePoint
 (
@@ -145,34 +146,11 @@ inline bool Foam::pointData::updatePoint
 }
 
 
-// Update this with new information on same point. No extra information.
-template<class TrackingData>
-inline bool Foam::pointData::updatePoint
-(
-    const pointData& newPointInfo,
-    const scalar tol,
-    TrackingData& td
-)
-{
-    if (pointEdgePoint::updatePoint(newPointInfo, tol, td))
-    {
-        s_ = newPointInfo.s_;
-        v_ = newPointInfo.v_;
-        return true;
-    }
-    else
-    {
-        return false;
-    }
-}
-
-
-// Update this with information from connected point
 template<class TrackingData>
 inline bool Foam::pointData::updateEdge
 (
     const polyMesh& mesh,
-    const label edgeI,
+    const label edgei,
     const label pointi,
     const pointData& pointInfo,
     const scalar tol,
@@ -185,7 +163,7 @@ inline bool Foam::pointData::updateEdge
         pointEdgePoint::updateEdge
         (
             mesh,
-            edgeI,
+            edgei,
             pointi,
             pointInfo,
             tol,

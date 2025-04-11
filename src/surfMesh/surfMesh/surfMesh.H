@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -55,13 +55,16 @@ template<class Face> class MeshedSurface;
 
 class surfMesh
 :
-    public  surfaceRegistry,
+    public surfaceRegistry,
     private MeshedSurfaceIOAllocator,
-    public  PrimitivePatch<::Foam::UList<face>, ::Foam::SubField<point>>
+    public PrimitivePatch<UList<face>, SubField<point>>
 {
-    // friends
-    template<class Face> friend class MeshedSurface;
-    template<class Face> friend class UnsortedMeshedSurface;
+    // Friendship
+
+        template<class Face> friend class MeshedSurface;
+
+        template<class Face> friend class UnsortedMeshedSurface;
+
 
 public:
 
@@ -69,7 +72,7 @@ public:
 
         //- Enumeration defining the state of the mesh after a read update.
         //  Used for post-processing applications, where the mesh
-        //  needs to update based on the files written in time directories
+        //  needs to update based on the files written in time directories.
         enum readUpdateState
         {
             UNCHANGED,
@@ -85,8 +88,7 @@ private:
 
         typedef MeshedSurfaceIOAllocator Allocator;
 
-        typedef PrimitivePatch<::Foam::UList<face>, ::Foam::SubField<point>>
-            MeshReference;
+        typedef PrimitivePatch<UList<face>, SubField<point>> MeshReference;
 
 
 protected:
@@ -125,17 +127,21 @@ public:
 
     // Public Typedefs
 
-    typedef surfMesh Mesh;
+        typedef surfMesh Mesh;
 
-    //- Placeholder only, but do not remove - it is needed for GeoMesh
-    typedef bool BoundaryMesh;
+        //- Placeholder only, but do not remove - it is needed for GeoMesh
+        typedef bool BoundaryMesh;
+
+
+    // Public Static Data
+
+        //- The mesh sub-directory name (normally "surfMesh")
+        static word meshSubDir;
 
 
     //- Runtime type information
     TypeName("surfMesh");
 
-    //- Return the mesh sub-directory name (normally "surfMesh")
-    static word meshSubDir;
 
     // Constructors
 
@@ -161,7 +167,7 @@ public:
         );
 
         //- Disallow default bitwise copy construction
-        surfMesh(const surfMesh&);
+        surfMesh(const surfMesh&) = delete;
 
 
     //- Destructor
@@ -176,7 +182,7 @@ public:
             fileName meshDir() const;
 
             //- Return the current instance directory for points
-            //  Used in the consruction of geometric mesh data dependent
+            //  Used in the construction of geometric mesh data dependent
             //  on points
             const fileName& pointsInstance() const;
 
@@ -200,7 +206,6 @@ public:
             {
                 return nFaces();
             }
-
 
             //- Return points
             virtual const pointField& points() const;
@@ -255,6 +260,7 @@ public:
 
         //- Write to file
         void write(const fileName&);
+
 
         //  Storage management
 

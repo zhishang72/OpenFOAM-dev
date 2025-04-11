@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -42,13 +42,13 @@ namespace Foam
 class fvMesh;
 
 /*---------------------------------------------------------------------------*\
-                           Class interpolationCell Declaration
+                      Class interpolationCell Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
 class interpolationCell
 :
-    public interpolation<Type>
+    public fieldInterpolation<Type, interpolationCell<Type>>
 {
 
 public:
@@ -62,11 +62,27 @@ public:
         //- Construct from components
         interpolationCell
         (
-            const GeometricField<Type, fvPatchField, volMesh>& psi
+            const VolField<Type>& psi
         );
+
+        //- Copy construct
+        interpolationCell(const interpolationCell<Type>& i);
+
+        //- Clone
+        virtual autoPtr<interpolation<Type>> clone() const
+        {
+            return autoPtr<interpolation<Type>>
+            (
+                new interpolationCell<Type>(*this)
+            );
+        }
+
 
 
     // Member Functions
+
+        //- Inherit interpolate from interpolation
+        using interpolation<Type>::interpolate;
 
         //- Interpolate field to the given point in the given cell
         Type interpolate

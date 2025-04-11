@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2019-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,8 +25,14 @@ Class
     Foam::functionObjects::comfort
 
 Description
-    Calculates the thermal comfort quantities predicted mean vote (PMV) and
-    predicted percentage of dissatisfaction (PPD) based on DIN ISO EN 7730:2005.
+    Calculates the thermal comfort quantities predicted mean vote (PMV),
+    predicted percentage of dissatisfaction (PPD) and the draught rate (DR)
+    based on DIN ISO EN 7730:2005.
+
+    The draught rate is defined for velocities between 0 m/s and 0.5 m/s. Values
+    larger than 0.5 m/s will be set to 0.5 m/s. Furthermore, the draught rate is
+    defined between 20 degC and 26 degC. A temperature limitation is not
+    implemented. The draught rate is mainly used for HVAC analysis in rooms.
 
 Usage
     \table
@@ -34,11 +40,11 @@ Usage
         clothing      | The insulation value of the cloth | no   | 0
         metabolicRate | The metabolic rate      | no        | 0.8
         extWork       | The external work        | no        | 0
-        Trad          | Radiation temperature | no | -1
-        relHumidity   | Relative humidity of the air | no | 50
+        Trad          | Radiation temperature | no | 0
+        relHumidity   | Relative humidity of the air | no | 0.5
         pSat          | Saturation pressure of water | no | -1
-        tolerance     | Residual control for the cloth temperature | no | 1e-5
-        maxClothIter  | Maximum number of iterations | no       | 0
+        tolerance     | Residual control for the cloth temperature | no | 1e-4
+        maxClothIter  | Maximum number of iterations | no       | 100
         meanVelocity  | Use a constant mean velocity in the whole domain | no |\
         false
     \endtable
@@ -84,7 +90,7 @@ namespace functionObjects
 {
 
 /*---------------------------------------------------------------------------*\
-                               Class comfort Declaration
+                           Class comfort Declaration
 \*---------------------------------------------------------------------------*/
 
 class comfort
@@ -126,7 +132,7 @@ class comfort
         //- Maximum number of correctors for cloth temperature
         int maxClothIter_;
 
-        //- Switch to use volume weighted velocity field for caluclation
+        //- Switch to use volume weighted velocity field for calculation
         Switch meanVelocity_;
 
 
@@ -184,6 +190,9 @@ public:
 
         //- Read the data needed for the comfort calculation
         virtual bool read(const dictionary&);
+
+        //- Return the list of fields required
+        virtual wordList fields() const;
 
         //- Calculate the predicted mean vote (PMV)
         //  and predicted percentage dissatisfaction (PPD) fields

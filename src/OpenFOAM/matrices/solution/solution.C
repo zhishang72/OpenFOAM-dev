@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -30,7 +30,7 @@ License
 
 namespace Foam
 {
-    defineDebugSwitchWithName(solution, "solution", 0);
+    defineTypeNameAndDebug(solution, 0);
 }
 
 // List of sub-dictionaries to rewrite
@@ -131,32 +131,19 @@ Foam::solution::solution
             dictName,
             obr.time().system(),
             obr,
-            (
-                obr.readOpt() == IOobject::MUST_READ
-             || obr.readOpt() == IOobject::READ_IF_PRESENT
-              ? IOobject::MUST_READ_IF_MODIFIED
-              : obr.readOpt()
-            ),
+            IOobject::MUST_READ_IF_MODIFIED,
             IOobject::NO_WRITE
         )
     ),
-    cache_(dictionary::null),
+    cache_("cache", dict()),
     caching_(false),
-    fieldRelaxDict_(dictionary::null),
-    eqnRelaxDict_(dictionary::null),
+    fieldRelaxDict_("fields", dict()),
+    eqnRelaxDict_("equations", dict()),
     fieldRelaxDefault_(0),
     eqnRelaxDefault_(0),
-    solvers_(dictionary::null)
+    solvers_("solvers", dict())
 {
-    if
-    (
-        readOpt() == IOobject::MUST_READ
-     || readOpt() == IOobject::MUST_READ_IF_MODIFIED
-     || (readOpt() == IOobject::READ_IF_PRESENT && headerOk())
-    )
-    {
-        read(solutionDict());
-    }
+    read(dict());
 }
 
 
@@ -244,6 +231,19 @@ bool Foam::solution::cache(const word& name) const
 }
 
 
+void Foam::solution::enableCache(const word& name) const
+{
+    caching_ = true;
+
+    if (debug)
+    {
+        Info<< "Enable cache for " << name << endl;
+    }
+
+    cache_.add(name, true);
+}
+
+
 bool Foam::solution::relaxField(const word& name) const
 {
     if (debug)
@@ -326,7 +326,7 @@ Foam::scalar Foam::solution::equationRelaxationFactor(const word& name) const
 }
 
 
-const Foam::dictionary& Foam::solution::solutionDict() const
+const Foam::dictionary& Foam::solution::dict() const
 {
     if (found("select"))
     {
@@ -336,6 +336,12 @@ const Foam::dictionary& Foam::solution::solutionDict() const
     {
         return *this;
     }
+}
+
+
+const Foam::dictionary& Foam::solution::solversDict() const
+{
+    return solvers_;
 }
 
 
@@ -354,7 +360,7 @@ bool Foam::solution::read()
 {
     if (regIOobject::read())
     {
-        read(solutionDict());
+        read(dict());
 
         return true;
     }

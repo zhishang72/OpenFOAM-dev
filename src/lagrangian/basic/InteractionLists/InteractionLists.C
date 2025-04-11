@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -186,14 +186,14 @@ void Foam::InteractionLists<ParticleType>::buildInteractionLists()
     {
         const labelPair& ciat = cellIAndTToExchange[bbI];
 
-        const vectorTensorTransform& transform = globalTransforms.transform
+        const transformer& transform = globalTransforms.transform
         (
             globalTransforms.transformIndex(ciat)
         );
 
         treeBoundBox tempTransformedBb
         (
-            transform.invTransformPosition(cellBbsToExchange[bbI].points())
+            transform.invTransformPosition(cellBbsToExchange[bbI].points())()
         );
 
         treeBoundBox extendedBb
@@ -274,7 +274,7 @@ void Foam::InteractionLists<ParticleType>::buildInteractionLists()
 
     preDistributionCellMapSize = procToDistributeCellTo.size();
 
-    // Rebuild mapDistribute with only required referred cells
+    // Rebuild distributionMap with only required referred cells
     buildMap(cellMapPtr_, procToDistributeCellTo);
 
     // Store cellIndexAndTransformToDistribute
@@ -322,7 +322,7 @@ void Foam::InteractionLists<ParticleType>::buildInteractionLists()
 
         if (isA<wallPolyPatch>(patch))
         {
-            localWallFaces.append(identity(patch.size()) + patch.start());
+            localWallFaces.append(identityMap(patch.size()) + patch.start());
         }
     }
 
@@ -403,14 +403,17 @@ void Foam::InteractionLists<ParticleType>::buildInteractionLists()
     {
         const labelPair& wfiat = wallFaceIAndTToExchange[bbI];
 
-        const vectorTensorTransform& transform = globalTransforms.transform
+        const transformer& transform = globalTransforms.transform
         (
             globalTransforms.transformIndex(wfiat)
         );
 
         treeBoundBox tempTransformedBb
         (
-            transform.invTransformPosition(wallFaceBbsToExchange[bbI].points())
+            transform.invTransformPosition
+            (
+                wallFaceBbsToExchange[bbI].points()
+            )()
         );
 
         treeBoundBox extendedBb
@@ -491,7 +494,7 @@ void Foam::InteractionLists<ParticleType>::buildInteractionLists()
 
     preDistributionWallFaceMapSize = procToDistributeWallFaceTo.size();
 
-    // Rebuild mapDistribute with only required referred wallFaces
+    // Rebuild distributionMap with only required referred wallFaces
     buildMap(wallFaceMapPtr_, procToDistributeWallFaceTo);
 
     // Store wallFaceIndexAndTransformToDistribute
@@ -533,21 +536,21 @@ void Foam::InteractionLists<ParticleType>::buildInteractionLists()
 
         label wallFaceIndex = globalTransforms.index(wfiat);
 
-        const vectorTensorTransform& transform = globalTransforms.transform
+        const transformer& transform = globalTransforms.transform
         (
             globalTransforms.transformIndex(wfiat)
         );
 
         const face& f = mesh_.faces()[wallFaceIndex];
 
-        label patchi = mesh_.boundaryMesh().patchID()
+        label patchi = mesh_.boundaryMesh().patchIndices()
         [
             wallFaceIndex - mesh_.nInternalFaces()
         ];
 
         referredWallFaces_[rWFI] = referredWallFace
         (
-            face(identity(f.size())),
+            face(identityMap(f.size())),
             transform.invTransformPosition(f.points(mesh_.points())),
             patchi
         );
@@ -700,7 +703,7 @@ void Foam::InteractionLists<ParticleType>::findExtendedProcBbsInRange
                             permutationIndices
                         );
 
-                        const vectorTensorTransform& transform =
+                        const transformer& transform =
                             globalTransforms.transform(transI);
 
                         treeBoundBox extendedReferredProcBb
@@ -708,7 +711,7 @@ void Foam::InteractionLists<ParticleType>::findExtendedProcBbsInRange
                             transform.transformPosition
                             (
                                 allExtendedProcBbs[proci].points()
-                            )
+                            )()
                         );
 
                         if (procBb.overlaps(extendedReferredProcBb))
@@ -747,7 +750,7 @@ void Foam::InteractionLists<ParticleType>::findExtendedProcBbsInRange
                         permutationIndices
                     );
 
-                    const vectorTensorTransform& transform =
+                    const transformer& transform =
                         globalTransforms.transform(transI);
 
                     treeBoundBox extendedReferredProcBb
@@ -755,7 +758,7 @@ void Foam::InteractionLists<ParticleType>::findExtendedProcBbsInRange
                         transform.transformPosition
                         (
                             allExtendedProcBbs[proci].points()
-                        )
+                        )()
                     );
 
                     if (procBb.overlaps(extendedReferredProcBb))
@@ -790,7 +793,7 @@ void Foam::InteractionLists<ParticleType>::findExtendedProcBbsInRange
                     permutationIndices
                 );
 
-                const vectorTensorTransform& transform =
+                const transformer& transform =
                     globalTransforms.transform(transI);
 
                 treeBoundBox extendedReferredProcBb
@@ -798,7 +801,7 @@ void Foam::InteractionLists<ParticleType>::findExtendedProcBbsInRange
                     transform.transformPosition
                     (
                         allExtendedProcBbs[proci].points()
-                    )
+                    )()
                 );
 
                 if (procBb.overlaps(extendedReferredProcBb))
@@ -825,7 +828,7 @@ void Foam::InteractionLists<ParticleType>::findExtendedProcBbsInRange
 template<class ParticleType>
 void Foam::InteractionLists<ParticleType>::buildMap
 (
-    autoPtr<mapDistribute>& mapPtr,
+    autoPtr<distributionMap>& mapPtr,
     const List<label>& toProc
 )
 {
@@ -871,7 +874,7 @@ void Foam::InteractionLists<ParticleType>::buildMap
     labelListList constructMap(Pstream::nProcs());
 
     // Local transfers first
-    constructMap[Pstream::myProcNo()] = identity
+    constructMap[Pstream::myProcNo()] = identityMap
     (
         sendMap[Pstream::myProcNo()].size()
     );
@@ -895,7 +898,7 @@ void Foam::InteractionLists<ParticleType>::buildMap
 
     mapPtr.reset
     (
-        new mapDistribute
+        new distributionMap
         (
             constructSize,
             move(sendMap),
@@ -958,12 +961,12 @@ void Foam::InteractionLists<ParticleType>::prepareParticleToBeReferred
     const globalIndexAndTransform& globalTransforms =
         mesh_.globalData().globalTransforms();
 
-    const vectorTensorTransform& transform = globalTransforms.transform
+    const transformer& transform = globalTransforms.transform
     (
         globalTransforms.transformIndex(ciat)
     );
 
-    particle->prepareForInteractionListReferral(transform);
+    particle->prepareForInteractionListReferral(mesh_, transform);
 }
 
 
@@ -1008,12 +1011,12 @@ void Foam::InteractionLists<ParticleType>::prepareWallDataToRefer()
 
         label wallFaceIndex = globalTransforms.index(wfiat);
 
-        const vectorTensorTransform& transform = globalTransforms.transform
+        const transformer& transform = globalTransforms.transform
         (
             globalTransforms.transformIndex(wfiat)
         );
 
-        label patchi = mesh_.boundaryMesh().patchID()
+        label patchi = mesh_.boundaryMesh().patchIndices()
         [
             wallFaceIndex - mesh_.nInternalFaces()
         ];
@@ -1026,10 +1029,10 @@ void Foam::InteractionLists<ParticleType>::prepareWallDataToRefer()
         // supported
         referredWallData_[rWVI] = U.boundaryField()[patchi][patchFacei];
 
-        if (transform.hasR())
+        if (transform.transforms())
         {
             referredWallData_[rWVI] =
-                transform.R().T() & referredWallData_[rWVI];
+                transform.invTransform(referredWallData_[rWVI]);
         }
     }
 }
@@ -1043,7 +1046,7 @@ void Foam::InteractionLists<ParticleType>::writeReferredWallFaces() const
         return;
     }
 
-    fileName objDir = mesh_.time().timePath()/cloud::prefix;
+    fileName objDir = mesh_.time().timePath()/lagrangian::cloud::prefix;
 
     mkDir(objDir);
 
@@ -1052,7 +1055,7 @@ void Foam::InteractionLists<ParticleType>::writeReferredWallFaces() const
     OFstream str(objDir/objFileName);
 
     Info<< "    Writing "
-        << mesh_.time().timeName()/cloud::prefix/objFileName
+        << mesh_.time().name()/lagrangian::cloud::prefix/objFileName
         << endl;
 
     label offset = 1;
@@ -1184,7 +1187,7 @@ void Foam::InteractionLists<ParticleType>::sendReferredData
         }
     }
 
-    // Using the mapDistribute to start sending and receiving the
+    // Using the distributionMap to start sending and receiving the
     // buffer but not block, i.e. it is calling
     //     pBufs.finishedSends(false);
     wallFaceMap().send(pBufs, referredWallData_);
@@ -1212,11 +1215,8 @@ void Foam::InteractionLists<ParticleType>::receiveReferredData
 
             forAll(constructMap, i)
             {
-                referredParticles_[constructMap[i]] = IDLList<ParticleType>
-                (
-                    str,
-                    typename ParticleType::iNew(mesh_)
-                );
+                referredParticles_[constructMap[i]] =
+                    IDLList<ParticleType>(str);
             }
         }
     }
@@ -1226,7 +1226,11 @@ void Foam::InteractionLists<ParticleType>::receiveReferredData
         IDLList<ParticleType>& refCell = referredParticles_[refCelli];
         forAllIter(typename IDLList<ParticleType>, refCell, iter)
         {
-            iter().correctAfterInteractionListReferral(ril_[refCelli][0]);
+            iter().correctAfterInteractionListReferral
+            (
+                mesh_,
+                ril_[refCelli][0]
+            );
         }
     }
 

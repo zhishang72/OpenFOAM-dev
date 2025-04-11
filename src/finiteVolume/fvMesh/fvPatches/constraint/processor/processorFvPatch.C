@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,8 @@ License
 
 #include "processorFvPatch.H"
 #include "addToRunTimeSelectionTable.H"
-#include "transformField.H"
+#include "volFields.H"
+#include "surfaceFields.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -42,48 +43,30 @@ void Foam::processorFvPatch::makeWeights(scalarField& w) const
 {
     if (Pstream::parRun())
     {
-        const vectorField delta(coupledFvPatch::delta());
-
-        // The face normals point in the opposite direction on the other side
-        const vectorField nbrDelta
-        (
-            procPolyPatch_.neighbFaceCentres()
-          - procPolyPatch_.neighbFaceCellCentres()
-        );
-
-        const scalarField nfDelta(nf() & delta);
-
-        const scalarField nbrNfDelta
-        (
-            (
-                procPolyPatch_.neighbFaceAreas()
-               /(mag(procPolyPatch_.neighbFaceAreas()) + vSmall)
-            ) & nbrDelta
-        );
-
-        forAll(delta, facei)
+        if (!boundaryMesh().mesh().conformal())
         {
-            const scalar ndoi = nfDelta[facei];
-            const scalar ndni = nbrNfDelta[facei];
-            const scalar ndi = ndoi + ndni;
-
-            if (ndni/vGreat < ndi)
-            {
-                w[facei] = ndni/ndi;
-            }
-            else
-            {
-                const scalar doi = mag(delta[facei]);
-                const scalar dni = mag(nbrDelta[facei]);
-                const scalar di = doi + dni;
-
-                w[facei] = dni/di;
-            }
+            coupledFvPatch::makeWeights
+            (
+                w,
+              - boundaryMesh().mesh().Sf().boundaryField()[index()],
+                boundaryMesh().mesh().Cf().boundaryField()[index()]
+              - boundaryMesh().mesh().C().boundaryField()[index()]
+            );
+        }
+        else
+        {
+            coupledFvPatch::makeWeights
+            (
+                w,
+                procPolyPatch_.neighbFaceAreas(),
+                procPolyPatch_.neighbFaceCentres()
+              - procPolyPatch_.neighbFaceCellCentres()
+            );
         }
     }
     else
     {
-        w = 1.0;
+        w = 1;
     }
 }
 
@@ -92,27 +75,23 @@ Foam::tmp<Foam::vectorField> Foam::processorFvPatch::delta() const
 {
     if (Pstream::parRun())
     {
-        // To the transformation if necessary
-        if (parallel())
+        if (!boundaryMesh().mesh().conformal())
         {
             return
                 coupledFvPatch::delta()
               - (
-                    procPolyPatch_.neighbFaceCentres()
-                  - procPolyPatch_.neighbFaceCellCentres()
+                    boundaryMesh().mesh().Cf().boundaryField()[index()]
+                  - boundaryMesh().mesh().C().boundaryField()[index()]
                 );
         }
         else
         {
             return
                 coupledFvPatch::delta()
-              - transform
+              - transform().transform
                 (
-                    forwardT(),
-                    (
-                        procPolyPatch_.neighbFaceCentres()
-                      - procPolyPatch_.neighbFaceCellCentres()
-                    )
+                    procPolyPatch_.neighbFaceCentres()
+                  - procPolyPatch_.neighbFaceCellCentres()
                 );
         }
     }

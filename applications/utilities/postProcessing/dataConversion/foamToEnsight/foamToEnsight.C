@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -49,9 +49,10 @@ Usage
       - \par -cellZone zoneName
         Specify single cellZone to write (not lagrangian)
 
-Note
-    Parallel support for cloud data is not supported
-    - writes to \a EnSight directory to avoid collisions with foamToEnsightParts
+    Note:
+        Parallel support for cloud data is not supported
+      - writes to \a EnSight directory to avoid collisions with
+        foamToEnsightParts
 
 \*---------------------------------------------------------------------------*/
 
@@ -157,7 +158,7 @@ int main(int argc, char *argv[])
 
     instantList Times = timeSelector::select0(runTime, args);
 
-    #include "createNamedMesh.H"
+    #include "createRegionMeshNoChangers.H"
 
     // Mesh instance (region0 gets filtered out)
     fileName regionPrefix = "";
@@ -270,7 +271,7 @@ int main(int argc, char *argv[])
     // Set Time to the last time before looking for the lagrangian objects
     runTime.setTime(Times.last(), Times.size()-1);
 
-    IOobjectList objects(mesh, runTime.timeName());
+    IOobjectList objects(mesh, runTime.name());
 
     #include "checkMeshMoving.H"
 
@@ -306,7 +307,7 @@ int main(int argc, char *argv[])
 
         fileNameList cloudDirs = readDir
         (
-            runTime.timePath()/regionPrefix/cloud::prefix,
+            runTime.timePath()/regionPrefix/lagrangian::cloud::prefix,
             fileType::directory
         );
 
@@ -315,8 +316,8 @@ int main(int argc, char *argv[])
             IOobjectList cloudObjs
             (
                 mesh,
-                runTime.timeName(),
-                cloud::prefix/cloudDirs[cloudI]
+                runTime.name(),
+                lagrangian::cloud::prefix/cloudDirs[cloudI]
             );
 
             IOobject* positionsPtr = cloudObjs.lookup(word("positions"));
@@ -360,8 +361,8 @@ int main(int argc, char *argv[])
             IOobjectList cloudObjs
             (
                 mesh,
-                runTime.timeName(),
-                cloud::prefix/cloudIter.key()
+                runTime.name(),
+                lagrangian::cloud::prefix/cloudIter.key()
             );
 
             forAllConstIter(IOobjectList, cloudObjs, fieldIter)
@@ -390,9 +391,9 @@ int main(int argc, char *argv[])
         word timeName = itoa(timeIndex);
         word timeFile = prepend + timeName;
 
-        Info<< "Translating time = " << runTime.timeName() << nl;
+        Info<< "Translating time = " << runTime.name() << nl;
 
-        polyMesh::readUpdateState meshState = mesh.readUpdate();
+        fvMesh::readUpdateState meshState = mesh.readUpdate();
         if (timeIndex != 0 && meshSubsetter.hasSubMesh())
         {
             Info<< "Converting cellZone " << cellZoneName
@@ -405,7 +406,7 @@ int main(int argc, char *argv[])
         }
 
 
-        if (meshState != polyMesh::UNCHANGED)
+        if (meshState != fvMesh::UNCHANGED)
         {
             eMesh.correct();
         }
@@ -462,7 +463,7 @@ int main(int argc, char *argv[])
                 IOobject fieldObject
                 (
                     fieldName,
-                    mesh.time().timeName(),
+                    mesh.time().name(),
                     mesh,
                     IOobject::MUST_READ,
                     IOobject::NO_WRITE
@@ -556,7 +557,7 @@ int main(int argc, char *argv[])
 
             fileNameList currentCloudDirs = readDir
             (
-                runTime.timePath()/regionPrefix/cloud::prefix,
+                runTime.timePath()/regionPrefix/lagrangian::cloud::prefix,
                 fileType::directory
             );
 
@@ -578,16 +579,14 @@ int main(int argc, char *argv[])
                 IOobject fieldObject
                 (
                     fieldName,
-                    mesh.time().timeName(),
-                    cloud::prefix/cloudName,
+                    mesh.time().name(),
+                    lagrangian::cloud::prefix/cloudName,
                     mesh,
                     IOobject::MUST_READ
                 );
 
-                bool fieldExists = fieldObject.typeHeaderOk<IOField<scalar>>
-                (
-                    false
-                );
+                bool fieldExists = fieldObject.headerOk();
+
                 if (fieldType == scalarIOField::typeName)
                 {
                     ensightCloudField<scalar>

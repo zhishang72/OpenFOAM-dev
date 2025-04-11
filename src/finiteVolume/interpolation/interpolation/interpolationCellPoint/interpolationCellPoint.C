@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -31,19 +31,11 @@ License
 template<class Type>
 Foam::interpolationCellPoint<Type>::interpolationCellPoint
 (
-    const GeometricField<Type, fvPatchField, volMesh>& psi
+    const VolField<Type>& psi
 )
 :
-    interpolation<Type>(psi),
-    psip_
-    (
-        volPointInterpolation::New(psi.mesh()).interpolate
-        (
-            psi,
-            "volPointInterpolate(" + psi.name() + ')',
-            true        // use cache
-        )
-    )
+    fieldInterpolation<Type, interpolationCellPoint<Type>>(psi),
+    interpolationVolPointInterpolation<Type>(psi)
 {
     // Uses cellPointWeight to do interpolation which needs tet decomposition
     (void)psi.mesh().tetBasePtIs();
@@ -53,12 +45,26 @@ Foam::interpolationCellPoint<Type>::interpolationCellPoint
 template<class Type>
 Foam::interpolationCellPoint<Type>::interpolationCellPoint
 (
-    const GeometricField<Type, fvPatchField, volMesh>& psi,
-    tmp<GeometricField<Type, pointPatchField, pointMesh>> psip
+    const interpolationCellPoint<Type>& i
 )
 :
-    interpolation<Type>(psi),
-    psip_(psip)
+    fieldInterpolation<Type, interpolationCellPoint<Type>>(i),
+    interpolationVolPointInterpolation<Type>(i)
+{
+    // Uses cellPointWeight to do interpolation which needs tet decomposition
+    (void)this->psi().mesh().tetBasePtIs();
+}
+
+
+template<class Type>
+Foam::interpolationCellPoint<Type>::interpolationCellPoint
+(
+    const VolField<Type>& psi,
+    tmp<PointField<Type>> psip
+)
+:
+    fieldInterpolation<Type, interpolationCellPoint<Type>>(psi),
+    interpolationVolPointInterpolation<Type>(psi, psip)
 {
     // Uses cellPointWeight to do interpolation which needs tet decomposition
     (void)psi.mesh().tetBasePtIs();

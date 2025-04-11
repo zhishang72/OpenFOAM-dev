@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -49,10 +49,10 @@ Usage
     The mode of operation is determined by the sign of the flux across the
     patch faces.
 
-Note
-    Sign conventions:
-    - Positive flux (out of domain): apply the "outletValue" fixed-value
-    - Negative flux (into of domain): apply zero-gradient condition
+    Note:
+        Sign conventions:
+      - Positive flux (out of domain): apply the "outletValue" fixed-value
+      - Negative flux (into of domain): apply zero-gradient condition
 
 See also
     Foam::mixedFvPatchField
@@ -92,13 +92,7 @@ protected:
         word phiName_;
 
 
-public:
-
-    //- Runtime type information
-    TypeName("outletInlet");
-
-
-    // Constructors
+    // Protected functions
 
         //- Construct from patch and internal field
         outletInletFvPatchField
@@ -106,6 +100,15 @@ public:
             const fvPatch&,
             const DimensionedField<Type, volMesh>&
         );
+
+
+public:
+
+    //- Runtime type information
+    TypeName("outletInlet");
+
+
+    // Constructors
 
         //- Construct from patch, internal field and dictionary
         outletInletFvPatchField
@@ -121,23 +124,11 @@ public:
             const outletInletFvPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
-        outletInletFvPatchField
-        (
-            const outletInletFvPatchField<Type>&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchField<Type>> clone() const
-        {
-            return tmp<fvPatchField<Type>>
-            (
-                new outletInletFvPatchField<Type>(*this)
-            );
-        }
+        //- Disallow copy without setting internal field reference
+        outletInletFvPatchField(const outletInletFvPatchField<Type>&) = delete;
 
         //- Copy constructor setting internal field reference
         outletInletFvPatchField

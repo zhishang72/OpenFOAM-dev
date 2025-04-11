@@ -2,10 +2,10 @@
 #
 #+TITLE:     README for [[http://openfoam.org/download/source][OpenFOAM-dev]]
 #+AUTHOR:               The OpenFOAM Foundation
-#+DATE:                     3rd January 2018
+#+DATE:                     11th July 2023
 #+LINK:                  http://openfoam.org
 #+OPTIONS: author:nil ^:{}
-# Copyright (c) 2015-2018 OpenFOAM Foundation.
+# Copyright (c) 2015-2023 OpenFOAM Foundation.
 
 * About OpenFOAM
   OpenFOAM is a free, open source computational fluid dynamics (CFD) software

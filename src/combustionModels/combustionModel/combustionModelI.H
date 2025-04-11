@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -31,7 +31,14 @@ inline const Foam::fvMesh& Foam::combustionModel::mesh() const
 }
 
 
-inline const Foam::compressibleTurbulenceModel&
+inline const Foam::fluidMulticomponentThermo&
+Foam::combustionModel::thermo() const
+{
+    return thermo_;
+}
+
+
+inline const Foam::compressibleMomentumTransportModel&
 Foam::combustionModel::turbulence() const
 {
     return turb_;

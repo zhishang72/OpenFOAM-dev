@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -39,19 +39,22 @@ Description
 
 #include "argList.H"
 #include "Time.H"
-#include "fvMesh.H"
 #include "singleCellFvMesh.H"
 #include "volFields.H"
 #include "surfaceFields.H"
 #include "fixedValueFvPatchFields.H"
 #include "distributedTriSurfaceMesh.H"
-#include "cyclicAMIPolyPatch.H"
-#include "mapDistribute.H"
+#include "cyclicTransform.H"
+#include "symmetryPolyPatch.H"
+#include "symmetryPlanePolyPatch.H"
+#include "wedgePolyPatch.H"
 #include "meshTools.H"
 #include "uindirectPrimitivePatch.H"
 #include "DynamicField.H"
-#include "scalarMatrices.H"
 #include "scalarListIOList.H"
+#include "polygonTriangulate.H"
+#include "vtkWritePolyData.H"
+#include "scalarMatrices.H"
 
 using namespace Foam;
 
@@ -78,31 +81,30 @@ triSurface triangulate
     label newPatchi = 0;
     label localTriFacei = 0;
 
+    polygonTriangulate triEngine;
+
     forAllConstIter(labelHashSet, includePatches, iter)
     {
         const label patchi = iter.key();
         const polyPatch& patch = bMesh[patchi];
         const pointField& points = patch.points();
 
-        label nTriTotal = 0;
-
         forAll(patch, patchFacei)
         {
             const face& f = patch[patchFacei];
 
-            faceList triFaces(f.nTriangles(points));
+            triEngine.triangulate(UIndirectList<point>(points, f));
 
-            label nTri = 0;
-
-            f.triangles(points, nTri, triFaces);
-
-            forAll(triFaces, triFacei)
+            forAll(triEngine.triPoints(), triFacei)
             {
-                const face& f = triFaces[triFacei];
-
-                triangles.append(labelledTri(f[0], f[1], f[2], newPatchi));
-
-                nTriTotal++;
+                triangles.append
+                (
+                    labelledTri
+                    (
+                        triEngine.triPoints(triFacei, f),
+                        newPatchi
+                    )
+                );
 
                 triSurfaceToAgglom[localTriFacei++] = globalNumbering.toGlobal
                 (
@@ -159,29 +161,35 @@ void writeRays
     const labelListList& visibleFaceFaces
 )
 {
-    OFstream str(fName);
-    label vertI = 0;
+    DynamicList<point> allPoints;
+    allPoints.append(myFc);
+    allPoints.append(compactCf);
 
-    Pout<< "Dumping rays to " << str.name() << endl;
-
+    DynamicList<labelPair> rays;
     forAll(myFc, facei)
     {
         const labelList visFaces = visibleFaceFaces[facei];
         forAll(visFaces, faceRemote)
         {
-            label compactI = visFaces[faceRemote];
-            const point& remoteFc = compactCf[compactI];
-
-            meshTools::writeOBJ(str, myFc[facei]);
-            vertI++;
-            meshTools::writeOBJ(str, remoteFc);
-            vertI++;
-            str << "l " << vertI-1 << ' ' << vertI << nl;
+            rays.append
+            (
+                labelPair(facei, myFc.size() + visFaces[faceRemote])
+            );
         }
     }
-    string cmd("objToVTK " + fName + " " + fName.lessExt() + ".vtk");
-    Pout<< "cmd:" << cmd << endl;
-    system(cmd);
+
+    Pout<< "\nDumping rays to " << fName + ".vtk" << endl;
+
+    vtkWritePolyData::write
+    (
+        fName + ".vtk",
+        fName.name(),
+        false,
+        allPoints,
+        labelList(),
+        rays,
+        faceList()
+    );
 }
 
 
@@ -246,10 +254,31 @@ void insertMatrixElements
 
 int main(int argc, char *argv[])
 {
+    #include "addMeshOption.H"
     #include "addRegionOption.H"
     #include "setRootCase.H"
     #include "createTime.H"
-    #include "createNamedMesh.H"
+    #include "createSpecifiedMeshNoChangers.H"
+
+    const polyBoundaryMesh& patches = mesh.boundaryMesh();
+
+    forAll(patches, patchi)
+    {
+        const polyPatch& pp = patches[patchi];
+        if
+        (
+            isA<cyclicTransform>(pp)
+         || isA<symmetryPolyPatch>(pp)
+         || isA<symmetryPlanePolyPatch>(pp)
+         || isA<wedgePolyPatch>(pp)
+        )
+        {
+            FatalErrorIn(args.executable()) << args.executable()
+                << " does not currently support transforming patches: "
+                   "cyclic, symmetry and wedge."
+                << exit(FatalError);
+        }
+    }
 
     // Read view factor dictionary
     IOdictionary viewFactorDict
@@ -257,7 +286,7 @@ int main(int argc, char *argv[])
        IOobject
        (
             "viewFactorsDict",
-            runTime.constant(),
+            runTime.system(),
             mesh,
             IOobject::MUST_READ_IF_MODIFIED,
             IOobject::NO_WRITE
@@ -277,7 +306,7 @@ int main(int argc, char *argv[])
         IOobject
         (
             "qr",
-            runTime.timeName(),
+            runTime.name(),
             mesh,
             IOobject::MUST_READ,
             IOobject::NO_WRITE
@@ -312,7 +341,7 @@ int main(int argc, char *argv[])
         IOobject
         (
             "coarse:" + mesh.name(),
-            runTime.timeName(),
+            runTime.name(),
             runTime,
             IOobject::NO_READ,
             IOobject::NO_WRITE
@@ -333,7 +362,6 @@ int main(int argc, char *argv[])
     label nCoarseFaces = 0;      // total number of coarse faces
     label nFineFaces = 0;        // total number of fine faces
 
-    const polyBoundaryMesh& patches = mesh.boundaryMesh();
     const polyBoundaryMesh& coarsePatches = coarseMesh.boundaryMesh();
 
     labelList viewFactorsPatches(patches.size());
@@ -501,11 +529,9 @@ int main(int argc, char *argv[])
 
     labelListList visibleFaceFaces(nCoarseFaces);
 
-    label nViewFactors = 0;
     forAll(nVisibleFaceFaces, facei)
     {
         visibleFaceFaces[facei].setSize(nVisibleFaceFaces[facei]);
-        nViewFactors += nVisibleFaceFaces[facei];
     }
 
 
@@ -517,7 +543,7 @@ int main(int argc, char *argv[])
 
     List<Map<label>> compactMap(Pstream::nProcs());
 
-    mapDistribute map(globalNumbering, rayEndFace, compactMap);
+    distributionMap map(globalNumbering, rayEndFace, compactMap);
 
     labelListIOList IOsubMap
     (
@@ -644,7 +670,7 @@ int main(int argc, char *argv[])
     {
         writeRays
         (
-            runTime.path()/"allVisibleFaces.obj",
+            runTime.path()/"allVisibleFaces",
             compactCoarseCf,
             remoteCoarseCf[Pstream::myProcNo()],
             visibleFaceFaces
@@ -822,7 +848,7 @@ int main(int argc, char *argv[])
             IOobject
             (
                 "viewFactorField",
-                mesh.time().timeName(),
+                mesh.time().name(),
                 mesh,
                 IOobject::NO_READ,
                 IOobject::NO_WRITE

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -29,20 +29,10 @@ License
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
-Foam::mirrorFvMesh::mirrorFvMesh(const IOobject& io, const word& dictName)
+Foam::mirrorFvMesh::mirrorFvMesh(const IOobject& io, const IOobject& dictIO)
 :
-    fvMesh(io),
-    mirrorMeshDict_
-    (
-        IOobject
-        (
-            dictName,
-            time().system(),
-            *this,
-            IOobject::MUST_READ,
-            IOobject::NO_WRITE
-        )
-    )
+    fvMesh(io, false),
+    mirrorMeshDict_(dictIO)
 {
     plane mirrorPlane(mirrorMeshDict_);
 
@@ -392,9 +382,9 @@ Foam::mirrorFvMesh::mirrorFvMesh(const IOobject& io, const word& dictName)
         new fvMesh
         (
             io,
-            move(newPoints),
-            move(newFaces),
-            move(newCells)
+            std::move(newPoints),
+            std::move(newFaces),
+            std::move(newCells)
         )
     );
 

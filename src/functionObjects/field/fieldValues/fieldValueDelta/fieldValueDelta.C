@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -68,8 +68,8 @@ void Foam::functionObjects::fieldValues::fieldValueDelta::writeFileHeader
     const label i
 )
 {
-    const wordList& fields1 = region1Ptr_->fields();
-    const wordList& fields2 = region2Ptr_->fields();
+    const wordList fields1 = region1Ptr_->fields();
+    const wordList fields2 = region2Ptr_->fields();
 
     DynamicList<word> commonFields(fields1.size());
     forAll(fields1, fieldi)
@@ -113,7 +113,6 @@ Foam::functionObjects::fieldValues::fieldValueDelta::fieldValueDelta
     region2Ptr_(nullptr)
 {
     read(dict);
-    resetName(typeName);
 }
 
 
@@ -155,7 +154,16 @@ bool Foam::functionObjects::fieldValues::fieldValueDelta::read
 
     operation_ = operationTypeNames_.read(dict.lookup("operation"));
 
+    resetName(typeName);
+
     return true;
+}
+
+
+Foam::wordList
+Foam::functionObjects::fieldValues::fieldValueDelta::fields() const
+{
+    return region1Ptr_->fields();
 }
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -37,10 +37,10 @@ SourceFiles
 #define DSMCCloud_H
 
 #include "Cloud.H"
-#include "DSMCBaseCloud.H"
 #include "IOdictionary.H"
 #include "autoPtr.H"
-#include "Random.H"
+#include "randomGenerator.H"
+#include "standardNormal.H"
 #include "fvMesh.H"
 #include "volFields.H"
 #include "scalarIOField.H"
@@ -63,14 +63,21 @@ template<class CloudType>
 class InflowBoundaryModel;
 
 /*---------------------------------------------------------------------------*\
-                         Class DSMCCloud Declaration
+                        Class DSMCCloudName Declaration
+\*---------------------------------------------------------------------------*/
+
+TemplateName(DSMCCloud);
+
+
+/*---------------------------------------------------------------------------*\
+                          Class DSMCCloud Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class ParcelType>
 class DSMCCloud
 :
-    public Cloud<ParcelType>,
-    public DSMCBaseCloud
+    public lagrangian::Cloud<ParcelType>,
+    public DSMCCloudName
 {
     // Private Data
 
@@ -135,7 +142,10 @@ class DSMCCloud
         List<typename ParcelType::constantProperties> constProps_;
 
         //- Random number generator
-        Random rndGen_;
+        randomGenerator rndGen_;
+
+        //- Standard normal distribution
+        distributions::standardNormal stdNormal_;
 
 
         // boundary value fields
@@ -261,8 +271,11 @@ public:
                 inline const typename ParcelType::constantProperties&
                     constProps(label typeId) const;
 
-                //- Return references to the random object
-                inline Random& rndGen();
+                //- Return reference to the random generator
+                inline randomGenerator& rndGen();
+
+                //- Return reference to the standard normal distribution
+                inline distributions::standardNormal& stdNormal();
 
 
             // References to the boundary fields for surface data collection
@@ -450,6 +463,7 @@ public:
             (
                 const vector& position,
                 const label celli,
+                label& nLocateBoundaryHits,
                 const vector& U,
                 const scalar Ei,
                 const label typeId
@@ -464,8 +478,14 @@ public:
 
         // Mapping
 
-            //- Remap the particles to the correct cells following mesh change
-            virtual void autoMap(const mapPolyMesh&);
+            //- Update topology using the given map
+            virtual void topoChange(const polyTopoChangeMap&);
+
+            //- Update from another mesh using the given map
+            virtual void mapMesh(const polyMeshMap&);
+
+            //- Redistribute or update using the given distribution map
+            virtual void distribute(const polyDistributionMap&);
 
 
     // Member Operators

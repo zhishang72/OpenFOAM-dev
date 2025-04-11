@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -32,7 +32,7 @@ License
 
 namespace Foam
 {
-    defineDebugSwitchWithName(functionObject, "functionObject", 0);
+    defineTypeNameAndDebug(functionObject, 0);
     defineRunTimeSelectionTable(functionObject, dictionary);
 }
 
@@ -41,12 +41,30 @@ bool Foam::functionObject::postProcess(false);
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
-Foam::functionObject::functionObject(const word& name)
+Foam::functionObject::functionObject
+(
+    const word& name,
+    const Time& runTime
+)
 :
     name_(name),
+    time_(runTime),
     log(false),
     executeAtStart_(true)
 {}
+
+
+Foam::functionObject::functionObject
+(
+    const word& name,
+    const Time& runTime,
+    const dictionary& dict
+)
+:
+    functionObject(name, runTime)
+{
+    read(dict);
+}
 
 
 // * * * * * * * * * * * * * * * * Selectors * * * * * * * * * * * * * * * * //
@@ -65,32 +83,34 @@ Foam::autoPtr<Foam::functionObject> Foam::functionObject::New
         Info<< "Selecting function " << functionType << endl;
     }
 
-    if (dict.found("functionObjectLibs"))
+    if
+    (
+        !dictionaryConstructorTablePtr_
+     || dictionaryConstructorTablePtr_->find(functionType)
+        == dictionaryConstructorTablePtr_->end()
+    )
     {
-        const_cast<Time&>(runTime).libs().open
+        if
         (
-            dict,
-            "functionObjectLibs",
-            dictionaryConstructorTablePtr_
-        );
-    }
-    else
-    {
-        const_cast<Time&>(runTime).libs().open
-        (
-            dict,
-            "libs",
-            dictionaryConstructorTablePtr_
-        );
-    }
+           !libs.open
+            (
+                dict,
+                "libs",
+                dictionaryConstructorTablePtr_
+            )
+        )
+        {
+            libs.open("lib" + functionType.remove(':') + ".so", false);
+        }
 
-    if (!dictionaryConstructorTablePtr_)
-    {
-        FatalErrorInFunction
-            << "Unknown function type "
-            << functionType << nl << nl
-            << "Table of functionObjects is empty" << endl
-            << exit(FatalError);
+        if (!dictionaryConstructorTablePtr_)
+        {
+            FatalErrorInFunction
+                << "Unknown function type "
+                << functionType << nl << nl
+                << "Table of functionObjects is empty"
+                << exit(FatalError);
+        }
     }
 
     dictionaryConstructorTable::iterator cstrIter =
@@ -102,7 +122,7 @@ Foam::autoPtr<Foam::functionObject> Foam::functionObject::New
             << "Unknown function type "
             << functionType << nl << nl
             << "Valid functions are : " << nl
-            << dictionaryConstructorTablePtr_->sortedToc() << endl
+            << dictionaryConstructorTablePtr_->sortedToc()
             << exit(FatalError);
     }
 
@@ -130,7 +150,8 @@ bool Foam::functionObject::read(const dictionary& dict)
 
     if (!postProcess)
     {
-        executeAtStart_ = dict.lookupOrDefault<Switch>("executeAtStart", true);
+        executeAtStart_ =
+            dict.lookupOrDefault<Switch>("executeAtStart", executeAtStart_);
     }
 
     return true;
@@ -149,23 +170,31 @@ bool Foam::functionObject::end()
 }
 
 
-bool Foam::functionObject::setTimeStep()
-{
-    return false;
-}
-
-
-Foam::scalar Foam::functionObject::timeToNextWrite()
+Foam::scalar Foam::functionObject::timeToNextAction()
 {
     return vGreat;
 }
 
 
-void Foam::functionObject::updateMesh(const mapPolyMesh&)
-{}
+Foam::scalar Foam::functionObject::maxDeltaT() const
+{
+    return vGreat;
+}
 
 
 void Foam::functionObject::movePoints(const polyMesh&)
+{}
+
+
+void Foam::functionObject::topoChange(const polyTopoChangeMap&)
+{}
+
+
+void Foam::functionObject::mapMesh(const polyMeshMap&)
+{}
+
+
+void Foam::functionObject::distribute(const polyDistributionMap&)
 {}
 
 

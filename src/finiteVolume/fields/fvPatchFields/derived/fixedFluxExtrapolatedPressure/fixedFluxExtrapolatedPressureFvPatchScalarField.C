@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -32,17 +32,6 @@ Foam::fixedFluxExtrapolatedPressureFvPatchScalarField::
 fixedFluxExtrapolatedPressureFvPatchScalarField
 (
     const fvPatch& p,
-    const DimensionedField<scalar, volMesh>& iF
-)
-:
-    fixedFluxPressureFvPatchScalarField(p, iF)
-{}
-
-
-Foam::fixedFluxExtrapolatedPressureFvPatchScalarField::
-fixedFluxExtrapolatedPressureFvPatchScalarField
-(
-    const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF,
     const dictionary& dict
 )
@@ -57,20 +46,10 @@ fixedFluxExtrapolatedPressureFvPatchScalarField
     const fixedFluxExtrapolatedPressureFvPatchScalarField& ptf,
     const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     fixedFluxPressureFvPatchScalarField(ptf, p, iF, mapper)
-{}
-
-
-Foam::fixedFluxExtrapolatedPressureFvPatchScalarField::
-fixedFluxExtrapolatedPressureFvPatchScalarField
-(
-    const fixedFluxExtrapolatedPressureFvPatchScalarField& wbppsf
-)
-:
-    fixedFluxPressureFvPatchScalarField(wbppsf)
 {}
 
 

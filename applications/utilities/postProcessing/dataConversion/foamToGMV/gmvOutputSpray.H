@@ -1,17 +1,17 @@
 gmvFile << "tracers " << particles.size() << nl;
-forAllConstIter(Cloud<passiveParticle>, particles, iter)
+forAllConstIter(lagrangian::Cloud<passiveParticle>, particles, iter)
 {
     gmvFile << iter().position().x() << " ";
 }
 gmvFile << nl;
 
-forAllConstIter(Cloud<passiveParticle>, particles, iter)
+forAllConstIter(lagrangian::Cloud<passiveParticle>, particles, iter)
 {
     gmvFile << iter().position().y() << " ";
 }
 gmvFile << nl;
 
-forAllConstIter(Cloud<passiveParticle>, particles, iter)
+forAllConstIter(lagrangian::Cloud<passiveParticle>, particles, iter)
 {
     gmvFile << iter().position().z() << " ";
 }
@@ -26,8 +26,8 @@ forAll(lagrangianScalarNames, i)
         IOobject
         (
             name,
-            runTime.timeName(),
-            cloud::prefix,
+            runTime.name(),
+            lagrangian::cloud::prefix,
             mesh,
             IOobject::MUST_READ,
             IOobject::NO_WRITE

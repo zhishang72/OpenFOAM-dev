@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -38,6 +38,50 @@ namespace functionObjects
 }
 
 
+// * * * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * //
+
+Foam::labelHashSet Foam::functionObjects::fvMeshFunctionObject::patchSet
+(
+    const dictionary& dict,
+    const bool optional
+) const
+{
+    if (dict.found("patch"))
+    {
+        const word patchName(dict.lookup("patch"));
+        const label patchIndex = mesh_.boundaryMesh().findIndex(patchName);
+
+        if (patchIndex >= 0)
+        {
+            return labelHashSet(FixedList<label, 1>(patchIndex));
+        }
+        else
+        {
+            FatalIOErrorInFunction(dict)
+                << "Unable to find patch " << patchName << exit(FatalIOError);
+        }
+    }
+    else if (dict.found("patches"))
+    {
+        return mesh_.boundaryMesh().patchSet
+        (
+            dict.lookup<wordReList>("patches")
+        );
+    }
+    else
+    {
+        if (!optional)
+        {
+            FatalIOErrorInFunction(dict)
+                << "Neither 'patch' or 'patches' specified"
+                << exit(FatalIOError);
+        }
+    }
+
+    return labelHashSet();
+}
+
+
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 Foam::functionObjects::fvMeshFunctionObject::fvMeshFunctionObject
@@ -55,11 +99,10 @@ Foam::functionObjects::fvMeshFunctionObject::fvMeshFunctionObject
 Foam::functionObjects::fvMeshFunctionObject::fvMeshFunctionObject
 (
     const word& name,
-    const objectRegistry& obr,
-    const dictionary& dict
+    const objectRegistry& obr
 )
 :
-    regionFunctionObject(name, obr, dict),
+    regionFunctionObject(name, obr),
     mesh_(refCast<const fvMesh>(obr_))
 {}
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -118,9 +118,17 @@ Foam::DSMCCloud<ParcelType>::constProps
 
 
 template<class ParcelType>
-inline Foam::Random& Foam::DSMCCloud<ParcelType>::rndGen()
+inline Foam::randomGenerator& Foam::DSMCCloud<ParcelType>::rndGen()
 {
     return rndGen_;
+}
+
+
+template<class ParcelType>
+inline Foam::distributions::standardNormal&
+Foam::DSMCCloud<ParcelType>::stdNormal()
+{
+    return stdNormal_;
 }
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,8 +25,8 @@ Class
     Foam::ReversibleReaction
 
 Description
-    Simple extension of Reaction to handle reversible reactions using
-    equilibrium thermodynamics.
+    Extension of Reaction to handle reversible reactions using equilibrium
+    thermodynamics
 
 SourceFiles
     ReversibleReaction.C
@@ -47,10 +47,10 @@ namespace Foam
                      Class ReversibleReaction Declaration
 \*---------------------------------------------------------------------------*/
 
-template<class ReactionThermo, class ReactionRate>
+template<class ThermoType, class ReactionRate>
 class ReversibleReaction
 :
-    public Reaction<ReactionThermo>
+    public Reaction<ThermoType>
 {
     // Private Data
 
@@ -68,14 +68,14 @@ public:
         //- Construct from components
         ReversibleReaction
         (
-            const Reaction<ReactionThermo>& reaction,
+            const Reaction<ThermoType>& reaction,
             const ReactionRate& k
         );
 
         //- Construct as copy given new speciesTable
         ReversibleReaction
         (
-            const ReversibleReaction<ReactionThermo, ReactionRate>&,
+            const ReversibleReaction<ThermoType, ReactionRate>&,
             const speciesTable& species
         );
 
@@ -83,7 +83,7 @@ public:
         ReversibleReaction
         (
             const speciesTable& species,
-            const HashPtrTable<ReactionThermo>& thermoDatabase,
+            const PtrList<ThermoType>& speciesThermo,
             const dictionary& dict
         );
 
@@ -91,29 +91,32 @@ public:
         ReversibleReaction
         (
             const speciesTable& species,
-            const HashPtrTable<ReactionThermo>& thermoDatabase,
+            const PtrList<ThermoType>& speciesThermo,
             const objectRegistry& ob,
             const dictionary& dict
         );
 
         //- Construct and return a clone
-        virtual autoPtr<Reaction<ReactionThermo>> clone() const
+        virtual autoPtr<Reaction<ThermoType>> clone() const
         {
-            return autoPtr<Reaction<ReactionThermo>>
+            return autoPtr<Reaction<ThermoType>>
             (
-                new ReversibleReaction<ReactionThermo, ReactionRate>(*this)
+                new ReversibleReaction<ThermoType, ReactionRate>
+                (
+                    *this
+                )
             );
         }
 
         //- Construct and return a clone with new speciesTable
-        virtual autoPtr<Reaction<ReactionThermo>> clone
+        virtual autoPtr<Reaction<ThermoType>> clone
         (
             const speciesTable& species
         ) const
         {
-            return autoPtr<Reaction<ReactionThermo>>
+            return autoPtr<Reaction<ThermoType>>
             (
-                new ReversibleReaction<ReactionThermo, ReactionRate>
+                new ReversibleReaction<ThermoType, ReactionRate>
                 (
                     *this,
                     species
@@ -129,6 +132,15 @@ public:
 
     // Member Functions
 
+        // Hooks
+
+            //- Pre-evaluation hook
+            virtual void preEvaluate() const;
+
+            //- Post-evaluation hook
+            virtual void postEvaluate() const;
+
+
         // ReversibleReaction rate coefficients
 
             //- Forward rate constant
@@ -140,7 +152,7 @@ public:
                 const label li
             ) const;
 
-            //- Reverse rate constant from the given formard rate constant
+            //- Reverse rate constant from the given forward rate constant
             virtual scalar kr
             (
                 const scalar kfwd,
@@ -184,30 +196,29 @@ public:
                 const scalar kr
             ) const;
 
-            //- Third-body efficiencies (beta = 1-alpha)
-            //  non-empty only for third-body reactions
-            //  with enhanced molecularity (alpha != 1)
-            virtual const List<Tuple2<label, scalar>>& beta() const;
+            //- Does this reaction have concentration-dependent rate constants?
+            virtual bool hasDkdc() const;
 
-            //- Species concentration derivative of the pressure dependent term
-            //  By default this value is 1 as it multiplies the third-body term
-            virtual void dcidc
+            //- Concentration derivative of forward rate
+            void dkfdc
             (
                 const scalar p,
                 const scalar T,
                 const scalarField& c,
                 const label li,
-                scalarField& dcidc
+                scalarField& dkfdc
             ) const;
 
-            //- Temperature derivative of the pressure dependent term
-            //  By default this value is 0 since ddT of molecularity is approx.0
-            virtual scalar dcidT
+            //- Concentration derivative of reverse rate
+            void dkrdc
             (
                 const scalar p,
                 const scalar T,
                 const scalarField& c,
-                const label li
+                const label li,
+                const scalarField& dkfdc,
+                const scalar kr,
+                scalarField& dkrdc
             ) const;
 
 
@@ -220,7 +231,7 @@ public:
         //- Disallow default bitwise assignment
         void operator=
         (
-            const ReversibleReaction<ReactionThermo, ReactionRate>&
+            const ReversibleReaction<ThermoType, ReactionRate>&
         ) = delete;
 };
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -48,7 +48,7 @@ Foam::fixedNormalSlipPointPatchField<Type>::fixedNormalSlipPointPatchField
 )
 :
     slipPointPatchField<Type>(p, iF, dict),
-    n_(dict.lookup("n"))
+    n_(dict.lookup<vector>("n", dimless))
 {}
 
 
@@ -58,7 +58,7 @@ Foam::fixedNormalSlipPointPatchField<Type>::fixedNormalSlipPointPatchField
     const fixedNormalSlipPointPatchField<Type>& ptf,
     const pointPatch& p,
     const DimensionedField<Type, pointMesh>& iF,
-    const pointPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     slipPointPatchField<Type>(ptf, p, iF, mapper),
@@ -92,7 +92,7 @@ void Foam::fixedNormalSlipPointPatchField<Type>::evaluate
     // Get internal field to insert values into
     Field<Type>& iF = const_cast<Field<Type>&>(this->primitiveField());
 
-    this->setInInternalField(iF, tvalues());
+    this->setInternalField(iF, tvalues());
 }
 
 

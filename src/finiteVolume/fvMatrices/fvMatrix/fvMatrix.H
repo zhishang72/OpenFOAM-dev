@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -60,45 +60,45 @@ template<class Type>
 class fvMatrix;
 
 template<class Type>
-tmp<GeometricField<Type, fvPatchField, volMesh>> operator&
+tmp<VolField<Type>> operator&
 (
     const fvMatrix<Type>&,
     const DimensionedField<Type, volMesh>&
 );
 
 template<class Type>
-tmp<GeometricField<Type, fvPatchField, volMesh>> operator&
+tmp<VolField<Type>> operator&
 (
     const fvMatrix<Type>&,
     const tmp<DimensionedField<Type, volMesh>>&
 );
 
 template<class Type>
-tmp<GeometricField<Type, fvPatchField, volMesh>> operator&
+tmp<VolField<Type>> operator&
 (
     const fvMatrix<Type>&,
-    const tmp<GeometricField<Type, fvPatchField, volMesh>>&
+    const tmp<VolField<Type>>&
 );
 
 template<class Type>
-tmp<GeometricField<Type, fvPatchField, volMesh>> operator&
+tmp<VolField<Type>> operator&
 (
     const tmp<fvMatrix<Type>>&,
     const DimensionedField<Type, volMesh>&
 );
 
 template<class Type>
-tmp<GeometricField<Type, fvPatchField, volMesh>> operator&
+tmp<VolField<Type>> operator&
 (
     const tmp<fvMatrix<Type>>&,
     const tmp<DimensionedField<Type, volMesh>>&
 );
 
 template<class Type>
-tmp<GeometricField<Type, fvPatchField, volMesh>> operator&
+tmp<VolField<Type>> operator&
 (
     const tmp<fvMatrix<Type>>&,
-    const tmp<GeometricField<Type, fvPatchField, volMesh>>&
+    const tmp<VolField<Type>>&
 );
 
 template<class Type>
@@ -108,7 +108,7 @@ template<class T> class UIndirectList;
 
 
 /*---------------------------------------------------------------------------*\
-                           Class fvMatrix Declaration
+                          Class fvMatrix Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -119,9 +119,9 @@ class fvMatrix
 {
     // Private Data
 
-        //- Const reference to GeometricField<Type, fvPatchField, volMesh>
+        //- Const reference to VolField<Type>
         //  Converted into a non-const reference at the point of solution.
-        const GeometricField<Type, fvPatchField, volMesh>& psi_;
+        const VolField<Type>& psi_;
 
         //- Dimension set
         dimensionSet dimensions_;
@@ -139,8 +139,7 @@ class fvMatrix
 
 
         //- Face flux field for non-orthogonal correction
-        mutable GeometricField<Type, fvsPatchField, surfaceMesh>
-            *faceFluxCorrectionPtr_;
+        mutable SurfaceField<Type>* faceFluxCorrectionPtr_;
 
 
 protected:
@@ -203,12 +202,20 @@ protected:
 
         // Matrix manipulation functionality
 
-            //- Set solution in given cells to the specified values
-            template<template<class> class ListType>
-            void setValuesFromList
+            //- Set solution in the given cell to the specified value
+            void setValue
             (
-                const labelUList& cells,
-                const ListType<Type>& values
+                const label celli,
+                const Type& value
+            );
+
+            //- Set solution in the given cell to the specified value
+            void setValue
+            (
+                const label celli,
+                const Type& value,
+                const scalar fraction,
+                const scalarField& ddtDiag
             );
 
 
@@ -255,7 +262,7 @@ public:
         //- Construct given a field to solve for
         fvMatrix
         (
-            const GeometricField<Type, fvPatchField, volMesh>&,
+            const VolField<Type>&,
             const dimensionSet&
         );
 
@@ -266,7 +273,7 @@ public:
         fvMatrix(const tmp<fvMatrix<Type>>&);
 
         //- Construct from Istream given field to solve for
-        fvMatrix(const GeometricField<Type, fvPatchField, volMesh>&, Istream&);
+        fvMatrix(const VolField<Type>&, Istream&);
 
         //- Clone
         tmp<fvMatrix<Type>> clone() const;
@@ -280,7 +287,15 @@ public:
 
         // Access
 
-            const GeometricField<Type, fvPatchField, volMesh>& psi() const
+            VolField<Type>& psi()
+            {
+                return const_cast<VolField<Type>&>
+                (
+                    psi_
+                );
+            }
+
+            const VolField<Type>& psi() const
             {
                 return psi_;
             }
@@ -314,13 +329,8 @@ public:
                 return boundaryCoeffs_;
             }
 
-
-            //- Declare return type of the faceFluxCorrectionPtr() function
-            typedef GeometricField<Type, fvsPatchField, surfaceMesh>
-                *surfaceTypeFieldPtr;
-
             //- Return pointer to face-flux non-orthogonal correction field
-            surfaceTypeFieldPtr& faceFluxCorrectionPtr()
+            SurfaceField<Type>*& faceFluxCorrectionPtr()
             {
                 return faceFluxCorrectionPtr_;
             }
@@ -330,18 +340,22 @@ public:
 
             //- Set solution in given cells to the specified values
             //  and eliminate the corresponding equations from the matrix.
+            template<template<class> class ListType>
             void setValues
             (
                 const labelUList& cells,
-                const UList<Type>& values
+                const ListType<Type>& values
             );
 
             //- Set solution in given cells to the specified values
             //  and eliminate the corresponding equations from the matrix.
+            template<template<class> class ListType>
             void setValues
             (
                 const labelUList& cells,
-                const UIndirectList<Type>& values
+                const ListType<Type>& values,
+                const scalarList& fractions,
+                const bool hasDdt = true
             );
 
             //- Set reference level for solution
@@ -362,6 +376,9 @@ public:
                 const scalar value
             );
 
+            //- Return the relaxation factor for this equation
+            scalar relaxationFactor() const;
+
             //- Relax matrix (for steady-state solution).
             //  alpha = 1 : diagonally equal
             //  alpha < 1 : diagonally dominant
@@ -376,7 +393,7 @@ public:
             //- Manipulate based on a boundary field
             void boundaryManipulate
             (
-                typename GeometricField<Type, fvPatchField, volMesh>::
+                typename VolField<Type>::
                     Boundary& values
             );
 
@@ -420,14 +437,20 @@ public:
             //- Return the central coefficient
             tmp<volScalarField> A() const;
 
+            //- Return the explicit source
+            tmp<VolInternalField<Type>> Su() const;
+
+            //- Return the implicit source
+            tmp<volScalarField::Internal> Sp() const;
+
             //- Return the H operation source
-            tmp<GeometricField<Type, fvPatchField, volMesh>> H() const;
+            tmp<VolField<Type>> H() const;
 
             //- Return H(1)
             tmp<volScalarField> H1() const;
 
             //- Return the face-flux field from the matrix
-            tmp<GeometricField<Type, fvsPatchField, surfaceMesh>>
+            tmp<SurfaceField<Type>>
                 flux() const;
 
 
@@ -454,7 +477,7 @@ public:
         );
         void operator+=
         (
-            const tmp<GeometricField<Type, fvPatchField, volMesh>>&
+            const tmp<VolField<Type>>&
         );
 
         void operator-=
@@ -467,7 +490,7 @@ public:
         );
         void operator-=
         (
-            const tmp<GeometricField<Type, fvPatchField, volMesh>>&
+            const tmp<VolField<Type>>&
         );
 
         void operator+=(const dimensioned<Type>&);
@@ -479,38 +502,42 @@ public:
         void operator*=(const volScalarField::Internal&);
         void operator*=(const tmp<volScalarField::Internal>&);
         void operator*=(const tmp<volScalarField>&);
-
         void operator*=(const dimensioned<scalar>&);
+
+        void operator/=(const volScalarField::Internal&);
+        void operator/=(const tmp<volScalarField::Internal>&);
+        void operator/=(const tmp<volScalarField>&);
+        void operator/=(const dimensioned<scalar>&);
 
 
     // Friend operators
 
-        friend tmp<GeometricField<Type, fvPatchField, volMesh>>
+        friend tmp<VolField<Type>>
         operator& <Type>
         (
             const fvMatrix<Type>&,
             const DimensionedField<Type, volMesh>&
         );
 
-        friend tmp<GeometricField<Type, fvPatchField, volMesh>>
+        friend tmp<VolField<Type>>
         operator& <Type>
         (
             const fvMatrix<Type>&,
-            const tmp<GeometricField<Type, fvPatchField, volMesh>>&
+            const tmp<VolField<Type>>&
         );
 
-        friend tmp<GeometricField<Type, fvPatchField, volMesh>>
+        friend tmp<VolField<Type>>
         operator& <Type>
         (
             const tmp<fvMatrix<Type>>&,
             const DimensionedField<Type, volMesh>&
         );
 
-        friend tmp<GeometricField<Type, fvPatchField, volMesh>>
+        friend tmp<VolField<Type>>
         operator& <Type>
         (
             const tmp<fvMatrix<Type>>&,
-            const tmp<GeometricField<Type, fvPatchField, volMesh>>&
+            const tmp<VolField<Type>>&
         );
 
 
@@ -637,7 +664,7 @@ template<class Type>
 tmp<fvMatrix<Type>> operator==
 (
     const fvMatrix<Type>&,
-    const tmp<GeometricField<Type, fvPatchField, volMesh>>&
+    const tmp<VolField<Type>>&
 );
 
 template<class Type>
@@ -658,7 +685,7 @@ template<class Type>
 tmp<fvMatrix<Type>> operator==
 (
     const tmp<fvMatrix<Type>>&,
-    const tmp<GeometricField<Type, fvPatchField, volMesh>>&
+    const tmp<VolField<Type>>&
 );
 
 template<class Type>
@@ -751,7 +778,7 @@ template<class Type>
 tmp<fvMatrix<Type>> operator+
 (
     const fvMatrix<Type>&,
-    const tmp<GeometricField<Type, fvPatchField, volMesh>>&
+    const tmp<VolField<Type>>&
 );
 
 template<class Type>
@@ -772,7 +799,7 @@ template<class Type>
 tmp<fvMatrix<Type>> operator+
 (
     const tmp<fvMatrix<Type>>&,
-    const tmp<GeometricField<Type, fvPatchField, volMesh>>&
+    const tmp<VolField<Type>>&
 );
 
 template<class Type>
@@ -792,7 +819,7 @@ tmp<fvMatrix<Type>> operator+
 template<class Type>
 tmp<fvMatrix<Type>> operator+
 (
-    const tmp<GeometricField<Type, fvPatchField, volMesh>>&,
+    const tmp<VolField<Type>>&,
     const fvMatrix<Type>&
 );
 
@@ -813,7 +840,7 @@ tmp<fvMatrix<Type>> operator+
 template<class Type>
 tmp<fvMatrix<Type>> operator+
 (
-    const tmp<GeometricField<Type, fvPatchField, volMesh>>&,
+    const tmp<VolField<Type>>&,
     const tmp<fvMatrix<Type>>&
 );
 
@@ -894,7 +921,7 @@ template<class Type>
 tmp<fvMatrix<Type>> operator-
 (
     const fvMatrix<Type>&,
-    const tmp<GeometricField<Type, fvPatchField, volMesh>>&
+    const tmp<VolField<Type>>&
 );
 
 template<class Type>
@@ -915,7 +942,7 @@ template<class Type>
 tmp<fvMatrix<Type>> operator-
 (
     const tmp<fvMatrix<Type>>&,
-    const tmp<GeometricField<Type, fvPatchField, volMesh>>&
+    const tmp<VolField<Type>>&
 );
 
 template<class Type>
@@ -935,7 +962,7 @@ tmp<fvMatrix<Type>> operator-
 template<class Type>
 tmp<fvMatrix<Type>> operator-
 (
-    const tmp<GeometricField<Type, fvPatchField, volMesh>>&,
+    const tmp<VolField<Type>>&,
     const fvMatrix<Type>&
 );
 
@@ -956,7 +983,7 @@ tmp<fvMatrix<Type>> operator-
 template<class Type>
 tmp<fvMatrix<Type>> operator-
 (
-    const tmp<GeometricField<Type, fvPatchField, volMesh>>&,
+    const tmp<VolField<Type>>&,
     const tmp<fvMatrix<Type>>&
 );
 
@@ -1045,6 +1072,121 @@ tmp<fvMatrix<Type>> operator*
 (
     const dimensioned<scalar>&,
     const tmp<fvMatrix<Type>>&
+);
+
+template<class Type>
+tmp<fvMatrix<Type>> operator*
+(
+    const volScalarField::Internal&,
+    const fvMatrix<Type>&
+);
+
+template<class Type>
+tmp<fvMatrix<Type>> operator*
+(
+    const tmp<volScalarField::Internal>&,
+    const fvMatrix<Type>&
+);
+
+template<class Type>
+tmp<fvMatrix<Type>> operator*
+(
+    const tmp<volScalarField>&,
+    const fvMatrix<Type>&
+);
+
+template<class Type>
+tmp<fvMatrix<Type>> operator*
+(
+    const volScalarField::Internal&,
+    const tmp<fvMatrix<Type>>&
+);
+
+template<class Type>
+tmp<fvMatrix<Type>> operator*
+(
+    const tmp<volScalarField::Internal>&,
+    const tmp<fvMatrix<Type>>&
+);
+
+template<class Type>
+tmp<fvMatrix<Type>> operator*
+(
+    const tmp<volScalarField>&,
+    const tmp<fvMatrix<Type>>&
+);
+
+
+template<class Type>
+tmp<fvMatrix<Type>> operator*
+(
+    const dimensioned<scalar>&,
+    const fvMatrix<Type>&
+);
+
+template<class Type>
+tmp<fvMatrix<Type>> operator*
+(
+    const dimensioned<scalar>&,
+    const tmp<fvMatrix<Type>>&
+);
+
+
+template<class Type>
+tmp<fvMatrix<Type>> operator/
+(
+    const fvMatrix<Type>&,
+    const volScalarField::Internal&
+);
+
+template<class Type>
+tmp<fvMatrix<Type>> operator/
+(
+    const fvMatrix<Type>&,
+    const tmp<volScalarField::Internal>&
+);
+
+template<class Type>
+tmp<fvMatrix<Type>> operator/
+(
+    const fvMatrix<Type>&,
+    const tmp<volScalarField>&
+);
+
+template<class Type>
+tmp<fvMatrix<Type>> operator/
+(
+    const tmp<fvMatrix<Type>>&,
+    const volScalarField::Internal&
+);
+
+template<class Type>
+tmp<fvMatrix<Type>> operator/
+(
+    const tmp<fvMatrix<Type>>&,
+    const tmp<volScalarField::Internal>&
+);
+
+template<class Type>
+tmp<fvMatrix<Type>> operator/
+(
+    const tmp<fvMatrix<Type>>&,
+    const tmp<volScalarField>&
+);
+
+
+template<class Type>
+tmp<fvMatrix<Type>> operator/
+(
+    const fvMatrix<Type>&,
+    const dimensioned<scalar>&
+);
+
+template<class Type>
+tmp<fvMatrix<Type>> operator/
+(
+    const tmp<fvMatrix<Type>>&,
+    const dimensioned<scalar>&
 );
 
 

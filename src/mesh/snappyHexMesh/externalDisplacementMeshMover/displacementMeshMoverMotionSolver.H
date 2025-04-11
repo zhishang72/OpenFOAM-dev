@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -45,7 +45,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-             Class displacementMeshMoverMotionSolver Declaration
+              Class displacementMeshMoverMotionSolver Declaration
 \*---------------------------------------------------------------------------*/
 
 class displacementMeshMoverMotionSolver
@@ -53,6 +53,8 @@ class displacementMeshMoverMotionSolver
     public displacementMotionSolver
 {
     // Private Data
+
+        dictionary dict_;
 
         mutable autoPtr<externalDisplacementMeshMover> meshMoverPtr_;
 
@@ -66,13 +68,18 @@ public:
     // Constructors
 
         //- Construct from polyMesh and dictionary
-        displacementMeshMoverMotionSolver(const polyMesh&, const dictionary&);
+        displacementMeshMoverMotionSolver
+        (
+            const word& name,
+            const polyMesh&,
+            const dictionary&
+        );
 
         //- Disallow default bitwise copy construction
         displacementMeshMoverMotionSolver
         (
             const displacementMeshMoverMotionSolver&
-        );
+        ) = delete;
 
 
     //- Destructor
@@ -93,7 +100,7 @@ public:
         virtual void movePoints(const pointField&);
 
         //- Update topology
-        virtual void updateMesh(const mapPolyMesh&);
+        virtual void topoChange(const polyTopoChangeMap&);
 
 
     // Member Operators

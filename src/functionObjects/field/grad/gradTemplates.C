@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -30,26 +30,27 @@ License
 template<class Type>
 bool Foam::functionObjects::grad::calcGrad()
 {
-    typedef GeometricField<Type, fvPatchField, volMesh> VolFieldType;
-    typedef GeometricField<Type, fvsPatchField, surfaceMesh> SurfaceFieldType;
+    if (foundObject<VolField<Type>>(fieldName_))
+    {
+        store
+        (
+            resultName_,
+            fvc::grad(lookupObject<VolField<Type>>(fieldName_)),
+            mesh_.changing() && mesh_.solution().cache(resultName_)
+        );
 
-    if (foundObject<VolFieldType>(fieldName_))
-    {
-        return store
-        (
-            resultName_,
-            fvc::grad(lookupObject<VolFieldType>(fieldName_)),
-            mesh_.changing() && mesh_.cache(resultName_)
-        );
+        return true;
     }
-    else if (foundObject<SurfaceFieldType>(fieldName_))
+    else if (foundObject<SurfaceField<Type>>(fieldName_))
     {
-        return store
+        store
         (
             resultName_,
-            fvc::grad(lookupObject<SurfaceFieldType>(fieldName_)),
-            mesh_.changing() && mesh_.cache(resultName_)
+            fvc::grad(lookupObject<SurfaceField<Type>>(fieldName_)),
+            mesh_.changing() && mesh_.solution().cache(resultName_)
         );
+
+        return true;
     }
     else
     {

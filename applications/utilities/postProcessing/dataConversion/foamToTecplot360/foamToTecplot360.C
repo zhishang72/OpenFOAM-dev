@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -70,6 +70,7 @@ Usage
 
 \*---------------------------------------------------------------------------*/
 
+#include "argList.H"
 #include "pointMesh.H"
 #include "volPointInterpolation.H"
 #include "emptyPolyPatch.H"
@@ -91,7 +92,7 @@ Usage
 
 // Note: needs to be after TECIO to prevent Foam::Time conflicting with
 // Xlib Time.
-#include "fvCFD.H"
+#include "Time.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -269,9 +270,9 @@ int main(int argc, char *argv[])
     }
 
 
-    instantList timeDirs = timeSelector::select0(runTime, args);
+    const instantList timeDirs = timeSelector::select0(runTime, args);
 
-    #include "createNamedMesh.H"
+    #include "createRegionMeshNoChangers.H"
 
     // TecplotData/ directory in the case
     fileName fvPath(runTime.path()/"Tecplot360");
@@ -314,13 +315,13 @@ int main(int argc, char *argv[])
     {
         runTime.setTime(timeDirs[timeI], timeI);
 
-        Info<< "Time: " << runTime.timeName() << endl;
+        Info<< "Time: " << runTime.name() << endl;
 
         const word timeDesc = name(timeI);    // name(runTime.timeIndex());
 
         // Check for new polyMesh/ and update mesh, fvMeshSubset and cell
         // decomposition.
-        polyMesh::readUpdateState meshState = vMesh.readUpdate();
+        fvMesh::readUpdateState meshState = vMesh.readUpdate();
 
         const fvMesh& mesh = vMesh.mesh();
 
@@ -335,7 +336,7 @@ int main(int argc, char *argv[])
         // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
         // Search for list of objects for this time
-        IOobjectList objects(mesh, runTime.timeName());
+        IOobjectList objects(mesh, runTime.name());
 
         HashSet<word> selectedFields;
         if (args.optionFound("fields"))
@@ -575,7 +576,7 @@ int main(int argc, char *argv[])
         INTEGER4 strandID = 1;
 
 
-        if (meshState != polyMesh::UNCHANGED)
+        if (meshState != fvMesh::UNCHANGED)
         {
             if (doWriteInternal)
             {
@@ -947,7 +948,7 @@ int main(int argc, char *argv[])
 
                 const indirectPrimitivePatch ipp
                 (
-                    IndirectList<face>(pp, identity(pp.size())),
+                    IndirectList<face>(pp, identityMap(pp.size())),
                     pp.points()
                 );
 
@@ -1061,18 +1062,18 @@ int main(int argc, char *argv[])
         //
         //---------------------------------------------------------------------
 
-        const faceZoneMesh& zones = mesh.faceZones();
+        const faceZoneList& zones = mesh.faceZones();
 
         if (doFaceZones && zones.size() > 0)
         {
-            mkDir(fvPath/"faceZoneMesh");
+            mkDir(fvPath/"faceZones");
 
             fileName patchFileName;
 
             if (vMesh.useSubMesh())
             {
                 patchFileName =
-                    fvPath/"faceZoneMesh"/cellSetName
+                    fvPath/"faceZones"/cellSetName
                   + "_"
                   + timeDesc
                   + ".plt";
@@ -1080,7 +1081,7 @@ int main(int argc, char *argv[])
             else
             {
                 patchFileName =
-                    fvPath/"faceZoneMesh"/"faceZoneMesh"
+                    fvPath/"faceZones"/"faceZones"
                   + "_"
                   + timeDesc
                   + ".plt";
@@ -1212,7 +1213,7 @@ int main(int argc, char *argv[])
         (
             readDir
             (
-                runTime.timePath()/regionPrefix/cloud::prefix,
+                runTime.timePath()/regionPrefix/lagrangian::cloud::prefix,
                 fileType::directory
             )
         );
@@ -1222,19 +1223,22 @@ int main(int argc, char *argv[])
             IOobjectList sprayObjs
             (
                 mesh,
-                runTime.timeName(),
-                cloud::prefix/cloudDirs[cloudI]
+                runTime.name(),
+                lagrangian::cloud::prefix/cloudDirs[cloudI]
             );
 
             IOobject* positionsPtr = sprayObjs.lookup("positions");
 
             if (positionsPtr)
             {
-                mkDir(fvPath/cloud::prefix/cloudDirs[cloudI]);
+                mkDir(fvPath/lagrangian::cloud::prefix/cloudDirs[cloudI]);
 
                 fileName lagrFileName
                 (
-                    fvPath/cloud::prefix/cloudDirs[cloudI]/cloudDirs[cloudI]
+                    fvPath
+                   /lagrangian::cloud::prefix
+                   /cloudDirs[cloudI]
+                   /cloudDirs[cloudI]
                   + "_" + timeDesc + ".plt"
                 );
 
@@ -1354,8 +1358,8 @@ int main(int argc, char *argv[])
                         IOobject
                         (
                             labelNames[i],
-                            mesh.time().timeName(),
-                            cloud::prefix/cloudDirs[cloudI],
+                            mesh.time().name(),
+                            lagrangian::cloud::prefix/cloudDirs[cloudI],
                             mesh,
                             IOobject::MUST_READ,
                             IOobject::NO_WRITE,
@@ -1378,8 +1382,8 @@ int main(int argc, char *argv[])
                         IOobject
                         (
                             scalarNames[i],
-                            mesh.time().timeName(),
-                            cloud::prefix/cloudDirs[cloudI],
+                            mesh.time().name(),
+                            lagrangian::cloud::prefix/cloudDirs[cloudI],
                             mesh,
                             IOobject::MUST_READ,
                             IOobject::NO_WRITE,
@@ -1396,8 +1400,8 @@ int main(int argc, char *argv[])
                         IOobject
                         (
                             vectorNames[i],
-                            mesh.time().timeName(),
-                            cloud::prefix/cloudDirs[cloudI],
+                            mesh.time().name(),
+                            lagrangian::cloud::prefix/cloudDirs[cloudI],
                             mesh,
                             IOobject::MUST_READ,
                             IOobject::NO_WRITE,

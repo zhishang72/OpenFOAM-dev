@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -23,7 +23,7 @@ License
 
 \*---------------------------------------------------------------------------*/
 
-#include "fvPatchFieldMapper.H"
+#include "fieldMapper.H"
 #include "volFields.H"
 #include "basicThermo.H"
 #include "addToRunTimeSelectionTable.H"
@@ -31,8 +31,7 @@ License
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
-Foam::fixedEnergyFvPatchScalarField::
-fixedEnergyFvPatchScalarField
+Foam::fixedEnergyFvPatchScalarField::fixedEnergyFvPatchScalarField
 (
     const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF
@@ -42,21 +41,7 @@ fixedEnergyFvPatchScalarField
 {}
 
 
-Foam::fixedEnergyFvPatchScalarField::
-fixedEnergyFvPatchScalarField
-(
-    const fixedEnergyFvPatchScalarField& ptf,
-    const fvPatch& p,
-    const DimensionedField<scalar, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
-)
-:
-    fixedValueFvPatchScalarField(ptf, p, iF, mapper)
-{}
-
-
-Foam::fixedEnergyFvPatchScalarField::
-fixedEnergyFvPatchScalarField
+Foam::fixedEnergyFvPatchScalarField::fixedEnergyFvPatchScalarField
 (
     const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF,
@@ -67,18 +52,19 @@ fixedEnergyFvPatchScalarField
 {}
 
 
-Foam::fixedEnergyFvPatchScalarField::
-fixedEnergyFvPatchScalarField
+Foam::fixedEnergyFvPatchScalarField::fixedEnergyFvPatchScalarField
 (
-    const fixedEnergyFvPatchScalarField& tppsf
+    const fixedEnergyFvPatchScalarField& ptf,
+    const fvPatch& p,
+    const DimensionedField<scalar, volMesh>& iF,
+    const fieldMapper& mapper
 )
 :
-    fixedValueFvPatchScalarField(tppsf)
+    fixedValueFvPatchScalarField(ptf, p, iF, mapper)
 {}
 
 
-Foam::fixedEnergyFvPatchScalarField::
-fixedEnergyFvPatchScalarField
+Foam::fixedEnergyFvPatchScalarField::fixedEnergyFvPatchScalarField
 (
     const fixedEnergyFvPatchScalarField& tppsf,
     const DimensionedField<scalar, volMesh>& iF
@@ -115,7 +101,7 @@ void Foam::fixedEnergyFvPatchScalarField::updateCoeffs()
 
 namespace Foam
 {
-    makePatchTypeField
+    makeNullConstructablePatchTypeField
     (
         fvPatchScalarField,
         fixedEnergyFvPatchScalarField

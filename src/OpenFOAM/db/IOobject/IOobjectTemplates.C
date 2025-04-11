@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2015-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2015-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -37,8 +37,8 @@ bool Foam::IOobject::typeHeaderOk(const bool checkType)
     bool ok = true;
 
     // Everyone check or just master
-    bool masterOnly =
-        typeGlobal<Type>()
+    const bool masterOnly =
+        typeGlobal<Type>::global
      && (
             IOobject::fileModificationChecking == timeStampMaster
          || IOobject::fileModificationChecking == inotifyMaster
@@ -49,7 +49,7 @@ bool Foam::IOobject::typeHeaderOk(const bool checkType)
     // Determine local status
     if (!masterOnly || Pstream::master())
     {
-        fileName fName(typeFilePath<Type>(*this));
+        const fileName fName(filePath(typeGlobalFile<Type>::global));
 
         ok = fp.readHeader(*this, fName, Type::typeName);
         if (ok && checkType && headerClassName_ != Type::typeName)
@@ -85,6 +85,13 @@ void Foam::IOobject::warnNoRereading() const
             << " does not support automatic rereading."
             << endl;
     }
+}
+
+
+template<class Type>
+bool Foam::typeIOobject<Type>::headerOk()
+{
+    return typeHeaderOk<Type>(true);
 }
 
 

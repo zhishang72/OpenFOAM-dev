@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ License
 
 #include "rhoConst.H"
 
-// * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
+// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class Specie>
 inline Foam::rhoConst<Specie>::rhoConst
@@ -38,8 +38,6 @@ inline Foam::rhoConst<Specie>::rhoConst
     rho_(rho)
 {}
 
-
-// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class Specie>
 inline Foam::rhoConst<Specie>::rhoConst
@@ -71,7 +69,7 @@ inline Foam::scalar Foam::rhoConst<Specie>::rho(scalar p, scalar T) const
 
 
 template<class Specie>
-inline Foam::scalar Foam::rhoConst<Specie>::H(scalar p, scalar T) const
+inline Foam::scalar Foam::rhoConst<Specie>::h(scalar p, scalar T) const
 {
     return p/rho_;
 }
@@ -85,7 +83,7 @@ inline Foam::scalar Foam::rhoConst<Specie>::Cp(scalar p, scalar T) const
 
 
 template<class Specie>
-inline Foam::scalar Foam::rhoConst<Specie>::E(scalar p, scalar T) const
+inline Foam::scalar Foam::rhoConst<Specie>::e(scalar p, scalar T) const
 {
     return 0;
 }
@@ -99,7 +97,14 @@ inline Foam::scalar Foam::rhoConst<Specie>::Cv(scalar p, scalar T) const
 
 
 template<class Specie>
-inline Foam::scalar Foam::rhoConst<Specie>::S(scalar p, scalar T) const
+inline Foam::scalar Foam::rhoConst<Specie>::sp(scalar p, scalar T) const
+{
+    return 0;
+}
+
+
+template<class Specie>
+inline Foam::scalar Foam::rhoConst<Specie>::sv(scalar p, scalar T) const
 {
     return 0;
 }
@@ -115,12 +120,19 @@ inline Foam::scalar Foam::rhoConst<Specie>::psi(scalar p, scalar T) const
 template<class Specie>
 inline Foam::scalar Foam::rhoConst<Specie>::Z(scalar p, scalar T) const
 {
-    return 0;
+    return p/(rho(p, T)*this->R()*T);
 }
 
 
 template<class Specie>
 inline Foam::scalar Foam::rhoConst<Specie>::CpMCv(scalar p, scalar T) const
+{
+    return 0;
+}
+
+
+template<class Specie>
+inline Foam::scalar Foam::rhoConst<Specie>::alphav(scalar p, scalar T) const
 {
     return 0;
 }

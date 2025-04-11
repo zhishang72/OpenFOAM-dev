@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,7 +24,7 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "emptyFvsPatchField.H"
-#include "fvPatchFieldMapper.H"
+#include "fieldMapper.H"
 #include "surfaceMesh.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
@@ -68,7 +68,7 @@ Foam::emptyFvsPatchField<Type>::emptyFvsPatchField
     const emptyFvsPatchField<Type>&,
     const fvPatch& p,
     const DimensionedField<Type, surfaceMesh>& iF,
-    const fvPatchFieldMapper&
+    const fieldMapper&
 )
 :
     fvsPatchField<Type>(p, iF, Field<Type>(0))
@@ -83,21 +83,6 @@ Foam::emptyFvsPatchField<Type>::emptyFvsPatchField
             << exit(FatalError);
     }
 }
-
-
-template<class Type>
-Foam::emptyFvsPatchField<Type>::emptyFvsPatchField
-(
-    const emptyFvsPatchField<Type>& ptf
-)
-:
-    fvsPatchField<Type>
-    (
-        ptf.patch(),
-        ptf.internalField(),
-        Field<Type>(0)
-    )
-{}
 
 
 template<class Type>

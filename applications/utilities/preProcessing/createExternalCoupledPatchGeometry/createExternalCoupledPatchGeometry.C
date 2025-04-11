@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -37,34 +37,38 @@ Description
     the patch geometry (points and faces) for the coupled patches are output
     to the communications directory.
 
-Note:
-    The addressing is patch-local, i.e. point indices for each patch point
-    used for face addressing starts at index 0.
+    Note:
+        The addressing is patch-local, i.e. point indices for each patch point
+        used for face addressing starts at index 0.
 
 See also
     externalCoupledMixedFvPatchField
 
 \*---------------------------------------------------------------------------*/
 
-#include "fvCFD.H"
+#include "argList.H"
+#include "fvMesh.H"
 #include "createExternalCoupledPatchGeometryTemplates.H"
 #include "IOobjectList.H"
+
+using namespace Foam;
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 int main(int argc, char *argv[])
 {
+    #include "addMeshOption.H"
     #include "addRegionOption.H"
     argList::validArgs.append("fieldName");
     #include "setRootCase.H"
     #include "createTime.H"
-    #include "createNamedMesh.H"
+    #include "createSpecifiedMeshNoChangers.H"
 
     // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
     const word fieldName = args[1];
 
-    IOobjectList objects(IOobjectList(mesh, mesh.time().timeName()));
+    IOobjectList objects(IOobjectList(mesh, mesh.time().name()));
 
     label processed = -1;
     processField<scalar>(mesh, objects, fieldName, processed);

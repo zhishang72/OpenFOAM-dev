@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -34,34 +34,6 @@ Foam::pressureInletVelocityFvPatchVectorField::
 pressureInletVelocityFvPatchVectorField
 (
     const fvPatch& p,
-    const DimensionedField<vector, volMesh>& iF
-)
-:
-    fixedValueFvPatchVectorField(p, iF),
-    phiName_("phi"),
-    rhoName_("rho")
-{}
-
-
-Foam::pressureInletVelocityFvPatchVectorField::
-pressureInletVelocityFvPatchVectorField
-(
-    const pressureInletVelocityFvPatchVectorField& ptf,
-    const fvPatch& p,
-    const DimensionedField<vector, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
-)
-:
-    fixedValueFvPatchVectorField(ptf, p, iF, mapper),
-    phiName_(ptf.phiName_),
-    rhoName_(ptf.rhoName_)
-{}
-
-
-Foam::pressureInletVelocityFvPatchVectorField::
-pressureInletVelocityFvPatchVectorField
-(
-    const fvPatch& p,
     const DimensionedField<vector, volMesh>& iF,
     const dictionary& dict
 )
@@ -75,12 +47,15 @@ pressureInletVelocityFvPatchVectorField
 Foam::pressureInletVelocityFvPatchVectorField::
 pressureInletVelocityFvPatchVectorField
 (
-    const pressureInletVelocityFvPatchVectorField& pivpvf
+    const pressureInletVelocityFvPatchVectorField& ptf,
+    const fvPatch& p,
+    const DimensionedField<vector, volMesh>& iF,
+    const fieldMapper& mapper
 )
 :
-    fixedValueFvPatchVectorField(pivpvf),
-    phiName_(pivpvf.phiName_),
-    rhoName_(pivpvf.rhoName_)
+    fixedValueFvPatchVectorField(ptf, p, iF, mapper),
+    phiName_(ptf.phiName_),
+    rhoName_(ptf.rhoName_)
 {}
 
 
@@ -115,11 +90,11 @@ void Foam::pressureInletVelocityFvPatchVectorField::updateCoeffs()
     tmp<vectorField> n = patch().nf();
     const Field<scalar>& magS = patch().magSf();
 
-    if (phi.dimensions() == dimVelocity*dimArea)
+    if (phi.dimensions() == dimVolumetricFlux)
     {
         operator==(n*phip/magS);
     }
-    else if (phi.dimensions() == dimDensity*dimVelocity*dimArea)
+    else if (phi.dimensions() == dimMassFlux)
     {
         const fvPatchField<scalar>& rhop =
             patch().lookupPatchField<volScalarField, scalar>(rhoName_);

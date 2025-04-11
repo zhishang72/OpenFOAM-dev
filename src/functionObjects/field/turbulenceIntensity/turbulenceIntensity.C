@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2018-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,7 +24,7 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "turbulenceIntensity.H"
-#include "turbulenceModel.H"
+#include "momentumTransportModel.H"
 #include "addToRunTimeSelectionTable.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
@@ -72,8 +72,6 @@ Foam::functionObjects::turbulenceIntensity::turbulenceIntensity
     writeLocalObjects(obr_, log)
 {
     read(dict);
-    resetName(typeName);
-    resetLocalObjectName("I");
 }
 
 
@@ -90,43 +88,32 @@ bool Foam::functionObjects::turbulenceIntensity::read(const dictionary& dict)
     fvMeshFunctionObject::read(dict);
     writeLocalObjects::read(dict);
 
+    resetName(typeName);
+    resetLocalObjectName("I");
+
     return true;
 }
 
 
 bool Foam::functionObjects::turbulenceIntensity::execute()
 {
-    if (mesh_.foundObject<turbulenceModel>(turbulenceModel::propertiesName))
-    {
-        const turbulenceModel& turbModel = mesh_.lookupObject<turbulenceModel>
+    const momentumTransportModel& transport =
+        mesh_.lookupType<momentumTransportModel>();
+
+    const volScalarField uPrime(sqrt((2.0/3.0)*transport.k()));
+
+    store
+    (
+        "I",
+        uPrime
+       /max
         (
-            turbulenceModel::propertiesName
-        );
+            max(uPrime, mag(transport.U())),
+            dimensionedScalar(dimVelocity, small)
+        )
+    );
 
-        volScalarField uPrime(sqrt((2.0/3.0)*turbModel.k()));
-
-        word name("I");
-
-        return
-            store
-            (
-                name,
-                uPrime
-               /max
-                (
-                    max(uPrime, mag(turbModel.U())),
-                    dimensionedScalar(dimVelocity, small)
-                )
-            );
-    }
-    else
-    {
-        FatalErrorInFunction
-            << "Unable to find turbulence model in the "
-            << "database" << exit(FatalError);
-
-        return false;
-    }
+    return true;
 }
 
 

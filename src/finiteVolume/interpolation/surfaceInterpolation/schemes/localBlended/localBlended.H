@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ Class
     Foam::localBlended
 
 Description
-    Two-scheme localBlended differencing scheme.
+    Two-scheme localBlended interpolation scheme.
 
 SourceFiles
     localBlended.C
@@ -44,7 +44,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class localBlended Declaration
+                        Class localBlended Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -123,7 +123,7 @@ public:
         //- Return the face-based blending factor
         virtual tmp<surfaceScalarField> blendingFactor
         (
-             const GeometricField<Type, fvPatchField, volMesh>& vf
+             const VolField<Type>& vf
         ) const
         {
             return
@@ -137,7 +137,7 @@ public:
         //- Return the interpolation weighting factors
         tmp<surfaceScalarField> weights
         (
-            const GeometricField<Type, fvPatchField, volMesh>& vf
+            const VolField<Type>& vf
         ) const
         {
             const surfaceScalarField& blendingFactor =
@@ -154,8 +154,8 @@ public:
 
         //- Return the face-interpolate of the given cell field
         //  with explicit correction
-        tmp<GeometricField<Type, fvsPatchField, surfaceMesh>>
-        interpolate(const GeometricField<Type, fvPatchField, volMesh>& vf) const
+        tmp<SurfaceField<Type>>
+        interpolate(const VolField<Type>& vf) const
         {
             const surfaceScalarField& blendingFactor =
             (
@@ -181,10 +181,10 @@ public:
 
         //- Return the explicit correction to the face-interpolate
         //  for the given field
-        virtual tmp<GeometricField<Type, fvsPatchField, surfaceMesh>>
+        virtual tmp<SurfaceField<Type>>
         correction
         (
-            const GeometricField<Type, fvPatchField, volMesh>& vf
+            const VolField<Type>& vf
         ) const
         {
             const surfaceScalarField& blendingFactor =
@@ -225,7 +225,7 @@ public:
             }
             else
             {
-                return tmp<GeometricField<Type, fvsPatchField, surfaceMesh>>
+                return tmp<SurfaceField<Type>>
                 (
                     nullptr
                 );

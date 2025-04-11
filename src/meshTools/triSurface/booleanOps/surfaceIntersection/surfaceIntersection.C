@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -45,7 +45,7 @@ defineTypeNameAndDebug(surfaceIntersection, 0);
 // * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
 
 // Checks if there exists a special topological situation that causes
-// edge and the face it hit not to be recognized.
+// edge and the face it hit not to be recognised.
 //
 // For now if the face shares a point with the edge
 bool Foam::surfaceIntersection::excludeEdgeHit
@@ -208,7 +208,7 @@ void Foam::surfaceIntersection::storeIntersection
 
         // Combine two faces. Always make sure the face from the first surface
         // is element 0.
-        FixedList<label, 2> twoFaces;
+        labelPair twoFaces;
         if (isFirstSurf)
         {
             twoFaces[0] = faceA;

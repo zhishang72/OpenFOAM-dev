@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -35,6 +35,7 @@ Description
        codeData    | c++; local member data (null constructed);
        localCode   | c++; local static functions;
        codeRead    | c++; upon functionObject::read();
+       codeFields  | c++; upon functionObject::fields();
        codeExecute | c++; upon functionObject::execute();
        codeWrite   | c++; upon functionObject::write()
        codeEnd     | c++; upon functionObject::end();
@@ -42,13 +43,12 @@ Description
 
     Example of function object specification:
     \verbatim
-    difference
+    writeMagU
     {
         libs        ("libutilityFunctionObjects.so");
 
         type coded;
-        // Name of on-the-fly generated functionObject
-        name writeMagU;
+
         codeWrite
         #{
             // Lookup U
@@ -88,48 +88,28 @@ class codedFunctionObject
     public functionObject,
     public codedBase
 {
-protected:
+    // Private Data
 
-    // Protected static data
+        //- Keywords associated with source code
+        static const wordList codeKeys;
 
-        //- The keywords associated with source code
-        static const wordList codeKeys_;
+        //- Name of the dictionary variables in the source code
+        static const wordList codeDictVars;
 
-
-    // Protected data
-
-        //- Reference to the time database
-        const Time& time_;
-
-        //- Input dictionary
-        dictionary dict_;
-
-        //- The name
-        word name_;
-
-        //- Underlying functionObject
+        //- The dynamically generated functionObject pointer
         mutable autoPtr<functionObject> redirectFunctionObjectPtr_;
 
 
-    // Protected Member Functions
-
-        //- Get the loaded dynamic libraries
-        virtual dlLibraryTable& libs() const;
+    // Private Member Functions
 
         //- Adapt the context for the current object
         virtual void prepare(dynamicCode&, const dynamicCodeContext&) const;
 
-        //- Return a description (type + name) for the output
-        virtual string description() const;
+        //- Compile, link and load the compiled functionObject
+        void updateLibrary(const dictionary& dict);
 
-        //- Clear any redirected objects
-        virtual void clearRedirect() const;
-
-        //- Get the dictionary to initialize the codeContext
-        virtual const dictionary& codeDict() const;
-
-        //- Get the keywords associated with source code
-        virtual const wordList& codeKeys() const;
+        //- Return the compiled functionObject
+        functionObject& redirectFunctionObject() const;
 
 
 public:
@@ -158,16 +138,16 @@ public:
 
     // Member Functions
 
-        //- Dynamically compiled functionObject
-        functionObject& redirectFunctionObject() const;
+        //- Return the list of fields required
+        virtual wordList fields() const;
 
         //- Called at each ++ or += of the time-loop.
-        //  postProcess overrides the usual executeControl behaviour and
+        //  foamPostProcess overrides the usual executeControl behaviour and
         //  forces execution (used in post-processing mode)
         virtual bool execute();
 
         //- Called at each ++ or += of the time-loop.
-        //  postProcess overrides the usual writeControl behaviour and
+        //  foamPostProcess overrides the usual writeControl behaviour and
         //  forces writing always (used in post-processing mode)
         virtual bool write();
 

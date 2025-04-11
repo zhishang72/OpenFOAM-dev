@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,7 +24,7 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "lagrangianWriter.H"
-#include "writeFuns.H"
+#include "vtkWriteFieldOps.H"
 #include "Cloud.H"
 #include "passiveParticle.H"
 
@@ -48,7 +48,7 @@ Foam::lagrangianWriter::lagrangianWriter
     const fvMesh& mesh = vMesh_.mesh();
 
     // Write header
-    writeFuns::writeHeader(os_, binary_, mesh.time().caseName());
+    vtkWriteOps::writeHeader(os_, binary_, mesh.time().caseName());
     os_ << "DATASET POLYDATA" << std::endl;
 
     if (dummyCloud)
@@ -56,29 +56,40 @@ Foam::lagrangianWriter::lagrangianWriter
         nParcels_ = 0;
 
         os_ << "POINTS " << nParcels_ << " float" << std::endl;
+
+        os_ << "VERTICES " << nParcels_ << ' ' << 2*nParcels_ << std::endl;
     }
     else
     {
-        Cloud<passiveParticle> parcels(mesh, cloudName_, false);
+        lagrangian::Cloud<passiveParticle> parcels(mesh, cloudName_, false);
 
         nParcels_ = parcels.size();
 
         os_ << "POINTS " << nParcels_ << " float" << std::endl;
 
         DynamicList<floatScalar> partField(3*parcels.size());
-
-        forAllConstIter(Cloud<passiveParticle>, parcels, elmnt)
+        forAllConstIter(lagrangian::Cloud<passiveParticle>, parcels, elmnt)
         {
-            writeFuns::insert(elmnt().position(), partField);
+            vtkWriteOps::insert(elmnt().position(mesh), partField);
         }
-        writeFuns::write(os_, binary_, partField);
+        vtkWriteOps::write(os_, binary_, partField);
+
+        os_ << "VERTICES " << nParcels_ << ' ' << 2*nParcels_ << std::endl;
+
+        DynamicList<label> vertexPoints(2*parcels.size());
+        forAll(parcels, parceli)
+        {
+            vertexPoints.append(1);
+            vertexPoints.append(parceli);
+        }
+        vtkWriteOps::write(os_, binary, vertexPoints);
     }
 }
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-void Foam::lagrangianWriter::writeParcelHeader(const label nFields)
+void Foam::lagrangianWriter::writeFieldsHeader(const label nFields)
 {
     os_ << "POINT_DATA " << nParcels_ << std::endl
         << "FIELD attributes " << nFields

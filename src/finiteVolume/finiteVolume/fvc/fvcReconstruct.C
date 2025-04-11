@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -43,16 +43,10 @@ namespace fvc
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 template<class Type>
-tmp
-<
-    GeometricField
-    <
-        typename outerProduct<vector,Type>::type, fvPatchField, volMesh
-    >
->
+tmp<VolField<typename outerProduct<vector, Type>::type>>
 reconstruct
 (
-    const GeometricField<Type, fvsPatchField, surfaceMesh>& ssf
+    const SurfaceField<Type>& ssf
 )
 {
     typedef typename outerProduct<vector, Type>::type GradType;
@@ -61,9 +55,9 @@ reconstruct
 
     surfaceVectorField SfHat(mesh.Sf()/mesh.magSf());
 
-    tmp<GeometricField<GradType, fvPatchField, volMesh>> treconField
+    tmp<VolField<GradType>> treconField
     (
-        GeometricField<GradType, fvPatchField, volMesh>::New
+        VolField<GradType>::New
         (
             "volIntegrate("+ssf.name()+')',
             mesh,
@@ -77,7 +71,8 @@ reconstruct
         return treconField;
     }
 
-    treconField.ref() = inv(surfaceSum(SfHat*mesh.Sf()))&surfaceSum(SfHat*ssf),
+    treconField.ref().internalFieldRef() =
+        inv(surfaceSum(SfHat*mesh.Sf()))&surfaceSum(SfHat*ssf),
 
     treconField.ref().correctBoundaryConditions();
 
@@ -86,20 +81,14 @@ reconstruct
 
 
 template<class Type>
-tmp
-<
-    GeometricField
-    <
-        typename outerProduct<vector, Type>::type, fvPatchField, volMesh
-    >
->
+tmp<VolField<typename outerProduct<vector, Type>::type>>
 reconstruct
 (
-    const tmp<GeometricField<Type, fvsPatchField, surfaceMesh>>& tssf
+    const tmp<SurfaceField<Type>>& tssf
 )
 {
     typedef typename outerProduct<vector, Type>::type GradType;
-    tmp<GeometricField<GradType, fvPatchField, volMesh>> tvf
+    tmp<VolField<GradType>> tvf
     (
         fvc::reconstruct(tssf())
     );

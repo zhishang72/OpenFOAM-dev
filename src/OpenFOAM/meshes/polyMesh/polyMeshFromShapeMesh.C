@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -400,7 +400,7 @@ Foam::polyMesh::polyMesh
     const bool syncPar
 )
 :
-    objectRegistry(io),
+    objectRegistry(io, regionDir(io)),
     primitiveMesh(),
     points_
     (
@@ -426,7 +426,7 @@ Foam::polyMesh::polyMesh
             IOobject::NO_READ,
             IOobject::AUTO_WRITE
         ),
-        0
+        label(0)
     ),
     owner_
     (
@@ -439,7 +439,7 @@ Foam::polyMesh::polyMesh
             IOobject::NO_READ,
             IOobject::AUTO_WRITE
         ),
-        0
+        label(0)
     ),
     neighbour_
     (
@@ -452,7 +452,7 @@ Foam::polyMesh::polyMesh
             IOobject::NO_READ,
             IOobject::AUTO_WRITE
         ),
-        0
+        label(0)
     ),
     clearedPrimitives_(false),
     boundary_
@@ -486,8 +486,7 @@ Foam::polyMesh::polyMesh
             IOobject::NO_READ,
             IOobject::NO_WRITE
         ),
-        *this,
-        0
+        *this
     ),
     faceZones_
     (
@@ -500,8 +499,7 @@ Foam::polyMesh::polyMesh
             IOobject::NO_READ,
             IOobject::NO_WRITE
         ),
-        *this,
-        0
+        *this
     ),
     cellZones_
     (
@@ -514,16 +512,15 @@ Foam::polyMesh::polyMesh
             IOobject::NO_READ,
             IOobject::NO_WRITE
         ),
-        *this,
-        0
+        *this
     ),
     globalMeshDataPtr_(nullptr),
-    moving_(false),
-    topoChanging_(false),
     curMotionTimeIndex_(-1),
     oldPointsPtr_(nullptr),
     oldCellCentresPtr_(nullptr),
-    storeOldCellCentres_(false)
+    storeOldCellCentres_(false),
+    moving_(false),
+    topoChanged_(false)
 {
     if (debug)
     {
@@ -592,9 +589,12 @@ Foam::polyMesh::polyMesh
 
     if (nDefaultFaces > 0)
     {
-        WarningInFunction
-            << "Found " << nDefaultFaces
-            << " undefined faces in mesh; adding to default patch." << endl;
+        if (debug)
+        {
+            WarningInFunction
+                << "Found " << nDefaultFaces
+                << " undefined faces in mesh; adding to default patch." << endl;
+        }
 
         // Check if there already exists a defaultFaces patch as last patch
         // and reuse it.
@@ -657,18 +657,10 @@ Foam::polyMesh::polyMesh
     if (syncPar)
     {
         // Calculate topology for the patches (processor-processor comms etc.)
-        boundary_.updateMesh();
+        boundary_.topoChange();
 
         // Calculate the geometry for the patches (transformation tensors etc.)
         boundary_.calcGeometry();
-    }
-
-    if (debug)
-    {
-        if (checkMesh())
-        {
-            Info<< "Mesh OK" << endl;
-        }
     }
 }
 
@@ -686,7 +678,7 @@ Foam::polyMesh::polyMesh
     const bool syncPar
 )
 :
-    objectRegistry(io),
+    objectRegistry(io, regionDir(io)),
     primitiveMesh(),
     points_
     (
@@ -712,7 +704,7 @@ Foam::polyMesh::polyMesh
             IOobject::NO_READ,
             IOobject::AUTO_WRITE
         ),
-        0
+        label(0)
     ),
     owner_
     (
@@ -725,7 +717,7 @@ Foam::polyMesh::polyMesh
             IOobject::NO_READ,
             IOobject::AUTO_WRITE
         ),
-        0
+        label(0)
     ),
     neighbour_
     (
@@ -738,7 +730,7 @@ Foam::polyMesh::polyMesh
             IOobject::NO_READ,
             IOobject::AUTO_WRITE
         ),
-        0
+        label(0)
     ),
     clearedPrimitives_(false),
     boundary_
@@ -772,8 +764,7 @@ Foam::polyMesh::polyMesh
             IOobject::NO_READ,
             IOobject::NO_WRITE
         ),
-        *this,
-        0
+        *this
     ),
     faceZones_
     (
@@ -786,8 +777,7 @@ Foam::polyMesh::polyMesh
             IOobject::NO_READ,
             IOobject::NO_WRITE
         ),
-        *this,
-        0
+        *this
     ),
     cellZones_
     (
@@ -800,16 +790,14 @@ Foam::polyMesh::polyMesh
             IOobject::NO_READ,
             IOobject::NO_WRITE
         ),
-        *this,
-        0
+        *this
     ),
     globalMeshDataPtr_(nullptr),
-    moving_(false),
-    topoChanging_(false),
     curMotionTimeIndex_(-1),
     oldPointsPtr_(nullptr),
     oldCellCentresPtr_(nullptr),
-    storeOldCellCentres_(false)
+    storeOldCellCentres_(false),
+    moving_(false)
 {
     if (debug)
     {
@@ -870,9 +858,12 @@ Foam::polyMesh::polyMesh
 
     if (nDefaultFaces > 0)
     {
-        WarningInFunction
-            << "Found " << nDefaultFaces
-            << " undefined faces in mesh; adding to default patch." << endl;
+        if (debug)
+        {
+            WarningInFunction
+                << "Found " << nDefaultFaces
+                << " undefined faces in mesh; adding to default patch." << endl;
+        }
 
         // Check if there already exists a defaultFaces patch as last patch
         // and reuse it.
@@ -935,18 +926,10 @@ Foam::polyMesh::polyMesh
     if (syncPar)
     {
         // Calculate topology for the patches (processor-processor comms etc.)
-        boundary_.updateMesh();
+        boundary_.topoChange();
 
         // Calculate the geometry for the patches (transformation tensors etc.)
         boundary_.calcGeometry();
-    }
-
-    if (debug)
-    {
-        if (checkMesh())
-        {
-            Info << "Mesh OK" << endl;
-        }
     }
 }
 

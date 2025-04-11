@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -1521,7 +1521,7 @@ Foam::pointIndexHit Foam::indexedOctree<Type>::findLine
             << " bb:" << subBbox(nodeI, octant) << endl;
     }
 
-    // Current position. Initialize to miss
+    // Current position. Initialise to miss
     pointIndexHit hitInfo(false, treeStart, -1);
 
     // while (true)
@@ -2168,7 +2168,7 @@ Foam::indexedOctree<Type>::indexedOctree
     // Start off with one node with all shapes in it.
     DynamicList<node> nodes(label(shapes.size() / maxLeafRatio));
     DynamicList<labelList> contents(label(shapes.size() / maxLeafRatio));
-    contents.append(identity(shapes.size()));
+    contents.append(identityMap(shapes.size()));
 
     // Create topnode.
     node topNode(divide(bb, contents, 0));
@@ -2570,6 +2570,11 @@ Foam::labelBits Foam::indexedOctree<Type>::findNode
 template<class Type>
 Foam::label Foam::indexedOctree<Type>::findInside(const point& sample) const
 {
+    if (nodes_.empty())
+    {
+        return -1;
+    }
+
     labelBits index = findNode(0, sample);
 
     const node& nod = nodes_[getNode(index)];
@@ -2602,6 +2607,11 @@ const Foam::labelList& Foam::indexedOctree<Type>::findIndices
     const point& sample
 ) const
 {
+    if (nodes_.empty())
+    {
+        return emptyList<label>();
+    }
+
     labelBits index = findNode(0, sample);
 
     const node& nod = nodes_[getNode(index)];

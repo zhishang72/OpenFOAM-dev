@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -32,8 +32,9 @@ Description
 #include "argList.H"
 #include "Time.H"
 #include "mirrorFvMesh.H"
-#include "mapPolyMesh.H"
+#include "polyTopoChangeMap.H"
 #include "hexRef8Data.H"
+#include "systemDict.H"
 
 using namespace Foam;
 
@@ -42,26 +43,29 @@ using namespace Foam;
 int main(int argc, char *argv[])
 {
     #include "addOverwriteOption.H"
+    #include "addMeshOption.H"
+    #include "addRegionOption.H"
     #include "addDictOption.H"
 
     #include "setRootCase.H"
+    #include "setMeshPath.H"
     #include "createTime.H"
 
+    const word regionName =
+        args.optionLookupOrDefault("region", polyMesh::defaultRegion);
+
     const bool overwrite = args.optionFound("overwrite");
-    const word dictName
-    (
-        args.optionLookupOrDefault<word>("dict", "mirrorMeshDict")
-    );
 
     mirrorFvMesh mesh
     (
         IOobject
         (
-            mirrorFvMesh::defaultRegion,
+            regionName,
             runTime.constant(),
+            meshPath,
             runTime
         ),
-        dictName
+        systemDictIO("mirrorMeshDict", args, runTime, regionName)
     );
 
     hexRef8Data refData
@@ -81,7 +85,7 @@ int main(int argc, char *argv[])
     if (!overwrite)
     {
         runTime++;
-        mesh.setInstance(runTime.timeName());
+        mesh.setInstance(runTime.name());
     }
 
 
@@ -96,38 +100,29 @@ int main(int argc, char *argv[])
     mMesh.write();
 
     // Map the hexRef8 data
-    mapPolyMesh map
+    polyTopoChangeMap map
     (
         mesh,
         mesh.nPoints(),         // nOldPoints,
         mesh.nFaces(),          // nOldFaces,
         mesh.nCells(),          // nOldCells,
-        mesh.pointMap(),        // pointMap,
+        move(mesh.pointMap()),  // pointMap,
         List<objectMap>(0),     // pointsFromPoints,
         labelList(0),           // faceMap,
-        List<objectMap>(0),     // facesFromPoints,
-        List<objectMap>(0),     // facesFromEdges,
         List<objectMap>(0),     // facesFromFaces,
-        mesh.cellMap(),         // cellMap,
-        List<objectMap>(0),     // cellsFromPoints,
-        List<objectMap>(0),     // cellsFromEdges,
-        List<objectMap>(0),     // cellsFromFaces,
+        move(mesh.cellMap()),   // cellMap,
         List<objectMap>(0),     // cellsFromCells,
         labelList(0),           // reversePointMap,
         labelList(0),           // reverseFaceMap,
         labelList(0),           // reverseCellMap,
         labelHashSet(0),        // flipFaceFlux,
         labelListList(0),       // patchPointMap,
-        labelListList(0),       // pointZoneMap,
-        labelListList(0),       // faceZonePointMap,
-        labelListList(0),       // faceZoneFaceMap,
-        labelListList(0),       // cellZoneMap,
-        pointField(0),          // preMotionPoints,
+        labelList(0),           // oldPatchSizes,
         labelList(0),           // oldPatchStarts,
         labelList(0),           // oldPatchNMeshPoints,
         autoPtr<scalarField>()  // oldCellVolumesPtr
     );
-    refData.updateMesh(map);
+    refData.topoChange(map);
     refData.write();
 
     Info<< "End" << endl;

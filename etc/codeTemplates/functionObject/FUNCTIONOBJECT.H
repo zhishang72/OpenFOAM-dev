@@ -67,7 +67,7 @@ namespace functionObjects
 {
 
 /*---------------------------------------------------------------------------*\
-                   Class FUNCTIONOBJECT Declaration
+                       Class FUNCTIONOBJECT Declaration
 \*---------------------------------------------------------------------------*/
 
 class FUNCTIONOBJECT
@@ -117,6 +117,9 @@ public:
 
         //- Read the FUNCTIONOBJECT data
         virtual bool read(const dictionary&);
+
+        //- Return the list of fields required
+        virtual wordList fields() const;
 
         //- Execute, currently does nothing
         virtual bool execute();

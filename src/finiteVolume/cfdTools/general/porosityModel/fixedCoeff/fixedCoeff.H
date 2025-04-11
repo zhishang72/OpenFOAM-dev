@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -53,7 +53,7 @@ namespace porosityModels
 {
 
 /*---------------------------------------------------------------------------*\
-                          Class fixedCoeff Declaration
+                         Class fixedCoeff Declaration
 \*---------------------------------------------------------------------------*/
 
 class fixedCoeff
@@ -69,10 +69,14 @@ class fixedCoeff
         dimensionedVector betaXYZ_;
 
         //- Model alpha coefficient - converted from alphaXYZ [1/s]
-        List<tensorField> alpha_;
+        tensorField alpha_;
 
         //- Model beta coefficient - converted from betaXYZ [1/m]
-        List<tensorField> beta_;
+        tensorField beta_;
+
+        bool rhoRefFound_;
+
+        scalar rhoRef_;
 
 
     // Private Member Functions
@@ -106,9 +110,9 @@ public:
         fixedCoeff
         (
             const word& name,
-            const word& modelType,
             const fvMesh& mesh,
             const dictionary& dict,
+            const dictionary& coeffDict,
             const word& cellZoneName
         );
 
@@ -140,23 +144,9 @@ public:
         //- Add resistance
         virtual void correct
         (
-            fvVectorMatrix& UEqn,
-            const volScalarField& rho,
-            const volScalarField& mu
-        ) const;
-
-        //- Add resistance
-        virtual void correct
-        (
             const fvVectorMatrix& UEqn,
             volTensorField& AU
         ) const;
-
-
-    // I-O
-
-        //- Write
-        bool writeData(Ostream& os) const;
 
 
     // Member Operators

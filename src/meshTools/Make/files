@@ -42,11 +42,7 @@ $(efm)/extendedFeatureEdgeMesh.C
 cellClassification/cellClassification.C
 cellClassification/cellInfo.C
 
-cellQuality/cellQuality.C
-
-cellDist/cellDistFuncs.C
-cellDist/patchWave/patchWave.C
-cellDist/wallPoint/wallPoint.C
+patchDist/patchDistWave/patchDistWave.C
 
 cellFeatures/cellFeatures.C
 
@@ -66,7 +62,6 @@ $(csys)/coordinateRotation/cylindrical.C
 edgeFaceCirculator/edgeFaceCirculator.C
 
 polyMeshZipUpCells/polyMeshZipUpCells.C
-primitiveMeshGeometry/primitiveMeshGeometry.C
 
 meshSearch/meshSearch.C
 meshSearch/meshSearchFACE_CENTRE_TRISMeshObject.C
@@ -74,24 +69,10 @@ meshSearch/meshSearchMeshObject.C
 
 meshTools/meshTools.C
 
-algorithms = algorithms
-
-pWave = $(algorithms)/PointEdgeWave
-$(pWave)/PointEdgeWaveName.C
-$(pWave)/pointEdgePoint.C
-
-patchWave = $(algorithms)/PatchEdgeFaceWave
-$(patchWave)/PatchEdgeFaceWaveName.C
-$(patchWave)/patchEdgeFaceInfo.C
-$(patchWave)/patchPatchDist.C
-$(patchWave)/patchEdgeFaceRegion.C
-$(patchWave)/patchEdgeFaceRegions.C
-
-
-meshWave = $(algorithms)/MeshWave
-$(meshWave)/MeshWaveName.C
-$(meshWave)/FaceCellWaveName.C
-
+algorithms/FaceCellWave/FaceCellWaveName.C
+algorithms/PointEdgeWave/PointEdgeWaveName.C
+algorithms/PatchEdgeFaceWave/PatchEdgeFaceWaveName.C
+algorithms/PatchEdgeFaceWave/patchPatchDist.C
 
 regionSplit/regionSplit.C
 regionSplit/localPointRegion.C
@@ -129,9 +110,8 @@ $(topoSets)/pointZoneSet.C
 
 sets/topoSetSource/topoSetSource.C
 
-cellSources =  sets/cellSources
+cellSources = sets/cellSources
 $(cellSources)/faceToCell/faceToCell.C
-$(cellSources)/fieldToCell/fieldToCell.C
 $(cellSources)/pointToCell/pointToCell.C
 $(cellSources)/shapeToCell/shapeToCell.C
 $(cellSources)/boxToCell/boxToCell.C
@@ -148,17 +128,21 @@ $(cellSources)/cylinderToCell/cylinderToCell.C
 $(cellSources)/faceZoneToCell/faceZoneToCell.C
 $(cellSources)/cylinderAnnulusToCell/cylinderAnnulusToCell.C
 $(cellSources)/targetVolumeToCell/targetVolumeToCell.C
+$(cellSources)/patchDistanceToCell/patchDistanceToCell.C
+$(cellSources)/truncatedConeToCell/truncatedConeToCell.C
+$(cellSources)/hemisphereToCell/hemisphereToCell.C
 
 faceSources = sets/faceSources
 $(faceSources)/faceToFace/faceToFace.C
 $(faceSources)/labelToFace/labelToFace.C
 $(faceSources)/cellToFace/cellToFace.C
 $(faceSources)/normalToFace/normalToFace.C
-$(faceSources)/pointToFace/pointToFace.C
 $(faceSources)/patchToFace/patchToFace.C
+$(faceSources)/pointToFace/pointToFace.C
 $(faceSources)/boundaryToFace/boundaryToFace.C
 $(faceSources)/zoneToFace/zoneToFace.C
 $(faceSources)/boxToFace/boxToFace.C
+$(faceSources)/rotatedBoxToFace/rotatedBoxToFace.C
 $(faceSources)/regionToFace/regionToFace.C
 $(faceSources)/cylinderToFace/cylinderToFace.C
 $(faceSources)/cylinderAnnulusToFace/cylinderAnnulusToFace.C
@@ -178,13 +162,17 @@ $(faceZoneSources)/faceZoneToFaceZone/faceZoneToFaceZone.C
 $(faceZoneSources)/setsToFaceZone/setsToFaceZone.C
 $(faceZoneSources)/setToFaceZone/setToFaceZone.C
 $(faceZoneSources)/setAndNormalToFaceZone/setAndNormalToFaceZone.C
+$(faceZoneSources)/setAndPointToFaceZone/setAndPointToFaceZone.C
 $(faceZoneSources)/searchableSurfaceToFaceZone/searchableSurfaceToFaceZone.C
+$(faceZoneSources)/planeToFaceZone/planeToFaceZone.C
 
 cellZoneSources = sets/cellZoneSources
 $(cellZoneSources)/setToCellZone/setToCellZone.C
 
 pointZoneSources = sets/pointZoneSources
 $(pointZoneSources)/setToPointZone/setToPointZone.C
+
+sets/polyCellSet/polyCellSet.C
 
 momentOfInertia/momentOfInertia.C
 
@@ -217,74 +205,88 @@ triSurface/triSurfaceTools/pointToPointPlanarInterpolation.C
 
 twoDPointCorrector/twoDPointCorrector.C
 
-AMI=AMIInterpolation
-$(AMI)/AMIInterpolation/AMIInterpolation.C
-$(AMI)/AMIInterpolation/AMIInterpolationParallelOps.C
-$(AMI)/faceAreaIntersect/faceAreaIntersect.C
+patchToPatchTools/patchToPatchTools.C
 
-AMIGAMG=$(AMI)/GAMG
-$(AMIGAMG)/interfaces/cyclicAMIGAMGInterface/cyclicAMIGAMGInterface.C
-$(AMIGAMG)/interfaceFields/cyclicAMIGAMGInterfaceField/cyclicAMIGAMGInterfaceField.C
-$(AMIGAMG)/interfaces/cyclicACMIGAMGInterface/cyclicACMIGAMGInterface.C
-$(AMIGAMG)/interfaceFields/cyclicACMIGAMGInterfaceField/cyclicACMIGAMGInterfaceField.C
-$(AMIGAMG)/interfaces/cyclicRepeatAMIGAMGInterface/cyclicRepeatAMIGAMGInterface.C
-$(AMIGAMG)/interfaceFields/cyclicRepeatAMIGAMGInterfaceField/cyclicRepeatAMIGAMGInterfaceField.C
+patchToPatch/patchToPatch/patchToPatch.C
+patchToPatch/patchToPatch/patchToPatchParallelOps.C
+patchToPatch/matching/matchingPatchToPatch.C
+patchToPatch/nearby/nearbyPatchToPatch.C
+patchToPatch/nearest/nearestPatchToPatch.C
+patchToPatch/inverseDistance/inverseDistancePatchToPatch.C
+patchToPatch/intersection/intersectionPatchToPatch.C
+patchToPatch/rays/raysPatchToPatch.C
 
-AMIMethod=$(AMI)/AMIInterpolation/AMIMethod
-$(AMIMethod)/AMIMethod/AMIMethod.C
-$(AMIMethod)/AMIMethod/AMIMethodNew.C
-$(AMIMethod)/directAMI/directAMI.C
-$(AMIMethod)/faceAreaWeightAMI/faceAreaWeightAMI.C
-$(AMIMethod)/mapNearestAMI/mapNearestAMI.C
-$(AMIMethod)/partialFaceAreaWeightAMI/partialFaceAreaWeightAMI.C
-$(AMIMethod)/sweptFaceAreaWeightAMI/sweptFaceAreaWeightAMI.C
+patchToPatch/patchToPatchStabilisation/patchToPatchStabilisation.C
 
-AMICycPatches=$(AMI)/patches/cyclicAMI
-$(AMICycPatches)/cyclicAMILduInterfaceField/cyclicAMILduInterface.C
-$(AMICycPatches)/cyclicAMILduInterfaceField/cyclicAMILduInterfaceField.C
-$(AMICycPatches)/cyclicAMIPolyPatch/cyclicAMIPolyPatch.C
-$(AMICycPatches)/cyclicAMIPointPatch/cyclicAMIPointPatch.C
-$(AMICycPatches)/cyclicAMIPointPatchField/cyclicAMIPointPatchFields.C
+patchToPatchFieldMapper/patchToPatchFieldMapper.C
+patchToPatchFieldMapper/patchToPatchLeftOverFieldMapper.C
+patchToPatchFieldMapper/patchToPatchNormalisedFieldMapper.C
 
-ACMICycPatches=$(AMI)/patches/cyclicACMI
-$(ACMICycPatches)/cyclicACMILduInterfaceField/cyclicACMILduInterface.C
-$(ACMICycPatches)/cyclicACMILduInterfaceField/cyclicACMILduInterfaceField.C
-$(ACMICycPatches)/cyclicACMIPolyPatch/cyclicACMIPolyPatch.C
-$(ACMICycPatches)/cyclicACMIPointPatch/cyclicACMIPointPatch.C
-$(ACMICycPatches)/cyclicACMIPointPatchField/cyclicACMIPointPatchFields.C
+cellsToCells/cellsToCells/cellsToCells.C
+cellsToCells/cellsToCells/cellsToCellsParallelOps.C
+cellsToCells/matching/matchingCellsToCells.C
+cellsToCells/nearest/nearestCellsToCells.C
+cellsToCells/intersection/intersectionCellsToCells.C
 
-AMIOverlapPatches=$(AMI)/patches/cyclicRepeatAMI
-$(AMIOverlapPatches)/cyclicRepeatAMILduInterfaceField/cyclicRepeatAMILduInterface.C
-$(AMIOverlapPatches)/cyclicRepeatAMILduInterfaceField/cyclicRepeatAMILduInterfaceField.C
-$(AMIOverlapPatches)/cyclicRepeatAMIPolyPatch/cyclicRepeatAMIPolyPatch.C
-$(AMIOverlapPatches)/cyclicRepeatAMIPointPatch/cyclicRepeatAMIPointPatch.C
-$(AMIOverlapPatches)/cyclicRepeatAMIPointPatchField/cyclicRepeatAMIPointPatchFields.C
+cellsToCells/cellsToCellsStabilisation/cellsToCellsStabilisation.C
 
-mappedPatches/mappedPolyPatch/mappedPatchBase.C
+meshToMesh/meshToMesh.C
+
+mappedPatches/mappedPatchBaseBase/mappedPatchBaseBase.C
+
+mappedPatches/mappedPatchBase/mappedPatchBase.C
 mappedPatches/mappedPolyPatch/mappedPolyPatch.C
 mappedPatches/mappedPolyPatch/mappedWallPolyPatch.C
-mappedPatches/mappedPolyPatch/mappedVariableThicknessWallPolyPatch.C
-
 mappedPatches/mappedPointPatch/mappedPointPatch.C
 mappedPatches/mappedPointPatch/mappedWallPointPatch.C
+
+mappedPatches/mappedExtrudedPatchBase/mappedExtrudedPatchBase.C
+mappedPatches/mappedExtrudedPolyPatch/mappedExtrudedWallPolyPatch.C
+mappedPatches/mappedExtrudedPointPatch/mappedExtrudedWallPointPatch.C
+
+mappedPatches/mappedInternalPatchBase/mappedInternalPatchBase.C
+mappedPatches/mappedInternalPolyPatch/mappedInternalPolyPatch.C
+mappedPatches/mappedInternalPointPatch/mappedInternalPointPatch.C
+
+mappedPatches/nonConformalMappedPatchBase/nonConformalMappedPatchBase.C
+mappedPatches/nonConformalMappedPolyPatch/nonConformalMappedWallPolyPatch.C
+mappedPatches/nonConformalMappedPointPatch/nonConformalMappedWallPointPatch.C
 
 meshStructure/meshStructure.C
 meshStructure/topoDistanceData.C
 meshStructure/pointTopoDistanceData.C
 
-regionCoupled/patches/regionCoupledPolyPatch/regionCoupledBase.C
-regionCoupled/patches/regionCoupledPolyPatch/regionCoupledPolyPatch.C
-regionCoupled/patches/regionCoupledPolyPatch/regionCoupledWallPolyPatch.C
-regionCoupled/patches/regionCoupledLduInterface/regionCoupledLduInterface.C
-regionCoupled/patches/regionCoupledPointPatch/regionCoupledPointPatch.C
-regionCoupled/patches/regionCoupledPointPatch/regionCoupledWallPointPatch.C
-
-regionCoupled/GAMG/interfaces/regionCoupledGAMGInterface/regionCoupledBaseGAMGInterface.C
-regionCoupled/GAMG/interfaces/regionCoupledGAMGInterface/regionCoupledGAMGInterface.C
-regionCoupled/GAMG/interfaces/regionCoupledGAMGInterface/regionCoupledWallGAMGInterface.C
-regionCoupled/GAMG/interfaceFields/regionCoupledGAMGInterfaceField/regionCoupledGAMGInterfaceField.C
-regionCoupled/GAMG/interfaceFields/regionCoupledGAMGInterfaceField/regionCoupledWallGAMGInterfaceField.C
-
 tetOverlapVolume/tetOverlapVolume.C
+
+triIntersect/triIntersect.C
+triIntersect/triIntersectLocationIO.C
+
+cutPoly/cellEdgeAddressing.C
+cutPoly/cutPoly.C
+cutPoly/cutPolyIsoSurface.C
+
+nonConformal/polyPatches/nonConformal/nonConformalPolyPatch.C
+nonConformal/polyPatches/nonConformalCoupled/nonConformalCoupledPolyPatch.C
+nonConformal/polyPatches/nonConformalCyclic/nonConformalCyclicPolyPatch.C
+nonConformal/polyPatches/nonConformalError/nonConformalErrorPolyPatch.C
+nonConformal/polyPatches/nonConformalProcessorCyclic/nonConformalProcessorCyclicPolyPatch.C
+
+nonConformal/pointPatches/nonConformalCyclic/nonConformalCyclicPointPatch.C
+nonConformal/pointPatches/nonConformalError/nonConformalErrorPointPatch.C
+nonConformal/pointPatches/nonConformalProcessorCyclic/nonConformalProcessorCyclicPointPatch.C
+
+nonConformal/pointPatchFields/nonConformalCyclic/nonConformalCyclicPointPatchFields.C
+nonConformal/pointPatchFields/nonConformalError/nonConformalErrorPointPatchFields.C
+nonConformal/pointPatchFields/nonConformalProcessorCyclic/nonConformalProcessorCyclicPointPatchFields.C
+
+nonConformal/boundary/nonConformalBoundary.C
+
+pointDist/pointEdgeDist.C
+pointDist/pointDist.C
+
+patchIntersection/star/star.C
+patchIntersection/patchIntersection.C
+patchIntersection/primitivePatchIntersection.C
+patchIntersection/polyPatchIntersection.C
 
 LIB = $(FOAM_LIBBIN)/libmeshTools

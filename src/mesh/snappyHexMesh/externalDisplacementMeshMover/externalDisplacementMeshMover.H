@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -48,10 +48,10 @@ SourceFiles
 namespace Foam
 {
 
-class mapPolyMesh;
+class polyTopoChangeMap;
 
 /*---------------------------------------------------------------------------*\
-                   Class externalDisplacementMeshMover Declaration
+                Class externalDisplacementMeshMover Declaration
 \*---------------------------------------------------------------------------*/
 
 class externalDisplacementMeshMover
@@ -104,7 +104,7 @@ public:
         externalDisplacementMeshMover
         (
             const externalDisplacementMeshMover&
-        );
+        ) = delete;
 
 
     // Selectors
@@ -160,14 +160,14 @@ public:
             (
                 const dictionary&,
                 const label nAllowableErrors,
-                labelList& checkFaces
+                const labelList& checkFaces
             ) = 0;
 
             //- Update local data for geometry changes
             virtual void movePoints(const pointField&);
 
             //-  Update local data for topology changes
-            virtual void updateMesh(const mapPolyMesh&);
+            virtual void topoChange(const polyTopoChangeMap&);
 
 
     // Member Operators

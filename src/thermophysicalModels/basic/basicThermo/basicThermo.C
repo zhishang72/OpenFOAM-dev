@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -31,12 +31,10 @@ License
 #include "mixedEnergyFvPatchScalarField.H"
 #include "mixedEnergyCalculatedTemperatureFvPatchScalarField.H"
 #include "fixedJumpFvPatchFields.H"
-#include "fixedJumpAMIFvPatchFields.H"
 #include "energyJumpFvPatchScalarField.H"
-#include "energyJumpAMIFvPatchScalarField.H"
+#include "energyFvScalarFieldSource.H"
 
-
-/* * * * * * * * * * * * * * * private static data * * * * * * * * * * * * * */
+// * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
 namespace Foam
 {
@@ -44,100 +42,14 @@ namespace Foam
     defineRunTimeSelectionTable(basicThermo, fvMesh);
 }
 
-const Foam::word Foam::basicThermo::dictName("thermophysicalProperties");
 
-
-// * * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * * //
-
-Foam::wordList Foam::basicThermo::heBoundaryBaseTypes()
-{
-    const volScalarField::Boundary& tbf =
-        this->T_.boundaryField();
-
-    wordList hbt(tbf.size(), word::null);
-
-    forAll(tbf, patchi)
-    {
-        if (isA<fixedJumpFvPatchScalarField>(tbf[patchi]))
-        {
-            const fixedJumpFvPatchScalarField& pf =
-                dynamic_cast<const fixedJumpFvPatchScalarField&>(tbf[patchi]);
-
-            hbt[patchi] = pf.interfaceFieldType();
-        }
-        else if (isA<fixedJumpAMIFvPatchScalarField>(tbf[patchi]))
-        {
-            const fixedJumpAMIFvPatchScalarField& pf =
-                dynamic_cast<const fixedJumpAMIFvPatchScalarField&>
-                (
-                    tbf[patchi]
-                );
-
-            hbt[patchi] = pf.interfaceFieldType();
-        }
-    }
-
-    return hbt;
-}
-
-
-Foam::wordList Foam::basicThermo::heBoundaryTypes()
-{
-    const volScalarField::Boundary& tbf =
-        this->T_.boundaryField();
-
-    wordList hbt = tbf.types();
-
-    forAll(tbf, patchi)
-    {
-        if (isA<fixedValueFvPatchScalarField>(tbf[patchi]))
-        {
-            hbt[patchi] = fixedEnergyFvPatchScalarField::typeName;
-        }
-        else if
-        (
-            isA<zeroGradientFvPatchScalarField>(tbf[patchi])
-         || isA<fixedGradientFvPatchScalarField>(tbf[patchi])
-         || isA<gradientEnergyCalculatedTemperatureFvPatchScalarField>
-            (
-                tbf[patchi]
-            )
-        )
-        {
-            hbt[patchi] = gradientEnergyFvPatchScalarField::typeName;
-        }
-        else if
-        (
-            isA<mixedFvPatchScalarField>(tbf[patchi])
-         || isA<mixedEnergyCalculatedTemperatureFvPatchScalarField>
-            (
-                tbf[patchi]
-            )
-        )
-        {
-            hbt[patchi] = mixedEnergyFvPatchScalarField::typeName;
-        }
-        else if (isA<fixedJumpFvPatchScalarField>(tbf[patchi]))
-        {
-            hbt[patchi] = energyJumpFvPatchScalarField::typeName;
-        }
-        else if (isA<fixedJumpAMIFvPatchScalarField>(tbf[patchi]))
-        {
-            hbt[patchi] = energyJumpAMIFvPatchScalarField::typeName;
-        }
-    }
-
-    return hbt;
-}
-
-
-// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
+// * * * * * * * * * * * * * Static Member Functions * * * * * * * * * * * * //
 
 Foam::volScalarField& Foam::basicThermo::lookupOrConstruct
 (
     const fvMesh& mesh,
     const char* name
-) const
+)
 {
     if (!mesh.objectRegistry::foundObject<volScalarField>(name))
     {
@@ -148,7 +60,7 @@ Foam::volScalarField& Foam::basicThermo::lookupOrConstruct
                 IOobject
                 (
                     name,
-                    mesh.time().timeName(),
+                    mesh.time().name(),
                     mesh,
                     IOobject::MUST_READ,
                     IOobject::AUTO_WRITE
@@ -162,258 +74,6 @@ Foam::volScalarField& Foam::basicThermo::lookupOrConstruct
     }
 
     return mesh.objectRegistry::lookupObjectRef<volScalarField>(name);
-}
-
-
-Foam::basicThermo::basicThermo
-(
-    const fvMesh& mesh,
-    const word& phaseName
-)
-:
-    IOdictionary
-    (
-        IOobject
-        (
-            phasePropertyName(dictName, phaseName),
-            mesh.time().constant(),
-            mesh,
-            IOobject::MUST_READ_IF_MODIFIED,
-            IOobject::NO_WRITE
-        )
-    ),
-
-    phaseName_(phaseName),
-
-    T_
-    (
-        IOobject
-        (
-            phasePropertyName("T"),
-            mesh.time().timeName(),
-            mesh,
-            IOobject::MUST_READ,
-            IOobject::AUTO_WRITE
-        ),
-        mesh
-    ),
-
-    alpha_
-    (
-        IOobject
-        (
-            phasePropertyName("thermo:alpha"),
-            mesh.time().timeName(),
-            mesh,
-            IOobject::READ_IF_PRESENT,
-            IOobject::NO_WRITE
-        ),
-        mesh,
-        dimensionedScalar(dimensionSet(1, -1, -1, 0, 0), Zero)
-    ),
-
-    dpdt_(lookupOrDefault<Switch>("dpdt", true))
-{}
-
-
-Foam::basicThermo::basicThermo
-(
-    const fvMesh& mesh,
-    const dictionary& dict,
-    const word& phaseName
-)
-:
-    IOdictionary
-    (
-        IOobject
-        (
-            phasePropertyName(dictName, phaseName),
-            mesh.time().constant(),
-            mesh,
-            IOobject::NO_READ,
-            IOobject::NO_WRITE
-        ),
-        dict
-    ),
-
-    phaseName_(phaseName),
-
-    T_
-    (
-        IOobject
-        (
-            phasePropertyName("T"),
-            mesh.time().timeName(),
-            mesh,
-            IOobject::MUST_READ,
-            IOobject::AUTO_WRITE
-        ),
-        mesh
-    ),
-
-    alpha_
-    (
-        IOobject
-        (
-            phasePropertyName("thermo:alpha"),
-            mesh.time().timeName(),
-            mesh,
-            IOobject::READ_IF_PRESENT,
-            IOobject::NO_WRITE
-        ),
-        mesh,
-        dimensionedScalar(dimensionSet(1, -1, -1, 0, 0), Zero)
-    )
-{}
-
-
-// * * * * * * * * * * * * * * * * Selectors * * * * * * * * * * * * * * * * //
-
-Foam::autoPtr<Foam::basicThermo> Foam::basicThermo::New
-(
-    const fvMesh& mesh,
-    const word& phaseName
-)
-{
-    return New<basicThermo>(mesh, phaseName);
-}
-
-
-// * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
-
-Foam::basicThermo::~basicThermo()
-{}
-
-
-// * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
-
-const Foam::basicThermo& Foam::basicThermo::lookupThermo
-(
-    const fvPatchScalarField& pf
-)
-{
-    if (pf.db().foundObject<basicThermo>(dictName))
-    {
-        return pf.db().lookupObject<basicThermo>(dictName);
-    }
-    else
-    {
-        HashTable<const basicThermo*> thermos =
-            pf.db().lookupClass<basicThermo>();
-
-        for
-        (
-            HashTable<const basicThermo*>::iterator iter = thermos.begin();
-            iter != thermos.end();
-            ++iter
-        )
-        {
-            if
-            (
-                &(iter()->he().internalField())
-              == &(pf.internalField())
-            )
-            {
-                return *iter();
-            }
-        }
-    }
-
-    return pf.db().lookupObject<basicThermo>(dictName);
-}
-
-
-void Foam::basicThermo::validate
-(
-    const string& app,
-    const word& a
-) const
-{
-    if (!(he().name() == phasePropertyName(a)))
-    {
-        FatalErrorInFunction
-            << "Supported energy type is " << phasePropertyName(a)
-            << ", thermodynamics package provides " << he().name()
-            << exit(FatalError);
-    }
-}
-
-void Foam::basicThermo::validate
-(
-    const string& app,
-    const word& a,
-    const word& b
-) const
-{
-    if
-    (
-       !(
-            he().name() == phasePropertyName(a)
-         || he().name() == phasePropertyName(b)
-        )
-    )
-    {
-        FatalErrorInFunction
-            << "Supported energy types are " << phasePropertyName(a)
-            << " and " << phasePropertyName(b)
-            << ", thermodynamics package provides " << he().name()
-            << exit(FatalError);
-    }
-}
-
-void Foam::basicThermo::validate
-(
-    const string& app,
-    const word& a,
-    const word& b,
-    const word& c
-) const
-{
-    if
-    (
-       !(
-            he().name() == phasePropertyName(a)
-         || he().name() == phasePropertyName(b)
-         || he().name() == phasePropertyName(c)
-        )
-    )
-    {
-        FatalErrorInFunction
-            << "Supported energy types are " << phasePropertyName(a)
-            << ", " << phasePropertyName(b)
-            << " and " << phasePropertyName(c)
-            << ", thermodynamics package provides " << he().name()
-            << exit(FatalError);
-    }
-}
-
-void Foam::basicThermo::validate
-(
-    const string& app,
-    const word& a,
-    const word& b,
-    const word& c,
-    const word& d
-) const
-{
-    if
-    (
-       !(
-            he().name() == phasePropertyName(a)
-         || he().name() == phasePropertyName(b)
-         || he().name() == phasePropertyName(c)
-         || he().name() == phasePropertyName(d)
-        )
-    )
-    {
-        FatalErrorInFunction
-            << "Supported energy types are " << phasePropertyName(a)
-            << ", " << phasePropertyName(b)
-            << ", " << phasePropertyName(c)
-            << " and " << phasePropertyName(d)
-            << ", thermodynamics package provides " << he().name()
-            << exit(FatalError);
-    }
 }
 
 
@@ -479,34 +139,247 @@ Foam::wordList Foam::basicThermo::splitThermoName
 }
 
 
-const Foam::volScalarField& Foam::basicThermo::T() const
+Foam::List<Foam::Pair<Foam::word>> Foam::basicThermo::thermoNameComponents
+(
+    const word& thermoName
+)
+{
+    const wordList components(splitThermoName(thermoName, 5));
+
+    return List<Pair<word>>
+    {
+        {"transport", components[0]},
+        {"thermo", components[1]},
+        {"equationOfState", components[2]},
+        {"specie", components[3]},
+        {"energy", components[4]}
+    };
+}
+
+
+// * * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * * //
+
+Foam::wordList Foam::basicThermo::heBoundaryBaseTypes()
+{
+    const volScalarField::Boundary& tbf = T().boundaryField();
+
+    wordList hbt(tbf.size(), word::null);
+
+    forAll(tbf, patchi)
+    {
+        if (tbf[patchi].overridesConstraint())
+        {
+            hbt[patchi] = tbf[patchi].patch().type();
+        }
+    }
+
+    return hbt;
+}
+
+
+Foam::wordList Foam::basicThermo::heBoundaryTypes()
+{
+    const volScalarField::Boundary& tbf = T().boundaryField();
+
+    wordList hbt = tbf.types();
+
+    forAll(tbf, patchi)
+    {
+        if (isA<fixedValueFvPatchScalarField>(tbf[patchi]))
+        {
+            hbt[patchi] = fixedEnergyFvPatchScalarField::typeName;
+        }
+        else if
+        (
+            isA<zeroGradientFvPatchScalarField>(tbf[patchi])
+         || isA<fixedGradientFvPatchScalarField>(tbf[patchi])
+         || isA<gradientEnergyCalculatedTemperatureFvPatchScalarField>
+            (
+                tbf[patchi]
+            )
+        )
+        {
+            hbt[patchi] = gradientEnergyFvPatchScalarField::typeName;
+        }
+        else if
+        (
+            isA<mixedFvPatchScalarField>(tbf[patchi])
+         || isA<mixedEnergyCalculatedTemperatureFvPatchScalarField>
+            (
+                tbf[patchi]
+            )
+        )
+        {
+            hbt[patchi] = mixedEnergyFvPatchScalarField::typeName;
+        }
+        else if (isA<jumpCyclicFvPatchScalarField>(tbf[patchi]))
+        {
+            hbt[patchi] = energyJumpFvPatchScalarField::typeName;
+        }
+    }
+
+    return hbt;
+}
+
+
+Foam::HashTable<Foam::word> Foam::basicThermo::heSourcesTypes()
+{
+    const HashTable<word> tst = T().sources().types();
+
+    HashTable<word> hst;
+    forAllConstIter(typename HashTable<word>, tst, iter)
+    {
+        hst.set(iter.key(), energyFvScalarFieldSource::typeName);
+    }
+
+    return hst;
+}
+
+
+// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
+
+Foam::basicThermo::implementation::implementation
+(
+    const dictionary& dict,
+    const fvMesh& mesh,
+    const word& phaseName
+)
+:
+    mesh_(mesh),
+
+    phaseName_(phaseName),
+
+    T_
+    (
+        IOobject
+        (
+            phasePropertyName("T", phaseName),
+            mesh.time().name(),
+            mesh,
+            IOobject::MUST_READ,
+            IOobject::AUTO_WRITE
+        ),
+        mesh
+    ),
+
+    kappa_
+    (
+        IOobject
+        (
+            phasePropertyName("kappa", phaseName),
+            mesh.time().name(),
+            mesh,
+            IOobject::READ_IF_PRESENT,
+            IOobject::NO_WRITE
+        ),
+        mesh,
+        dimensionedScalar(dimThermalConductivity, Zero)
+    ),
+
+    dpdt_(dict.lookupOrDefault<Switch>("dpdt", true))
+{}
+
+
+// * * * * * * * * * * * * * * * * Selectors * * * * * * * * * * * * * * * * //
+
+Foam::autoPtr<Foam::basicThermo> Foam::basicThermo::New
+(
+    const fvMesh& mesh,
+    const word& phaseName
+)
+{
+    return New<basicThermo>(mesh, phaseName);
+}
+
+
+// * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
+
+Foam::basicThermo::~basicThermo()
+{}
+
+
+Foam::basicThermo::implementation::~implementation()
+{}
+
+
+// * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+
+void Foam::basicThermo::validate
+(
+    const string& app,
+    const word& a
+) const
+{
+    if (!(he().name() == phasePropertyName(a)))
+    {
+        FatalErrorInFunction
+            << "Supported energy type is " << phasePropertyName(a)
+            << ", thermodynamics package provides " << he().name()
+            << exit(FatalError);
+    }
+}
+
+
+void Foam::basicThermo::validate
+(
+    const string& app,
+    const word& a,
+    const word& b
+) const
+{
+    if
+    (
+       !(
+            he().name() == phasePropertyName(a)
+         || he().name() == phasePropertyName(b)
+        )
+    )
+    {
+        FatalErrorInFunction
+            << "Supported energy types are " << phasePropertyName(a)
+            << " and " << phasePropertyName(b)
+            << ", thermodynamics package provides " << he().name()
+            << exit(FatalError);
+    }
+}
+
+
+Foam::tmp<Foam::volScalarField> Foam::basicThermo::gamma() const
+{
+    return volScalarField::New(phasePropertyName("gamma"), Cp()/Cv());
+}
+
+
+Foam::tmp<Foam::scalarField> Foam::basicThermo::gamma
+(
+    const scalarField& T,
+    const label patchi
+) const
+{
+    return Cp(T, patchi)/Cv(T, patchi);
+}
+
+
+const Foam::volScalarField& Foam::basicThermo::implementation::T() const
 {
     return T_;
 }
 
 
-Foam::volScalarField& Foam::basicThermo::T()
+Foam::volScalarField& Foam::basicThermo::implementation::T()
 {
     return T_;
 }
 
 
-const Foam::volScalarField& Foam::basicThermo::alpha() const
+const Foam::volScalarField& Foam::basicThermo::implementation::kappa() const
 {
-    return alpha_;
+    return kappa_;
 }
 
 
-const Foam::scalarField& Foam::basicThermo::alpha(const label patchi) const
-{
-    return alpha_.boundaryField()[patchi];
-}
-
-
-bool Foam::basicThermo::read()
-{
-    return regIOobject::read();
-}
+void Foam::basicThermo::implementation::read(const dictionary&)
+{}
 
 
 // ************************************************************************* //

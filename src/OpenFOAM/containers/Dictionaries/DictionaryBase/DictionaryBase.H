@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -31,10 +31,10 @@ Description
     The double templating allows for the instantiation of forms with or
     without storage management.
 
-Note
-    The IDLListType parameter should itself be a template but this confused
-    gcc 2.95.2 so it has to be instantiated for T when an instantiation of
-    DictionaryBase is requested
+    Note:
+        The IDLListType parameter should itself be a template but this confused
+        gcc 2.95.2 so it has to be instantiated for T when an instantiation of
+        DictionaryBase is requested
 
 See also
     Dictionary and UDictionary
@@ -66,7 +66,7 @@ Ostream& operator<<(Ostream&, const DictionaryBase<IDLListType, T>&);
 
 
 /*---------------------------------------------------------------------------*\
-                      Class DictionaryBase Declaration
+                       Class DictionaryBase Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class IDLListType, class T>

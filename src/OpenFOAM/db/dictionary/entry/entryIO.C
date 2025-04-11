@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,13 +24,10 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "entry.H"
-#include "primitiveEntry.H"
-#include "dictionaryEntry.H"
-#include "functionEntry.H"
+#include "dictionaryListEntry.H"
 #include "includeEntry.H"
 #include "inputModeEntry.H"
 #include "stringOps.H"
-#include "dictionaryListEntry.H"
 
 // * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
 
@@ -140,9 +137,11 @@ bool Foam::entry::New(dictionary& parentDict, Istream& is)
     {
         if (keyword.isFunctionName())      // ... Function entry
         {
+            const word functionName = keyword(1, keyword.size() - 1);
+
             if (disableFunctionEntries)
             {
-                return parentDict.add
+                bool success = parentDict.add
                 (
                     new functionEntry
                     (
@@ -152,10 +151,11 @@ bool Foam::entry::New(dictionary& parentDict, Istream& is)
                     ),
                     false
                 );
+
+                return success;
             }
             else
             {
-                const word functionName = keyword(1, keyword.size() - 1);
                 return functionEntry::execute(functionName, parentDict, is);
             }
         }
@@ -177,13 +177,13 @@ bool Foam::entry::New(dictionary& parentDict, Istream& is)
 
                 // Substitute dictionary and environment variables. Do not allow
                 // empty substitutions.
-                stringOps::inplaceExpand(s, parentDict, true, false);
+                stringOps::inplaceExpandEntry(s, parentDict, true, false);
                 keyword.std::string::replace(1, keyword.size() - 1, s);
             }
 
             if (nextToken == token::BEGIN_BLOCK)
             {
-                word varName = keyword(1, keyword.size() - 1);
+                const word varName = keyword(1, keyword.size() - 1);
 
                 // Lookup the variable name in the given dictionary
                 const entry* ePtr = parentDict.lookupScopedEntryPtr
@@ -193,7 +193,15 @@ bool Foam::entry::New(dictionary& parentDict, Istream& is)
                     true
                 );
 
-                if (ePtr)
+                if (ePtr == nullptr)
+                {
+                    FatalIOErrorInFunction(is)
+                        << "Attempt to use undefined variable " << varName
+                        << " as keyword"
+                        << exit(FatalIOError);
+                    return false;
+                }
+                else if (ePtr->isStream())
                 {
                     // Read as primitiveEntry
                     const keyType newKeyword(ePtr->stream());
@@ -204,18 +212,55 @@ bool Foam::entry::New(dictionary& parentDict, Istream& is)
                         false
                     );
                 }
-                else
+                else if (ePtr->isDict())
                 {
                     FatalIOErrorInFunction(is)
-                        << "Attempt to use undefined variable " << varName
-                        << " as keyword"
+                        << "Attempt to substitute sub-dictionary"
+                        << nl << *ePtr
+                        << "for keyword " << varName
                         << exit(FatalIOError);
                     return false;
                 }
             }
             else
             {
-                parentDict.substituteScopedKeyword(keyword);
+                const word varName = keyword(1, keyword.size() - 1);
+
+                // Lookup the variable name in the given dictionary
+                const entry* ePtr = parentDict.lookupScopedEntryPtr
+                (
+                    varName,
+                    true,
+                    true
+                );
+
+                if (ePtr == nullptr)
+                {
+                    FatalIOErrorInFunction(is)
+                        << "Attempt to use undefined variable " << keyword
+                        << " as a keyword"
+                        << exit(FatalIOError);
+                    return false;
+                }
+                else if (ePtr->isDict())
+                {
+                    // Insert the sub-dict entries into this dictionary
+                    const dictionary& addDict = ePtr->dict();
+
+                    forAllConstIter(IDLList<entry>, addDict, iter)
+                    {
+                        parentDict.add(iter());
+                    }
+                    return true;
+                }
+                else
+                {
+                    FatalIOErrorInFunction(is)
+                        << "Attempt to substitute primitive entry "
+                        << *ePtr << "as a sub-dictionary"
+                        << exit(FatalIOError);
+                    return false;
+                }
             }
 
             return true;

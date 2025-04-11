@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -61,6 +61,9 @@ class velocityComponentLaplacianFvMotionSolver
         //- Cell-centre motion field
         mutable volScalarField cellMotionU_;
 
+        //- Diffusivity type and data stream
+        ITstream diffusivityType_;
+
         //- Diffusivity used to control the motion
         autoPtr<motionDiffusivity> diffusivityPtr_;
 
@@ -76,6 +79,7 @@ public:
         //- Construct from polyMesh and dictionary
         velocityComponentLaplacianFvMotionSolver
         (
+            const word& name,
             const polyMesh&,
             const dictionary&
         );
@@ -106,8 +110,11 @@ public:
         //- Solve for motion
         virtual void solve();
 
-        //- Update topology
-        virtual void updateMesh(const mapPolyMesh&);
+        //- Update corresponding to the given map
+        virtual void topoChange(const polyTopoChangeMap&);
+
+        //- Update from another mesh using the given map
+        virtual void mapMesh(const polyMeshMap&);
 
 
     // Member Operators

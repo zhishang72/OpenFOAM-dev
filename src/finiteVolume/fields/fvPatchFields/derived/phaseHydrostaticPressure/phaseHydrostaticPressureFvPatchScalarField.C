@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ License
 
 #include "phaseHydrostaticPressureFvPatchScalarField.H"
 #include "addToRunTimeSelectionTable.H"
-#include "fvPatchFieldMapper.H"
+#include "fieldMapper.H"
 #include "volFields.H"
 #include "surfaceFields.H"
 #include "uniformDimensionedFields.H"
@@ -36,34 +36,15 @@ Foam::phaseHydrostaticPressureFvPatchScalarField::
 phaseHydrostaticPressureFvPatchScalarField
 (
     const fvPatch& p,
-    const DimensionedField<scalar, volMesh>& iF
-)
-:
-    mixedFvPatchScalarField(p, iF),
-    phaseFraction_("alpha"),
-    rho_(0.0),
-    pRefValue_(0.0),
-    pRefPoint_(Zero)
-{
-    this->refValue() = 0.0;
-    this->refGrad() = 0.0;
-    this->valueFraction() = 0.0;
-}
-
-
-Foam::phaseHydrostaticPressureFvPatchScalarField::
-phaseHydrostaticPressureFvPatchScalarField
-(
-    const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF,
     const dictionary& dict
 )
 :
-    mixedFvPatchScalarField(p, iF),
+    mixedFvPatchScalarField(p, iF, dict, false),
     phaseFraction_(dict.lookupOrDefault<word>("phaseFraction", "alpha")),
-    rho_(dict.lookup<scalar>("rho")),
-    pRefValue_(dict.lookup<scalar>("pRefValue")),
-    pRefPoint_(dict.lookup("pRefPoint"))
+    rho_(dict.lookup<scalar>("rho", dimDensity)),
+    pRefValue_(dict.lookup<scalar>("pRefValue", dimPressure)),
+    pRefPoint_(dict.lookup<vector>("pRefPoint", dimLength))
 {
     this->refValue() = pRefValue_;
 
@@ -71,7 +52,7 @@ phaseHydrostaticPressureFvPatchScalarField
     {
         fvPatchScalarField::operator=
         (
-            scalarField("value", dict, p.size())
+            scalarField("value", iF.dimensions(), dict, p.size())
         );
     }
     else
@@ -90,7 +71,7 @@ phaseHydrostaticPressureFvPatchScalarField
     const phaseHydrostaticPressureFvPatchScalarField& ptf,
     const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     mixedFvPatchScalarField(ptf, p, iF, mapper),
@@ -98,17 +79,6 @@ phaseHydrostaticPressureFvPatchScalarField
     rho_(ptf.rho_),
     pRefValue_(ptf.pRefValue_),
     pRefPoint_(ptf.pRefPoint_)
-{}
-
-
-Foam::phaseHydrostaticPressureFvPatchScalarField::
-phaseHydrostaticPressureFvPatchScalarField
-(
-    const phaseHydrostaticPressureFvPatchScalarField& ptf
-)
-:
-    mixedFvPatchScalarField(ptf),
-    phaseFraction_(ptf.phaseFraction_)
 {}
 
 

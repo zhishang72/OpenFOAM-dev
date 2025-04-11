@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -46,7 +46,13 @@ SourceFiles
 #include "speciesTable.H"
 #include "specieElement.H"
 #include "atomicWeights.H"
-#include "reactionTypes.H"
+
+#include "specie.H"
+#include "perfectGas.H"
+#include "janafThermo.H"
+#include "sensibleEnthalpy.H"
+#include "sutherlandTransport.H"
+#include "thermo.H"
 
 #include <FlexLexer.h>
 
@@ -55,10 +61,12 @@ SourceFiles
 namespace Foam
 {
 
+
+
 typedef HashTable<List<specieElement>> speciesCompositionTable;
 
 /*---------------------------------------------------------------------------*\
-                       Class chemkinReader Declaration
+                        Class chemkinReader Declaration
 \*---------------------------------------------------------------------------*/
 
 class chemkinReader
@@ -76,6 +84,21 @@ public:
             liquid,
             gas
         };
+
+    // Public typedefs
+
+        typedef
+            sutherlandTransport
+            <
+                species::thermo
+                <
+                    janafThermo
+                    <
+                        perfectGas<specie>
+                    >,
+                    sensibleEnthalpy
+                >
+            > thermoPhysics;
 
 
 private:
@@ -167,19 +190,22 @@ private:
         HashTable<label> specieIndices_;
 
         //- Table of species
-        speciesTable& speciesTable_;
+        speciesTable speciesTable_;
 
         //- Specie phase
         HashTable<phase> speciePhase_;
 
         //- Table of the thermodynamic data given in the CHEMKIN file
-        HashPtrTable<gasHThermoPhysics> speciesThermo_;
+        HashPtrTable<thermoPhysics> speciesThermo_;
+
+        //- List of the thermodynamic data given in the CHEMKIN file
+        mutable PtrList<thermoPhysics> speciesThermoList_;
 
         //- Table of species composition
         speciesCompositionTable speciesComposition_;
 
         //- List of the reactions
-        ReactionList<gasHThermoPhysics> reactions_;
+        ReactionList<thermoPhysics> reactions_;
 
         //- Transport properties dictionary
         dictionary transportDict_;
@@ -296,15 +322,11 @@ public:
         //- Construct from CHEMKIN III file name
         chemkinReader
         (
-            speciesTable& species,
             const fileName& CHEMKINFileName,
             const fileName& transportFileName,
             const fileName& thermoFileName = fileName::null,
             const bool newFormat = false
         );
-
-        //- Construct by getting the CHEMKIN III file name from dictionary
-        chemkinReader(const dictionary& thermoDict, speciesTable& species);
 
 
     //- Destructor
@@ -351,13 +373,31 @@ public:
         }
 
         //- Table of the thermodynamic data given in the CHEMKIN file
-        const HashPtrTable<gasHThermoPhysics>& speciesThermo() const
+        const HashPtrTable<thermoPhysics>& speciesThermo() const
         {
             return speciesThermo_;
         }
 
+        //- List of the thermodynamic data given in the CHEMKIN file
+        const PtrList<thermoPhysics>& speciesThermoList() const
+        {
+            speciesThermoList_.resize(speciesTable_.size());
+
+            forAll(speciesTable_, speciei)
+            {
+                if (speciesThermoList_.set(speciei)) continue;
+
+                HashPtrTable<thermoPhysics>::const_iterator iter =
+                    speciesThermo_.find(speciesTable_[speciei]);
+
+                speciesThermoList_.set(speciei, iter()->clone());
+            }
+
+            return speciesThermoList_;
+        }
+
         //- List of the reactions
-        const ReactionList<gasHThermoPhysics>& reactions() const
+        const ReactionList<thermoPhysics>& reactions() const
         {
             return reactions_;
         }

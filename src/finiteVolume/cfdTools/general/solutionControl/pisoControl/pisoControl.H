@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2018-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2018-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -65,6 +65,12 @@ protected:
         label corrPiso_;
 
 
+    // Protected Member Functions
+
+        //- Read controls
+        virtual bool read();
+
+
 public:
 
     // Static Data Members
@@ -85,18 +91,12 @@ public:
 
     // Member Functions
 
-        // IO
-
-            //- Read controls
-            virtual bool read();
-
-
         // Access
 
             //- Maximum number of piso correctors
             inline label nCorrPiso() const;
 
-            //- Flat to indicate any piso iteration
+            //- Flag to indicate any piso iteration
             inline bool anyPisoIter() const;
 
             //- Flag to indicate the first piso iteration
@@ -110,13 +110,16 @@ public:
             inline bool finalInnerIter() const;
 
             //- Flag to indicate whether in final state
-            virtual bool isFinal() const;
+            bool isFinal(const bool finalIter) const;
 
 
         // Evolution
 
-            //- Piso loop
-            bool correct();
+            //- Piso loop within outer loop
+            bool correct(const bool finalIter = false);
+
+            //- Non-orthogonal corrector loop
+            bool correctNonOrthogonal(const bool finalIter = true);
 
             //- Time run loop
             bool run(Time& time);

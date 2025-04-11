@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -26,12 +26,10 @@ Class
 
 Description
     Transport of regions for use in PatchEdgeFaceWave.
-
     Set element to -1 to denote blocked.
 
 SourceFiles
     patchEdgeFaceRegionsI.H
-    patchEdgeFaceRegions.C
 
 \*---------------------------------------------------------------------------*/
 
@@ -61,7 +59,7 @@ Ostream& operator<<(Ostream&, const patchEdgeFaceRegions&);
 
 
 /*---------------------------------------------------------------------------*\
-                           Class patchEdgeFaceRegions Declaration
+                    Class patchEdgeFaceRegions Declaration
 \*---------------------------------------------------------------------------*/
 
 class patchEdgeFaceRegions
@@ -116,7 +114,7 @@ public:
             (
                 const polyMesh& mesh,
                 const Patch& patch,
-                const label edgeI,
+                const label edgei,
                 const label facei,
                 const patchEdgeFaceRegions& faceInfo,
                 const scalar tol,
@@ -142,7 +140,7 @@ public:
                 const polyMesh& mesh,
                 const Patch& patch,
                 const label facei,
-                const label edgeI,
+                const label edgei,
                 const patchEdgeFaceRegions& edgeInfo,
                 const scalar tol,
                 TrackingData& td
@@ -162,8 +160,16 @@ public:
 
     // IOstream Operators
 
-        friend Ostream& operator<<(Ostream&, const patchEdgeFaceRegions&);
-        friend Istream& operator>>(Istream&, patchEdgeFaceRegions&);
+        inline friend Ostream& operator<<
+        (
+            Ostream&,
+            const patchEdgeFaceRegions&
+        );
+        inline friend Istream& operator>>
+        (
+            Istream&,
+            patchEdgeFaceRegions&
+        );
 };
 
 

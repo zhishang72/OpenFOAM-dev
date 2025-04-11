@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -42,31 +42,36 @@ namespace Foam
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-//- Rotational transformation tensor from vector n1 to n2
+//- Rotational transformation tensor from unit vector n1 to n2
 inline tensor rotationTensor
 (
     const vector& n1,
     const vector& n2
 )
 {
-    const scalar s = n1 & n2;
+    const scalar c = n1 & n2;
     const vector n3 = n1 ^ n2;
     const scalar magSqrN3 = magSqr(n3);
 
     // n1 and n2 define a plane n3
     if (magSqrN3 > small)
     {
-        // Return rotational transformation tensor in the n3-plane
+        // Return rotational transformation tensor in the n3-plane using
+        // Rodrigues' rotation formula
         return
-            s*I
-          + (1 - s)*sqr(n3)/magSqrN3
-          + (n2*n1 - n1*n2);
+            c*I
+          + (n2*n1 - n1*n2)
+          + (1 - c)*sqr(n3)/magSqrN3;
     }
     // n1 and n2 are contradirectional
-    else if (s < 0)
+    else if (c < 0)
     {
-        // Return mirror transformation tensor
-        return I + 2*n1*n2;
+        // Return rotational transformation tensor in a plane with arbitrary
+        // normal perpendicular to n1 and n2 using a subset of Rodrigues'
+        // rotation formula
+        const vector n4 = perpendicular(n1);
+        const scalar magSqrN4 = magSqr(n4);
+        return - I + 2*sqr(n4)/magSqrN4;
     }
     // n1 and n2 are codirectional
     else
@@ -78,6 +83,9 @@ inline tensor rotationTensor
 
 
 //- Rotational transformation tensor about the x-axis by omega radians
+//  The rotation is defined in a right-handed coordinate system
+//  i.e. clockwise with respect to the axis from -ve to +ve
+//  (looking along the axis).
 inline tensor Rx(const scalar& omega)
 {
     const scalar s = sin(omega);
@@ -85,41 +93,50 @@ inline tensor Rx(const scalar& omega)
     return tensor
     (
         1,  0,  0,
-        0,  c,  s,
-        0, -s,  c
+        0,  c, -s,
+        0, s,  c
     );
 }
 
 
 //- Rotational transformation tensor about the y-axis by omega radians
+//  The rotation is defined in a right-handed coordinate system
+//  i.e. clockwise with respect to the axis from -ve to +ve
+//  (looking along the axis).
 inline tensor Ry(const scalar& omega)
 {
     const scalar s = sin(omega);
     const scalar c = cos(omega);
     return tensor
     (
-        c,  0, -s,
+        c,  0,  s,
         0,  1,  0,
-        s,  0,  c
+       -s,  0,  c
     );
 }
 
 
 //- Rotational transformation tensor about the z-axis by omega radians
+//  The rotation is defined in a right-handed coordinate system
+//  i.e. clockwise with respect to the axis from -ve to +ve
+//  (looking along the axis).
 inline tensor Rz(const scalar& omega)
 {
     const scalar s = sin(omega);
     const scalar c = cos(omega);
     return tensor
     (
-        c,  s,  0,
-       -s,  c,  0,
+        c, -s,  0,
+        s,  c,  0,
         0,  0,  1
     );
 }
 
 
 //- Rotational transformation tensor about axis a by omega radians
+//  The rotation is defined in a right-handed coordinate system
+//  i.e. clockwise with respect to the axis from -ve to +ve
+//  (looking along the axis).
 inline tensor Ra(const vector& a, const scalar omega)
 {
     const scalar s = sin(omega);
@@ -128,21 +145,21 @@ inline tensor Ra(const vector& a, const scalar omega)
     return tensor
     (
         sqr(a.x())*(1 - c)  + c,
-        a.y()*a.x()*(1 - c) + a.z()*s,
-        a.x()*a.z()*(1 - c) - a.y()*s,
-
-        a.x()*a.y()*(1 - c) - a.z()*s,
-        sqr(a.y())*(1 - c)  + c,
-        a.y()*a.z()*(1 - c) + a.x()*s,
-
+        a.y()*a.x()*(1 - c) - a.z()*s,
         a.x()*a.z()*(1 - c) + a.y()*s,
+
+        a.x()*a.y()*(1 - c) + a.z()*s,
+        sqr(a.y())*(1 - c)  + c,
         a.y()*a.z()*(1 - c) - a.x()*s,
+
+        a.x()*a.z()*(1 - c) - a.y()*s,
+        a.y()*a.z()*(1 - c) + a.x()*s,
         sqr(a.z())*(1 - c)  + c
     );
 }
 
 
-inline label transform(const tensor&, const bool i)
+inline bool transform(const tensor&, const bool i)
 {
     return i;
 }
@@ -277,7 +294,7 @@ inline symmTensor transformMask<symmTensor>(const tensor& t)
 
 //- Estimate angle of vec in coordinate system (e0, e1, e0^e1).
 //  Is guaranteed to return increasing number but is not correct
-//  angle. Used for sorting angles.  All input vectors need to be normalized.
+//  angle. Used for sorting angles.  All input vectors need to be normalised.
 //
 //  Calculates scalar which increases with angle going from e0 to vec in
 //  the coordinate system e0, e1, e0^e1

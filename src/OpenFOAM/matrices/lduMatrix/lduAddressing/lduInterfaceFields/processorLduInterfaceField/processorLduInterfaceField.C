@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -30,7 +30,7 @@ License
 
 namespace Foam
 {
-defineTypeNameAndDebug(processorLduInterfaceField, 0);
+    defineTypeNameAndDebug(processorLduInterfaceField, 0);
 }
 
 
@@ -48,15 +48,22 @@ void Foam::processorLduInterfaceField::transformCoupleField
     const direction cmpt
 ) const
 {
-    if (doTransform())
+    if (transforms())
     {
-        if (forwardT().size() == 1)
+        const vector diagV(diag(transform().T()));
+
+        if (rank() == 1)
         {
-            f *= pow(diag(forwardT()[0]).component(cmpt), rank());
+            f *= diagV.component(cmpt);
+        }
+        else if (rank() == 2)
+        {
+            f *= sqr(diagV).component(cmpt);
         }
         else
         {
-            f *= pow(diag(forwardT())().component(cmpt), rank());
+            FatalErrorInFunction
+                << "Rank " << rank() << " not supported" << exit(FatalError);
         }
     }
 }

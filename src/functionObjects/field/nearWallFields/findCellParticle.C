@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -30,43 +30,22 @@ License
 Foam::findCellParticle::findCellParticle
 (
     const polyMesh& mesh,
-    const barycentric& coordinates,
-    const label celli,
-    const label tetFacei,
-    const label tetPtI,
-    const vector& displacement,
-    const label data
-)
-:
-    particle(mesh, coordinates, celli, tetFacei, tetPtI),
-    displacement_(displacement),
-    data_(data)
-{}
-
-
-Foam::findCellParticle::findCellParticle
-(
-    const polyMesh& mesh,
     const vector& position,
     const label celli,
+    label& nLocateBoundaryHits,
     const vector& displacement,
     const label data
 )
 :
-    particle(mesh, position, celli),
+    particle(mesh, position, celli, nLocateBoundaryHits),
     displacement_(displacement),
     data_(data)
 {}
 
 
-Foam::findCellParticle::findCellParticle
-(
-    const polyMesh& mesh,
-    Istream& is,
-    bool readFields
-)
+Foam::findCellParticle::findCellParticle(Istream& is, bool readFields)
 :
-    particle(mesh, is, readFields)
+    particle(is, readFields)
 {
     if (readFields)
     {
@@ -98,41 +77,34 @@ Foam::findCellParticle::findCellParticle
 
 bool Foam::findCellParticle::move
 (
-    Cloud<findCellParticle>& cloud,
-    trackingData& td,
-    const scalar maxTrackLen
+    lagrangian::Cloud<findCellParticle>& cloud,
+    trackingData& td
 )
 {
-    td.switchProcessor = false;
     td.keepParticle = true;
+    td.sendToProc = -1;
 
-    while (td.keepParticle && !td.switchProcessor && stepFraction() < 1)
+    while (td.keepParticle && td.sendToProc == -1 && stepFraction() < 1)
     {
         const scalar f = 1 - stepFraction();
         trackToAndHitFace(f*displacement_, f, cloud, td);
     }
 
-    if (!td.switchProcessor)
+    if (td.sendToProc == -1)
     {
         // Hit endpoint or patch. If patch hit could do fancy stuff but just
         // to use the patch point is good enough for now.
         td.cellToData()[cell()].append(data());
-        td.cellToEnd()[cell()].append(position());
+        td.cellToEnd()[cell()].append(position(td.mesh));
     }
 
     return td.keepParticle;
 }
 
 
-bool Foam::findCellParticle::hitPatch(Cloud<findCellParticle>&, trackingData&)
-{
-    return false;
-}
-
-
 void Foam::findCellParticle::hitWedgePatch
 (
-    Cloud<findCellParticle>&,
+    lagrangian::Cloud<findCellParticle>&,
     trackingData& td
 )
 {
@@ -143,7 +115,7 @@ void Foam::findCellParticle::hitWedgePatch
 
 void Foam::findCellParticle::hitSymmetryPlanePatch
 (
-    Cloud<findCellParticle>&,
+    lagrangian::Cloud<findCellParticle>&,
     trackingData& td
 )
 {
@@ -154,7 +126,7 @@ void Foam::findCellParticle::hitSymmetryPlanePatch
 
 void Foam::findCellParticle::hitSymmetryPatch
 (
-    Cloud<findCellParticle>&,
+    lagrangian::Cloud<findCellParticle>&,
     trackingData& td
 )
 {
@@ -165,46 +137,7 @@ void Foam::findCellParticle::hitSymmetryPatch
 
 void Foam::findCellParticle::hitCyclicPatch
 (
-    Cloud<findCellParticle>&,
-    trackingData& td
-)
-{
-    // Remove particle
-    td.keepParticle = false;
-}
-
-
-void Foam::findCellParticle::hitCyclicAMIPatch
-(
-    const vector&,
-    const scalar,
-    Cloud<findCellParticle>&,
-    trackingData& td
-)
-{
-    // Remove particle
-    td.keepParticle = false;
-}
-
-
-void Foam::findCellParticle::hitCyclicACMIPatch
-(
-    const vector&,
-    const scalar,
-    Cloud<findCellParticle>&,
-    trackingData& td
-)
-{
-    // Remove particle
-    td.keepParticle = false;
-}
-
-
-void Foam::findCellParticle::hitCyclicRepeatAMIPatch
-(
-    const vector&,
-    const scalar,
-    Cloud<findCellParticle>&,
+    lagrangian::Cloud<findCellParticle>&,
     trackingData& td
 )
 {
@@ -215,18 +148,30 @@ void Foam::findCellParticle::hitCyclicRepeatAMIPatch
 
 void Foam::findCellParticle::hitProcessorPatch
 (
-    Cloud<findCellParticle>&,
+    lagrangian::Cloud<findCellParticle>& cloud,
     trackingData& td
 )
 {
-    // Remove particle
-    td.switchProcessor = true;
+    const processorPolyPatch& ppp =
+        static_cast<const processorPolyPatch&>
+        (
+            td.mesh.boundaryMesh()[patch(td.mesh)]
+        );
+
+    if (ppp.transform().transforms())
+    {
+        td.keepParticle = false;
+    }
+    else
+    {
+        particle::hitProcessorPatch(cloud, td);
+    }
 }
 
 
 void Foam::findCellParticle::hitWallPatch
 (
-    Cloud<findCellParticle>&,
+    lagrangian::Cloud<findCellParticle>&,
     trackingData& td
 )
 {

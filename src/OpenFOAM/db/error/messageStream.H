@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -28,7 +28,7 @@ Description
     Class to handle messaging in a simple, consistent stream-based
     manner.
 
-    The messageStream class is globaly instantiated with a title string a
+    The messageStream class is globally instantiated with a title string a
     given severity, which controls the program termination, and a number of
     errors before termination.  Errors, messages and other data are piped to
     the messageStream class in the standard manner.
@@ -63,7 +63,7 @@ class OStringStream;
 class dictionary;
 
 /*---------------------------------------------------------------------------*\
-                           Class messageStream Declaration
+                        Class messageStream Declaration
 \*---------------------------------------------------------------------------*/
 
 class messageStream
@@ -104,13 +104,9 @@ public:
         messageStream
         (
             const string& title,
-            errorSeverity,
+            const errorSeverity,
             const int maxErrors = 0
         );
-
-
-        //- Construct from dictionary
-        messageStream(const dictionary&);
 
 
     // Member Functions
@@ -133,11 +129,6 @@ public:
         {
             return maxErrors_;
         }
-
-        //- Convert to OSstream
-        //  Prints to Pout for the master stream
-        OSstream& masterStream(const label communicator);
-
 
         //- Convert to OSstream
         //  Prints basic message and returns OSstream for further info.
@@ -165,8 +156,7 @@ public:
             const char* sourceFileName,
             const int sourceFileLineNumber,
             const string& ioFileName,
-            const label ioStartLineNumber = -1,
-            const label ioEndLineNumber = -1
+            const label ioLineNumber = -1
         );
 
         //- Convert to OSstream
@@ -189,13 +179,13 @@ public:
             const dictionary&
         );
 
-        //- Convert to OSstream for << operations
-        operator OSstream&();
-
         //- Explicitly convert to OSstream for << operations
-        OSstream& operator()()
+        OSstream& operator()(const label communicator = -1);
+
+        //- Convert to OSstream for << operations
+        operator OSstream&()
         {
-            return operator OSstream&();
+            return this->operator()();
         }
 };
 

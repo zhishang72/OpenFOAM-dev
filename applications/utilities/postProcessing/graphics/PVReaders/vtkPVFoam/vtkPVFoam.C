@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -28,6 +28,8 @@ License
 
 // OpenFOAM includes
 #include "fvMesh.H"
+#include "fvMeshStitcher.H"
+#include "LagrangianMesh.H"
 #include "Time.H"
 #include "patchZones.H"
 #include "collatedFileOperation.H"
@@ -57,6 +59,7 @@ void Foam::vtkPVFoam::resetCounters()
     // Reset array range information (ids and sizes)
     arrayRangeVolume_.reset();
     arrayRangePatches_.reset();
+    arrayRangelagrangian_.reset();
     arrayRangeLagrangian_.reset();
     arrayRangeCellZones_.reset();
     arrayRangeFaceZones_.reset();
@@ -132,7 +135,6 @@ int Foam::vtkPVFoam::setTime(int nRequest, const double requestTimes[])
             << ", nearestIndex = " << nearestIndex << endl;
     }
 
-
     // See what has changed
     if (timeIndex_ != nearestIndex)
     {
@@ -144,7 +146,11 @@ int Foam::vtkPVFoam::setTime(int nRequest, const double requestTimes[])
 
         if (meshPtr_)
         {
-            if (meshPtr_->readUpdate() != polyMesh::UNCHANGED)
+            if
+            (
+                meshPtr_->readUpdate(fvMesh::stitchType::nonGeometric)
+             != fvMesh::UNCHANGED
+            )
             {
                 meshChanged_ = true;
             }
@@ -153,6 +159,12 @@ int Foam::vtkPVFoam::setTime(int nRequest, const double requestTimes[])
         {
             meshChanged_ = true;
         }
+    }
+
+    // Stitch if necessary
+    if (meshPtr_)
+    {
+        meshPtr_->stitcher().reconnect(reader_->GetInterpolateVolFields());
     }
 
     if (debug)
@@ -168,7 +180,7 @@ int Foam::vtkPVFoam::setTime(int nRequest, const double requestTimes[])
 }
 
 
-void Foam::vtkPVFoam::updateMeshPartsStatus()
+void Foam::vtkPVFoam::topoChangePartsStatus()
 {
     if (debug)
     {
@@ -185,7 +197,7 @@ void Foam::vtkPVFoam::updateMeshPartsStatus()
         meshChanged_ = true;
     }
 
-    // This needs fixing if we wish to re-use the datasets
+    // This needs fixing if we wish to reuse the datasets
     partDataset_.setSize(nElem);
     partDataset_ = -1;
 
@@ -228,7 +240,8 @@ Foam::vtkPVFoam::vtkPVFoam
     fieldsChanged_(true),
     arrayRangeVolume_("unzoned"),
     arrayRangePatches_("patches"),
-    arrayRangeLagrangian_("lagrangian"),
+    arrayRangelagrangian_("lagrangian"),
+    arrayRangeLagrangian_("Lagrangian"),
     arrayRangeCellZones_("cellZone"),
     arrayRangeFaceZones_("faceZone"),
     arrayRangePointZones_("pointZone"),
@@ -282,31 +295,26 @@ Foam::vtkPVFoam::vtkPVFoam
         setEnv("FOAM_CASENAME", fullCasePath.name(), true);
     }
 
-    // Look for 'case{region}.OpenFOAM'
-    // could be stringent and insist the prefix match the directory name...
-    // Note: cannot use fileName::name() due to the embedded '{}'
-    string caseName(FileName.lessExt());
-    string::size_type beg = caseName.find_last_of("/{");
-    string::size_type end = caseName.find('}', beg);
+    // Parse the mesh and region names from 'case(mesh){region}' in FileName
+    string caseName(FileName.name(true));
 
-    if
-    (
-        beg != string::npos && caseName[beg] == '{'
-     && end != string::npos && end == caseName.size()-1
-    )
+    string::size_type beg = caseName.find_last_of('(');
+    string::size_type end = caseName.find(')', beg);
+
+    if (beg != string::npos && end != string::npos)
+    {
+        meshMesh_ = caseName.substr(beg+1, end-beg-1);
+        meshPath_ = "meshes"/meshMesh_;
+        meshDir_ = meshPath_/polyMesh::meshSubDir;
+    }
+
+    beg = caseName.find_last_of('{');
+    end = caseName.find('}', beg);
+
+    if (beg != string::npos && end != string::npos)
     {
         meshRegion_ = caseName.substr(beg+1, end-beg-1);
-
-        // Some safety
-        if (meshRegion_.empty())
-        {
-            meshRegion_ = polyMesh::defaultRegion;
-        }
-
-        if (meshRegion_ != polyMesh::defaultRegion)
-        {
-            meshDir_ = meshRegion_/polyMesh::meshSubDir;
-        }
+        meshDir_ = meshPath_/meshRegion_/polyMesh::meshSubDir;
     }
 
     if (debug)
@@ -314,6 +322,7 @@ Foam::vtkPVFoam::vtkPVFoam
         Info<< "    fullCasePath=" << fullCasePath << nl
             << "    FOAM_CASE=" << getEnv("FOAM_CASE") << nl
             << "    FOAM_CASENAME=" << getEnv("FOAM_CASENAME") << nl
+            << "    mesh=" << meshMesh_ << nl
             << "    region=" << meshRegion_ << endl;
     }
 
@@ -338,11 +347,10 @@ Foam::vtkPVFoam::vtkPVFoam
         (
             Time::controlDictName,
             fileName(fullCasePath.path()),
-            fileName(fullCasePath.name())
+            fileName(fullCasePath.name()),
+            false
         )
     );
-
-    dbPtr_().functionObjects().off();
 
     fileNameList configDictFiles = findEtcFiles("paraFoam", false);
     forAllReverse(configDictFiles, cdfi)
@@ -413,6 +421,7 @@ void Foam::vtkPVFoam::updateInfo()
     updateInfoPatches(partSelection, enabledEntries, first);
     updateInfoSets(partSelection);
     updateInfoZones(partSelection);
+    updateInfolagrangian(partSelection);
     updateInfoLagrangian(partSelection);
 
     // Restore the enabled selections
@@ -425,6 +434,7 @@ void Foam::vtkPVFoam::updateInfo()
 
     // Update fields
     updateInfoFields();
+    updateInfolagrangianFields();
     updateInfoLagrangianFields();
 
     if (debug)
@@ -455,10 +465,8 @@ void Foam::vtkPVFoam::updateFoamMesh()
         if (debug)
         {
             InfoInFunction << endl
-                << "    Creating OpenFOAM mesh for region " << meshRegion_
-                << " at time=" << dbPtr_().timeName()
-                << endl;
-
+                << "    Creating OpenFOAM mesh for mesh and region " << meshDir_
+                << " at time=" << dbPtr_().name() << endl;
         }
 
         meshPtr_ = new fvMesh
@@ -466,11 +474,15 @@ void Foam::vtkPVFoam::updateFoamMesh()
             IOobject
             (
                 meshRegion_,
-                dbPtr_().timeName(),
+                dbPtr_().name(),
+                meshPath_,
                 dbPtr_(),
                 IOobject::MUST_READ
-            )
+            ),
+            false
         );
+
+        meshPtr_->postConstruct(false, fvMesh::stitchType::nonGeometric);
 
         meshChanged_ = true;
     }
@@ -480,6 +492,12 @@ void Foam::vtkPVFoam::updateFoamMesh()
         {
             Info<< "    Using existing OpenFOAM mesh" << endl;
         }
+    }
+
+    // Stitch if necessary
+    if (meshPtr_)
+    {
+        meshPtr_->stitcher().reconnect(reader_->GetInterpolateVolFields());
     }
 
     if (debug)
@@ -492,23 +510,27 @@ void Foam::vtkPVFoam::updateFoamMesh()
 void Foam::vtkPVFoam::Update
 (
     vtkMultiBlockDataSet* output,
-    vtkMultiBlockDataSet* lagrangianOutput
+    vtkMultiBlockDataSet* lagrangianOutput,
+    vtkMultiBlockDataSet* LagrangianOutput
 )
 {
     if (debug)
     {
         InfoInFunction << "Output with "
             << output->GetNumberOfBlocks() << " and "
-            << lagrangianOutput->GetNumberOfBlocks() << " blocks" << endl;
+            << lagrangianOutput->GetNumberOfBlocks() << " blocks" << endl
+            << LagrangianOutput->GetNumberOfBlocks() << " blocks" << endl;
 
         output->Print(cout);
         lagrangianOutput->Print(cout);
+        LagrangianOutput->Print(cout);
         printMemory();
     }
+
     reader_->UpdateProgress(0.1);
 
     // Set up mesh parts selection(s)
-    updateMeshPartsStatus();
+    topoChangePartsStatus();
 
     reader_->UpdateProgress(0.15);
 
@@ -539,13 +561,17 @@ void Foam::vtkPVFoam::Update
         reader_->UpdateProgress(0.7);
     }
 
-    convertMeshLagrangian(lagrangianOutput, blockNo);
+    convertMeshlagrangian(lagrangianOutput, blockNo);
+
+    PtrList<LagrangianMesh> LmeshPtrs;
+    convertMeshLagrangian(LagrangianOutput, blockNo, LmeshPtrs);
 
     reader_->UpdateProgress(0.8);
 
     // Update fields
     convertFields(output);
-    convertLagrangianFields(lagrangianOutput);
+    convertlagrangianFields(lagrangianOutput);
+    convertLagrangianFields(LagrangianOutput, LmeshPtrs);
 
     if (debug)
     {
@@ -586,13 +612,13 @@ double* Foam::vtkPVFoam::findTimes(int& nTimeSteps)
 
             if
             (
-                IOobject
+                typeIOobject<pointIOField>
                 (
                     "points",
                     timeName,
                     meshDir_,
                     runTime
-                ).typeHeaderOk<pointIOField>(true)
+                ).headerOk()
             )
             {
                 break;
@@ -855,6 +881,8 @@ void Foam::vtkPVFoam::PrintSelf(ostream& os, vtkIndent indent) const
 
     os  << indent << "Number of available time steps: "
         << (dbPtr_.valid() ? dbPtr_().times().size() : 0) << "\n";
+
+    os  << indent << "mesh: " << meshMesh_ << "\n";
 
     os  << indent << "mesh region: " << meshRegion_ << "\n";
 }

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -39,9 +39,6 @@ SourceFiles
 #define regIOobject_H
 
 #include "IOobject.H"
-#include "typeInfo.H"
-#include "OSspecific.H"
-#include "NamedEnum.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -80,16 +77,16 @@ class regIOobject
         //- Return Istream
         Istream& readStream(const bool read = true);
 
-        //- Dissallow assignment
-        void operator=(const regIOobject&);
-
 
 protected:
 
-        //- Helper: check readOpt flags and read if necessary
+    // Protected Member Functions
+
+        //- Read header, check readOpt flags and read data if necessary.
+        //  Format is set to ASCII if defaultFormat and file format are ASCII
         bool readHeaderOk
         (
-            const IOstream::streamFormat PstreamFormat,
+            const IOstream::streamFormat defaultFormat,
             const word& typeName
         );
 
@@ -113,6 +110,10 @@ public:
         //- Copy constructor
         regIOobject(const regIOobject&);
 
+        //- Move constructor
+        //  Registers copy if the object is registered
+        regIOobject(const regIOobject&&);
+
         //- Copy constructor, transferring registry registration to copy
         //  if registerCopy is true
         regIOobject(const regIOobject&, bool registerCopy);
@@ -131,6 +132,45 @@ public:
 
     // Member Functions
 
+        // Path components
+
+            //- Return true if object is global, i.e. same for all processors
+            //  Defaults to false, must be overridden by global IO classes
+            virtual bool global() const;
+
+            //- Return true if object is global, i.e. same for all processors
+            //  and written to the global case directory,
+            //  i.e. not the processor time directory
+            //  Defaults to global()
+            virtual bool globalFile() const;
+
+            using IOobject::caseName;
+
+            const fileName& caseName() const;
+
+            using IOobject::path;
+
+            //- Return complete path
+            fileName path() const;
+
+            using IOobject::objectPath;
+
+            //- Return complete path + object name
+            fileName objectPath() const
+            {
+                return path()/name();
+            }
+
+            using IOobject::filePath;
+
+            //- Return complete path + object name if the file exists
+            //  in the case directory otherwise null.
+            //
+            //  For global objects in parallel searches up into the global
+            //  case directory
+            fileName filePath() const;
+
+
         // Registration
 
             //- Add object to registry
@@ -140,7 +180,10 @@ public:
             bool checkOut();
 
             //- Add file watch on object (if registered and READ_IF_MODIFIED)
-            virtual void addWatch();
+            void addWatch();
+
+            //- Is this object registered with the registry?
+            inline bool registered() const;
 
             //- Is this object owned by the registry?
             inline bool ownedByRegistry() const;
@@ -213,12 +256,6 @@ public:
 
         // Reading
 
-            //- Return complete path + object name if the file exists
-            //  in the case directory otherwise null. Does not search
-            //  up if parallel. Can be overridden to provide this functionality
-            //  (e.g. IOdictionary)
-            virtual fileName filePath() const;
-
             //- Read and check header info
             bool headerOk();
 
@@ -236,10 +273,6 @@ public:
             //- Read object
             virtual bool read();
 
-            //- Add file watch for fileName on object if not yet watched. Return
-            //  index of watch
-            virtual label addWatch(const fileName&);
-
             //- Return file-monitoring handles
             inline const labelList& watchIndices() const;
 
@@ -250,12 +283,14 @@ public:
             //  have been modified. (modified state is cached by Time)
             virtual bool modified() const;
 
+            //- Return true if the object's dependencies have been modified
+            virtual bool dependenciesModified() const
+            {
+                return false;
+            }
+
             //- Read object if modified (as set by call to modified)
             virtual bool readIfModified();
-
-            //- Is object same for all processors
-            //  Defaults to false, must be overridden by global IO classes
-            virtual bool global() const;
 
 
         // Writing
@@ -279,7 +314,11 @@ public:
 
     // Member Operators
 
-        void operator=(const IOobject&);
+        //- Assign to IOobject
+        void operator=(const IOobject&) = delete;
+
+        //- Disallow default assignment
+        void operator=(const regIOobject&) = delete;
 };
 
 

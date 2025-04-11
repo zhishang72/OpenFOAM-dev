@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -42,8 +42,34 @@ namespace Foam
     );
 }
 
+// * * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * * //
 
-// * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * * * * * //
+void Foam::mappedWallPolyPatch::calcGeometry(PstreamBuffers& pBufs)
+{
+    wallPolyPatch::calcGeometry(pBufs);
+    mappedPatchBase::clearOut(false);
+}
+
+
+void Foam::mappedWallPolyPatch::movePoints
+(
+    PstreamBuffers& pBufs,
+    const pointField& p
+)
+{
+    wallPolyPatch::movePoints(pBufs, p);
+    mappedPatchBase::clearOut(true);
+}
+
+
+void Foam::mappedWallPolyPatch::topoChange(PstreamBuffers& pBufs)
+{
+    wallPolyPatch::topoChange(pBufs);
+    mappedPatchBase::clearOut(false);
+}
+
+
+// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 Foam::mappedWallPolyPatch::mappedWallPolyPatch
 (
@@ -72,48 +98,26 @@ Foam::mappedWallPolyPatch::mappedWallPolyPatch
     const label size,
     const label start,
     const label index,
-    const word& sampleRegion,
-    const mappedPatchBase::sampleMode mode,
-    const word& samplePatch,
-    const vectorField& offset,
+    const word& neighbourRegion,
+    const word& neighbourPatch,
     const polyBoundaryMesh& bm
 )
 :
     wallPolyPatch(name, size, start, index, bm, typeName),
     mappedPatchBase
     (
-        static_cast<const polyPatch&>(*this),
-        sampleRegion,
-        mode,
-        samplePatch,
-        offset
+        *this,
+        neighbourRegion,
+        neighbourPatch,
+        cyclicTransform(true)
     )
-{}
-
-
-Foam::mappedWallPolyPatch::mappedWallPolyPatch
-(
-    const word& name,
-    const label size,
-    const label start,
-    const label index,
-    const word& sampleRegion,
-    const mappedPatchBase::sampleMode mode,
-    const word& samplePatch,
-    const vector& offset,
-    const polyBoundaryMesh& bm
-)
-:
-    wallPolyPatch(name, size, start, index, bm, typeName),
-    mappedPatchBase
-    (
-        static_cast<const polyPatch&>(*this),
-        sampleRegion,
-        mode,
-        samplePatch,
-        offset
-    )
-{}
+{
+    //  mapped is not constraint type so add mapped group explicitly
+    if (findIndex(inGroups(), mappedPolyPatch::typeName) == -1)
+    {
+        inGroups().append(mappedPolyPatch::typeName);
+    }
+}
 
 
 Foam::mappedWallPolyPatch::mappedWallPolyPatch
@@ -126,7 +130,7 @@ Foam::mappedWallPolyPatch::mappedWallPolyPatch
 )
 :
     wallPolyPatch(name, dict, index, bm, patchType),
-    mappedPatchBase(*this, dict)
+    mappedPatchBase(*this, dict, transformType::defaultNone)
 {
     //  mapped is not constraint type so add mapped group explicitly
     if (findIndex(inGroups(), mappedPolyPatch::typeName) == -1)
@@ -161,76 +165,13 @@ Foam::mappedWallPolyPatch::mappedWallPolyPatch
 {}
 
 
-Foam::mappedWallPolyPatch::mappedWallPolyPatch
-(
-    const mappedWallPolyPatch& pp,
-    const polyBoundaryMesh& bm,
-    const label index,
-    const labelUList& mapAddressing,
-    const label newStart
-)
-:
-    wallPolyPatch(pp, bm, index, mapAddressing, newStart),
-    mappedPatchBase(*this, pp, mapAddressing)
-{}
-
-
 // * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
 
 Foam::mappedWallPolyPatch::~mappedWallPolyPatch()
-{
-    mappedPatchBase::clearOut();
-}
+{}
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
-
-void Foam::mappedWallPolyPatch::initGeometry(PstreamBuffers& pBufs)
-{
-    wallPolyPatch::initGeometry(pBufs);
-}
-
-
-void Foam::mappedWallPolyPatch::calcGeometry(PstreamBuffers& pBufs)
-{
-    wallPolyPatch::calcGeometry(pBufs);
-    mappedPatchBase::clearOut();
-}
-
-
-void Foam::mappedWallPolyPatch::initMovePoints
-(
-    PstreamBuffers& pBufs,
-    const pointField& p
-)
-{
-    wallPolyPatch::initMovePoints(pBufs, p);
-}
-
-
-void Foam::mappedWallPolyPatch::movePoints
-(
-    PstreamBuffers& pBufs,
-    const pointField& p
-)
-{
-    wallPolyPatch::movePoints(pBufs, p);
-    mappedPatchBase::clearOut();
-}
-
-
-void Foam::mappedWallPolyPatch::initUpdateMesh(PstreamBuffers& pBufs)
-{
-    wallPolyPatch::initUpdateMesh(pBufs);
-}
-
-
-void Foam::mappedWallPolyPatch::updateMesh(PstreamBuffers& pBufs)
-{
-    wallPolyPatch::updateMesh(pBufs);
-    mappedPatchBase::clearOut();
-}
-
 
 void Foam::mappedWallPolyPatch::write(Ostream& os) const
 {

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -39,22 +39,9 @@ Foam::inletOutletFvPatchField<Type>::inletOutletFvPatchField
 {
     this->refValue() = Zero;
     this->refGrad() = Zero;
-    this->valueFraction() = 0.0;
+    this->valueFraction() = 0;
+    fvPatchField<Type>::operator=(Zero);
 }
-
-
-template<class Type>
-Foam::inletOutletFvPatchField<Type>::inletOutletFvPatchField
-(
-    const inletOutletFvPatchField<Type>& ptf,
-    const fvPatch& p,
-    const DimensionedField<Type, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
-)
-:
-    mixedFvPatchField<Type>(ptf, p, iF, mapper),
-    phiName_(ptf.phiName_)
-{}
 
 
 template<class Type>
@@ -65,16 +52,17 @@ Foam::inletOutletFvPatchField<Type>::inletOutletFvPatchField
     const dictionary& dict
 )
 :
-    mixedFvPatchField<Type>(p, iF),
+    mixedFvPatchField<Type>(p, iF, dict, false),
     phiName_(dict.lookupOrDefault<word>("phi", "phi"))
 {
-    this->refValue() = Field<Type>("inletValue", dict, p.size());
+    this->refValue() =
+        Field<Type>("inletValue", iF.dimensions(), dict, p.size());
 
     if (dict.found("value"))
     {
         fvPatchField<Type>::operator=
         (
-            Field<Type>("value", dict, p.size())
+            Field<Type>("value", iF.dimensions(), dict, p.size())
         );
     }
     else
@@ -83,17 +71,20 @@ Foam::inletOutletFvPatchField<Type>::inletOutletFvPatchField
     }
 
     this->refGrad() = Zero;
-    this->valueFraction() = 0.0;
+    this->valueFraction() = 0;
 }
 
 
 template<class Type>
 Foam::inletOutletFvPatchField<Type>::inletOutletFvPatchField
 (
-    const inletOutletFvPatchField<Type>& ptf
+    const inletOutletFvPatchField<Type>& ptf,
+    const fvPatch& p,
+    const DimensionedField<Type, volMesh>& iF,
+    const fieldMapper& mapper
 )
 :
-    mixedFvPatchField<Type>(ptf),
+    mixedFvPatchField<Type>(ptf, p, iF, mapper),
     phiName_(ptf.phiName_)
 {}
 
@@ -126,7 +117,7 @@ void Foam::inletOutletFvPatchField<Type>::updateCoeffs()
             phiName_
         );
 
-    this->valueFraction() = 1.0 - pos0(phip);
+    this->valueFraction() = neg(phip);
 
     mixedFvPatchField<Type>::updateCoeffs();
 }

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -38,8 +38,7 @@ Foam::pointPatchField<Type>::pointPatchField
 :
     patch_(p),
     internalField_(iF),
-    updated_(false),
-    patchType_(word::null)
+    updated_(false)
 {}
 
 
@@ -53,8 +52,7 @@ Foam::pointPatchField<Type>::pointPatchField
 :
     patch_(p),
     internalField_(iF),
-    updated_(false),
-    patchType_(dict.lookupOrDefault<word>("patchType", word::null))
+    updated_(false)
 {}
 
 
@@ -64,26 +62,12 @@ Foam::pointPatchField<Type>::pointPatchField
     const pointPatchField<Type>& ptf,
     const pointPatch& p,
     const DimensionedField<Type, pointMesh>& iF,
-    const pointPatchFieldMapper&
+    const fieldMapper&
 )
 :
     patch_(p),
     internalField_(iF),
-    updated_(false),
-    patchType_(ptf.patchType_)
-{}
-
-
-template<class Type>
-Foam::pointPatchField<Type>::pointPatchField
-(
-    const pointPatchField<Type>& ptf
-)
-:
-    patch_(ptf.patch_),
-    internalField_(ptf.internalField_),
-    updated_(false),
-    patchType_(ptf.patchType_)
+    updated_(false)
 {}
 
 
@@ -96,8 +80,7 @@ Foam::pointPatchField<Type>::pointPatchField
 :
     patch_(ptf.patch_),
     internalField_(iF),
-    updated_(false),
-    patchType_(ptf.patchType_)
+    updated_(false)
 {}
 
 
@@ -115,9 +98,9 @@ void Foam::pointPatchField<Type>::write(Ostream& os) const
 {
     writeEntry(os, "type", type());
 
-    if (patchType_.size())
+    if (overridesConstraint())
     {
-        writeEntry(os, "patchType", patchType_);
+        writeEntry(os, "patchType", patch().type());
     }
 }
 
@@ -243,7 +226,7 @@ void Foam::pointPatchField<Type>::addToInternalField
 
 template<class Type>
 template<class Type1>
-void Foam::pointPatchField<Type>::setInInternalField
+void Foam::pointPatchField<Type>::setInternalField
 (
     Field<Type1>& iF,
     const Field<Type1>& pF,
@@ -278,13 +261,13 @@ void Foam::pointPatchField<Type>::setInInternalField
 
 template<class Type>
 template<class Type1>
-void Foam::pointPatchField<Type>::setInInternalField
+void Foam::pointPatchField<Type>::setInternalField
 (
     Field<Type1>& iF,
     const Field<Type1>& pF
 ) const
 {
-    setInInternalField(iF, pF, patch().meshPoints());
+    setInternalField(iF, pF, patch().meshPoints());
 }
 
 

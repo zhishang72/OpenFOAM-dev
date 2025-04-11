@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2018-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -28,15 +28,14 @@ Description
     This utility sets up a multi-region case using template files for
     material properties, field and system files.
 
-    The utility reads constant/materialProperties to create a
-    regionProperties file and to create region directories containing
-    required files within the 0, system and constant directories. The
-    materialProperties file contains mesh region names with an
-    associated physical region type and a material:
+    The utility reads constant/materialProperties to create a regionSolvers list
+    and to create region directories containing required files within the 0,
+    system and constant directories. The materialProperties file contains mesh
+    region names with an associated solver and a material:
 
     bottomAir
     {
-        type            fluid;
+        solver          fluid;
         material        air;
     }
 
@@ -52,7 +51,7 @@ Description
       + fluid: g
       + solid
     + materials
-      + air: radiationProperties, thermophysicalProperties, turbulenceProperties
+      + air: radiationProperties, thermophysicalProperties, momentumTransport
       + aluminium: radiationProperties, thermophysicalProperties
       + ...
 
@@ -61,6 +60,8 @@ Description
 #include "argList.H"
 #include "Time.H"
 #include "IOdictionary.H"
+#include "dictionaryEntry.H"
+#include "OFstream.H"
 
 using namespace Foam;
 
@@ -87,87 +88,130 @@ int main(int argc, char *argv[])
         )
     );
 
-    IOdictionary regionProperties
-    (
-        IOobject
-        (
-            "regionProperties",
-            runTime.constant(),
-            runTime
-        ),
-        dictionary::null
-    );
-
     const fileName currentDir(runTime.path());
     const fileName materialsDir(currentDir/"templates"/"materials");
     const fileName systemDir(currentDir/"templates"/"system");
     const fileName constantDir(currentDir/"templates"/"constant");
     const fileName timeDir(currentDir/"templates"/"0");
 
-    HashTable<wordList> regionInfo;
+    // Set of valid region names, corresponding to polyMesh sub-directories
+    wordHashSet regions
+    (
+        wordList(readDir(currentDir/"constant", fileType::directory))
+    );
+
+    wordList regionDirs(regions.toc());
+
+    forAll(regionDirs, i)
+    {
+        if(!isDir(currentDir/"constant"/regionDirs[i]/"polyMesh"))
+        {
+            regions.erase(regionDirs[i]);
+        }
+    }
+
+    // Set of valid solver names, listed by:
+    /*
+        grep -rwl thermo $FOAM_MODULES | \
+            sed "s@$FOAM_MODULES/\([^/]*\).*@\1@g" | sort -u
+    */
+    const wordHashSet solvers
+    {
+        "compressibleMultiphaseVoF",
+        "compressibleVoF",
+        "film",
+        "fluid",
+        "isothermalFilm",
+        "isothermalFluid",
+        "multicomponentFluid",
+        "multiphaseEuler",
+        "shockFluid",
+        "solid",
+        "solidDisplacement",
+        "XiFluid"
+    };
+
+    // Set of valid material names
+    wordHashSet materials
+    (
+        wordList(readDir(materialsDir, fileType::directory))
+    );
+
+    wordList regionList;
+    wordList solverList;
+    wordList materialList;
 
     forAllConstIter(dictionary, materialProperties, regionIter)
     {
-        // Read region subdict name, then its type and material entries
-        const word& regionName = regionIter().keyword();
+        regionList.append(regionIter().keyword());
         const dictionary& regionDict = regionIter().dict();
-        const word regionType(regionDict.lookup("type"));
-        const word regionMaterial(regionDict.lookup("material"));
+        solverList.append(regionDict.lookup("solver"));
+        materialList.append(regionDict.lookup("material"));
 
-        Info<< "\nRegion " << regionName << ":\n"
-            << "\tCreating 0/" << regionName
-            << " directory" << endl;
-
-        // Create fluid and solid lists for regionProperties, e.g.
-        // fluid ( bottomAir ... )
-        HashTable<wordList>::iterator iter = regionInfo.find(regionType);
-
-        if (iter == regionInfo.end())
+        if (!regions.found(regionList.last()))
         {
-            // Add fluid or solid list if does not exist
-            regionInfo.insert(regionType, wordList(1, regionName));
-        }
-        else
-        {
-            wordList& regionNames = iter();
-            if (findIndex(regionNames, regionName) == -1)
-            {
-                // Append region name to fluid/solid list
-                regionNames.append(regionName);
-            }
-        }
-
-        // 0/<region>: from fluid/solid template
-        const fileName sourceDir(timeDir/regionType);
-        if (isDir(sourceDir))
-        {
-            cpFiles(sourceDir, currentDir/"0"/regionName);
-        }
-        else
-        {
-            // This needs checking ...
             FatalIOErrorIn(args.executable().c_str(), materialProperties)
-                << "Cannot find region type file "
-                << sourceDir << exit(FatalIOError);
+                << "Cannot find region polyMesh directory "
+                << "constant"/regionList.last()/"polyMesh" << nl << nl
+                << "Existing regions are "
+                << regions
+                << exit(FatalIOError);
         }
 
-        Info<< "\tCreating constant/" << regionName
-            << " directory with " << regionMaterial
-            << " material" << endl;
-        cpFiles(constantDir/regionType, currentDir/"constant"/regionName);
-        cpFiles(materialsDir/regionMaterial, currentDir/"constant"/regionName);
+        if (!solvers.found(solverList.last()))
+        {
+            FatalIOErrorIn(args.executable().c_str(), materialProperties)
+                << "Cannot find solver "
+                << solverList.last() << nl << nl
+                << "Available solvers are "
+                << solvers.sortedToc()
+                << exit(FatalIOError);
+        }
 
-        // system/<region>: from fluid or solid templ
-        Info<< "\tCreating system/" << regionName
-            << " directory" << endl;
-        cpFiles(systemDir/regionType, currentDir/"system"/regionName);
+        if (!materials.found(materialList.last()))
+        {
+            FatalIOErrorIn(args.executable().c_str(), materialProperties)
+                << "Cannot find region material directory "
+                << "templates/materials"/materialList.last() << nl << nl
+                << "Available materials are "
+                << materials
+                << exit(FatalIOError);
+        }
     }
 
-    regionProperties.add("regions", regionInfo);
+    dictionaryEntry regionSolvers
+    (
+        "regionSolvers",
+        dictionary::null,
+        dictionary::null
+    );
 
-    Info<< "\nWriting region properties\n" << endl;
+    forAll(regionList, i)
+    {
+        const word region(regionList[i]);
+        const word material(materialList[i]);
+        const word solver(solverList[i]);
 
-    regionProperties.regIOobject::write();
+        Info<< "\nRegion " << region << ":\n"
+            << "\tCreating 0/" << region << " directory" << endl;
+        cpFiles(timeDir/solver, currentDir/"0"/region);
+
+        Info<< "\tCreating constant/" << region
+            << " directory with " << material << " material" << endl;
+        cpFiles(constantDir/solver, currentDir/"constant"/region);
+        cpFiles(materialsDir/material, currentDir/"constant"/region);
+
+        Info<< "\tCreating system/" << region << " directory" << endl;
+        cpFiles(systemDir/solver, currentDir/"system"/region);
+
+        regionSolvers.add(region, solver);
+    }
+
+    Info<< "\nWriting regionSolvers\n" << endl;
+    {
+        OFstream regionSolversFile(currentDir/runTime.system()/"regionSolvers");
+        regionSolvers.write(regionSolversFile);
+    }
 
     Info<< "End\n" << endl;
 

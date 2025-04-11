@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2014-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2014-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -101,11 +101,11 @@ Usage
     }
     \endverbatim
 
-Note
-    D.M. Hargreaves and N.G. Wright recommend Gamma epsilon in the
-    k-epsilon model should be changed from 1.3 to 1.11 for consistency.
-    The roughness height (Er) is given by Er = 20 z0 following the same
-    reference.
+    Note:
+        D.M. Hargreaves and N.G. Wright recommend Gamma epsilon in the
+        k-epsilon model should be changed from 1.3 to 1.11 for consistency.
+        The roughness height (Er) is given by Er = 20 z0 following the same
+        reference.
 
 SourceFiles
     atmBoundaryLayer.C
@@ -123,7 +123,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-       Class atmBoundaryLayer Declaration
+                      Class atmBoundaryLayer Declaration
 \*---------------------------------------------------------------------------*/
 
 class atmBoundaryLayer
@@ -217,7 +217,7 @@ public:
         atmBoundaryLayer
         (
             const atmBoundaryLayer&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
         //- Copy constructor
@@ -249,11 +249,12 @@ public:
 
         // Mapping functions
 
-            //- Map (and resize as needed) from self given a mapping object
-            void autoMap(const fvPatchFieldMapper&);
+            //- Map the given atmBoundaryLayer onto this atmBoundaryLayer
+            void map(const atmBoundaryLayer&, const fieldMapper&);
 
-            //- Reverse map the given fvPatchField onto this fvPatchField
-            void rmap(const atmBoundaryLayer&, const labelList&);
+            //- Reset the atmBoundaryLayer to the given atmBoundaryLayer
+            //  Used for mesh to mesh mapping
+            void reset(const atmBoundaryLayer&);
 
 
         // Evaluate functions

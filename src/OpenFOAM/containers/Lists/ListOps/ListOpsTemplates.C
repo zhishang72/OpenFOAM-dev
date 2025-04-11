@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -28,43 +28,62 @@ License
 // * * * * * * * * * * * * * * * Global Functions  * * * * * * * * * * * * * //
 
 template<class ListType>
-ListType Foam::renumber
-(
-    const labelUList& oldToNew,
-    const ListType& lst
-)
+ListType Foam::renumber(const labelUList& oldToNew, const ListType& lst)
 {
-    // Create copy
-    ListType newLst(lst.size());
+    ListType newLst;
 
-    // ensure consistent addressable size (eg, DynamicList)
-    newLst.setSize(lst.size());
-
-    forAll(lst, elemI)
-    {
-        if (lst[elemI] >= 0)
-        {
-            newLst[elemI] = oldToNew[lst[elemI]];
-        }
-    }
+    renumber(oldToNew, lst, newLst);
 
     return newLst;
 }
 
 
 template<class ListType>
-void Foam::inplaceRenumber
+void Foam::renumber
 (
     const labelUList& oldToNew,
-    ListType& lst
+    const ListType& lst,
+    ListType& newLst
 )
+{
+    newLst.setSize(lst.size());
+
+    forAll(lst, elemI)
+    {
+        renumber(oldToNew, lst[elemI], newLst[elemI]);
+    }
+}
+
+
+inline void Foam::renumber
+(
+    const labelUList& oldToNew,
+    const label lst,
+    label& newLst
+)
+{
+    if (lst >= 0)
+    {
+        newLst = oldToNew[lst];
+    }
+}
+
+
+template<class ListType>
+void Foam::inplaceRenumber(const labelUList& oldToNew, ListType& lst)
 {
     forAll(lst, elemI)
     {
-        if (lst[elemI] >= 0)
-        {
-            lst[elemI] = oldToNew[lst[elemI]];
-        }
+        inplaceRenumber(oldToNew, lst[elemI]);
+    }
+}
+
+
+inline void Foam::inplaceRenumber(const labelUList& oldToNew, label& lst)
+{
+    if (lst >= 0)
+    {
+        lst = oldToNew[lst];
     }
 }
 
@@ -457,6 +476,25 @@ void Foam::invertManyToMany
 
 
 template<class ListType>
+Foam::label Foam::count
+(
+    const ListType& l,
+    typename ListType::const_reference x
+)
+{
+    label result = 0;
+    forAll(l, i)
+    {
+        if (l[i] == x)
+        {
+            ++ result;
+        }
+    }
+    return result;
+}
+
+
+template<class ListType>
 Foam::label Foam::findIndex
 (
     const ListType& l,
@@ -718,28 +756,6 @@ Foam::List<Container> Foam::initListList(const T elems[mRows][nColumns])
 }
 
 
-template<class T>
-void Foam::ListAppendEqOp<T>::operator()(List<T>& x, const List<T>& y) const
-{
-    if (y.size())
-    {
-        if (x.size())
-        {
-            label sz = x.size();
-            x.setSize(sz + y.size());
-            forAll(y, i)
-            {
-                x[sz++] = y[i];
-            }
-        }
-        else
-        {
-            x = y;
-        }
-    }
-}
-
-
 template<class ListType>
 ListType Foam::reverseList(const ListType& list)
 {
@@ -816,6 +832,60 @@ void Foam::inplaceRotateList(ListType<DataType>& list, label n)
     inplaceReverseList(secondHalf);
 
     inplaceReverseList(list);
+}
+
+
+template<class BinaryOp>
+template<class Type>
+Foam::List<Type> Foam::ListOp<BinaryOp>::operator()
+(
+    const List<Type>& a,
+    const List<Type>& b
+) const
+{
+    List<Type> c(a.size());
+    forAll(a, i)
+    {
+        c[i] = BinaryOp()(a[i], b[i]);
+    }
+    return c;
+}
+
+
+template<class BinaryEqOp>
+template<class Type>
+void Foam::ListEqOp<BinaryEqOp>::operator()
+(
+    List<Type>& a,
+    const List<Type>& b
+) const
+{
+    forAll(a, i)
+    {
+        BinaryEqOp()(a[i], b[i]);
+    }
+}
+
+
+template<class T>
+void Foam::ListAppendEqOp<T>::operator()(List<T>& x, const List<T>& y) const
+{
+    if (y.size())
+    {
+        if (x.size())
+        {
+            label sz = x.size();
+            x.setSize(sz + y.size());
+            forAll(y, i)
+            {
+                x[sz++] = y[i];
+            }
+        }
+        else
+        {
+            x = y;
+        }
+    }
 }
 
 

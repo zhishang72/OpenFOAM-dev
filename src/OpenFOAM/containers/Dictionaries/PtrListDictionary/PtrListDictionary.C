@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2015-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2015-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,6 +24,7 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "PtrListDictionary.H"
+#include "UPtrListDictionary.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
@@ -68,9 +69,56 @@ Foam::PtrListDictionary<T>::PtrListDictionary(Istream& is)
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class T>
-inline Foam::autoPtr<T> Foam::PtrListDictionary<T>::set
+Foam::label Foam::PtrListDictionary<T>::findIndex(const word& key) const
+{
+    forAll(*this, i)
+    {
+        if (operator[](i).keyword() == key)
+        {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+
+template<class T>
+Foam::List<Foam::label> Foam::PtrListDictionary<T>::findIndices
 (
-    const label i,
+    const wordRe& key
+) const
+{
+    List<label> indices;
+
+    if (!key.empty())
+    {
+        if (key.isPattern())
+        {
+            indices = findStrings(key, this->toc());
+        }
+        else
+        {
+            indices.setSize(this->size());
+            label nFound = 0;
+            forAll(*this, i)
+            {
+                if (key == operator[](i).keyword())
+                {
+                    indices[nFound++] = i;
+                }
+            }
+            indices.setSize(nFound);
+        }
+    }
+
+    return indices;
+}
+
+
+template<class T>
+inline void Foam::PtrListDictionary<T>::append
+(
     const word& key,
     T* ptr
 )
@@ -81,6 +129,73 @@ inline Foam::autoPtr<T> Foam::PtrListDictionary<T>::set
             << "Cannot insert with key '" << key << "' into hash-table"
             << abort(FatalError);
     }
+    return PtrList<T>::append(ptr);
+}
+
+
+template<class T>
+inline void Foam::PtrListDictionary<T>::append
+(
+    const word& key,
+    const autoPtr<T>& aptr
+)
+{
+    return append(key, const_cast<autoPtr<T>&>(aptr).ptr());
+}
+
+
+template<class T>
+inline void Foam::PtrListDictionary<T>::append
+(
+    const word& key,
+    const tmp<T>& t
+)
+{
+    return append(key, const_cast<tmp<T>&>(t).ptr());
+}
+
+
+template<class T>
+inline void Foam::PtrListDictionary<T>::append(T* ptr)
+{
+    append(ptr->keyword(), ptr);
+}
+
+
+template<class T>
+inline void Foam::PtrListDictionary<T>::append(const autoPtr<T>& aptr)
+{
+    append(aptr->keyword(), aptr);
+}
+
+
+template<class T>
+inline void Foam::PtrListDictionary<T>::append(const tmp<T>& t)
+{
+    append(t->keyword(), t);
+}
+
+
+template<class T>
+inline Foam::autoPtr<T> Foam::PtrListDictionary<T>::set
+(
+    const label i,
+    const word& key,
+    T* ptr
+)
+{
+    if (ptr == nullptr)
+    {
+        // Remove key from hash table if the pointer is null
+        DictionaryBase<PtrList<T>, T>::hashedTs_.erase(key);
+    }
+    else if (!DictionaryBase<PtrList<T>, T>::hashedTs_.set(key, ptr))
+    {
+        FatalErrorInFunction
+            << "Cannot set with key '" << key << "' into hash-table"
+            << abort(FatalError);
+    }
+
     return PtrList<T>::set(i, ptr);
 }
 
@@ -90,17 +205,10 @@ inline Foam::autoPtr<T> Foam::PtrListDictionary<T>::set
 (
     const label i,
     const word& key,
-    autoPtr<T>& aptr
+    const autoPtr<T>& aptr
 )
 {
-    T* ptr = aptr.ptr();
-    if (!DictionaryBase<PtrList<T>, T>::hashedTs_.insert(key, ptr))
-    {
-        FatalErrorInFunction
-            << "Cannot insert with key '" << key << "' into hash-table"
-            << abort(FatalError);
-    }
-    return PtrList<T>::set(i, ptr);
+    return set(i, key, const_cast<autoPtr<T>&>(aptr).ptr());
 }
 
 
@@ -109,17 +217,117 @@ inline Foam::autoPtr<T> Foam::PtrListDictionary<T>::set
 (
     const label i,
     const word& key,
-    tmp<T>& t
+    const tmp<T>& t
 )
 {
-    T* ptr = t.ptr();
-    if (!DictionaryBase<PtrList<T>, T>::hashedTs_.insert(key, ptr))
+    return set(i, key, const_cast<tmp<T>&>(t).ptr());
+}
+
+
+template<class T>
+inline Foam::autoPtr<T> Foam::PtrListDictionary<T>::set
+(
+    const label i,
+    T* ptr
+)
+{
+    return set(i, ptr->keyword(), ptr);
+}
+
+
+template<class T>
+inline Foam::autoPtr<T> Foam::PtrListDictionary<T>::set
+(
+    const label i,
+    const autoPtr<T>& aptr
+)
+{
+    return set(i, aptr->keyword(), aptr);
+}
+
+
+template<class T>
+inline Foam::autoPtr<T> Foam::PtrListDictionary<T>::set
+(
+    const label i,
+    const tmp<T>& t
+)
+{
+    return set(i, t->keyword(), t);
+}
+
+
+template<class T>
+template<class T2>
+Foam::UPtrListDictionary<T2> Foam::PtrListDictionary<T>::convert()
+{
+    UPtrListDictionary<T2> result(this->size());
+
+    forAll(*this, i)
     {
-        FatalErrorInFunction
-            << "Cannot insert with key '" << key << "' into hash-table"
-            << abort(FatalError);
+        result.set
+        (
+            i,
+            this->operator()(i)->keyword(),
+            dynamic_cast<T2*>(this->operator()(i))
+        );
     }
-    return PtrList<T>::set(i, ptr);
+
+    return result;
+}
+
+
+template<class T>
+template<class T2>
+Foam::UPtrListDictionary<T2>
+Foam::PtrListDictionary<T>::lookupType()
+{
+    UPtrListDictionary<T2> result(this->size());
+
+    label n = 0;
+    forAll(*this, i)
+    {
+        if (isA<T2>(*this->operator()(i)))
+        {
+            result.set
+            (
+                n++,
+                this->operator()(i)->keyword(),
+                dynamic_cast<T2*>(this->operator()(i))
+            );
+        }
+    }
+
+    result.setSize(n);
+
+    return result;
+}
+
+
+template<class T>
+template<class T2>
+Foam::UPtrListDictionary<const T2>
+Foam::PtrListDictionary<T>::lookupType() const
+{
+    UPtrListDictionary<const T2> result(this->size());
+
+    label n = 0;
+    forAll(*this, i)
+    {
+        if (isA<T2>(*this->operator()(i)))
+        {
+            result.set
+            (
+                n++,
+                this->operator()(i)->keyword(),
+                dynamic_cast<const T2*>(this->operator()(i))
+            );
+        }
+    }
+
+    result.setSize(n);
+
+    return result;
 }
 
 

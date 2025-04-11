@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -32,25 +32,33 @@ template<class Type>
 Foam::fixedMeanFvPatchField<Type>::fixedMeanFvPatchField
 (
     const fvPatch& p,
-    const DimensionedField<Type, volMesh>& iF
-)
-:
-    fixedValueFvPatchField<Type>(p, iF),
-    meanValue_()
-{}
-
-
-template<class Type>
-Foam::fixedMeanFvPatchField<Type>::fixedMeanFvPatchField
-(
-    const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
     const dictionary& dict
 )
 :
-    fixedValueFvPatchField<Type>(p, iF, dict),
-    meanValue_(Function1<Type>::New("meanValue", dict))
-{}
+    fixedValueFvPatchField<Type>
+    (
+        p,
+        iF,
+        dict,
+        !Pstream::parRun() && p.boundaryMesh().mesh().time().processorCase()
+    ),
+    meanValue_
+    (
+        Function1<Type>::New
+        (
+            "meanValue",
+            this->db().time().userUnits(),
+            iF.dimensions(),
+            dict
+        )
+    )
+{
+    if (Pstream::parRun() || !p.boundaryMesh().mesh().time().processorCase())
+    {
+        this->evaluate();
+    }
+}
 
 
 template<class Type>
@@ -59,21 +67,10 @@ Foam::fixedMeanFvPatchField<Type>::fixedMeanFvPatchField
     const fixedMeanFvPatchField<Type>& ptf,
     const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     fixedValueFvPatchField<Type>(ptf, p, iF, mapper),
-    meanValue_(ptf.meanValue_, false)
-{}
-
-
-template<class Type>
-Foam::fixedMeanFvPatchField<Type>::fixedMeanFvPatchField
-(
-    const fixedMeanFvPatchField<Type>& ptf
-)
-:
-    fixedValueFvPatchField<Type>(ptf),
     meanValue_(ptf.meanValue_, false)
 {}
 
@@ -100,8 +97,7 @@ void Foam::fixedMeanFvPatchField<Type>::updateCoeffs()
         return;
     }
 
-    const scalar t = this->db().time().timeOutputValue();
-    Type meanValue = meanValue_->value(t);
+    Type meanValue = meanValue_->value(this->db().time().value());
 
     Field<Type> newValues(this->patchInternalField());
 
@@ -128,7 +124,13 @@ template<class Type>
 void Foam::fixedMeanFvPatchField<Type>::write(Ostream& os) const
 {
     fvPatchField<Type>::write(os);
-    writeEntry(os, meanValue_());
+    writeEntry
+    (
+        os,
+        this->db().time().userUnits(),
+        this->internalField().dimensions(),
+        meanValue_()
+    );
     writeEntry(os, "value", *this);
 }
 

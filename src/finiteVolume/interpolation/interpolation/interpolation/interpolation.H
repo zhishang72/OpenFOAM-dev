@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -37,8 +37,8 @@ Description
 #include "pointFields.H"
 #include "typeInfo.H"
 #include "autoPtr.H"
-#include "runTimeSelectionTables.H"
 #include "tetIndices.H"
+#include "addToRunTimeSelectionTable.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -48,30 +48,27 @@ namespace Foam
 class polyMesh;
 
 /*---------------------------------------------------------------------------*\
-                           Class interpolation Declaration
+                        Class interpolation Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
 class interpolation
 {
-
 protected:
 
     // Protected data
 
-        const GeometricField<Type, fvPatchField, volMesh>& psi_;
+        //- The vol field to interpolate
+        const VolField<Type>& psi_;
 
-        const polyMesh& pMesh_;
-        const vectorField& pMeshPoints_;
-        const faceList& pMeshFaces_;
-        const vectorField& pMeshFaceCentres_;
-        const vectorField& pMeshFaceAreas_;
+        //- Reference to the mesh
+        const polyMesh& mesh_;
 
 
 public:
 
     //- Runtime type information
-    virtual const word& type() const = 0;
+    TypeName("interpolation");
 
 
     // Declare run-time constructor selection table
@@ -82,7 +79,7 @@ public:
             interpolation,
             dictionary,
             (
-                const GeometricField<Type, fvPatchField, volMesh>& psi
+                const VolField<Type>& psi
             ),
             (psi)
         );
@@ -94,14 +91,14 @@ public:
         static autoPtr<interpolation<Type>> New
         (
             const word& interpolationType,
-            const GeometricField<Type, fvPatchField, volMesh>& psi
+            const VolField<Type>& psi
         );
 
         //- Return a reference to the selected interpolation scheme
         static autoPtr<interpolation<Type>> New
         (
             const dictionary& interpolationSchemes,
-            const GeometricField<Type, fvPatchField, volMesh>& psi
+            const VolField<Type>& psi
         );
 
 
@@ -110,8 +107,15 @@ public:
         //- Construct from components
         interpolation
         (
-            const GeometricField<Type, fvPatchField, volMesh>& psi
+            const VolField<Type>& psi
         );
+
+        //- Copy constructor
+        interpolation(const interpolation<Type>& i);
+
+        //- Clone
+        virtual autoPtr<interpolation<Type>> clone() const = 0;
+
 
 
     //- Destructor
@@ -122,7 +126,7 @@ public:
     // Member Functions
 
         //- Return the field to be interpolated
-        const GeometricField<Type, fvPatchField, volMesh>& psi() const
+        const VolField<Type>& psi() const
         {
             return psi_;
         }
@@ -135,25 +139,73 @@ public:
             const label facei = -1
         ) const = 0;
 
+        //- As above, but for a field
+        virtual tmp<Field<Type>> interpolate
+        (
+            const vectorField& position,
+            const labelList& celli,
+            const labelList& facei = NullObjectRef<labelList>()
+        ) const = 0;
+
         //- Interpolate field to the given coordinates in the tetrahedron
-        //  defined by the given indices.  Calls interpolate function
-        //  above here execpt where overridden by derived
+        //  defined by the given indices. Calls interpolate function
+        //  above here except where overridden by derived
         //  interpolation types.
         virtual Type interpolate
         (
             const barycentric& coordinates,
             const tetIndices& tetIs,
             const label facei = -1
-        ) const
-        {
-            return
-                interpolate
-                (
-                    tetIs.tet(pMesh_).barycentricToPoint(coordinates),
-                    tetIs.cell(),
-                    facei
-                );
-        }
+        ) const;
+
+        //- As above, but for a field
+        virtual tmp<Field<Type>> interpolate
+        (
+            const Field<barycentric>& coordinates,
+            const labelList& celli,
+            const labelList& tetFacei,
+            const labelList& tetPti,
+            const labelList& facei = NullObjectRef<labelList>()
+        ) const = 0;
+};
+
+
+/*---------------------------------------------------------------------------*\
+                     Class fieldInterpolation Declaration
+\*---------------------------------------------------------------------------*/
+
+template<class Type, class InterpolationType>
+class fieldInterpolation
+:
+    public interpolation<Type>
+{
+public:
+
+    // Constructors
+
+        //- Inherit base class constructors
+        using interpolation<Type>::interpolation;
+
+
+    // Member Functions
+
+        //- Interpolate field to the given points in the given cells
+        virtual tmp<Field<Type>> interpolate
+        (
+            const vectorField& position,
+            const labelList& celli,
+            const labelList& facei = NullObjectRef<labelList>()
+        ) const;
+
+        //- Interpolate field to the given coordinates in the given tetrahedra
+        virtual tmp<Field<Type>> interpolate
+        (
+            const Field<barycentric>& coordinates,
+            const labelList& celli,
+            const labelList& tetFacei,
+            const labelList& tetPti,
+            const labelList& facei = NullObjectRef<labelList>()
+        ) const;
 };
 
 
@@ -163,22 +215,17 @@ public:
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-#define makeInterpolationType(SS, Type)                                        \
-                                                                               \
-defineNamedTemplateTypeNameAndDebug(SS<Type>, 0);                              \
-                                                                               \
-interpolation<Type>::adddictionaryConstructorToTable<SS<Type>>                 \
-    add##SS##Type##ConstructorToTable_;
+#define defineInterpolation(Type, InterpolationType)                           \
+    defineNamedTemplateTypeNameAndDebug(InterpolationType<Type>, 0);
 
-
-#define makeInterpolation(SS)                                                  \
-                                                                               \
-makeInterpolationType(SS, scalar)                                              \
-makeInterpolationType(SS, vector)                                              \
-makeInterpolationType(SS, sphericalTensor)                                     \
-makeInterpolationType(SS, symmTensor)                                          \
-makeInterpolationType(SS, tensor)
-
+#define makeInterpolation(Type, InterpolationType)                             \
+    addTemplatedToRunTimeSelectionTable                                        \
+    (                                                                          \
+        interpolation,                                                         \
+        InterpolationType,                                                     \
+        Type,                                                                  \
+        dictionary                                                             \
+    );
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

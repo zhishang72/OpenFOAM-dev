@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -59,7 +59,7 @@ namespace fv
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class laplacianScheme Declaration
+                       Class laplacianScheme Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type, class GType>
@@ -73,19 +73,10 @@ protected:
     // Protected data
 
         const fvMesh& mesh_;
+
         tmp<surfaceInterpolationScheme<GType>> tinterpGammaScheme_;
+
         tmp<snGradScheme<Type>> tsnGradScheme_;
-
-
-private:
-
-    // Private Member Functions
-
-        //- Disallow default bitwise copy construction
-        laplacianScheme(const laplacianScheme&);
-
-        //- Disallow default bitwise assignment
-        void operator=(const laplacianScheme&) = delete;
 
 
 public:
@@ -147,6 +138,9 @@ public:
             tsnGradScheme_(sngs)
         {}
 
+        //- Disallow default bitwise copy construction
+        laplacianScheme(const laplacianScheme&) = delete;
+
 
     // Selectors
 
@@ -172,32 +166,38 @@ public:
 
         virtual tmp<fvMatrix<Type>> fvmLaplacian
         (
-            const GeometricField<GType, fvsPatchField, surfaceMesh>&,
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const SurfaceField<GType>&,
+            const VolField<Type>&
         ) = 0;
 
         virtual tmp<fvMatrix<Type>> fvmLaplacian
         (
-            const GeometricField<GType, fvPatchField, volMesh>&,
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<GType>&,
+            const VolField<Type>&
         );
 
-        virtual tmp<GeometricField<Type, fvPatchField, volMesh>> fvcLaplacian
+        virtual tmp<VolField<Type>> fvcLaplacian
         (
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         ) = 0;
 
-        virtual tmp<GeometricField<Type, fvPatchField, volMesh>> fvcLaplacian
+        virtual tmp<VolField<Type>> fvcLaplacian
         (
-            const GeometricField<GType, fvsPatchField, surfaceMesh>&,
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const SurfaceField<GType>&,
+            const VolField<Type>&
         ) = 0;
 
-        virtual tmp<GeometricField<Type, fvPatchField, volMesh>> fvcLaplacian
+        virtual tmp<VolField<Type>> fvcLaplacian
         (
-            const GeometricField<GType, fvPatchField, volMesh>&,
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<GType>&,
+            const VolField<Type>&
         );
+
+
+    // Member Operators
+
+        //- Disallow default bitwise assignment
+        void operator=(const laplacianScheme&) = delete;
 };
 
 

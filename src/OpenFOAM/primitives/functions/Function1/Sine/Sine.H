@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -43,8 +43,8 @@ Description
 
     Example for a scalar:
     \verbatim
-        <entryName> sine;
-        <entryName>Coeffs
+        <name> sine;
+        <name>Coeffs
         {
             amplitude 2e-7;
             frequency 10;
@@ -55,8 +55,8 @@ Description
 
     Example for a vector:
     \verbatim
-        <entryName> sine;
-        <entryName>Coeffs
+        <name> sine;
+        <name>Coeffs
         {
             amplitude (1 0.1 0);
             frequency 10;
@@ -83,7 +83,7 @@ namespace Function1s
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class Sine Declaration
+                            Class Sine Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -94,25 +94,19 @@ class Sine
     // Private Data
 
         //- Amplitude of the sine function
-        autoPtr<Function1<Type>> amplitude_;
+        const autoPtr<Function1<Type>> amplitude_;
+
+        //- Is the amplitude function constant?
+        const bool constantAmplitude_;
 
         //- Frequency of the sine function
-        scalar frequency_;
+        const scalar frequency_;
 
         //- Argument offset
-        scalar start_;
+        const scalar start_;
 
         //- Level to which the sine function is added
-        autoPtr<Function1<Type>> level_;
-
-        //- Is this function integrable?
-        bool integrable_;
-
-
-    // Private Member Functions
-
-        //- Read the coefficients from the given dictionary
-        void read(const dictionary& coeffs);
+        const autoPtr<Function1<Type>> level_;
 
 
 public:
@@ -123,10 +117,11 @@ public:
 
     // Constructors
 
-        //- Construct from entry name and dictionary
+        //- Construct from name and dictionary
         Sine
         (
-            const word& entryName,
+            const word& name,
+            const unitConversions& units,
             const dictionary& dict
         );
 
@@ -144,10 +139,10 @@ public:
         virtual inline Type value(const scalar x) const;
 
         //- Integrate between two values
-        virtual inline Type integrate(const scalar x1, const scalar x2) const;
+        virtual inline Type integral(const scalar x1, const scalar x2) const;
 
-        //- Write in dictionary format
-        virtual void writeData(Ostream& os) const;
+        //- Write data to dictionary stream
+        virtual void write(Ostream& os, const unitConversions& units) const;
 
 
     // Member Operators

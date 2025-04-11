@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -27,6 +27,14 @@ License
 #include "fvMesh.H"
 #include "volFields.H"
 #include "interpolationCellPoint.H"
+
+// * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
+
+namespace Foam
+{
+    defineTypeNameAndDebug(solidParticleCloud, 0);
+}
+
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
@@ -76,7 +84,7 @@ void Foam::solidParticleCloud::move(const dimensionedVector& g)
     solidParticle::trackingData
         td(*this, rhoInterp, UInterp, nuInterp, g.value());
 
-    Cloud<solidParticle>::move(*this, td, mesh_.time().deltaTValue());
+    Cloud<solidParticle>::move(*this, td);
 }
 
 

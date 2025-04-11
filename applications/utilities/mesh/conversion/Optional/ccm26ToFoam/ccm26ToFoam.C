@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -666,7 +666,7 @@ int main(int argc, char *argv[])
                 << exit(FatalError);
         }
 
-        // Open the file.  Because we did not initialize 'err' we need to pass
+        // Open the file.  Because we did not initialise 'err' we need to pass
         // in nullptr (which always means kCCMIONoErr) and then assign the
         // return value to 'err'.).
         CCMIOID root;
@@ -694,7 +694,7 @@ int main(int argc, char *argv[])
             << endl;
         delete [] desc;
 
-        // Find the first processor (i has previously been initialized to 0) and
+        // Find the first processor (i has previously been initialised to 0) and
         // read the mesh and solution information.
         int i = 0;
         CCMIOID processor;
@@ -1103,7 +1103,7 @@ int main(int argc, char *argv[])
     }
 
 
-    Info<< "Writing mesh to " << mesh.objectRegistry::objectPath()
+    Info<< "Writing mesh to " << mesh.objectRegistry::relativeObjectPath()
         << "..." << nl << endl;
 
 
@@ -1113,7 +1113,7 @@ int main(int argc, char *argv[])
         IOobject
         (
             "cellId",
-            runTime.timeName(),
+            runTime.name(),
             mesh,
             IOobject::NO_READ,
             IOobject::AUTO_WRITE
@@ -1133,7 +1133,7 @@ int main(int argc, char *argv[])
         IOobject
         (
             "cellType",
-            runTime.timeName(),
+            runTime.name(),
             mesh,
             IOobject::NO_READ,
             IOobject::AUTO_WRITE
@@ -1147,8 +1147,8 @@ int main(int argc, char *argv[])
         cellTypeField[celli] = foamCellType[celli];
     }
 
-    Info<< "Writing cellIds as volScalarField to " << cellIdField.objectPath()
-        << "..." << nl << endl;
+    Info<< "Writing cellIds as volScalarField to "
+        << cellIdField.relativeObjectPath() << "..." << nl << endl;
     mesh.write();
 
     Info<< "End\n" << endl;

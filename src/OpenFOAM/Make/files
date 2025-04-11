@@ -1,6 +1,6 @@
 global/global.Cver
-/* global/constants/constants.C in global.Cver */
-/* global/constants/dimensionedConstants.C in global.Cver */
+# global/constants/constants.C in global.Cver
+# global/constants/dimensionedConstants.C in global.Cver
 global/argList/argList.C
 global/clock/clock.C
 global/etcFiles/etcFiles.C
@@ -66,10 +66,10 @@ primitives/Tensor/lists/symmTensorList.C
 primitives/Tensor/lists/tensorList.C
 
 primitives/Vector/complexVector/complexVector.C
-#if !defined(WM_SP)
+ifneq "$(WM_PRECISION_OPTION)" "SP"
 primitives/Vector/floatVector/floatVector.C
 primitives/Tensor/floatTensor/floatTensor.C
-#endif
+endif
 primitives/Vector/labelVector/labelVector.C
 primitives/Vector/vector/vector.C
 primitives/Vector/lists/vectorList.C
@@ -83,12 +83,16 @@ primitives/Vector2D/vector2D/vector2D.C
 
 primitives/complex/complex.C
 primitives/globalIndexAndTransform/globalIndexAndTransform.C
-primitives/globalIndexAndTransform/vectorTensorTransform/vectorTensorTransform.C
+primitives/transform/transformer/transformer.C
+primitives/transform/transformer/transformerIOList.C
 primitives/quaternion/quaternion.C
 primitives/septernion/septernion.C
 primitives/triad/triad.C
 
-/* Run-time selectable functions */
+primitives/omega/omega.C
+
+# Run-time selectable functions
+primitives/functions/Function1/Function1/Function1UnitConversions.C
 primitives/functions/Function1/makeFunction1s.C
 primitives/functions/Function1/reverseRamp/reverseRamp.C
 primitives/functions/Function1/linearRamp/linearRamp.C
@@ -96,10 +100,17 @@ primitives/functions/Function1/quadraticRamp/quadraticRamp.C
 primitives/functions/Function1/quarterSineRamp/quarterSineRamp.C
 primitives/functions/Function1/quarterCosineRamp/quarterCosineRamp.C
 primitives/functions/Function1/halfCosineRamp/halfCosineRamp.C
+primitives/functions/Function1/exponentialSqrRamp/exponentialSqrRamp.C
+primitives/functions/Function1/normalise/normalise.C
+primitives/functions/Function1/squarePulse/squarePulse.C
 primitives/functions/Function1/Table/tableBase.C
-primitives/functions/Function1/TableFile/TableReader/makeTableReaders.C
+primitives/functions/Function1/Table/TableReader/makeTableReaders.C
+primitives/functions/Function1/unknownTypeFunction1/unknownTypeFunction1.C
+primitives/functions/Function1/omega1/omega1.C
+primitives/functions/Function1/Table/TableReader/Foam/tokenTupleN.C
 
-primitives/subModelBase/subModelBase.C
+primitives/functions/Function2/Function2/Function2UnitConversions.C
+primitives/functions/Function2/makeFunction2s.C
 
 strings = primitives/strings
 $(strings)/string/string.C
@@ -129,7 +140,7 @@ sha1 = primitives/hashes/SHA1
 $(sha1)/SHA1.C
 $(sha1)/SHA1Digest.C
 
-primitives/Random/Random.C
+primitives/randomGenerator/randomGenerator.C
 
 ranges = primitives/ranges
 $(ranges)/labelRange/labelRange.C
@@ -189,7 +200,7 @@ $(StringStreams)/StringStreamsPrint.C
 Pstreams = $(Streams)/Pstreams
 $(Pstreams)/UIPstream.C
 $(Pstreams)/IPstream.C
-/* $(Pstreams)/UPstream.C in global.Cver */
+# $(Pstreams)/UPstream.C in global.Cver
 $(Pstreams)/UPstreamCommsStruct.C
 $(Pstreams)/Pstream.C
 $(Pstreams)/UOPstream.C
@@ -218,8 +229,11 @@ dictionaryListEntry = $(dictionary)/dictionaryListEntry
 $(dictionaryListEntry)/dictionaryListEntry.C
 $(dictionaryListEntry)/dictionaryListEntryIO.C
 
+$(dictionary)/mergeDictionaries/mergeDictionaries.C
+
 functionEntries = $(dictionary)/functionEntries
 $(functionEntries)/negEntry/negEntry.C
+$(functionEntries)/calcIncludeEntry/calcIncludeEntry.C
 $(functionEntries)/calcEntry/calcEntry.C
 $(functionEntries)/codeStream/codeStream.C
 $(functionEntries)/functionEntry/functionEntry.C
@@ -227,23 +241,19 @@ $(functionEntries)/includeEntry/includeEntry.C
 $(functionEntries)/includeEtcEntry/includeEtcEntry.C
 $(functionEntries)/includeFuncEntry/includeFuncEntry.C
 $(functionEntries)/includeIfPresentEntry/includeIfPresentEntry.C
-$(functionEntries)/inputSyntaxEntry/inputSyntaxEntry.C
 $(functionEntries)/inputModeEntry/inputModeEntry.C
 $(functionEntries)/removeEntry/removeEntry.C
 $(functionEntries)/ifeqEntry/ifeqEntry.C
 $(functionEntries)/ifEntry/ifEntry.C
 
 IOdictionary = db/IOobjects/IOdictionary
-$(IOdictionary)/baseIOdictionary.C
-$(IOdictionary)/baseIOdictionaryIO.C
 $(IOdictionary)/IOdictionary.C
+$(IOdictionary)/IOdictionaryIO.C
 $(IOdictionary)/localIOdictionary.C
-$(IOdictionary)/unwatchedIOdictionary.C
+$(IOdictionary)/timeIOdictionary.C
+$(IOdictionary)/systemDict.C
 
-db/IOobjects/IOMap/IOMapName.C
 db/IOobjects/decomposedBlockData/decomposedBlockData.C
-db/IOobjects/GlobalIOField/GlobalIOFields.C
-
 
 IOobject = db/IOobject
 $(IOobject)/IOobject.C
@@ -265,18 +275,23 @@ $(dll)/dlLibraryTable/dlLibraryTable.C
 $(dll)/dynamicCode/dynamicCode.C
 $(dll)/dynamicCode/dynamicCodeContext.C
 $(dll)/codedBase/codedBase.C
+$(dll)/compileTemplate/compileTemplate.C
 
 db/functionObjects/functionObject/functionObject.C
 db/functionObjects/functionObjectList/functionObjectList.C
+db/functionObjects/functionObjectList/wordAndDictionary.C
 db/functionObjects/writeFile/writeFile.C
 db/functionObjects/logFiles/logFiles.C
+db/functionObjects/logFile/logFile.C
 db/functionObjects/writeObjectsBase/writeObjectsBase.C
 db/functionObjects/writeLocalObjects/writeLocalObjects.C
 db/functionObjects/timeControl/timeControl.C
 db/functionObjects/timeControl/timeControlFunctionObject.C
+db/functionObjects/objectRegistryFunctionObject/objectRegistryFunctionObject.C
 db/functionObjects/regionFunctionObject/regionFunctionObject.C
 
 Time = db/Time
+$(Time)/controlIOdictionary/controlIOdictionary.C
 $(Time)/TimePaths.C
 $(Time)/TimeState.C
 $(Time)/Time.C
@@ -287,9 +302,21 @@ $(Time)/timeSelector.C
 
 $(Time)/instant/instant.C
 
+userTime = $(Time)/userTime
+$(userTime)/userTime/userTime.C
+$(userTime)/userTime/userTimeNew.C
+$(userTime)/realTime/realTime.C
+$(userTime)/engineTime/engineTime.C
+
+symbols/symbols.C
 dimensionSet/dimensionSet.C
 dimensionSet/dimensionSetIO.C
 dimensionSet/dimensionSets.C
+unitConversion/unitConversion.C
+unitConversion/unitConversionIO.C
+unitConversion/unitConversions.C
+unitConversion/namedUnitConversion.C
+unitConversion/namedUnitConversionIO.C
 dimensionedTypes/dimensionedScalar/dimensionedScalar.C
 dimensionedTypes/dimensionedSphericalTensor/dimensionedSphericalTensor.C
 dimensionedTypes/dimensionedSymmTensor/dimensionedSymmTensor.C
@@ -300,6 +327,7 @@ matrices/solution/solution.C
 scalarMatrices = matrices/scalarMatrices
 $(scalarMatrices)/scalarMatrices.C
 $(scalarMatrices)/SVD/SVD.C
+$(scalarMatrices)/eigendecomposition/eigendecomposition.C
 
 LUscalarMatrix = matrices/LUscalarMatrix
 $(LUscalarMatrix)/LUscalarMatrix.C
@@ -456,7 +484,16 @@ $(cellShape)/cellShapeIOList.C
 meshes/Identifiers/patch/patchIdentifier.C
 meshes/Identifiers/patch/coupleGroupIdentifier.C
 
-meshes/MeshObject/meshObject.C
+meshes/meshObjects/meshObjects.C
+
+meshes/zones/pointZones/pointZone.C
+meshes/zones/pointZones/pointZoneList.C
+
+meshes/zones/cellZones/cellZone.C
+meshes/zones/cellZones/cellZoneList.C
+
+meshes/zones/faceZones/faceZone.C
+meshes/zones/faceZones/faceZoneList.C
 
 polyMesh = meshes/polyMesh
 
@@ -466,18 +503,18 @@ $(polyPatches)/polyPatch/polyPatchNew.C
 
 basicPolyPatches = $(polyPatches)/basic
 $(basicPolyPatches)/coupled/coupledPolyPatch.C
-$(basicPolyPatches)/generic/genericPolyPatch.C
 
 constraintPolyPatches = $(polyPatches)/constraint
+$(constraintPolyPatches)/cyclic/cyclicTransform.C
 $(constraintPolyPatches)/cyclic/cyclicPolyPatch.C
 $(constraintPolyPatches)/cyclicSlip/cyclicSlipPolyPatch.C
-$(constraintPolyPatches)/oldCyclic/oldCyclicPolyPatch.C
 $(constraintPolyPatches)/empty/emptyPolyPatch.C
 $(constraintPolyPatches)/processorCyclic/processorCyclicPolyPatch.C
 $(constraintPolyPatches)/processor/processorPolyPatch.C
 $(constraintPolyPatches)/symmetryPlane/symmetryPlanePolyPatch.C
 $(constraintPolyPatches)/symmetry/symmetryPolyPatch.C
 $(constraintPolyPatches)/wedge/wedgePolyPatch.C
+$(constraintPolyPatches)/internal/internalPolyPatch.C
 
 derivedPolyPatches = $(polyPatches)/derived
 $(derivedPolyPatches)/wall/wallPolyPatch.C
@@ -486,31 +523,16 @@ polyBoundaryMesh = $(polyMesh)/polyBoundaryMesh
 $(polyBoundaryMesh)/polyBoundaryMesh.C
 $(polyBoundaryMesh)/polyBoundaryMeshEntries.C
 
-meshes/ProcessorTopology/commSchedule.C
-
 globalMeshData = $(polyMesh)/globalMeshData
 $(globalMeshData)/globalMeshData.C
 $(globalMeshData)/globalPoints.C
 $(globalMeshData)/globalIndex.C
+$(globalMeshData)/commSchedule.C
+$(globalMeshData)/processorTopology.C
 
 $(polyMesh)/syncTools/syncTools.C
 $(polyMesh)/polyMeshTetDecomposition/polyMeshTetDecomposition.C
 $(polyMesh)/polyMeshTetDecomposition/tetIndices.C
-
-zone = $(polyMesh)/zones/zone
-$(zone)/zone.C
-
-cellZone = $(polyMesh)/zones/cellZone
-$(cellZone)/cellZone.C
-$(cellZone)/cellZoneNew.C
-
-faceZone = $(polyMesh)/zones/faceZone
-$(faceZone)/faceZone.C
-$(faceZone)/faceZoneNew.C
-
-pointZone = $(polyMesh)/zones/pointZone
-$(pointZone)/pointZone.C
-$(pointZone)/pointZoneNew.C
 
 $(polyMesh)/polyMesh.C
 $(polyMesh)/polyMeshFromShapeMesh.C
@@ -519,9 +541,8 @@ $(polyMesh)/polyMeshInitMesh.C
 $(polyMesh)/polyMeshClear.C
 $(polyMesh)/polyMeshUpdate.C
 
-polyMeshCheck = $(polyMesh)/polyMeshCheck
-$(polyMeshCheck)/polyMeshCheck.C
-$(polyMeshCheck)/polyMeshTools.C
+$(polyMesh)/meshObjects/Residuals/residuals.C
+$(polyMesh)/meshObjects/cpuLoad/cpuLoad.C
 
 primitiveMesh = meshes/primitiveMesh
 $(primitiveMesh)/primitiveMesh.C
@@ -541,12 +562,6 @@ $(primitiveMesh)/primitiveMeshPointPoints.C
 $(primitiveMesh)/primitiveMeshCellPoints.C
 $(primitiveMesh)/primitiveMeshCalcCellShapes.C
 
-primitiveMeshCheck = $(primitiveMesh)/primitiveMeshCheck
-$(primitiveMeshCheck)/primitiveMeshCheck.C
-$(primitiveMeshCheck)/primitiveMeshCheckPointNearness.C
-$(primitiveMeshCheck)/primitiveMeshCheckEdgeLength.C
-$(primitiveMeshCheck)/primitiveMeshTools.C
-
 primitivePatch = $(primitiveMesh)/primitivePatch
 $(primitivePatch)/patchZones.C
 $(primitivePatch)/walkPatch.C
@@ -561,15 +576,20 @@ $(cellMatcher)/tetWedgeMatcher.C
 $(cellMatcher)/tetMatcher.C
 $(cellMatcher)/degenerateMatcher.C
 
-mapPolyMesh = $(polyMesh)/mapPolyMesh
-$(mapPolyMesh)/mapPolyMesh.C
-$(mapPolyMesh)/faceMapper/faceMapper.C
-$(mapPolyMesh)/cellMapper/cellMapper.C
-$(mapPolyMesh)/mapDistribute/mapDistribute.C
-$(mapPolyMesh)/mapDistribute/mapDistributeBase.C
-$(mapPolyMesh)/mapDistribute/mapDistributePolyMesh.C
-$(mapPolyMesh)/mapDistribute/IOmapDistribute.C
-$(mapPolyMesh)/mapAddedPolyMesh.C
+polyTopoChangeMap = $(polyMesh)/polyTopoChangeMap
+$(polyTopoChangeMap)/polyTopoChangeMap.C
+$(polyTopoChangeMap)/faceMapper/faceMapper.C
+$(polyTopoChangeMap)/cellMapper/cellMapper.C
+$(polyTopoChangeMap)/mapAddedPolyMesh.C
+
+polyMeshMap = $(polyMesh)/polyMeshMap
+$(polyMeshMap)/polyMeshMap.C
+
+polyDistributionMap = $(polyMesh)/polyDistributionMap
+$(polyDistributionMap)/distributionMap.C
+$(polyDistributionMap)/distributionMapBase.C
+$(polyDistributionMap)/polyDistributionMap.C
+$(polyDistributionMap)/IOdistributionMap.C
 
 PrimitivePatch = $(primitiveMesh)/PrimitivePatch
 $(PrimitivePatch)/PrimitivePatchName.C
@@ -588,7 +608,6 @@ $(pointPatches)/facePointPatch/facePointPatchNew.C
 
 basicPointPatches = $(pointPatches)/basic
 $(basicPointPatches)/coupled/coupledPointPatch.C
-$(basicPointPatches)/generic/genericPointPatch.C
 
 constraintPointPatches = $(pointPatches)/constraint
 $(constraintPointPatches)/cyclic/cyclicPointPatch.C
@@ -599,6 +618,7 @@ $(constraintPointPatches)/processorCyclic/processorCyclicPointPatch.C
 $(constraintPointPatches)/symmetryPlane/symmetryPlanePointPatch.C
 $(constraintPointPatches)/symmetry/symmetryPointPatch.C
 $(constraintPointPatches)/wedge/wedgePointPatch.C
+$(constraintPointPatches)/internal/internalPointPatch.C
 
 derivedPointPatches = $(pointPatches)/derived
 $(derivedPointPatches)/coupled/coupledFacePointPatch.C
@@ -615,13 +635,20 @@ meshTools = meshes/meshTools
 $(meshTools)/matchPoints.C
 
 fields/UniformDimensionedFields/uniformDimensionedFields.C
-fields/cloud/cloud.C
+
+fields/UniformGeometricFields/uniformGeometricFields.C
 
 Fields = fields/Fields
 
-$(Fields)/fieldMappers/directFieldMapper/directFieldMapper.C
+$(Fields)/fieldMappers/fieldMapper/fieldMapper.C
+$(Fields)/fieldMappers/forwardFieldMapper/forwardFieldMapper.C
+$(Fields)/fieldMappers/forwardOrAssignFieldMapper/forwardOrAssignFieldMapper.C
 $(Fields)/fieldMappers/generalFieldMapper/generalFieldMapper.C
+$(Fields)/fieldMappers/identityFieldMapper/identityFieldMapper.C
+$(Fields)/fieldMappers/reverseFieldMapper/reverseFieldMapper.C
+$(Fields)/fieldMappers/reverseInterpolativeFieldMapper/reverseInterpolativeFieldMapper.C
 $(Fields)/fieldMappers/setSizeFieldMapper/setSizeFieldMapper.C
+$(Fields)/fieldMappers/setSizeAndZeroFieldMapper/setSizeAndZeroFieldMapper.C
 $(Fields)/labelField/labelField.C
 $(Fields)/scalarField/scalarField.C
 $(Fields)/vectorField/vectorField.C
@@ -673,6 +700,7 @@ $(constraintPointPatchFields)/processorCyclic/processorCyclicPointPatchFields.C
 $(constraintPointPatchFields)/symmetryPlane/symmetryPlanePointPatchFields.C
 $(constraintPointPatchFields)/symmetry/symmetryPointPatchFields.C
 $(constraintPointPatchFields)/wedge/wedgePointPatchFields.C
+$(constraintPointPatchFields)/internal/internalPointPatchFields.C
 
 derivedPointPatchFields = $(pointPatchFields)/derived
 $(derivedPointPatchFields)/slip/slipPointPatchFields.C
@@ -685,35 +713,36 @@ fields/GeometricFields/pointFields/pointFields.C
 meshes/bandCompression/bandCompression.C
 meshes/preservePatchTypes/preservePatchTypes.C
 
-interpolations = interpolations
-interpolation = $(interpolations)/interpolation
-$(interpolations)/patchToPatchInterpolation/PatchToPatchInterpolationName.C
-
-interpolationWeights = $(interpolations)/interpolationWeights
+interpolationWeights = interpolations/interpolationWeights
 $(interpolationWeights)/interpolationWeights/interpolationWeights.C
 $(interpolationWeights)/linearInterpolationWeights/linearInterpolationWeights.C
+$(interpolationWeights)/stepInterpolationWeights/stepInterpolationWeights.C
 $(interpolationWeights)/splineInterpolationWeights/splineInterpolationWeights.C
-
-
 
 algorithms/indexedOctree/indexedOctreeName.C
 algorithms/indexedOctree/treeDataCell.C
 algorithms/indexedOctree/volumeType.C
-
-
 algorithms/dynamicIndexedOctree/dynamicIndexedOctreeName.C
 algorithms/dynamicIndexedOctree/dynamicTreeDataPoint.C
+algorithms/polygonTriangulate/polygonTriangulate.C
+algorithms/solutionControl/solutionControl.C
 
-graph/curve/curve.C
-graph/graph.C
+distributions/distribution/distribution.C
+distributions/distribution/distributionNew.C
+distributions/unintegrable/unintegrable.C
+distributions/unintegrable/unintegrableForNonZeroQ.C
+distributions/exponential/exponential.C
+distributions/fixedValue/fixedValue.C
+distributions/multiFixedValue/multiFixedValue.C
+distributions/multiNormal/multiNormal.C
+distributions/normal/normal.C
+distributions/RosinRammler/RosinRammler.C
+distributions/standardNormal/standardNormal.C
+distributions/tabulatedCumulative/tabulatedCumulative.C
+distributions/tabulatedDensity/tabulatedDensity.C
+distributions/uniform/uniform.C
 
-writers = graph/writers
-$(writers)/rawGraph/rawGraph.C
-$(writers)/gnuplotGraph/gnuplotGraph.C
-$(writers)/xmgrGraph/xmgrGraph.C
-$(writers)/jplotGraph/jplotGraph.C
-
-meshes/data/data.C
-meshes/Residuals/residuals.C
+geometry/splines/BSpline/BSpline.C
+geometry/splines/CatmullRomSpline/CatmullRomSpline.C
 
 LIB = $(FOAM_LIBBIN)/libOpenFOAM

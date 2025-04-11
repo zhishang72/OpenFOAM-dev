@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -45,7 +45,7 @@ namespace radiationModels
 {
 
 /*---------------------------------------------------------------------------*\
-                            Class sootModel Declaration
+                          Class sootModel Declaration
 \*---------------------------------------------------------------------------*/
 
 class sootModel
@@ -53,9 +53,6 @@ class sootModel
 protected:
 
     // Protected data
-
-        //- Radiation model dictionary
-        const dictionary dict_;
 
         //- Reference to the fvMesh
         const fvMesh& mesh_;
@@ -87,7 +84,6 @@ public:
         //- Construct from components
         sootModel
         (
-            const dictionary& dict,
             const fvMesh& mesh,
             const word& modelType
         );
@@ -113,12 +109,6 @@ public:
             inline const fvMesh& mesh() const
             {
                 return mesh_;
-            }
-
-            //- Reference to the dictionary
-            inline const dictionary& dict() const
-            {
-                return dict_;
             }
 
 

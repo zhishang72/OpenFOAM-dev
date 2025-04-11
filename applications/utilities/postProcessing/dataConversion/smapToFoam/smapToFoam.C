@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -29,8 +29,11 @@ Description
 
 \*---------------------------------------------------------------------------*/
 
-#include "fvCFD.H"
+#include "argList.H"
+#include "volFields.H"
 #include "IFstream.H"
+
+using namespace Foam;
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -64,7 +67,7 @@ int main(int argc, char *argv[])
     if (fieldNameDict.found("epsilon")) nameMap.add("ED", word("epsilon"));
     if (fieldNameDict.found("nuEff")) nameMap.add("VIS", word("nuEff"));
 
-    #include "createMesh.H"
+    #include "createMeshNoChangers.H"
 
     IFstream smapFile(args[1]);
 
@@ -131,7 +134,7 @@ int main(int argc, char *argv[])
                         IOobject
                         (
                             nameMap.lookup(starFieldNames[i]),
-                            runTime.timeName(),
+                            runTime.name(),
                             mesh,
                             IOobject::MUST_READ,
                             IOobject::AUTO_WRITE,
@@ -150,7 +153,7 @@ int main(int argc, char *argv[])
                         IOobject
                         (
                             nameMap.lookup(starFieldNames[i]),
-                            runTime.timeName(),
+                            runTime.name(),
                             mesh,
                             IOobject::MUST_READ,
                             IOobject::AUTO_WRITE,

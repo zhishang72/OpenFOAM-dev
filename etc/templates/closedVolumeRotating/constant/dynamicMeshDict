@@ -7,26 +7,27 @@
 \*---------------------------------------------------------------------------*/
 FoamFile
 {
-    version     2.0;
     format      ascii;
     class       dictionary;
     object      dynamicMeshDict;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-dynamicFvMesh   dynamicMotionSolverFvMesh;
-
-solver solidBody;
-
-solidBodyCoeffs
+// Disable motion for an MRF simulation
+// Enable motion for an NCC simulation by changing 'mover-disabled' to 'mover'
+mover-disabled
 {
+    type            motionSolver;
+
+    libs            ("libfvMotionSolvers.so");
+
+    motionSolver    solidBody;
+
     cellZone        rotatingZone;
 
     solidBodyMotionFunction  rotatingMotion;
-    rotatingMotionCoeffs
-    {
-        #include "rotatingZoneProperties"
-    }
+
+    #include        "rotatingZoneProperties"
 }
 
 // ************************************************************************* //

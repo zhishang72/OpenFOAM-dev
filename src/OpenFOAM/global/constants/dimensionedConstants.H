@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -39,7 +39,6 @@ SourceFiles
 #ifndef dimensionedConstants_H
 #define dimensionedConstants_H
 
-#include "dictionary.H"
 #include "dimensionedScalar.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -49,124 +48,54 @@ namespace Foam
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-dictionary& dimensionedConstants();
+//- Construct and return a constant by looking up from the DimensionedConstants
+//  sub-dictionary of controlDict
+dimensionedScalar dimensionedConstant
+(
+    const char* const group,
+    const char* name,
+    const dimensionSet& dimensions
+);
 
+//- Construct a dimensioned constant with a given value and insert into the
+//  DimensionedConstants sub-dictionary of controlDict
+dimensionedScalar dimensionedConstant
+(
+    const char* const group,
+    const char* name,
+    const dimensionedScalar& value
+);
 
-class registerDimensionedConstant
-:
-    public simpleRegIOobject,
-    public dimensionedScalar
-{
-    const word& group_;
+//- Construct a dimensioned constant with a given value and insert into the
+//  DimensionedConstants sub-dictionary of controlDict with a different name
+dimensionedScalar dimensionedConstant
+(
+    const char* const group,
+    const char* entryName,
+    const char* codeName,
+    const dimensionedScalar& value
+);
 
-    //- Lookup the dimensionedConstant from the registry
-    void lookup();
+//- Construct a dimensioned constant with given units and value and insert into
+//  the DimensionedConstants sub-dictionary of controlDict
+dimensionedScalar dimensionedConstant
+(
+    const char* const group,
+    const char* name,
+    const unitConversion& units,
+    const scalar value
+);
 
-
-public:
-
-    registerDimensionedConstant
-    (
-        const word& group,
-        const char* name,
-        const dimensionSet& dimensions
-    )
-    :
-        simpleRegIOobject(debug::addDimensionedConstantObject, name),
-        dimensionedScalar(name, dimensions, 0),
-        group_(group)
-    {
-        lookup();
-    }
-
-    virtual ~registerDimensionedConstant()
-    {}
-
-    virtual void readData(Istream& is)
-    {
-        lookup();
-    }
-
-    virtual void writeData(Ostream& os) const
-    {
-        os << static_cast<const dimensionedScalar&>(*this);
-    }
-};
-
-
-//- Defined and register a dimensioned constant
-#define defineDimensionedConstant(Group, Name, Dimensions)                     \
-    registerDimensionedConstant register##Name##DimensionedConstant_           \
-    (                                                                          \
-        Group::group,                                                          \
-        #Name,                                                                 \
-        Dimensions                                                             \
-    );                                                                         \
-    const Foam::dimensionedScalar& Group::Name                                 \
-    (                                                                          \
-        register##Name##DimensionedConstant_                                   \
-    );
-
-
-class registerDimensionedConstantWithDefault
-:
-    public simpleRegIOobject,
-    public dimensionedScalar
-{
-    const word& group_;
-    const dimensionedScalar default_;
-
-    //- Lookup the dimensionedConstant from the registry
-    void lookup();
-
-
-public:
-
-    registerDimensionedConstantWithDefault
-    (
-        const word& group,
-        const char* name,
-        const dimensionedScalar& value
-    )
-    :
-        simpleRegIOobject(debug::addDimensionedConstantObject, name),
-        dimensionedScalar(name, value),
-        group_(group),
-        default_(name, value)
-    {
-        lookup();
-    }
-
-    virtual ~registerDimensionedConstantWithDefault()
-    {}
-
-    virtual void readData(Istream& is)
-    {
-        lookup();
-    }
-
-    virtual void writeData(Ostream& os) const
-    {
-        os << static_cast<const dimensionedScalar&>(*this);
-    }
-};
-
-
-//- Defined and register a dimensioned constant with default
-#define defineDimensionedConstantWithDefault(Group, Name, DefaultExpr)         \
-    registerDimensionedConstantWithDefault                                     \
-        register##Name##DimensionedConstant_                                   \
-        (                                                                      \
-            Group::group,                                                      \
-            #Name,                                                             \
-            DefaultExpr                                                        \
-        );                                                                     \
-                                                                               \
-    const Foam::dimensionedScalar& Group::Name                                 \
-    (                                                                          \
-        register##Name##DimensionedConstant_                                   \
-    );
-
+//- Construct a dimensioned constant with given units and value and insert into
+//  the DimensionedConstants sub-dictionary of controlDict with a different name
+dimensionedScalar dimensionedConstant
+(
+    const char* const group,
+    const char* entryName,
+    const char* codeName,
+    const unitConversion& units,
+    const scalar value
+);
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

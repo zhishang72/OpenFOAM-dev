@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2019-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -29,9 +29,10 @@ Description
     from 1 decreasing to 0 from \c start over the \c duration and remaining at 0
     thereafter.
 
-    Usage for scaling a vector:
+Usage
+    For scaling a vector:
     \verbatim
-        <entryName>
+        <name>
         {
             scale
             {
@@ -76,15 +77,17 @@ namespace Function1s
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class reverseRamp Declaration
+                         Class reverseRamp Declaration
 \*---------------------------------------------------------------------------*/
 
 class reverseRamp
 :
     public Ramp<reverseRamp>
 {
-    //- Standard ramp function to reverse
-    autoPtr<Function1<scalar>> ramp_;
+    // Private Data
+
+        //- Standard ramp function to reverse
+        autoPtr<Function1<scalar>> ramp_;
 
 
 public:
@@ -95,10 +98,11 @@ public:
 
     // Constructors
 
-        //- Construct from entry name and dictionary
+        //- Construct from name and dictionary
         reverseRamp
         (
-            const word& entryName,
+            const word& name,
+            const unitConversions& units,
             const dictionary& dict
         );
 
@@ -116,14 +120,14 @@ public:
         virtual inline scalar value(const scalar t) const;
 
         //- Return the integral between times t1 and t2
-        virtual inline scalar integrate
+        virtual inline scalar integral
         (
             const scalar t1,
             const scalar t2
         ) const;
 
-        //- Write in dictionary format
-        virtual void writeData(Ostream& os) const;
+        //- Write data to dictionary stream
+        virtual void write(Ostream& os, const unitConversions& units) const;
 
 
     // Member Operators

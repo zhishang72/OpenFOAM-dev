@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -28,13 +28,21 @@ License
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class Type>
+Foam::Function1s::ZeroConstant<Type>::ZeroConstant(const word& name)
+:
+    FieldFunction1<Type, ZeroConstant<Type>>(name)
+{}
+
+
+template<class Type>
 Foam::Function1s::ZeroConstant<Type>::ZeroConstant
 (
-    const word& entryName,
+    const word& name,
+    const unitConversions& units,
     const dictionary& dict
 )
 :
-    FieldFunction1<Type, ZeroConstant<Type>>(entryName)
+    FieldFunction1<Type, ZeroConstant<Type>>(name)
 {}
 
 
@@ -48,12 +56,12 @@ Foam::Function1s::ZeroConstant<Type>::~ZeroConstant()
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class Type>
-void Foam::Function1s::ZeroConstant<Type>::writeData(Ostream& os) const
-{
-    Function1<Type>::writeData(os);
-
-    os  << token::END_STATEMENT << nl;
-}
+void Foam::Function1s::ZeroConstant<Type>::write
+(
+    Ostream& os,
+    const unitConversions& units
+) const
+{}
 
 
 // ************************************************************************* //

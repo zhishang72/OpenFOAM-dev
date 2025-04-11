@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -42,7 +42,7 @@ Description
 
     The look-up table ("speciesTable") file should be in constant
 
-Example
+Usage
     \verbatim
     absorptionEmissionModel greyMean;
 
@@ -127,9 +127,6 @@ protected:
 
     // Protected data
 
-        //- Absorption model dictionary
-        dictionary coeffsDict_;
-
         //- Hash table of species names
         HashTable<label> speciesNames_;
 
@@ -137,9 +134,9 @@ protected:
         FixedList<label, nSpecies_> specieIndex_;
 
         //- Look-up table of species related to ft
-        mutable autoPtr<interpolationLookUpTable<scalar>> lookUpTablePtr_;
+        mutable autoPtr<interpolationLookUpTable> lookUpTablePtr_;
 
-        //- SLG thermo package
+        //- Thermo package
         const fluidThermo& thermo_;
 
         //- Pointer list of species in the registry involved in the absorption

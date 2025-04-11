@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,13 +25,26 @@ Class
     Foam::triSurfaceMesh
 
 Description
-    IOoject and searching on triSurface
+    A surface geometry formed of discrete facets, e.g. triangles and/or
+    quadrilaterals, defined in a file using formats such as Wavefront OBJ, or
+    stereolithography STL.
 
-    Note: when constructing from dictionary has optional parameters:
-        - scale     : scaling factor.
-        - tolerance : relative tolerance for doing intersections
-                      (see triangle::intersection)
-        - minQuality: discard triangles with low quality when getting normal
+Usage
+    \table
+        Property     | Description                | Required
+        file         | Name of the geometry file  | yes
+        scale        | Scaling factor for surface | no
+        minQuality   | Threshold triangle quality | no
+    \endtable
+
+    Note: when calculating surface normal vectors, triangles are ignored with
+    quality < minQuality.
+
+    Example specification in snappyHexMeshDict/geometry:
+    \verbatim
+        type       triSurfaceMesh;
+        file       "surfaceFile.obj";
+    \endverbatim
 
 SourceFiles
     triSurfaceMesh.C
@@ -53,6 +66,7 @@ SourceFiles
 #include "triSurfaceRegionSearch.H"
 #include "triSurfaceFieldsFwd.H"
 #include "pointIndexHitList.H"
+#include "unitConversion.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -60,7 +74,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class triSurfaceMesh Declaration
+                       Class triSurfaceMesh Declaration
 \*---------------------------------------------------------------------------*/
 
 class triSurfaceMesh
@@ -207,7 +221,7 @@ public:
         void clearOut();
 
         //- Move points
-        virtual void movePoints(const pointField&);
+        virtual void setPoints(const pointField&);
 
         //- Demand driven construction of octree for boundary edges
         const indexedOctree<treeDataEdge>& edgeTree() const;
@@ -317,16 +331,16 @@ public:
             //  internal and external closeness of regions of the surface
             Pair<tmp<triSurfaceScalarField>> extractCloseness
             (
-                const scalar internalAngleTolerance = 80,
-                const scalar externalAngleTolerance = 10
+                const scalar internalAngleTolerance = degToRad(80),
+                const scalar externalAngleTolerance = degToRad(80)
             ) const;
 
             //- Return a pair of triSurfaceScalarPointFields representing the
             //  internal and external closeness of regions of the surface
             Pair<tmp<triSurfacePointScalarField>> extractPointCloseness
             (
-                const scalar internalAngleTolerance = 80,
-                const scalar externalAngleTolerance = 10
+                const scalar internalAngleTolerance = degToRad(80),
+                const scalar externalAngleTolerance = degToRad(80)
             ) const;
 
 
@@ -353,13 +367,6 @@ public:
                 return true;
             }
 
-            //- Return complete path + object name if the file exists
-            //  either in the case/processor or case otherwise null
-            virtual fileName filePath() const
-            {
-                return searchableSurface::globalFilePath(type());
-            }
-
 
     // Member Operators
 
@@ -368,12 +375,12 @@ public:
 };
 
 
-//- Template function for obtaining global status
+//- Trait for obtaining global status
 template<>
-inline bool typeGlobal<triSurfaceMesh>()
+struct typeGlobal<triSurfaceMesh>
 {
-    return true;
-}
+    static const bool global = true;
+};
 
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

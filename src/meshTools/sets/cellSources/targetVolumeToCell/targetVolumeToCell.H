@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -45,18 +45,14 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                         Class targetVolumeToCell Declaration
+                     Class targetVolumeToCell Declaration
 \*---------------------------------------------------------------------------*/
 
 class targetVolumeToCell
 :
     public topoSetSource
 {
-
     // Private Data
-
-        //- Add usage string
-        static addToUsageTable usage_;
 
         //- Wanted volume
         const scalar vol_;
@@ -87,6 +83,7 @@ public:
     //- Runtime type information
     TypeName("targetVolumeToCell");
 
+
     // Constructors
 
         //- Construct from components
@@ -102,13 +99,6 @@ public:
         (
             const polyMesh& mesh,
             const dictionary& dict
-        );
-
-        //- Construct from Istream
-        targetVolumeToCell
-        (
-            const polyMesh& mesh,
-            Istream&
         );
 
 
@@ -128,7 +118,6 @@ public:
             const topoSetSource::setAction action,
             topoSet&
         ) const;
-
 };
 
 

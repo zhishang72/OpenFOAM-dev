@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -46,7 +46,6 @@ namespace Foam
         Istream
     );
 
-
     // Add under name cyclicSlip
     addNamedToRunTimeSelectionTable
     (
@@ -61,6 +60,22 @@ namespace Foam
         cyclicGAMGInterface,
         Istream,
         cyclicSlip
+    );
+
+    // Add under name nonConformalCyclic
+    addNamedToRunTimeSelectionTable
+    (
+        GAMGInterface,
+        cyclicGAMGInterface,
+        lduInterface,
+        nonConformalCyclic
+    );
+    addNamedToRunTimeSelectionTable
+    (
+        GAMGInterface,
+        cyclicGAMGInterface,
+        Istream,
+        nonConformalCyclic
     );
 }
 
@@ -79,13 +94,12 @@ Foam::cyclicGAMGInterface::cyclicGAMGInterface
 )
 :
     GAMGInterface(index, coarseInterfaces),
-    neighbPatchID_
+    nbrPatchIndex_
     (
-        refCast<const cyclicLduInterface>(fineInterface).neighbPatchID()
+        refCast<const cyclicLduInterface>(fineInterface).nbrPatchIndex()
     ),
     owner_(refCast<const cyclicLduInterface>(fineInterface).owner()),
-    forwardT_(refCast<const cyclicLduInterface>(fineInterface).forwardT()),
-    reverseT_(refCast<const cyclicLduInterface>(fineInterface).reverseT())
+    transform_(refCast<const cyclicLduInterface>(fineInterface).transform())
 {
     // From coarse face to coarse cell
     DynamicList<label> dynFaceCells(localRestrictAddressing.size());
@@ -157,10 +171,9 @@ Foam::cyclicGAMGInterface::cyclicGAMGInterface
 )
 :
     GAMGInterface(index, coarseInterfaces, is),
-    neighbPatchID_(readLabel(is)),
+    nbrPatchIndex_(readLabel(is)),
     owner_(readBool(is)),
-    forwardT_(is),
-    reverseT_(is)
+    transform_(is)
 {}
 
 
@@ -178,7 +191,7 @@ Foam::tmp<Foam::labelField> Foam::cyclicGAMGInterface::internalFieldTransfer
     const labelUList& iF
 ) const
 {
-    const cyclicGAMGInterface& nbr = neighbPatch();
+    const cyclicGAMGInterface& nbr = nbrPatch();
     const labelUList& nbrFaceCells = nbr.faceCells();
 
     tmp<labelField> tpnf(new labelField(size()));
@@ -196,10 +209,9 @@ Foam::tmp<Foam::labelField> Foam::cyclicGAMGInterface::internalFieldTransfer
 void Foam::cyclicGAMGInterface::write(Ostream& os) const
 {
     GAMGInterface::write(os);
-    os  << token::SPACE << neighbPatchID_
+    os  << token::SPACE << nbrPatchIndex_
         << token::SPACE << owner_
-        << token::SPACE << forwardT_
-        << token::SPACE << reverseT_;
+        << token::SPACE << transform_;
 }
 
 

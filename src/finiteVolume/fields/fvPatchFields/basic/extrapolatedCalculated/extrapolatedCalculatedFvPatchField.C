@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,7 +24,7 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "extrapolatedCalculatedFvPatchField.H"
-#include "fvPatchFieldMapper.H"
+#include "fieldMapper.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
@@ -62,22 +62,13 @@ extrapolatedCalculatedFvPatchField
     const extrapolatedCalculatedFvPatchField<Type>& ptf,
     const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
-    calculatedFvPatchField<Type>(ptf, p, iF, mapper)
-{}
-
-
-template<class Type>
-Foam::extrapolatedCalculatedFvPatchField<Type>::
-extrapolatedCalculatedFvPatchField
-(
-    const extrapolatedCalculatedFvPatchField<Type>& ptf
-)
-:
-    calculatedFvPatchField<Type>(ptf)
-{}
+    calculatedFvPatchField<Type>(ptf, p, iF, mapper, false)
+{
+    mapper(*this, ptf, [&](){ return this->patchInternalField(); });
+}
 
 
 template<class Type>
@@ -93,6 +84,17 @@ extrapolatedCalculatedFvPatchField
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+
+template<class Type>
+void Foam::extrapolatedCalculatedFvPatchField<Type>::map
+(
+    const fvPatchField<Type>& ptf,
+    const fieldMapper& mapper
+)
+{
+    mapper(*this, ptf, [&](){ return this->patchInternalField(); });
+}
+
 
 template<class Type>
 void Foam::extrapolatedCalculatedFvPatchField<Type>::evaluate

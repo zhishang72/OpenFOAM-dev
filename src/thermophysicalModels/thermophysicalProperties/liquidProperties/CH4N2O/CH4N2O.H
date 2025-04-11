@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -37,16 +37,16 @@ SourceFiles
 #define CH4N2O_H
 
 #include "liquidProperties.H"
-#include "NSRDS0ThermophysicalFunction.H"
-#include "NSRDS1ThermophysicalFunction.H"
-#include "NSRDS2ThermophysicalFunction.H"
-#include "NSRDS3ThermophysicalFunction.H"
-#include "NSRDS4ThermophysicalFunction.H"
-#include "NSRDS5ThermophysicalFunction.H"
-#include "NSRDS6ThermophysicalFunction.H"
-#include "NSRDS7ThermophysicalFunction.H"
-#include "NSRDS14ThermophysicalFunction.H"
-#include "APIdiffCoefThermophysicalFunction.H"
+#include "NSRDS0.H"
+#include "NSRDS1.H"
+#include "NSRDS2.H"
+#include "NSRDS3.H"
+#include "NSRDS4.H"
+#include "NSRDS5.H"
+#include "NSRDS6.H"
+#include "NSRDS7.H"
+#include "NSRDS14.H"
+#include "APIdiffCoef.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -63,19 +63,23 @@ class CH4N2O
 {
     // Private Data
 
-        thermophysicalFunctions::NSRDS0 rho_;
-        thermophysicalFunctions::NSRDS1 pv_;
-        thermophysicalFunctions::NSRDS6 hl_;
-        thermophysicalFunctions::NSRDS0 Cp_;
-        thermophysicalFunctions::NSRDS0 h_;
-        thermophysicalFunctions::NSRDS7 Cpg_;
-        thermophysicalFunctions::NSRDS4 B_;
-        thermophysicalFunctions::NSRDS1 mu_;
-        thermophysicalFunctions::NSRDS2 mug_;
-        thermophysicalFunctions::NSRDS0 kappa_;
-        thermophysicalFunctions::NSRDS2 kappag_;
-        thermophysicalFunctions::NSRDS6 sigma_;
-        thermophysicalFunctions::APIdiffCoef D_;
+        Function1s::NSRDS0 rho_;
+        Function1s::NSRDS1 pv_;
+        Function1s::NSRDS6 hl_;
+        Function1s::NSRDS0 Cp_;
+        Function1s::NSRDS0 h_;
+        Function1s::NSRDS7 Cpg_;
+        Function1s::NSRDS4 B_;
+        Function1s::NSRDS1 mu_;
+        Function1s::NSRDS2 mug_;
+        Function1s::NSRDS0 kappa_;
+        Function1s::NSRDS2 kappag_;
+        Function1s::NSRDS6 sigma_;
+        Function2s::APIdiffCoef D_;
+
+        //- Liquid heat of formation [J/kg]
+        scalar hf_;
+
 
 public:
 
@@ -94,19 +98,19 @@ public:
         CH4N2O
         (
             const liquidProperties& l,
-            const thermophysicalFunctions::NSRDS0& density,
-            const thermophysicalFunctions::NSRDS1& vapourPressure,
-            const thermophysicalFunctions::NSRDS6& heatOfVapourisation,
-            const thermophysicalFunctions::NSRDS0& heatCapacity,
-            const thermophysicalFunctions::NSRDS0& enthalpy,
-            const thermophysicalFunctions::NSRDS7& idealGasHeatCapacity,
-            const thermophysicalFunctions::NSRDS4& secondVirialCoeff,
-            const thermophysicalFunctions::NSRDS1& dynamicViscosity,
-            const thermophysicalFunctions::NSRDS2& vapourDynamicViscosity,
-            const thermophysicalFunctions::NSRDS0& thermalConductivity,
-            const thermophysicalFunctions::NSRDS2& vapourThermalConductivity,
-            const thermophysicalFunctions::NSRDS6& surfaceTension,
-            const thermophysicalFunctions::APIdiffCoef& vapourDiffusivity
+            const Function1s::NSRDS0& density,
+            const Function1s::NSRDS1& vapourPressure,
+            const Function1s::NSRDS6& heatOfVapourisation,
+            const Function1s::NSRDS0& heatCapacity,
+            const Function1s::NSRDS0& enthalpy,
+            const Function1s::NSRDS7& idealGasHeatCapacity,
+            const Function1s::NSRDS4& secondVirialCoeff,
+            const Function1s::NSRDS1& dynamicViscosity,
+            const Function1s::NSRDS2& vapourDynamicViscosity,
+            const Function1s::NSRDS0& thermalConductivity,
+            const Function1s::NSRDS2& vapourThermalConductivity,
+            const Function1s::NSRDS6& surfaceTension,
+            const Function2s::APIdiffCoef& vapourDiffusivity
         );
 
         //- Construct from dictionary
@@ -133,8 +137,14 @@ public:
         //- Liquid heat capacity [J/kg/K]
         inline scalar Cp(scalar p, scalar T) const;
 
-        //- Liquid enthalpy [J/kg]
-        inline scalar h(scalar p, scalar T) const;
+        //- Liquid sensible enthalpy [J/kg]
+        inline scalar hs(scalar p, scalar T) const;
+
+        //- Liquid heat of formation [J/kg]
+        inline scalar hf() const;
+
+        //- Liquid absolute enthalpy [J/kg]
+        inline scalar ha(scalar p, scalar T) const;
 
         //- Ideal gas heat capacity [J/kg/K]
         inline scalar Cpg(scalar p, scalar T) const;

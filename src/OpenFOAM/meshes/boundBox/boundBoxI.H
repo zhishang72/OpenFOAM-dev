@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -26,7 +26,6 @@ License
 #include "boundBox.H"
 #include "pointField.H"
 
-
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 inline Foam::boundBox::boundBox()
@@ -40,6 +39,13 @@ inline Foam::boundBox::boundBox(const point& min, const point& max)
 :
     min_(min),
     max_(max)
+{}
+
+
+inline Foam::boundBox::boundBox(const dictionary& dict)
+:
+    min_(dict.lookup<point>("min", dimLength)),
+    max_(dict.lookup<point>("max", dimLength))
 {}
 
 
@@ -210,4 +216,4 @@ inline bool Foam::operator!=(const boundBox& a, const boundBox& b)
 }
 
 
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+// ************************************************************************* //

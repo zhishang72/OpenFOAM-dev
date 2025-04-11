@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,6 +24,8 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "cyclicFvsPatchField.H"
+#include "GeometricField.H"
+#include "surfaceMesh.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
@@ -68,7 +70,7 @@ Foam::cyclicFvsPatchField<Type>::cyclicFvsPatchField
     const cyclicFvsPatchField<Type>& ptf,
     const fvPatch& p,
     const DimensionedField<Type, surfaceMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     coupledFvsPatchField<Type>(ptf, p, iF, mapper),
@@ -89,17 +91,6 @@ Foam::cyclicFvsPatchField<Type>::cyclicFvsPatchField
 template<class Type>
 Foam::cyclicFvsPatchField<Type>::cyclicFvsPatchField
 (
-    const cyclicFvsPatchField<Type>& ptf
-)
-:
-    coupledFvsPatchField<Type>(ptf),
-    cyclicPatch_(ptf.cyclicPatch_)
-{}
-
-
-template<class Type>
-Foam::cyclicFvsPatchField<Type>::cyclicFvsPatchField
-(
     const cyclicFvsPatchField<Type>& ptf,
     const DimensionedField<Type, surfaceMesh>& iF
 )
@@ -107,6 +98,31 @@ Foam::cyclicFvsPatchField<Type>::cyclicFvsPatchField
     coupledFvsPatchField<Type>(ptf, iF),
     cyclicPatch_(ptf.cyclicPatch_)
 {}
+
+
+// * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+
+template<class Type>
+Foam::tmp<Foam::Field<Type>>
+Foam::cyclicFvsPatchField<Type>::patchNeighbourField
+(
+    const Pstream::commsTypes commsType
+) const
+{
+    const SurfaceField<Type>& gf =
+        refCast<const SurfaceField<Type>>(this->internalField());
+
+    const cyclicFvPatch& cp = refCast<const cyclicFvPatch>(this->patch());
+
+    tmp<Field<Type>> tresult
+    (
+        new Field<Type>(gf.boundaryField()[cp.nbrPatchIndex()])
+    );
+
+    cp.transform().transform(tresult.ref(), tresult.ref());
+
+    return tresult;
+}
 
 
 // ************************************************************************* //

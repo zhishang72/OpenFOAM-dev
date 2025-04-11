@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -43,7 +43,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class fixedValueFvsPatch Declaration
+                     Class fixedValueFvsPatch Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -82,23 +82,14 @@ public:
             const fixedValueFvsPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, surfaceMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         fixedValueFvsPatchField
         (
             const fixedValueFvsPatchField<Type>&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvsPatchField<Type>> clone() const
-        {
-            return tmp<fvsPatchField<Type>>
-            (
-                new fixedValueFvsPatchField<Type>(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         fixedValueFvsPatchField
@@ -133,29 +124,8 @@ public:
             }
 
 
-        // Evaluation functions
-
-            //- Return the matrix diagonal coefficients corresponding to the
-            //  evaluation of the value of this patchField with given weights
-            virtual tmp<Field<Type>> valueInternalCoeffs
-            (
-                const tmp<scalarField>&
-            ) const;
-
-            //- Return the matrix source coefficients corresponding to the
-            //  evaluation of the value of this patchField with given weights
-            virtual tmp<Field<Type>> valueBoundaryCoeffs
-            (
-                const tmp<scalarField>&
-            ) const;
-
-            //- Return the matrix diagonal coefficients corresponding to the
-            //  evaluation of the gradient of this patchField
-            virtual tmp<Field<Type>> gradientInternalCoeffs() const;
-
-            //- Return the matrix source coefficients corresponding to the
-            //  evaluation of the gradient of this patchField
-            virtual tmp<Field<Type>> gradientBoundaryCoeffs() const;
+        //- Write
+        virtual void write(Ostream&) const;
 
 
     // Member Operators

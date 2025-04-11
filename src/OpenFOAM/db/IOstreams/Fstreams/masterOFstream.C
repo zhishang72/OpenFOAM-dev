@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -70,16 +70,16 @@ void Foam::masterOFstream::checkWrite
 
 Foam::masterOFstream::masterOFstream
 (
-    const fileName& pathName,
-    streamFormat format,
-    versionNumber version,
-    compressionType compression,
+    const fileName& filePath,
+    const streamFormat format,
+    const versionNumber version,
+    const compressionType compression,
     const bool append,
     const bool write
 )
 :
     OStringStream(format, version),
-    pathName_(pathName),
+    filePath_(filePath),
     compression_(compression),
     append_(append),
     write_(write)
@@ -93,7 +93,7 @@ Foam::masterOFstream::~masterOFstream()
     if (Pstream::parRun())
     {
         List<fileName> filePaths(Pstream::nProcs());
-        filePaths[Pstream::myProcNo()] = pathName_;
+        filePaths[Pstream::myProcNo()] = filePath_;
         Pstream::gatherList(filePaths);
 
         bool uniform =
@@ -108,7 +108,7 @@ Foam::masterOFstream::~masterOFstream()
         {
             if (Pstream::master() && write_)
             {
-                checkWrite(pathName_, str());
+                checkWrite(filePath_, str());
             }
             return;
         }
@@ -161,7 +161,7 @@ Foam::masterOFstream::~masterOFstream()
     }
     else
     {
-        checkWrite(pathName_, str());
+        checkWrite(filePath_, str());
     }
 }
 

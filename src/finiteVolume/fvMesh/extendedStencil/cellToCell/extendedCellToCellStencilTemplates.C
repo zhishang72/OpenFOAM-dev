@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -31,23 +31,16 @@ License
 template<class Type, class WeightType>
 Foam::tmp
 <
-    Foam::GeometricField
-    <
-        typename Foam::outerProduct<WeightType, Type>::type,
-        Foam::fvPatchField,
-        Foam::volMesh
-    >
+    Foam::VolField<typename Foam::outerProduct<WeightType, Type>::type>
 > Foam::extendedCellToCellStencil::weightedSum
 (
-    const mapDistribute& map,
+    const distributionMap& map,
     const labelListList& stencil,
-    const GeometricField<Type, fvPatchField, volMesh>& fld,
+    const VolField<Type>& fld,
     const List<List<WeightType>>& stencilWeights
 )
 {
     typedef typename outerProduct<WeightType, Type>::type WeightedType;
-    typedef GeometricField<WeightedType, fvPatchField, volMesh>
-        WeightedFieldType;
 
     const fvMesh& mesh = fld.mesh();
 
@@ -55,14 +48,14 @@ Foam::tmp
     List<List<Type>> stencilFld;
     extendedCellToFaceStencil::collectData(map, stencil, fld, stencilFld);
 
-    tmp<WeightedFieldType> twf
+    tmp<VolField<WeightedType>> twf
     (
-        new WeightedFieldType
+        new VolField<WeightedType>
         (
             IOobject
             (
                 fld.name(),
-                mesh.time().timeName(),
+                mesh.time().name(),
                 mesh
             ),
             mesh,
@@ -74,7 +67,7 @@ Foam::tmp
             )
         )
     );
-    WeightedFieldType& wf = twf();
+    VolField<WeightedType>& wf = twf();
 
     forAll(wf, celli)
     {

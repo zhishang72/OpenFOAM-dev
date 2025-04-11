@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -61,6 +61,7 @@ int main(int argc, char *argv[])
         "extract surface from a polyMesh"
     );
     argList::validArgs.append("output surface file");
+    #include "addMeshOption.H"
     #include "addRegionOption.H"
     argList::addBoolOption
     (
@@ -103,9 +104,9 @@ int main(int argc, char *argv[])
         Info<< "Excluding all processor patches." << nl << endl;
     }
 
-    Info<< "Reading mesh from time " << runTime.value() << endl;
+    Info<< "Reading mesh from time " << runTime.userTimeName() << endl;
 
-    #include "createNamedPolyMesh.H"
+    #include "createSpecifiedPolyMesh.H"
 
 
     // Create local surface from:
@@ -142,13 +143,13 @@ int main(int argc, char *argv[])
 
 
 
-    const faceZoneMesh& fzm = mesh.faceZones();
-    labelHashSet includeFaceZones(fzm.size());
+    const faceZoneList& mfz = mesh.faceZones();
+    labelHashSet includeFaceZones(mfz.size());
 
     if (args.optionFound("faceZones"))
     {
         wordReList zoneNames(args.optionLookup("faceZones")());
-        const wordList allZoneNames(fzm.names());
+        const wordList allZoneNames(mfz.toc());
         forAll(zoneNames, i)
         {
             const wordRe& zoneName = zoneNames[i];
@@ -196,7 +197,7 @@ int main(int argc, char *argv[])
         HashTable<label> zoneSize(1000);
         forAllConstIter(labelHashSet, includeFaceZones, iter)
         {
-            const faceZone& pp = fzm[iter.key()];
+            const faceZone& pp = mfz[iter.key()];
             zoneSize.insert(pp.name(), pp.size());
             nFaces += pp.size();
         }
@@ -230,14 +231,14 @@ int main(int argc, char *argv[])
         labelList faceZoneToCompactZone(bMesh.size(), -1);
         forAllConstIter(HashTable<label>, compactZoneID, iter)
         {
-            label patchi = bMesh.findPatchID(iter.key());
+            label patchi = bMesh.findIndex(iter.key());
             if (patchi != -1)
             {
                 patchToCompactZone[patchi] = iter();
             }
             else
             {
-                label zoneI = fzm.findZoneID(iter.key());
+                label zoneI = mfz.findIndex(iter.key());
                 faceZoneToCompactZone[zoneI] = iter();
             }
         }
@@ -259,11 +260,12 @@ int main(int argc, char *argv[])
         // Collect faces on faceZones
         forAllConstIter(labelHashSet, includeFaceZones, iter)
         {
-            const faceZone& pp = fzm[iter.key()];
-            forAll(pp, i)
+            const label fzi = iter.key();
+            const faceZone& fz = mfz[fzi];
+            forAll(fz, i)
             {
-                faceLabels.append(pp[i]);
-                compactZones.append(faceZoneToCompactZone[pp.index()]);
+                faceLabels.append(fz[i]);
+                compactZones.append(faceZoneToCompactZone[fzi]);
             }
         }
     }
@@ -356,17 +358,10 @@ int main(int argc, char *argv[])
 
         MeshedSurface<face> sortedFace(unsortedFace);
 
-        fileName globalCasePath
-        (
-            runTime.processorCase()
-          ? runTime.path()/".."/outFileName
-          : runTime.path()/outFileName
-        );
-        globalCasePath.clean();
+        Info<< "Writing merged surface to "
+            << runTime.globalPath()/outFileName << endl;
 
-        Info<< "Writing merged surface to " << globalCasePath << endl;
-
-        sortedFace.write(globalCasePath);
+        sortedFace.write(runTime.globalPath()/outFileName);
     }
 
     Info<< "End\n" << endl;

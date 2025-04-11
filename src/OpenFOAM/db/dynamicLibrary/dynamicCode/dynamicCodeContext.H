@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -52,14 +52,29 @@ class dynamicCodeContext
 {
     // Private Data
 
-        //- The parent dictionary context
-        const dictionary& dict_;
+        //- Keywords associated with source code
+        const wordList& codeKeys_;
+
+        //- Name of the dictionary variables in the source code
+        const wordList& codeDictVars_;
+
+        //- Code strings
+        //  Stored to write for restart
+        List<verbatimString> codeStrings_;
 
         //- Code entries
         HashTable<string> code_;
 
+        //- Optional "codeOptions" string
+        //  Stored to write for restart
+        verbatimString optionsString_;
+
         //- Optional "codeOptions" entry
         string options_;
+
+        //- Optional "codeLibs" string
+        //  Stored to write for restart
+        verbatimString libsString_;
 
         //- Optional "codeLibs" entry
         string libs_;
@@ -84,22 +99,27 @@ public:
 
     // Constructors
 
-        //- Construct from a dictionary and lists of which entries correspond
-        //  to code
+        //- Construct from the context and code dictionaries
+        //  and lists of which entries correspond to code
         dynamicCodeContext
         (
-            const dictionary& dict,
-            const wordList& codeKeys
+            const dictionary& contextDict,
+            const dictionary& codeDict,
+            const wordList& codeKeys,
+            const wordList& codeDictVars
+        );
+
+        //- Construct from the context dictionary also containing the code
+        //  and lists of which entries correspond
+        dynamicCodeContext
+        (
+            const dictionary& contextDict,
+            const wordList& codeKeys,
+            const wordList& codeDictVars
         );
 
 
     // Member Functions
-
-        //- Return the parent dictionary context
-        const dictionary& dict() const
-        {
-            return dict_;
-        }
 
         //- Return the code table
         const HashTable<string>& code() const
@@ -124,6 +144,17 @@ public:
         {
             return sha1_;
         }
+
+        void read
+        (
+            const dictionary& contextDict,
+            const dictionary& codeDict
+        );
+
+        void read(const dictionary& contextDict);
+
+        //- Write the code for restart
+        void write(Ostream& os) const;
 };
 
 

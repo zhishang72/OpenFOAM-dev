@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ License
 
 #include "MarshakRadiationFvPatchScalarField.H"
 #include "addToRunTimeSelectionTable.H"
-#include "fvPatchFieldMapper.H"
+#include "fieldMapper.H"
 #include "volFields.H"
 #include "radiationModel.H"
 #include "physicoChemicalConstants.H"
@@ -35,53 +35,17 @@ License
 Foam::MarshakRadiationFvPatchScalarField::MarshakRadiationFvPatchScalarField
 (
     const fvPatch& p,
-    const DimensionedField<scalar, volMesh>& iF
-)
-:
-    mixedFvPatchScalarField(p, iF),
-    radiationCoupledBase(p, "undefined", scalarField::null()),
-    TName_("T")
-{
-    refValue() = 0.0;
-    refGrad() = 0.0;
-    valueFraction() = 0.0;
-}
-
-
-Foam::MarshakRadiationFvPatchScalarField::MarshakRadiationFvPatchScalarField
-(
-    const MarshakRadiationFvPatchScalarField& ptf,
-    const fvPatch& p,
-    const DimensionedField<scalar, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
-)
-:
-    mixedFvPatchScalarField(ptf, p, iF, mapper),
-    radiationCoupledBase
-    (
-        p,
-        ptf.emissivityMethod(),
-        ptf.emissivity_,
-        mapper
-    ),
-    TName_(ptf.TName_)
-{}
-
-
-Foam::MarshakRadiationFvPatchScalarField::MarshakRadiationFvPatchScalarField
-(
-    const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF,
     const dictionary& dict
 )
 :
-    mixedFvPatchScalarField(p, iF),
+    mixedFvPatchScalarField(p, iF, dict, false),
     radiationCoupledBase(p, dict),
     TName_(dict.lookupOrDefault<word>("T", "T"))
 {
     if (dict.found("value"))
     {
-        refValue() = scalarField("value", dict, p.size());
+        refValue() = scalarField("value", iF.dimensions(), dict, p.size());
     }
     else
     {
@@ -99,15 +63,19 @@ Foam::MarshakRadiationFvPatchScalarField::MarshakRadiationFvPatchScalarField
 
 Foam::MarshakRadiationFvPatchScalarField::MarshakRadiationFvPatchScalarField
 (
-    const MarshakRadiationFvPatchScalarField& ptf
+    const MarshakRadiationFvPatchScalarField& ptf,
+    const fvPatch& p,
+    const DimensionedField<scalar, volMesh>& iF,
+    const fieldMapper& mapper
 )
 :
-    mixedFvPatchScalarField(ptf),
+    mixedFvPatchScalarField(ptf, p, iF, mapper),
     radiationCoupledBase
     (
-        ptf.patch(),
+        p,
         ptf.emissivityMethod(),
-        ptf.emissivity_
+        ptf.emissivity_,
+        mapper
     ),
     TName_(ptf.TName_)
 {}
@@ -132,24 +100,24 @@ Foam::MarshakRadiationFvPatchScalarField::MarshakRadiationFvPatchScalarField
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-void Foam::MarshakRadiationFvPatchScalarField::autoMap
+void Foam::MarshakRadiationFvPatchScalarField::map
 (
-    const fvPatchFieldMapper& m
+    const fvPatchScalarField& ptf,
+    const fieldMapper& mapper
 )
 {
-    mixedFvPatchScalarField::autoMap(m);
-    radiationCoupledBase::autoMap(m);
+    mixedFvPatchScalarField::map(ptf, mapper);
+    radiationCoupledBase::map(ptf, mapper);
 }
 
 
-void Foam::MarshakRadiationFvPatchScalarField::rmap
+void Foam::MarshakRadiationFvPatchScalarField::reset
 (
-    const fvPatchScalarField& ptf,
-    const labelList& addr
+    const fvPatchScalarField& ptf
 )
 {
-    mixedFvPatchScalarField::rmap(ptf, addr);
-    radiationCoupledBase::rmap(ptf, addr);
+    mixedFvPatchScalarField::reset(ptf);
+    radiationCoupledBase::reset(ptf);
 }
 
 
@@ -176,9 +144,9 @@ void Foam::MarshakRadiationFvPatchScalarField::updateCoeffs()
     const scalarField& gamma =
         patch().lookupPatchField<volScalarField, scalar>("gammaRad");
 
-    const scalarField temissivity = emissivity();
+    const scalarField emissivity(this->emissivity());
 
-    const scalarField Ep(temissivity/(2.0*(2.0 - temissivity)));
+    const scalarField Ep(emissivity/(2.0*(2.0 - emissivity)));
 
     // Set value fraction
     valueFraction() = 1.0/(1.0 + gamma*patch().deltaCoeffs()/Ep);

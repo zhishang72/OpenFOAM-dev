@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -37,6 +37,43 @@ namespace Foam
 
 Foam::coupledFvPatch::~coupledFvPatch()
 {}
+
+
+// * * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * * //
+
+void Foam::coupledFvPatch::makeWeights
+(
+    scalarField& w,
+    const vectorField& nbrSf,
+    const vectorField& nbrDelta
+) const
+{
+    const vectorField delta(coupledFvPatch::delta());
+
+    const scalarField nfDelta(nf() & delta);
+
+    const scalarField nbrNfDelta((nbrSf/(mag(nbrSf) + vSmall)) & nbrDelta);
+
+    forAll(delta, facei)
+    {
+        const scalar ndoi = nfDelta[facei];
+        const scalar ndni = nbrNfDelta[facei];
+        const scalar ndi = ndoi + ndni;
+
+        if (ndni/vGreat < ndi)
+        {
+            w[facei] = ndni/ndi;
+        }
+        else
+        {
+            const scalar doi = mag(delta[facei]);
+            const scalar dni = mag(nbrDelta[facei]);
+            const scalar di = doi + dni;
+
+            w[facei] = dni/di;
+        }
+    }
+}
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //

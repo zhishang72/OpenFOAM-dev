@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2014-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2014-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,32 @@ Class
     Foam::PengRobinsonGas
 
 Description
-    PengRobinsonGas gas equation of state.
+    PengRobinsonGas cubic equation of state for gases
+
+    Coefficient mixing is very inaccurate and not supported, so this equation of
+    state can only be applied to mixtures by using a thermophysical properties
+    model which mixes specie property value.
+
+Usage
+    \table
+        Property     | Description
+        Tc           | Critical temperature [K]
+        Vc           | Critical volume [m^3/kmol]
+        Pc           | Critical pressure [Pa]
+        omega        | Acentric factor [-]
+    \endtable
+
+    Example specification of the PengRobinsonGas equation of state for methane:
+    \verbatim
+    equationOfState
+    {
+        Tc        190.55;
+        Vc        0.0285;
+        Pc        4.595e6;
+        omega     0.0115;
+
+    }
+    \endverbatim
 
 SourceFiles
     PengRobinsonGasI.H
@@ -78,7 +103,7 @@ Ostream& operator<<
 
 
 /*---------------------------------------------------------------------------*\
-                           Class PengRobinsonGas Declaration
+                       Class PengRobinsonGas Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Specie>
@@ -119,20 +144,14 @@ public:
             const scalar& omega
         );
 
-        //- Construct from dictionary
-        PengRobinsonGas(const dictionary& dict);
+        //- Construct from name and dictionary
+        PengRobinsonGas(const word& name, const dictionary& dict);
 
         //- Construct as named copy
         inline PengRobinsonGas(const word& name, const PengRobinsonGas&);
 
         //- Construct and return a clone
         inline autoPtr<PengRobinsonGas> clone() const;
-
-        // Selector from dictionary
-        inline static autoPtr<PengRobinsonGas> New
-        (
-            const dictionary& dict
-        );
 
 
     // Member Functions
@@ -155,20 +174,23 @@ public:
             //- Return density [kg/m^3]
             inline scalar rho(scalar p, scalar T) const;
 
-            //- Return enthalpy departure [J/kg]
-            inline scalar H(const scalar p, const scalar T) const;
+            //- Return enthalpy contribution [J/kg]
+            inline scalar h(const scalar p, const scalar T) const;
 
-            //- Return Cp departure [J/(kg K]
+            //- Return Cp contribution [J/(kg K]
             inline scalar Cp(scalar p, scalar T) const;
 
-            //- Return internal energy departure [J/kg]
-            inline scalar E(const scalar p, const scalar T) const;
+            //- Return internal energy contribution [J/kg]
+            inline scalar e(const scalar p, const scalar T) const;
 
-            //- Return Cv departure [J/(kg K]
+            //- Return Cv contribution [J/(kg K]
             inline scalar Cv(scalar p, scalar T) const;
 
-            //- Return entropy [J/kg/K]
-            inline scalar S(const scalar p, const scalar T) const;
+            //- Return entropy contribution to the integral of Cp/T [J/kg/K]
+            inline scalar sp(const scalar p, const scalar T) const;
+
+            //- Return entropy contribution to the integral of Cv/T [J/kg/K]
+            inline scalar sv(const scalar p, const scalar T) const;
 
             //- Return compressibility [s^2/m^2]
             inline scalar psi(scalar p, scalar T) const;
@@ -178,6 +200,9 @@ public:
 
             //- Return (Cp - Cv) [J/(kg K]
             inline scalar CpMCv(scalar p, scalar T) const;
+
+            //- Return volumetric coefficient of thermal expansion [1/T]
+            inline scalar alphav(const scalar p, const scalar T) const;
 
 
     // IO

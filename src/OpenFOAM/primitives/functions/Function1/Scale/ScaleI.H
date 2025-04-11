@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -30,28 +30,35 @@ License
 template<class Type>
 inline Type Foam::Function1s::Scale<Type>::value(const scalar x) const
 {
-    const scalar sx = xScale_->value(x)*x;
-    return scale_->value(sx)*value_->value(sx);
+    if (constantScale_ && constantValue_)
+    {
+        return scale_->value(NaN)*value_->value(NaN);
+    }
+    else
+    {
+        const scalar sx = xScale_->value(x)*x;
+        return scale_->value(sx)*value_->value(sx);
+    }
 }
 
 
 template<class Type>
-inline Type Foam::Function1s::Scale<Type>::integrate
+inline Type Foam::Function1s::Scale<Type>::integral
 (
     const scalar x1,
     const scalar x2
 ) const
 {
-    if (integrableScale_)
+    if (constantXScale_ && constantScale_)
     {
         const scalar sx = xScale_->value(NaN);
-        return scale_->value(NaN)*value_->integrate(sx*x1, sx*x2)/sx;
+        return scale_->value(NaN)*value_->integral(sx*x1, sx*x2)/sx;
     }
 
-    if (integrableValue_)
+    if (constantXScale_ && constantValue_)
     {
         const scalar sx = xScale_->value(NaN);
-        return scale_->integrate(sx*x1, sx*x2)/sx*value_->value(NaN);
+        return scale_->integral(sx*x1, sx*x2)/sx*value_->value(NaN);
     }
 
     FatalErrorInFunction
@@ -61,6 +68,13 @@ inline Type Foam::Function1s::Scale<Type>::integrate
         << exit(FatalError);
 
     return Zero;
+}
+
+
+template<class Type>
+inline bool Foam::Function1s::Scale<Type>::constant() const
+{
+    return constantScale_ && constantValue_;
 }
 
 

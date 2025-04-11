@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2019-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -38,6 +38,7 @@ Description
 #include "fvMeshTools.H"
 #include "wallPolyPatch.H"
 #include "processorFvPatchField.H"
+#include "processorFvsPatchField.H"
 
 using namespace Foam;
 
@@ -47,14 +48,14 @@ int main(int argc, char *argv[])
 {
     argList::addNote("Test patch manipulation");
 
+    #include "addMeshOption.H"
     #include "addRegionOption.H"
     #include "setRootCase.H"
-    #include "createTime.H"
-    runTime.functionObjects().off();
-    #include "createNamedMesh.H"
+    #include "createTimeNoFunctionObjects.H"
+    #include "createSpecifiedMesh.H"
 
     // Read objects in time directory
-    IOobjectList objects(mesh, runTime.timeName());
+    IOobjectList objects(mesh, runTime.name());
 
     Info<< "Reading geometric fields" << nl << endl;
 
@@ -64,7 +65,6 @@ int main(int argc, char *argv[])
     #include "readPointFields.H"
 
     const polyBoundaryMesh& pbm = mesh.boundaryMesh();
-
 
     // Add/insert a (global) wall patch
     {
@@ -78,26 +78,18 @@ int main(int argc, char *argv[])
             wallPolyPatch::typeName
         );
 
-        label newPatchi = fvMeshTools::addPatch
-        (
-            mesh,
-            pp,
-            dictionary(),   // no specialised patch fields
-            calculatedFvPatchField<scalar>::typeName,
-            true            // parallel sync'ed addition
-        );
+        label newPatchi = fvMeshTools::addPatch(mesh, pp);
 
         Info<< "Inserted patch " << mesh.boundaryMesh()[newPatchi].name()
             << " type " << mesh.boundaryMesh()[newPatchi].type()
             << " at index " << newPatchi << endl;
 
         runTime++;
-        mesh.setInstance(runTime.timeName());
-        Info<< "Writing mesh with added patch to " << runTime.timeName()
+        mesh.setInstance(runTime.name());
+        Info<< "Writing mesh with added patch to " << runTime.name()
             << endl;
         mesh.write();
     }
-
 
     // Remove a (zero-sized!) patch everywhere
     const label removei = 0;
@@ -118,12 +110,11 @@ int main(int argc, char *argv[])
         fvMeshTools::reorderPatches(mesh, oldToNew, pbm.size()-1, true);
 
         runTime++;
-        mesh.setInstance(runTime.timeName());
-        Info<< "Writing mesh with removed patch to " << runTime.timeName()
+        mesh.setInstance(runTime.name());
+        Info<< "Writing mesh with removed patch to " << runTime.name()
             << endl;
         mesh.write();
     }
-
 
     // Add a pair of processor patches
     if (Pstream::parRun())
@@ -152,41 +143,28 @@ int main(int argc, char *argv[])
                 processorPolyPatch::typeName
             );
 
-            label newPatchi = fvMeshTools::addPatch
-            (
-                mesh,
-                pp,
-                dictionary(),   // no specialised patch fields
-                processorFvPatchField<scalar>::typeName,
-                false            // parallel sync'ed addition
-            );
+            label newPatchi = fvMeshTools::addPatch(mesh, pp);
 
             Pout<< "Inserted patch " << mesh.boundaryMesh()[newPatchi].name()
                 << " type " << mesh.boundaryMesh()[newPatchi].type()
                 << " at index " << newPatchi << endl;
         }
 
-        // Note: write on all processors. There is a slight problem in
-        // reconstructPar: mesh.readUpdate checks that the boundary file is
-        // different. On proc 0 and 1 it will be different, on proc2.. it
-        // stays the same. This causes a failure in reconstructPar.
-
         runTime++;
-        mesh.setInstance(runTime.timeName());
-        Info<< "Writing mesh with added (local) patch to " << runTime.timeName()
-            << endl;
+        mesh.setInstance(runTime.name());
+        Info<< "Writing mesh with added (local) patch to "
+            << runTime.name() << endl;
         mesh.write();
-
 
         // Remove the added patch
         if (newPatchName.size())
         {
-            label removei = pbm.findPatchID(newPatchName);
+            label removei = pbm.findIndex(newPatchName);
             if (removei == -1)
             {
                 FatalErrorInFunction << "Problem" << exit(FatalError);
             }
-            Info<< "Removing patch " << pbm[removei].name() << endl;
+            Pout<< "Removing patch " << pbm[removei].name() << endl;
 
             labelList oldToNew(pbm.size());
             for (label i = 0; i < removei; i++)
@@ -202,9 +180,9 @@ int main(int argc, char *argv[])
         }
 
         runTime++;
-        mesh.setInstance(runTime.timeName());
-        Info<< "Writing mesh with removed local patch to " << runTime.timeName()
-            << endl;
+        mesh.setInstance(runTime.name());
+        Info<< "Writing mesh with removed (local) patch to "
+            << runTime.name() << endl;
         mesh.write();
     }
 

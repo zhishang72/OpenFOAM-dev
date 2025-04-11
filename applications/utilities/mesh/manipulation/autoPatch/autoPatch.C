@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -33,9 +33,8 @@ Description
 #include "argList.H"
 #include "polyMesh.H"
 #include "Time.H"
-#include "boundaryMesh.H"
-#include "repatchPolyTopoChanger.H"
-#include "unitConversion.H"
+#include "repatchMesh.H"
+#include "repatcher.H"
 #include "OFstream.H"
 #include "ListOps.H"
 
@@ -44,21 +43,21 @@ using namespace Foam;
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 // Get all feature edges.
-void collectFeatureEdges(const boundaryMesh& bMesh, labelList& markedEdges)
+void collectFeatureEdges(const repatchMesh& rMesh, labelList& markedEdges)
 {
-    markedEdges.setSize(bMesh.mesh().nEdges());
+    markedEdges.setSize(rMesh.mesh().nEdges());
 
     label markedI = 0;
 
-    forAll(bMesh.featureSegments(), i)
+    forAll(rMesh.featureSegments(), i)
     {
-        const labelList& segment = bMesh.featureSegments()[i];
+        const labelList& segment = rMesh.featureSegments()[i];
 
         forAll(segment, j)
         {
             label featEdgeI = segment[j];
 
-            label meshEdgeI = bMesh.featureToEdge()[featEdgeI];
+            label meshEdgeI = rMesh.featureToEdge()[featEdgeI];
 
             markedEdges[markedI++] = meshEdgeI;
         }
@@ -75,8 +74,7 @@ int main(int argc, char *argv[])
     argList::validArgs.append("feature angle[0-180]");
 
     #include "setRootCase.H"
-    #include "createTime.H"
-    runTime.functionObjects().off();
+    #include "createTimeNoFunctionObjects.H"
     #include "createPolyMesh.H"
     const word oldInstance = mesh.pointsInstance();
 
@@ -85,34 +83,34 @@ int main(int argc, char *argv[])
         << " s\n" << endl << endl;
 
 
-    const scalar featureAngle = args.argRead<scalar>(1);
+    const scalar featureAngle = degToRad(args.argRead<scalar>(1));
     const bool overwrite      = args.optionFound("overwrite");
 
-    const scalar minCos = Foam::cos(degToRad(featureAngle));
+    const scalar minCos = Foam::cos(featureAngle);
 
-    Info<< "Feature:" << featureAngle << endl
+    Info<< "Feature:" << radToDeg(featureAngle) << endl
         << "minCos :" << minCos << endl
         << endl;
 
     //
-    // Use boundaryMesh to reuse all the featureEdge stuff in there.
+    // Use repatchMesh to reuse all the featureEdge stuff in there.
     //
 
-    boundaryMesh bMesh;
-    bMesh.read(mesh);
+    repatchMesh rMesh;
+    rMesh.read(mesh);
 
     // Set feature angle (calculate feature edges)
-    bMesh.setFeatureEdges(minCos);
+    rMesh.setFeatureEdges(minCos);
 
     // Collect all feature edges as edge labels
     labelList markedEdges;
 
-    collectFeatureEdges(bMesh, markedEdges);
+    collectFeatureEdges(rMesh, markedEdges);
 
 
 
     // (new) patch ID for every face in mesh.
-    labelList patchIDs(bMesh.mesh().size(), -1);
+    labelList patchIDs(rMesh.mesh().size(), -1);
 
     //
     // Fill patchIDs with values for every face by floodfilling without
@@ -120,7 +118,7 @@ int main(int argc, char *argv[])
     //
 
     // Current patch number.
-    label newPatchi = bMesh.patches().size();
+    label newPatchi = rMesh.patches().size();
 
     label suffix = 0;
 
@@ -141,17 +139,17 @@ int main(int argc, char *argv[])
         {
             patchName = "auto" + name(suffix++);
         }
-        while (bMesh.findPatchID(patchName) != -1);
+        while (rMesh.findIndex(patchName) != -1);
 
-        bMesh.addPatch(patchName);
+        rMesh.addPatch(patchName);
 
-        bMesh.changePatchType(patchName, "patch");
+        rMesh.changePatchType(patchName, "patch");
 
 
         // Fill visited with all faces reachable from unsetFacei.
-        boolList visited(bMesh.mesh().size());
+        boolList visited(rMesh.mesh().size());
 
-        bMesh.markFaces(markedEdges, unsetFacei, visited);
+        rMesh.markFaces(markedEdges, unsetFacei, visited);
 
 
         // Assign all visited faces to current patch
@@ -175,7 +173,7 @@ int main(int argc, char *argv[])
 
 
 
-    const PtrList<boundaryPatch>& patches = bMesh.patches();
+    const PtrList<repatchPatch>& patches = rMesh.patches();
 
     // Create new list of patches with old ones first
     List<polyPatch*> newPatchPtrList(patches.size());
@@ -202,7 +200,7 @@ int main(int argc, char *argv[])
     // Add new ones with empty size.
     for (label patchi = newPatchi; patchi < patches.size(); patchi++)
     {
-        const boundaryPatch& bp = patches[patchi];
+        const repatchPatch& bp = patches[patchi];
 
         newPatchPtrList[newPatchi] = polyPatch::New
         (
@@ -224,15 +222,15 @@ int main(int argc, char *argv[])
 
 
     // Change patches
-    repatchPolyTopoChanger polyMeshRepatcher(mesh);
+    repatcher polyMeshRepatcher(mesh);
     polyMeshRepatcher.changePatches(newPatchPtrList);
 
 
     // Change face ordering
 
-    // Since bMesh read from mesh there is one to one mapping so we don't
+    // Since rMesh read from mesh there is one to one mapping so we don't
     // have to do the geometric stuff.
-    const labelList& meshFace = bMesh.meshFace();
+    const labelList& meshFace = rMesh.meshFace();
 
     forAll(patchIDs, facei)
     {

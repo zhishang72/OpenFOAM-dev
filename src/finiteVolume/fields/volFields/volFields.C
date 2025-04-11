@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -32,6 +32,7 @@ namespace Foam
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
+defineTemplate2TypeNameAndDebug(volLabelField::Internal, 0);
 defineTemplate2TypeNameAndDebug(volScalarField::Internal, 0);
 defineTemplate2TypeNameAndDebug(volVectorField::Internal, 0);
 defineTemplate2TypeNameAndDebug
@@ -46,6 +47,7 @@ defineTemplate2TypeNameAndDebug
 );
 defineTemplate2TypeNameAndDebug(volTensorField::Internal, 0);
 
+defineTemplateTypeNameAndDebug(volLabelField, 0);
 defineTemplateTypeNameAndDebug(volScalarField, 0);
 defineTemplateTypeNameAndDebug(volVectorField, 0);
 defineTemplateTypeNameAndDebug(volSphericalTensorField, 0);
@@ -55,31 +57,6 @@ defineTemplateTypeNameAndDebug(volTensorField, 0);
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-// specialization for scalar fields
-template<>
-tmp<GeometricField<scalar, fvPatchField, volMesh>>
-GeometricField<scalar, fvPatchField, volMesh>::component
-(
-    const direction
-) const
-{
-    return *this;
-}
-
-
-// specialization for scalar fields
-template<>
-void GeometricField<scalar, fvPatchField, volMesh>::replace
-(
-    const direction,
-    const GeometricField<scalar, fvPatchField, volMesh>& gsf
-)
-{
-    *this == gsf;
-}
-
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
 } // End namespace Foam
 
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+// ************************************************************************* //

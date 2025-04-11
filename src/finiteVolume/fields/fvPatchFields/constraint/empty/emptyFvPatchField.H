@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -28,7 +28,7 @@ Description
     This boundary condition provides an 'empty' condition for reduced
     dimensions cases, i.e. 1- and 2-D geometries.  Apply this condition to
     patches whose normal is aligned to geometric directions that do not
-    constitue solution directions.
+    constitute solution directions.
 
 Usage
     Example of the boundary condition specification:
@@ -94,23 +94,11 @@ public:
             const emptyFvPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
-        emptyFvPatchField
-        (
-            const emptyFvPatchField<Type>&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchField<Type>> clone() const
-        {
-            return tmp<fvPatchField<Type>>
-            (
-                new emptyFvPatchField<Type>(*this)
-            );
-        }
+        //- Disallow copy without setting internal field reference
+        emptyFvPatchField(const emptyFvPatchField<Type>&) = delete;
 
         //- Copy constructor setting internal field reference
         emptyFvPatchField
@@ -136,24 +124,17 @@ public:
 
         // Mapping functions
 
-            //- Map (and resize as needed) from self given a mapping object
-            //  Used to update fields following mesh topology change
-            virtual void autoMap( const fvPatchFieldMapper&)
+            //- Map the given fvPatchField onto this fvPatchField
+            virtual void map(const fvPatchField<Type>&, const fieldMapper&)
             {}
 
-            //- Reverse map the given fvPatchField onto this fvPatchField
-            //  Used to reconstruct fields
-            virtual void rmap(const fvPatchField<Type>&, const labelList&)
+            //- Reset the fvPatchField to the given fvPatchField
+            //  Used for mesh to mesh mapping
+            virtual void reset(const fvPatchField<Type>&)
             {}
 
 
         // Evaluation functions
-
-            //- Update the coefficients associated with the patch field
-            //  This only checks to see the case is actually 1D or 2D
-            //  for which this boundary condition is valid
-            void updateCoeffs();
-
 
             //- Return the matrix diagonal coefficients corresponding to the
             //  evaluation of the value of this patchField with given weights

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2015-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2015-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -55,7 +55,7 @@ preserveFaceZonesConstraint
 )
 :
     decompositionConstraint(constraintsDict, typeName),
-    zones_(coeffDict_.lookup("zones"))
+    zones_(constraintsDict.lookup("zones"))
 {
     if (decompositionConstraint::debug)
     {
@@ -97,9 +97,9 @@ void Foam::decompositionConstraints::preserveFaceZonesConstraint::add
 {
     blockedFace.setSize(mesh.nFaces(), true);
 
-    const faceZoneMesh& fZones = mesh.faceZones();
+    const faceZoneList& fZones = mesh.faceZones();
 
-    const labelList zoneIDs = findStrings(zones_, fZones.names());
+    const labelList zoneIDs = findStrings(zones_, fZones.toc());
 
     label nUnblocked = 0;
 
@@ -167,9 +167,9 @@ void Foam::decompositionConstraints::preserveFaceZonesConstraint::apply
     // Override if differing
     // ~~~~~~~~~~~~~~~~~~~~~
 
-    const faceZoneMesh& fZones = mesh.faceZones();
+    const faceZoneList& fZones = mesh.faceZones();
 
-    const labelList zoneIDs = findStrings(zones_, fZones.names());
+    const labelList zoneIDs = findStrings(zones_, fZones.toc());
 
     label nChanged = 0;
 

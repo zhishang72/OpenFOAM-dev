@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,69 +25,81 @@ License
 
 #include "noCombustion.H"
 #include "fvmSup.H"
+#include "addToRunTimeSelectionTable.H"
+
+// * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
+
+namespace Foam
+{
+namespace combustionModels
+{
+    defineTypeNameAndDebug(noCombustion, 0);
+    addToRunTimeSelectionTable(combustionModel, noCombustion, dictionary);
+}
+}
+
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
-template<class ReactionThermo>
-Foam::combustionModels::noCombustion<ReactionThermo>::noCombustion
+Foam::combustionModels::noCombustion::noCombustion
 (
     const word& modelType,
-    const ReactionThermo& thermo,
-    const compressibleTurbulenceModel& turb,
+    const fluidMulticomponentThermo& thermo,
+    const compressibleMomentumTransportModel& turb,
     const word& combustionProperties
 )
 :
-    ThermoCombustion<ReactionThermo>(modelType, thermo, turb)
+    combustionModel(modelType, thermo, turb)
 {}
 
 
 // * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
 
-template<class ReactionThermo>
-Foam::combustionModels::noCombustion<ReactionThermo>::~noCombustion()
+Foam::combustionModels::noCombustion::~noCombustion()
 {}
 
 
 // * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * * //
 
-template<class ReactionThermo>
-void Foam::combustionModels::noCombustion<ReactionThermo>::correct()
+void Foam::combustionModels::noCombustion::correct()
 {}
 
 
-template<class ReactionThermo>
-Foam::tmp<Foam::fvScalarMatrix>
-Foam::combustionModels::noCombustion<ReactionThermo>::R
-(
-    volScalarField& Y
-) const
+Foam::tmp<Foam::volScalarField::Internal>
+Foam::combustionModels::noCombustion::R(const label speciei) const
 {
-    tmp<fvScalarMatrix> tSu
-    (
-        new fvScalarMatrix(Y, dimMass/dimTime)
-    );
-
-    return tSu;
+    return
+        volScalarField::Internal::New
+        (
+            typedName("R_" + this->thermo().Y()[speciei].name()),
+            this->mesh(),
+            dimensionedScalar(dimDensity/dimTime, 0)
+        );
 }
 
 
-template<class ReactionThermo>
+Foam::tmp<Foam::fvScalarMatrix>
+Foam::combustionModels::noCombustion::R(volScalarField& Y) const
+{
+    return tmp<fvScalarMatrix>(new fvScalarMatrix(Y, dimMass/dimTime));
+}
+
+
 Foam::tmp<Foam::volScalarField>
-Foam::combustionModels::noCombustion<ReactionThermo>::Qdot() const
+Foam::combustionModels::noCombustion::Qdot() const
 {
     return volScalarField::New
     (
-        this->thermo().phasePropertyName(typeName + ":Qdot"),
+        this->thermo().phasePropertyName(typedName("Qdot")),
         this->mesh(),
         dimensionedScalar(dimEnergy/dimVolume/dimTime, 0)
     );
 }
 
 
-template<class ReactionThermo>
-bool Foam::combustionModels::noCombustion<ReactionThermo>::read()
+bool Foam::combustionModels::noCombustion::read()
 {
-    if (ThermoCombustion<ReactionThermo>::read())
+    if (combustionModel::read())
     {
         return true;
     }

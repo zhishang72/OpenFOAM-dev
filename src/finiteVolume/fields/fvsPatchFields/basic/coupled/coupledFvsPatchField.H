@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,7 +44,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class coupledFvsPatch Declaration
+                       Class coupledFvsPatch Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -90,17 +90,11 @@ public:
             const coupledFvsPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, surfaceMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
-        coupledFvsPatchField
-        (
-            const coupledFvsPatchField<Type>&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvsPatchField<Type>> clone() const = 0;
+        //- Disallow copy without setting internal field reference
+        coupledFvsPatchField(const coupledFvsPatchField<Type>&) = delete;
 
         //- Copy constructor setting internal field reference
         coupledFvsPatchField
@@ -126,6 +120,9 @@ public:
             {
                 return true;
             }
+
+        //- Write
+        virtual void write(Ostream&) const;
 };
 
 

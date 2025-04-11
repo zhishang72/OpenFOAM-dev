@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,10 @@ Class
     Foam::fluidThermo
 
 Description
-    Fundamental fluid thermodynamic properties
+    Base-class for fluid thermodynamic properties.
+
+See also
+    Foam::basicThermo
 
 SourceFiles
     fluidThermo.C
@@ -36,7 +39,7 @@ SourceFiles
 #define fluidThermo_H
 
 #include "basicThermo.H"
-#include "compressibleTransportModel.H"
+#include "viscosity.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -44,24 +47,21 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                        Class fluidThermo Declaration
+                         Class fluidThermo Declaration
 \*---------------------------------------------------------------------------*/
 
 class fluidThermo
 :
-    public basicThermo,
-    public compressibleTransportModel
+    virtual public basicThermo,
+    public viscosity
 {
-
-protected:
-
-        // Fields
-
-            //- Pressure [Pa]
-            volScalarField& p_;
-
-
 public:
+
+    // Public Classes
+
+        //- Forward declare the implementation class
+        class implementation;
+
 
     //- Runtime type information
     TypeName("fluidThermo");
@@ -77,30 +77,15 @@ public:
         (mesh, phaseName)
     );
 
-    // Constructors
 
-        //- Construct from mesh and phase name
-        fluidThermo
+    // Selectors
+
+        //- Standard selection based on fvMesh
+        static autoPtr<fluidThermo> New
         (
             const fvMesh&,
-            const word& phaseName
+            const word& phaseName=word::null
         );
-
-        //- Construct from mesh and phase name
-        fluidThermo
-        (
-            const fvMesh&,
-            const dictionary&,
-            const word& phaseName
-        );
-
-
-    //- Selector
-    static autoPtr<fluidThermo> New
-    (
-        const fvMesh&,
-        const word& phaseName=word::null
-    );
 
 
     //- Destructor
@@ -109,87 +94,111 @@ public:
 
     // Member Functions
 
-        // Access to thermodynamic state variables
+        // Thermodynamic state
+
+            //- Pressure [Pa]
+            virtual const volScalarField& p() const = 0;
 
             //- Pressure [Pa]
             //  Non-const access allowed for transport equations
-            virtual volScalarField& p();
-
-            //- Pressure [Pa]
-            virtual const volScalarField& p() const;
-
-            //- Add the given density correction to the density field.
-            //  Used to update the density field following pressure solution
-            virtual void correctRho(const volScalarField& deltaRho) = 0;
+            virtual volScalarField& p() = 0;
 
             //- Compressibility [s^2/m^2]
             virtual const volScalarField& psi() const = 0;
 
 
-        // Fields derived from thermodynamic state variables
+        // Derived thermodynamic properties
 
-            //- Gamma = Cp/Cv []
-            virtual tmp<volScalarField> gamma() const = 0;
+            //- Rename the thermodynamic density field if stored and return
+            //  This is used by solvers which create a separate continuity rho
+            //  [kg/m^3]
+            virtual tmp<volScalarField> renameRho() = 0;
 
-            //- Gamma = Cp/Cv for patch []
-            virtual tmp<scalarField> gamma
-            (
-                const scalarField& T,
-                const label patchi
-            ) const = 0;
-
-            //- Molecular weight [kg/kmol]
-            virtual tmp<volScalarField> W() const = 0;
-
-            //- Molecular weight for patch [kg/kmol]
-            virtual tmp<scalarField> W(const label patchi) const = 0;
+            //- Add the given density correction to the density field.
+            //  Used to update the density field following pressure solution
+            virtual void correctRho(const volScalarField& deltaRho) = 0;
 
 
-        // Access to transport state variables
+        // Transport state
 
             //- Dynamic viscosity of mixture [kg/m/s]
-            virtual tmp<volScalarField> mu() const = 0;
+            virtual const volScalarField& mu() const = 0;
 
-            //- Dynamic viscosity of mixture for patch [kg/m/s]
-            virtual tmp<scalarField> mu(const label patchi) const = 0;
+
+        // Derived transport properties
 
             //- Kinematic viscosity of mixture [m^2/s]
-            virtual tmp<volScalarField> nu() const;
+            tmp<volScalarField> nu() const;
 
             //- Kinematic viscosity of mixture for patch [m^2/s]
-            virtual tmp<scalarField> nu(const label patchi) const;
+            tmp<scalarField> nu(const label patchi) const;
+};
 
 
-        // Fields derived from transport state variables
+/*---------------------------------------------------------------------------*\
+                 Class fluidThermo::implementation Declaration
+\*---------------------------------------------------------------------------*/
 
-            //- Effective thermal turbulent diffusivity for temperature
-            //  of mixture [W/m/K]
-            virtual tmp<volScalarField> kappaEff
-            (
-                const volScalarField&
-            ) const = 0;
+class fluidThermo::implementation
+:
+    virtual public fluidThermo
+{
+protected:
 
-            //- Effective thermal turbulent diffusivity for temperature
-            //  of mixture for patch [W/m/K]
-            virtual tmp<scalarField> kappaEff
-            (
-                const scalarField& alphat,
-                const label patchi
-            ) const = 0;
+    // Protected data
 
-            //- Effective thermal turbulent diffusivity of mixture [kg/m/s]
-            virtual tmp<volScalarField> alphaEff
-            (
-                const volScalarField& alphat
-            ) const = 0;
+        // Fields
 
-            //- Effective thermal turbulent diffusivity of mixture
-            //  for patch [kg/m/s]
-            virtual tmp<scalarField> alphaEff
-            (
-                const scalarField& alphat,
-                const label patchi
-            ) const = 0;
+            //- Pressure [Pa]
+            volScalarField& p_;
+
+            //- Compressibility [s^2/m^2]
+            volScalarField psi_;
+
+            //- Dynamic viscosity [kg/m/s]
+            volScalarField mu_;
+
+
+public:
+
+    // Constructors
+
+        //- Construct from dictionary, mesh and phase name
+        implementation(const dictionary&, const fvMesh&, const word&);
+
+        //- Disallow default bitwise copy construction
+        implementation(const implementation&) = delete;
+
+
+    //- Destructor
+    virtual ~implementation();
+
+
+    // Member Functions
+
+        // Thermodynamic state
+
+            //- Pressure [Pa]
+            virtual const volScalarField& p() const;
+
+            //- Pressure [Pa]
+            //  Non-const access allowed for transport equations
+            virtual volScalarField& p();
+
+            //- Compressibility [s^2/m^2]
+            virtual const volScalarField& psi() const;
+
+
+        // Transport state
+
+            //- Dynamic viscosity of mixture [kg/m/s]
+            virtual const volScalarField& mu() const;
+
+
+    // Member Operators
+
+        //- Disallow default bitwise assignment
+        void operator=(const implementation&) = delete;
 };
 
 

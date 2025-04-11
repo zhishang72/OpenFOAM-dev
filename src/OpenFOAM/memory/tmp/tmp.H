@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -59,7 +59,8 @@ class tmp
         //- Object types
         enum type
         {
-            TMP,
+            REUSABLE_TMP,
+            NON_RESUSABLE_TMP,
             CONST_REF
         };
 
@@ -70,21 +71,33 @@ class tmp
         mutable T* ptr_;
 
 
-    // Private member operators
+    // Private Member Functions
 
+        //- Return true if the object is a reusable or non-reusable temporary
+        inline bool isAnyTmp() const;
+
+
+    // Private Member Operators
+
+        //- Increment the reference count
         inline void operator++();
 
 
 public:
 
-    typedef T Type;
-    typedef Foam::refCount refCount;
+    // Public Type Definitions
+
+        //- The type
+        typedef T Type;
+
+        //- The reference counting class
+        typedef Foam::refCount refCount;
 
 
     // Constructors
 
-        //- Store object pointer
-        inline explicit tmp(T* = 0);
+        //- Store object pointer of a non-reusable or reusable temporary object
+        inline explicit tmp(T* = 0, bool nonReusable = false);
 
         //- Store object const reference
         inline tmp(const T&);
@@ -99,7 +112,7 @@ public:
         inline tmp(const tmp<T>&, bool allowTransfer);
 
 
-    //- Destructor: deletes temporary object when the reference count is 0
+    //- Destructor. Deletes temporary object when the reference count is 0.
     inline ~tmp();
 
 
@@ -163,6 +176,9 @@ public:
 
         //- Assignment transferring the temporary T to this tmp
         inline void operator=(const tmp<T>&);
+
+        //- Move assignment transferring the temporary T to this tmp
+        inline void operator=(const tmp<T>&&);
 };
 
 

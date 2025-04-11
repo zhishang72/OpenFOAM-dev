@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -64,9 +64,9 @@ Usage
     }
     \endverbatim
 
-Note
-    If \c lInf is specified, \c fieldInf will be required; \c rho is only
-    required in the case of a mass-based flux.
+    Note:
+        If \c lInf is specified, \c fieldInf will be required; \c rho is only
+        required in the case of a mass-based flux.
 
 SourceFiles
     advectiveFvPatchField.C
@@ -84,7 +84,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                  Class advectiveFvPatchField Declaration
+                    Class advectiveFvPatchField Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -118,13 +118,6 @@ public:
 
     // Constructors
 
-        //- Construct from patch and internal field
-        advectiveFvPatchField
-        (
-            const fvPatch&,
-            const DimensionedField<Type, volMesh>&
-        );
-
         //- Construct from patch, internal field and dictionary
         advectiveFvPatchField
         (
@@ -140,23 +133,11 @@ public:
             const advectiveFvPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
-        advectiveFvPatchField
-        (
-            const advectiveFvPatchField&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchField<Type>> clone() const
-        {
-            return tmp<fvPatchField<Type>>
-            (
-                new advectiveFvPatchField<Type>(*this)
-            );
-        }
+        //- Disallow copy without setting internal field reference
+        advectiveFvPatchField(const advectiveFvPatchField&) = delete;
 
         //- Copy constructor setting internal field reference
         advectiveFvPatchField

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -52,6 +52,7 @@ namespace Foam
 // Forward declaration of classes
 class polyPatch;
 class polyMesh;
+class transformer;
 
 
 // Forward declaration of friend functions and operators
@@ -63,7 +64,7 @@ Ostream& operator<<(Ostream&, const pointEdgePoint&);
 
 
 /*---------------------------------------------------------------------------*\
-                           Class pointEdgePoint Declaration
+                       Class pointEdgePoint Declaration
 \*---------------------------------------------------------------------------*/
 
 class pointEdgePoint
@@ -86,16 +87,6 @@ class pointEdgePoint
         inline bool update
         (
             const point&,
-            const pointEdgePoint& w2,
-            const scalar tol,
-            TrackingData& td
-        );
-
-        //- Combine current with w2. Update distSqr, origin if w2 has smaller
-        //  quantities and returns true.
-        template<class TrackingData>
-        inline bool update
-        (
             const pointEdgePoint& w2,
             const scalar tol,
             TrackingData& td
@@ -129,41 +120,13 @@ public:
             template<class TrackingData>
             inline bool valid(TrackingData& td) const;
 
-            //- Check for identical geometrical data. Used for cyclics checking.
-            template<class TrackingData>
-            inline bool sameGeometry
-            (
-                const pointEdgePoint&,
-                const scalar tol,
-                TrackingData& td
-            ) const;
-
-            //- Convert origin to relative vector to leaving point
-            //  (= point coordinate)
-            template<class TrackingData>
-            inline void leaveDomain
-            (
-                const polyPatch& patch,
-                const label patchPointi,
-                const point& pos,
-                TrackingData& td
-            );
-
-            //- Convert relative origin to absolute by adding entering point
-            template<class TrackingData>
-            inline void enterDomain
-            (
-                const polyPatch& patch,
-                const label patchPointi,
-                const point& pos,
-                TrackingData& td
-            );
-
-            //- Apply rotation matrix to origin
+            //- Transform across an interface
             template<class TrackingData>
             inline void transform
             (
-                const tensor& rotTensor,
+                const polyPatch& patch,
+                const label patchFacei,
+                const transformer& transform,
                 TrackingData& td
             );
 
@@ -186,16 +149,6 @@ public:
             (
                 const polyMesh& mesh,
                 const label pointi,
-                const pointEdgePoint& newPointInfo,
-                const scalar tol,
-                TrackingData& td
-            );
-
-            //- Influence of different value on same point.
-            //  No information about current position whatsoever.
-            template<class TrackingData>
-            inline bool updatePoint
-            (
                 const pointEdgePoint& newPointInfo,
                 const scalar tol,
                 TrackingData& td
@@ -227,8 +180,8 @@ public:
 
     // IOstream Operators
 
-        friend Ostream& operator<<(Ostream&, const pointEdgePoint&);
-        friend Istream& operator>>(Istream&, pointEdgePoint&);
+        inline friend Ostream& operator<<(Ostream&, const pointEdgePoint&);
+        inline friend Istream& operator>>(Istream&, pointEdgePoint&);
 };
 
 

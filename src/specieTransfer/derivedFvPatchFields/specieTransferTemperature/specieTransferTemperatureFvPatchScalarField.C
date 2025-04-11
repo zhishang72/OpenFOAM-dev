@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2019-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -26,26 +26,14 @@ License
 #include "specieTransferTemperatureFvPatchScalarField.H"
 #include "specieTransferMassFractionFvPatchScalarField.H"
 #include "specieTransferVelocityFvPatchVectorField.H"
-#include "addToRunTimeSelectionTable.H"
 #include "volFields.H"
 #include "surfaceFields.H"
-#include "turbulentFluidThermoModel.H"
-#include "basicSpecieMixture.H"
+#include "fluidThermophysicalTransportModel.H"
+#include "fluidMulticomponentThermo.H"
+#include "addToRunTimeSelectionTable.H"
+#include "fvcGrad.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
-
-Foam::specieTransferTemperatureFvPatchScalarField::
-specieTransferTemperatureFvPatchScalarField
-(
-    const fvPatch& p,
-    const DimensionedField<scalar, volMesh>& iF
-)
-:
-    mixedEnergyCalculatedTemperatureFvPatchScalarField(p, iF),
-    phiName_("phi"),
-    UName_("U")
-{}
-
 
 Foam::specieTransferTemperatureFvPatchScalarField::
 specieTransferTemperatureFvPatchScalarField
@@ -62,7 +50,10 @@ specieTransferTemperatureFvPatchScalarField
 {
     if (readValue)
     {
-        fvPatchScalarField::operator==(scalarField("value", dict, p.size()));
+        fvPatchScalarField::operator==
+        (
+            scalarField("value", iF.dimensions(), dict, p.size())
+        );
     }
 }
 
@@ -73,22 +64,10 @@ specieTransferTemperatureFvPatchScalarField
     const specieTransferTemperatureFvPatchScalarField& ptf,
     const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     mixedEnergyCalculatedTemperatureFvPatchScalarField(ptf, p, iF, mapper),
-    phiName_(ptf.phiName_),
-    UName_(ptf.UName_)
-{}
-
-
-Foam::specieTransferTemperatureFvPatchScalarField::
-specieTransferTemperatureFvPatchScalarField
-(
-    const specieTransferTemperatureFvPatchScalarField& ptf
-)
-:
-    mixedEnergyCalculatedTemperatureFvPatchScalarField(ptf),
     phiName_(ptf.phiName_),
     UName_(ptf.UName_)
 {}
@@ -113,12 +92,9 @@ const Foam::tmp<Foam::scalarField>
 Foam::specieTransferTemperatureFvPatchScalarField::phiHep() const
 {
     typedef specieTransferMassFractionFvPatchScalarField YBCType;
-    const basicSpecieMixture& mixture = YBCType::composition(db());
-    const PtrList<volScalarField>& Y = mixture.Y();
+    const fluidMulticomponentThermo& thermo = YBCType::thermo(db());
+    const PtrList<volScalarField>& Y = thermo.Y();
 
-    // Get thermodynamic properties
-    const fluidThermo& thermo =
-        db().lookupObject<fluidThermo>(basicThermo::dictName);
     const fvPatchScalarField& Tp = *this;
     const fvPatchScalarField& pp = thermo.p().boundaryField()[patch().index()];
 
@@ -137,7 +113,7 @@ Foam::specieTransferTemperatureFvPatchScalarField::phiHep() const
                 << exit(FatalError);
         }
 
-        phiHep += refCast<const YBCType>(Yp).phiYp()*mixture.HE(i, pp, Tp);
+        phiHep += refCast<const YBCType>(Yp).phiYp()*thermo.hei(i, pp, Tp);
     }
 
     return tPhiHep;
@@ -159,27 +135,32 @@ void Foam::specieTransferTemperatureFvPatchScalarField::updateCoeffs()
     tmp<scalarField> uPhip =
         refCast<const specieTransferVelocityFvPatchVectorField>(Up).phip();
 
-    // Get the diffusivity
-    // !!! <-- This is a potential lagging issue as alphaEff(patchi) calculates
-    // alpha on demand, so the value may be different from alphaEff() which
-    // uses the alpha field cached by the thermodynamics
-    const scalarField AAlphaEffp
-    (
-        patch().magSf()
-       *db().lookupObject<compressible::turbulenceModel>
-        (
-            turbulenceModel::propertiesName
-        ).alphaEff(patch().index())
-    );
+    const fluidThermophysicalTransportModel& ttm =
+        db().lookupType<fluidThermophysicalTransportModel>();
 
     // Get the current energy to linearise around
-    const fluidThermo& thermo =
-        db().lookupObject<fluidThermo>(basicThermo::dictName);
-    const scalarField& hep = thermo.he().boundaryField()[patch().index()];
+    const fvPatchScalarField& hep =
+        ttm.thermo().he().boundaryField()[patch().index()];
 
+    // Get the energy diffusivity
+    const scalarField AAlphaEffp
+    (
+        patch().magSf()*ttm.alphaEff(patch().index())
+    );
+
+    // Compute the flux that we need to recover
+    const scalarField phiHep
+    (
+        this->phiHep()
+      - AAlphaEffp*hep.snGrad()
+      - patch().magSf()*ttm.q(patch().index())
+    );
+
+    // Set the gradient and value so that the transport and diffusion combined
+    // result in the desired energy flux
     heValueFraction() = phip/(phip - patch().deltaCoeffs()*AAlphaEffp);
     heRefValue() = hep;
-    heRefGrad() = phip*(hep - phiHep()/uPhip)/AAlphaEffp;
+    heRefGrad() = phip*(hep - phiHep/uPhip)/AAlphaEffp;
 
     mixedEnergyCalculatedTemperatureFvPatchScalarField::updateCoeffs();
 }

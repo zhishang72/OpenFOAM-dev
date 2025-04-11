@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2019-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -31,7 +31,7 @@ namespace Foam
 {
 namespace Function1s
 {
-    makeScalarFunction1(reverseRamp);
+    addScalarFunction1(reverseRamp);
 }
 }
 
@@ -40,12 +40,13 @@ namespace Function1s
 
 Foam::Function1s::reverseRamp::reverseRamp
 (
-    const word& entryName,
+    const word& name,
+    const unitConversions& units,
     const dictionary& dict
 )
 :
-    Ramp<reverseRamp>(entryName, dict),
-    ramp_(Function1<scalar>::New("ramp", dict))
+    Ramp<reverseRamp>(name, units, dict),
+    ramp_(Function1<scalar>::New("ramp", units.x, dimless, dict))
 {}
 
 
@@ -67,14 +68,14 @@ Foam::Function1s::reverseRamp::~reverseRamp()
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-void Foam::Function1s::reverseRamp::writeData(Ostream& os) const
+void Foam::Function1s::reverseRamp::write
+(
+    Ostream& os,
+    const unitConversions& units
+) const
 {
-    Ramp<reverseRamp>::writeData(os);
-    os  << token::END_STATEMENT << nl;
-    os  << indent << word(this->name() + "Coeffs") << nl;
-    os  << indent << token::BEGIN_BLOCK << incrIndent << nl;
-    ramp_->writeData(os);
-    os  << decrIndent << indent << token::END_BLOCK << endl;
+    Ramp<reverseRamp>::write(os, units);
+    writeEntry(os, units, ramp_());
 }
 
 

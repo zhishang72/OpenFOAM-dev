@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -39,6 +39,7 @@ Description
 #include "timeSelector.H"
 #include "OFstream.H"
 #include "passiveParticleCloud.H"
+#include "systemDict.H"
 
 #include "SortableList.H"
 #include "IOobjectList.H"
@@ -118,8 +119,8 @@ int main(int argc, char *argv[])
     #include "setRootCase.H"
 
     #include "createTime.H"
-    instantList timeDirs = timeSelector::select0(runTime, args);
-    #include "createNamedMesh.H"
+    const instantList timeDirs = timeSelector::select0(runTime, args);
+    #include "createRegionMeshNoChangers.H"
     #include "createFields.H"
 
     // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -132,9 +133,9 @@ int main(int argc, char *argv[])
     forAll(timeDirs, timeI)
     {
         runTime.setTime(timeDirs[timeI], timeI);
-        Info<< "Time = " << runTime.timeName() << endl;
+        Info<< "Time = " << runTime.userTimeName() << endl;
 
-        const fileName vtkTimePath(vtkPath/runTime.timeName());
+        const fileName vtkTimePath(vtkPath/runTime.name());
         mkDir(vtkTimePath);
 
         Info<< "    Reading particle positions" << endl;
@@ -216,8 +217,8 @@ int main(int argc, char *argv[])
             IOobjectList cloudObjs
             (
                 mesh,
-                runTime.timeName(),
-                cloud::prefix/cloudName
+                runTime.name(),
+                lagrangian::cloud::prefix/cloudName
             );
 
             // TODO: gather age across all procs
@@ -278,7 +279,8 @@ int main(int argc, char *argv[])
                         forAll(ids, j)
                         {
                             const label localId = particleIds[j];
-                            const vector& pos = particles[localId].position();
+                            const vector pos =
+                                particles[localId].position(mesh);
                             os  << pos.x() << ' ' << pos.y() << ' ' << pos.z()
                                 << nl;
                         }
@@ -333,7 +335,7 @@ int main(int argc, char *argv[])
         Info<< endl;
     }
 
-    Info<< "\ndone" << endl;
+    Info<< "End\n" << endl;
 
     return 0;
 }

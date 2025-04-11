@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -49,7 +49,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-        Class timeVaryingMappedFixedValuePointPatchField Declaration
+         Class timeVaryingMappedFixedValuePointPatchField Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -107,13 +107,6 @@ public:
 
     // Constructors
 
-        //- Construct from patch and internal field
-        timeVaryingMappedFixedValuePointPatchField
-        (
-            const pointPatch&,
-            const DimensionedField<Type, pointMesh>&
-        );
-
         //- Construct from patch, internal field and dictionary
         timeVaryingMappedFixedValuePointPatchField
         (
@@ -122,29 +115,22 @@ public:
             const dictionary&
         );
 
-        //- Construct by mapping given patch field onto a new patch
+        //- Construct by mapping given
+        //  timeVaryingMappedFixedValuePointPatchField
+        //  onto a new patch
         timeVaryingMappedFixedValuePointPatchField
         (
             const timeVaryingMappedFixedValuePointPatchField<Type>&,
             const pointPatch&,
             const DimensionedField<Type, pointMesh>&,
-            const pointPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         timeVaryingMappedFixedValuePointPatchField
         (
             const timeVaryingMappedFixedValuePointPatchField<Type>&
-        );
-
-        //- Construct and return a clone
-        virtual autoPtr<pointPatchField<Type>> clone() const
-        {
-            return autoPtr<pointPatchField<Type>>
-            (
-                new timeVaryingMappedFixedValuePointPatchField<Type>(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         timeVaryingMappedFixedValuePointPatchField
@@ -176,13 +162,12 @@ public:
 
         // Mapping functions
 
-            //- Map (and resize as needed) from self given a mapping object
-            //  Used to update fields following mesh topology change
-            virtual void autoMap(const pointPatchFieldMapper&);
+            //- Map the given pointPatchField onto this pointPatchField
+            virtual void map(const pointPatchField<Type>&, const fieldMapper&);
 
-            //- Reverse map the given pointPatchField onto this pointPatchField
-            //  Used to reconstruct fields
-            virtual void rmap(const pointPatchField<Type>&, const labelList&);
+            //- Reset the pointPatchField to the given pointPatchField
+            //  Used for mesh to mesh mapping
+            virtual void reset(const pointPatchField<Type>&);
 
 
         // Evaluation functions

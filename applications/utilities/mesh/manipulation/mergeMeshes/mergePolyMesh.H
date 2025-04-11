@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ Class
     Foam::mergePolyMesh
 
 Description
-    Add a given mesh to the original mesh to create a single new mesh
+    Merge meshes into a single mesh without stitching.
 
 SourceFiles
     mergePolyMesh.C
@@ -43,17 +43,16 @@ SourceFiles
 namespace Foam
 {
 
-// Forward declaration of classes
-
 /*---------------------------------------------------------------------------*\
-                           Class mergePolyMesh Declaration
+                        Class mergePolyMesh Declaration
 \*---------------------------------------------------------------------------*/
 
 class mergePolyMesh
-:
-    public polyMesh
 {
     // Private Data
+
+        //- The master mesh the other meshes are merged into
+        polyMesh& mesh_;
 
         //- Topological change to accumulated all mesh changes
         polyTopoChange meshMod_;
@@ -67,11 +66,20 @@ class mergePolyMesh
         //- Point zone names
         DynamicList<word> pointZoneNames_;
 
+        //- Zones of the added points
+        List<labelHashSet> pointZonesAddedPoints_;
+
         //- Face zone names
         DynamicList<word> faceZoneNames_;
 
+        //- Zones of the added faces
+        List<Map<bool>> faceZonesAddedFaces_;
+
         //- Cell zone names
         DynamicList<word> cellZoneNames_;
+
+        //- Zones of the added cells
+        List<labelHashSet> cellZonesAddedCells_;
 
 
     // Private Member Functions
@@ -91,11 +99,8 @@ public:
 
     // Constructors
 
-        //- Construct from IOobject
-        mergePolyMesh(const IOobject& io);
-
-        //- Disallow default bitwise copy construction
-        mergePolyMesh(const mergePolyMesh&) = delete;
+        //- Construct from polyMesh
+        mergePolyMesh(polyMesh& mesh);
 
 
     //- Destructor

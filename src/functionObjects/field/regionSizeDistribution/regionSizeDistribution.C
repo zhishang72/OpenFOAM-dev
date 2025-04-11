@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -65,29 +65,6 @@ namespace Foam
 
 // * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
 
-void Foam::functionObjects::regionSizeDistribution::writeGraph
-(
-    const coordSet& coords,
-    const word& valueName,
-    const scalarField& values
-) const
-{
-    const wordList valNames(1, valueName);
-
-    fileName outputPath = file_.baseTimeDir();
-    mkDir(outputPath);
-
-    OFstream str(outputPath/formatterPtr_().getFileName(coords, valNames));
-
-    Info<< "    Writing distribution of " << valueName << " to " << str.name()
-        << endl;
-
-    List<const scalarField*> valPtrs(1);
-    valPtrs[0] = &values;
-    formatterPtr_().write(coords, valNames, valPtrs, str);
-}
-
-
 void Foam::functionObjects::regionSizeDistribution::writeAlphaFields
 (
     const regionSplit& regions,
@@ -112,7 +89,7 @@ void Foam::functionObjects::regionSizeDistribution::writeAlphaFields
         IOobject
         (
             alphaName_ + "_liquidCore",
-            obr_.time().timeName(),
+            time_.name(),
             obr_,
             IOobject::NO_READ
         ),
@@ -125,7 +102,7 @@ void Foam::functionObjects::regionSizeDistribution::writeAlphaFields
         IOobject
         (
             alphaName_ + "_background",
-            obr_.time().timeName(),
+            time_.name(),
             obr_,
             IOobject::NO_READ
         ),
@@ -216,15 +193,16 @@ Foam::functionObjects::regionSizeDistribution::findPatchRegions
 }
 
 
-Foam::tmp<Foam::scalarField>
+template<class Type>
+Foam::tmp<Foam::Field<Type>>
 Foam::functionObjects::regionSizeDistribution::divide
 (
-    const scalarField& num,
+    const Field<Type>& num,
     const scalarField& denom
 )
 {
-    tmp<scalarField> tresult(new scalarField(num.size()));
-    scalarField& result = tresult.ref();
+    tmp<Field<Type>> tresult(new Field<Type>(num.size()));
+    Field<Type>& result = tresult.ref();
 
     forAll(denom, i)
     {
@@ -234,35 +212,71 @@ Foam::functionObjects::regionSizeDistribution::divide
         }
         else
         {
-            result[i] = 0.0;
+            result[i] = Zero;
         }
     }
+
     return tresult;
 }
 
 
-void Foam::functionObjects::regionSizeDistribution::writeGraphs
+template<class Type>
+void Foam::functionObjects::regionSizeDistribution::generateFields
 (
     const word& fieldName,              // name of field
     const labelList& indices,           // index of bin for each region
-    const scalarField& sortedField,     // per region field data
+    const Field<Type>& sortedField,     // per region field data
     const scalarField& binCount,        // per bin number of regions
-    const coordSet& coords              // graph data for bins
+    wordList& fieldNames,
+    PtrList<Field<Type>>& fields
 ) const
 {
     if (Pstream::master())
     {
-        // Calculate per-bin average
-        scalarField binSum(nBins_, 0.0);
+        // Calculate per-bin sum
+        Field<Type> binSum(nBins_, Zero);
         forAll(sortedField, i)
         {
             binSum[indices[i]] += sortedField[i];
         }
 
+        // Calculate per-bin average
+        Field<Type> binAvg(divide(binSum, binCount));
+
+        // Append
+        fields.setSize(fieldNames.size());
+        fieldNames.append(fieldName + "_sum");
+        fields.append(binSum);
+        fieldNames.append(fieldName + "_avg");
+        fields.append(binAvg);
+    }
+}
+
+
+void Foam::functionObjects::regionSizeDistribution::generateFields
+(
+    const word& fieldName,              // name of field
+    const labelList& indices,           // index of bin for each region
+    const scalarField& sortedField,     // per region field data
+    const scalarField& binCount,        // per bin number of regions
+    wordList& fieldNames,
+    PtrList<scalarField>& fields
+) const
+{
+    if (Pstream::master())
+    {
+        // Calculate per-bin sum
+        scalarField binSum(nBins_, Zero);
+        forAll(sortedField, i)
+        {
+            binSum[indices[i]] += sortedField[i];
+        }
+
+        // Calculate per-bin average
         scalarField binAvg(divide(binSum, binCount));
 
-        // Per bin deviation
-        scalarField binSqrSum(nBins_, 0.0);
+        // Calculate per-bin deviation
+        scalarField binSqrSum(nBins_, Zero);
         forAll(sortedField, i)
         {
             binSqrSum[indices[i]] += Foam::sqr(sortedField[i]);
@@ -272,50 +286,50 @@ void Foam::functionObjects::regionSizeDistribution::writeGraphs
             sqrt(divide(binSqrSum, binCount) - Foam::sqr(binAvg))
         );
 
-        // Write average
-        writeGraph(coords, fieldName + "_sum", binSum);
-        // Write average
-        writeGraph(coords, fieldName + "_avg", binAvg);
-        // Write deviation
-        writeGraph(coords, fieldName + "_dev", binDev);
+        // Append
+        fields.setSize(fieldNames.size());
+        fieldNames.append(fieldName + "_sum");
+        fields.append(binSum);
+        fieldNames.append(fieldName + "_avg");
+        fields.append(binAvg);
+        fieldNames.append(fieldName + "_dev");
+        fields.append(binDev);
     }
 }
 
 
-void Foam::functionObjects::regionSizeDistribution::writeGraphs
+template<class Type>
+void Foam::functionObjects::regionSizeDistribution::generateFields
 (
     const word& fieldName,              // name of field
-    const scalarField& cellField,       // per cell field data
+    const Field<Type>& cellField,       // per cell field data
     const regionSplit& regions,         // per cell the region(=droplet)
     const labelList& sortedRegions,     // valid regions in sorted order
     const scalarField& sortedNormalisation,
-
-    const labelList& indices,           // per region index of bin
+    const labelList& indices,           // index of bin for each region
     const scalarField& binCount,        // per bin number of regions
-    const coordSet& coords              // graph data for bins
+    wordList& fieldNames,
+    PtrList<Field<Type>>& fields
 ) const
 {
     // Sum on a per-region basis. Parallel reduced.
-    Map<scalar> regionField(regionSum(regions, cellField));
+    Map<Type> regionField(regionSum(regions, cellField));
 
     // Extract in region order
-    scalarField sortedField
+    Field<Type> sortedField
     (
-        sortedNormalisation
-      * extractData
-        (
-            sortedRegions,
-            regionField
-        )
+        sortedNormalisation*extractData(sortedRegions, regionField)
     );
 
-    writeGraphs
+    // Generate fields
+    generateFields
     (
         fieldName,      // name of field
         indices,        // index of bin for each region
         sortedField,    // per region field data
         binCount,       // per bin number of regions
-        coords          // graph data for bins
+        fieldNames,
+        fields
     );
 }
 
@@ -331,7 +345,7 @@ Foam::functionObjects::regionSizeDistribution::regionSizeDistribution
 :
     fvMeshFunctionObject(name, runTime, dict),
     file_(obr_, name),
-    alphaName_(dict.lookup("field")),
+    alphaName_(dict.lookup("alpha")),
     patchNames_(dict.lookup("patches"))
 {
     read(dict);
@@ -348,7 +362,7 @@ Foam::functionObjects::regionSizeDistribution::~regionSizeDistribution()
 
 bool Foam::functionObjects::regionSizeDistribution::read(const dictionary& dict)
 {
-    dict.lookup("field") >> alphaName_;
+    dict.lookup("alpha") >> alphaName_;
     dict.lookup("patches") >> patchNames_;
     dict.lookup("threshold") >> threshold_;
     dict.lookup("maxDiameter") >> maxDiam_;
@@ -357,18 +371,17 @@ bool Foam::functionObjects::regionSizeDistribution::read(const dictionary& dict)
     dict.lookup("nBins") >> nBins_;
     dict.lookup("fields") >> fields_;
 
-    word format(dict.lookup("setFormat"));
-    formatterPtr_ = writer<scalar>::New(format);
-
-    if (dict.found("coordinateSystem"))
-    {
-        coordSysPtr_.reset(new coordinateSystem(obr_, dict));
-
-        Info<< "Transforming all vectorFields with coordinate system "
-            << coordSysPtr_().name() << endl;
-    }
+    formatterPtr_ = setWriter::New(dict.lookup("setFormat"), dict);
 
     return true;
+}
+
+
+Foam::wordList Foam::functionObjects::regionSizeDistribution::fields() const
+{
+    wordList fields(fields_);
+    fields.append(alphaName_);
+    return fields;
 }
 
 
@@ -397,7 +410,7 @@ bool Foam::functionObjects::regionSizeDistribution::write()
                 IOobject
                 (
                     alphaName_,
-                    mesh_.time().timeName(),
+                    time_.name(),
                     mesh_,
                     IOobject::MUST_READ,
                     IOobject::NO_WRITE
@@ -430,7 +443,6 @@ bool Foam::functionObjects::regionSizeDistribution::write()
 
     // Determine blocked faces
     boolList blockedFace(mesh_.nFaces(), false);
-    label nBlocked = 0;
 
     {
         for (label facei = 0; facei < mesh_.nInternalFaces(); facei++)
@@ -445,7 +457,6 @@ bool Foam::functionObjects::regionSizeDistribution::write()
             )
             {
                 blockedFace[facei] = true;
-                nBlocked++;
             }
         }
 
@@ -474,7 +485,6 @@ bool Foam::functionObjects::regionSizeDistribution::write()
                     )
                     {
                         blockedFace[start+i] = true;
-                        nBlocked++;
                     }
                 }
             }
@@ -495,7 +505,7 @@ bool Foam::functionObjects::regionSizeDistribution::write()
             IOobject
             (
                 "region",
-                mesh_.time().timeName(),
+                time_.name(),
                 mesh_,
                 IOobject::NO_READ,
                 IOobject::NO_WRITE
@@ -656,17 +666,13 @@ bool Foam::functionObjects::regionSizeDistribution::write()
     if (allRegionVolume.size())
     {
         // Construct mids of bins for plotting
-        pointField xBin(nBins_);
-
+        scalarField xBin(nBins_);
         scalar x = 0.5*delta;
         forAll(xBin, i)
         {
-            xBin[i] = point(x, 0, 0);
+            xBin[i] = x;
             x += delta;
         }
-
-        const coordSet coords("diameter", "x", xBin, mag(xBin));
-
 
         // Get in region order the alpha*volume and diameter
         // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -707,12 +713,6 @@ bool Foam::functionObjects::regionSizeDistribution::write()
             binCount[indices[i]] += 1.0;
         }
 
-        // Write counts
-        if (Pstream::master())
-        {
-            writeGraph(coords, "count", binCount);
-        }
-
         // Write to log
         {
             Info<< "    Bins:" << endl;
@@ -732,107 +732,80 @@ bool Foam::functionObjects::regionSizeDistribution::write()
             Info<< endl;
         }
 
+        // Declare fields and field names
+        wordList fieldNames;
+        #define DeclareTypeFields(Type, nullArg) \
+            PtrList<Field<Type>> Type##Fields;
+        FOR_ALL_FIELD_TYPES(DeclareTypeFields);
+        #undef DeclareTypeFields
 
-        // Write average and deviation of droplet volume.
-        writeGraphs
+        // Add the bin count
+        fieldNames.append("binCount");
+        #define TypeFieldsAppend(Type, nullArg) \
+            appendFields(binCount, Type##Fields);
+        #undef TypeFieldsAppend
+
+        // Add the volumes
+        generateFields
         (
-            "volume",           // name of field
-            indices,            // per region the bin index
-            sortedVols,         // per region field data
-            binCount,           // per bin number of regions
-            coords              // graph data for bins
+            "volume",
+            indices,
+            sortedVols,
+            binCount,
+            fieldNames,
+            scalarFields
         );
 
-        // Collect some more field
+        // Add other sampled fields
+        forAll(fields_, fieldi)
         {
-            wordList scalarNames(obr_.names(volScalarField::typeName));
-            labelList selected = findStrings(fields_, scalarNames);
+            bool found = false;
 
-            forAll(selected, i)
-            {
-                const word& fldName = scalarNames[selected[i]];
-                Info<< "    Scalar field " << fldName << endl;
-
-                const scalarField& fld = obr_.lookupObject
-                <
-                    volScalarField
-                >(fldName).primitiveField();
-
-                writeGraphs
-                (
-                    fldName,            // name of field
-                    alphaVol*fld,       // per cell field data
-
-                    regions,            // per cell the region(=droplet)
-                    sortedRegions,      // valid regions in sorted order
-                    1.0/sortedVols,     // per region normalisation
-
-                    indices,            // index of bin for each region
-                    binCount,           // per bin number of regions
-                    coords              // graph data for bins
-                );
-            }
-        }
-        {
-            wordList vectorNames(obr_.names(volVectorField::typeName));
-            labelList selected = findStrings(fields_, vectorNames);
-
-            forAll(selected, i)
-            {
-                const word& fldName = vectorNames[selected[i]];
-                Info<< "    Vector field " << fldName << endl;
-
-                vectorField fld = obr_.lookupObject
-                <
-                    volVectorField
-                >(fldName).primitiveField();
-
-                if (coordSysPtr_.valid())
-                {
-                    Info<< "Transforming vector field " << fldName
-                        << " with coordinate system "
-                        << coordSysPtr_().name()
-                        << endl;
-
-                    fld = coordSysPtr_().localVector(fld);
+            #define GenerateTypeFields(Type, nullArg)                       \
+                                                                            \
+                if (obr_.foundObject<VolField<Type>>(fields_[fieldi]))      \
+                {                                                           \
+                    found = true;                                           \
+                                                                            \
+                    const VolField<Type>& field =                           \
+                        obr_.lookupObject<VolField<Type>>(fields_[fieldi]); \
+                                                                            \
+                    generateFields                                          \
+                    (                                                       \
+                        fields_[fieldi],                                    \
+                        (alphaVol*field)(),                                 \
+                        regions,                                            \
+                        sortedRegions,                                      \
+                        1.0/sortedVols,                                     \
+                        indices,                                            \
+                        binCount,                                           \
+                        fieldNames,                                         \
+                        Type##Fields                                        \
+                    );                                                      \
                 }
+            FOR_ALL_FIELD_TYPES(GenerateTypeFields);
+            #undef GenerateTypeFields
 
-
-                // Components
-
-                for (direction cmp = 0; cmp < vector::nComponents; cmp++)
-                {
-                    writeGraphs
-                    (
-                        fldName + vector::componentNames[cmp],
-                        alphaVol*fld.component(cmp),// per cell field data
-
-                        regions,        // per cell the region(=droplet)
-                        sortedRegions,  // valid regions in sorted order
-                        1.0/sortedVols, // per region normalisation
-
-                        indices,        // index of bin for each region
-                        binCount,       // per bin number of regions
-                        coords          // graph data for bins
-                    );
-                }
-
-                // Magnitude
-                writeGraphs
-                (
-                    fldName + "mag",    // name of field
-                    alphaVol*mag(fld),  // per cell field data
-
-                    regions,            // per cell the region(=droplet)
-                    sortedRegions,      // valid regions in sorted order
-                    1.0/sortedVols,     // per region normalisation
-
-                    indices,            // index of bin for each region
-                    binCount,           // per bin number of regions
-                    coords              // graph data for bins
-                );
-            }
+            if (!found) cannotFindObject(fields_[fieldi]);
         }
+
+        // Expand all field lists
+        #define TypeFieldsExpand(Type, nullArg) \
+            Type##Fields.setSize(fieldNames.size());
+        FOR_ALL_FIELD_TYPES(TypeFieldsExpand)
+        #undef TypeFieldsAppend
+
+        // Write
+        formatterPtr_().write
+        (
+            file_.baseTimeDir(),
+            typeName,
+            coordSet(true, "diameter", xBin),
+            fieldNames
+            #define TypeFieldsParameter(Type, nullArg) , Type##Fields
+            FOR_ALL_FIELD_TYPES(TypeFieldsParameter)
+            #undef TypeFieldsParameter
+        );
     }
 
     return true;

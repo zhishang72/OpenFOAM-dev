@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -70,7 +70,7 @@ SourceFiles
 namespace Foam
 {
 /*---------------------------------------------------------------------------*\
-         Class outletPhaseMeanVelocityFvPatchVectorField Declaration
+          Class outletPhaseMeanVelocityFvPatchVectorField Declaration
 \*---------------------------------------------------------------------------*/
 
 class outletPhaseMeanVelocityFvPatchVectorField
@@ -94,13 +94,6 @@ public:
 
    // Constructors
 
-        //- Construct from patch and internal field
-        outletPhaseMeanVelocityFvPatchVectorField
-        (
-            const fvPatch&,
-            const DimensionedField<vector, volMesh>&
-        );
-
         //- Construct from patch, internal field and dictionary
         outletPhaseMeanVelocityFvPatchVectorField
         (
@@ -117,23 +110,14 @@ public:
             const outletPhaseMeanVelocityFvPatchVectorField&,
             const fvPatch&,
             const DimensionedField<vector, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         outletPhaseMeanVelocityFvPatchVectorField
         (
             const outletPhaseMeanVelocityFvPatchVectorField&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchVectorField> clone() const
-        {
-            return tmp<fvPatchVectorField>
-            (
-                new outletPhaseMeanVelocityFvPatchVectorField(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         outletPhaseMeanVelocityFvPatchVectorField

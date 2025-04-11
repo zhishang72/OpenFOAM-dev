@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -125,7 +125,7 @@ void Foam::radiationModels::viewFactor::initialise()
 
     map_.reset
     (
-        new mapDistribute
+        new distributionMap
         (
             consMapDim[0],
             move(subMap),
@@ -270,7 +270,7 @@ Foam::radiationModels::viewFactor::viewFactor(const volScalarField& T)
         IOobject
         (
             "qr",
-            mesh_.time().timeName(),
+            mesh_.time().name(),
             mesh_,
             IOobject::MUST_READ,
             IOobject::AUTO_WRITE
@@ -328,7 +328,7 @@ Foam::radiationModels::viewFactor::viewFactor
         IOobject
         (
             "qr",
-            mesh_.time().timeName(),
+            mesh_.time().name(),
             mesh_,
             IOobject::MUST_READ,
             IOobject::AUTO_WRITE
@@ -551,14 +551,14 @@ void Foam::radiationModels::viewFactor::calculate()
                 }
             }
 
-            Info<< "\nSolving view factor equations..." << endl;
+            Info<< nl << "Solving view factor equations..." << endl;
 
             // Negative coming into the fluid
             LUsolve(C, q);
         }
         else // Constant emissivity
         {
-            // Initial iter calculates CLU and chaches it
+            // Initial iter calculates CLU and caches it
             if (iterCounter_ == 0)
             {
                 for (label i=0; i<totalNCoarseFaces_; i++)
@@ -627,7 +627,6 @@ void Foam::radiationModels::viewFactor::calculate()
         if (pp.size() > 0)
         {
             scalarField& qrp = qrBf[patchID];
-            const scalarField& sf = mesh_.magSf().boundaryField()[patchID];
             const labelList& agglom = finalAgglom_[patchID];
             label nAgglom = max(agglom)+1;
 
@@ -636,7 +635,6 @@ void Foam::radiationModels::viewFactor::calculate()
             const labelList& coarsePatchFace =
                 coarseMesh_.patchFaceMap()[patchID];
 
-            scalar heatFlux = 0.0;
             forAll(coarseToFine, coarseI)
             {
                 label globalCoarse =
@@ -648,7 +646,6 @@ void Foam::radiationModels::viewFactor::calculate()
                     label facei = fineFaces[k];
 
                     qrp[facei] = q[globalCoarse];
-                    heatFlux += qrp[facei]*sf[facei];
                 }
                 globCoarseId ++;
             }

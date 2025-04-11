@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -35,7 +35,9 @@ Usage
         Property     | Description             | Required    | Default value
         phi          | flux field name         | no          | phi
         tangentialVelocity | tangential velocity field | no  |
-        omega        | angular velocity of the frame [rad/s] | yes    |
+        origin       | origin of rotation in Cartesian co-ordinates | yes|
+        axis         | axis of rotation        | yes         |
+        omega        | angular velocity of the frame    | no |
     \endtable
 
     Example of the boundary condition specification:
@@ -45,21 +47,23 @@ Usage
         type            rotatingPressureInletOutletVelocity;
         phi             phi;
         tangentialVelocity uniform (0 0 0);
-        omega           100;
+        origin          (0 0 0);
+        axis            (0 0 1);
+        omega           100 [rpm];
     }
     \endverbatim
 
-    The \c omega entry is a Function1 type, able to describe time varying
-    functions.
+    The \c omega entry is a Function1 of time, see Foam::Function1s.
 
-Note
-    Sign conventions:
-    - positive flux (out of domain): apply zero-gradient condition
-    - negative flux (into of domain): derive from the flux in the patch-normal
-      direction
+    Note:
+        Sign conventions:
+      - positive flux (out of domain): apply zero-gradient condition
+      - negative flux (into of domain): derive from the flux in the patch-normal
+        direction
 
 See also
     Foam::pressureInletOutletVelocityFvPatchVectorField
+    Foam::Function1s::omega
     Foam::Function1s
 
 SourceFiles
@@ -72,7 +76,7 @@ SourceFiles
 
 #include "fvPatchFields.H"
 #include "pressureInletOutletVelocityFvPatchVectorField.H"
-#include "Function1.H"
+#include "omega1.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -80,7 +84,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-   Class rotatingPressureInletOutletVelocityFvPatchVectorField Declaration
+    Class rotatingPressureInletOutletVelocityFvPatchVectorField Declaration
 \*---------------------------------------------------------------------------*/
 
 class rotatingPressureInletOutletVelocityFvPatchVectorField
@@ -89,8 +93,14 @@ class rotatingPressureInletOutletVelocityFvPatchVectorField
 {
     // Private Data
 
+        //- Origin of the rotation
+        vector origin_;
+
+        //- Axis of the rotation
+        vector axis_;
+
         //- Angular velocity of the frame
-        autoPtr<Function1<vector>> omega_;
+        Function1s::omega omega_;
 
 
     // Private Member Functions
@@ -106,13 +116,6 @@ public:
 
 
     // Constructors
-
-        //- Construct from patch and internal field
-        rotatingPressureInletOutletVelocityFvPatchVectorField
-        (
-            const fvPatch&,
-            const DimensionedField<vector, volMesh>&
-        );
 
         //- Construct from patch, internal field and dictionary
         rotatingPressureInletOutletVelocityFvPatchVectorField
@@ -130,23 +133,14 @@ public:
             const rotatingPressureInletOutletVelocityFvPatchVectorField&,
             const fvPatch&,
             const DimensionedField<vector, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         rotatingPressureInletOutletVelocityFvPatchVectorField
         (
             const rotatingPressureInletOutletVelocityFvPatchVectorField&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchVectorField> clone() const
-        {
-            return tmp<fvPatchVectorField>
-            (
-                new rotatingPressureInletOutletVelocityFvPatchVectorField(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         rotatingPressureInletOutletVelocityFvPatchVectorField

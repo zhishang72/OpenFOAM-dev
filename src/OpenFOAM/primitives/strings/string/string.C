@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,13 +25,21 @@ License
 
 #include "string.H"
 #include "stringOps.H"
-
+#include "UList.H"
 
 /* * * * * * * * * * * * * * * Static Member Data  * * * * * * * * * * * * * */
 
 const char* const Foam::string::typeName = "string";
 int Foam::string::debug(Foam::debug::debugSwitch(string::typeName, 0));
 const Foam::string Foam::string::null;
+
+
+// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
+
+Foam::string::string(const UList<char>& str)
+:
+    std::string(str.begin(), str.end())
+{}
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
@@ -70,6 +78,17 @@ Foam::string& Foam::string::replace
 }
 
 
+Foam::string Foam::string::replace
+(
+    const string& oldStr,
+    const string& newStr,
+    size_type start
+) const
+{
+    return string(*this).replace(oldStr, newStr, start);
+}
+
+
 Foam::string& Foam::string::replaceAll
 (
     const string& oldStr,
@@ -92,11 +111,65 @@ Foam::string& Foam::string::replaceAll
 }
 
 
+Foam::string Foam::string::replaceAll
+(
+    const string& oldStr,
+    const string& newStr,
+    size_type start
+) const
+{
+    return string(*this).replaceAll(oldStr, newStr, start);
+}
+
+
 Foam::string& Foam::string::expand(const bool allowEmpty)
 {
-    stringOps::inplaceExpand(*this, allowEmpty);
+    stringOps::inplaceExpandEnvVar(*this, allowEmpty);
     return *this;
 }
+
+
+bool Foam::string::remove(const char character)
+{
+    bool changed = false;
+
+    string::size_type n = 0;
+    iterator iter2 = begin();
+
+    for
+    (
+        string::const_iterator iter1 = iter2;
+        iter1 != end();
+        ++iter1
+    )
+    {
+        char c = *iter1;
+
+        if (c == character)
+        {
+            changed = true;
+        }
+        else
+        {
+            *iter2 = c;
+            ++iter2;
+            ++n;
+        }
+    }
+
+    resize(n);
+
+    return changed;
+}
+
+
+Foam::string Foam::string::remove(const char character) const
+{
+    string str(*this);
+    str.remove(character);
+    return str;
+}
+
 
 
 bool Foam::string::removeRepeated(const char character)
@@ -112,7 +185,7 @@ bool Foam::string::removeRepeated(const char character)
     (
         string::const_iterator iter1 = iter2;
         iter1 != end();
-        ++ iter1
+        ++iter1
     )
     {
         char c = *iter1;
@@ -124,8 +197,8 @@ bool Foam::string::removeRepeated(const char character)
         else
         {
             *iter2 = cPrev = c;
-            ++ iter2;
-            ++ n;
+            ++iter2;
+            ++n;
         }
     }
 
@@ -186,6 +259,61 @@ Foam::string Foam::string::removeTrailing(const string& str) const
     string result(*this);
     result.removeTrailing(str);
     return result;
+}
+
+
+void Foam::string::strip(const string& str)
+{
+    // Find the first character to keep
+    string::size_type i0 = 0;
+    while (i0 < size() && str.count(operator[](i0)) > 0)
+    {
+        ++ i0;
+    }
+
+    // Find one past the last character to keep
+    string::size_type i1 = size();
+    while (i1 > i0 && str.count(operator[](i1 - 1)) > 0)
+    {
+        -- i1;
+    }
+
+    // Remove leading characters by shuffling the string up
+    if (i0 != 0)
+    {
+        for (string::size_type i = 0; i < size() - i0; ++ i)
+        {
+            operator[](i) = operator[](i + i0);
+        }
+    }
+
+    // If removing any characters then resize the string
+    if (i0 != 0 || i1 != size())
+    {
+        resize(i1 - i0);
+    }
+}
+
+
+Foam::string::size_type Foam::string::findClosing
+(
+    const char c,
+    string::size_type i0 = 0
+) const
+{
+    size_t level = 1;
+
+    string::size_type i = i0 + 1;
+
+    while (level > 0 && i < size())
+    {
+        if (operator[](i) == operator[](i0)) ++level;
+        if (operator[](i) == c) --level;
+
+        ++i;
+    }
+
+    return level == 0 ? i - 1 : string::npos;
 }
 
 

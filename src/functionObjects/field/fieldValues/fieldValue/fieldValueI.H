@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -28,19 +28,7 @@ License
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-inline const Foam::dictionary& Foam::functionObjects::fieldValue::dict() const
-{
-    return dict_;
-}
-
-
-inline const Foam::word& Foam::functionObjects::fieldValue::regionName() const
-{
-    return regionName_;
-}
-
-
-inline const Foam::wordList& Foam::functionObjects::fieldValue::fields() const
+inline Foam::wordList Foam::functionObjects::fieldValue::fields() const
 {
     return fields_;
 }

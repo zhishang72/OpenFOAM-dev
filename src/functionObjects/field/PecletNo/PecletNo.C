@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,7 +24,7 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "PecletNo.H"
-#include "turbulenceModel.H"
+#include "momentumTransportModel.H"
 #include "surfaceInterpolate.H"
 #include "addToRunTimeSelectionTable.H"
 
@@ -54,16 +54,13 @@ bool Foam::functionObjects::PecletNo::calc()
     {
         tmp<volScalarField> nuEff
         (
-            mesh_.lookupObject<turbulenceModel>
-            (
-                turbulenceModel::propertiesName
-            ).nuEff()
+            mesh_.lookupType<momentumTransportModel>().nuEff()
         );
 
         const surfaceScalarField& phi =
             mesh_.lookupObject<surfaceScalarField>(fieldName_);
 
-        return store
+        store
         (
             resultName_,
             mag(phi)
@@ -73,9 +70,13 @@ bool Foam::functionObjects::PecletNo::calc()
                *fvc::interpolate(nuEff)
             )
         );
+
+        return true;
     }
     else
     {
+        cannotFindObject<surfaceScalarField>(fieldName_);
+
         return false;
     }
 }

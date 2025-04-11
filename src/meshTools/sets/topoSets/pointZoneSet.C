@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,7 +24,7 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "pointZoneSet.H"
-#include "mapPolyMesh.H"
+#include "polyTopoChangeMap.H"
 #include "polyMesh.H"
 #include "processorPolyPatch.H"
 #include "cyclicPolyPatch.H"
@@ -76,8 +76,8 @@ pointZoneSet::pointZoneSet
     mesh_(mesh),
     addressing_(0)
 {
-    const pointZoneMesh& pointZones = mesh.pointZones();
-    label zoneID = pointZones.findZoneID(name);
+    const pointZoneList& pointZones = mesh.pointZones();
+    label zoneID = pointZones.findIndex(name);
 
     if
     (
@@ -260,8 +260,8 @@ bool pointZoneSet::writeObject
     const_cast<word&>(type()) = oldTypeName;
 
     // Modify pointZone
-    pointZoneMesh& pointZones = const_cast<polyMesh&>(mesh_).pointZones();
-    label zoneID = pointZones.findZoneID(name());
+    pointZoneList& pointZones = const_cast<polyMesh&>(mesh_).pointZones();
+    label zoneID = pointZones.findIndex(name());
 
     if (zoneID == -1)
     {
@@ -275,7 +275,6 @@ bool pointZoneSet::writeObject
             (
                 name(),
                 addressing_,
-                zoneID,
                 pointZones
             )
         );
@@ -284,13 +283,12 @@ bool pointZoneSet::writeObject
     {
         pointZones[zoneID] = addressing_;
     }
-    pointZones.clearAddressing();
 
     return ok && pointZones.write(write);
 }
 
 
-void pointZoneSet::updateMesh(const mapPolyMesh& morphMap)
+void pointZoneSet::topoChange(const polyTopoChangeMap& map)
 {
     // pointZone
     labelList newAddressing(addressing_.size());
@@ -299,7 +297,7 @@ void pointZoneSet::updateMesh(const mapPolyMesh& morphMap)
     forAll(addressing_, i)
     {
         label pointi = addressing_[i];
-        label newPointi = morphMap.reversePointMap()[pointi];
+        label newPointi = map.reversePointMap()[pointi];
         if (newPointi >= 0)
         {
             newAddressing[n] = newPointi;

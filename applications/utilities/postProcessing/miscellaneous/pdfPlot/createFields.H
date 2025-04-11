@@ -16,25 +16,21 @@
 
     const bool writeData(readBool(pdfDictionary.lookup("writeData")));
 
+    const fileName pdfPath =
+        runTime.globalPath()
+       /functionObjects::writeFile::outputPrefix
+       /args.executable()
+       /runTime.name();
 
-    const fileName pdfPath = runTime.path()/"pdf";
     mkDir(pdfPath);
 
-    Random rndGen(label(0));
+    autoPtr<distribution> p(distribution::New(unitAny, pdfDictionary, 0, 0));
 
-    autoPtr<distributionModel> p
-    (
-        distributionModel::New
-        (
-            pdfDictionary,
-            rndGen
-        )
-    );
-
-    const scalar xMin = p->minValue();
-    const scalar xMax = p->maxValue();
+    const scalar xMin = p->min();
+    const scalar xMax = p->max();
 
     autoPtr<OFstream> filePtr(nullptr);
+
     if (writeData)
     {
         fileName fName = pdfPath/(p->type() + ".data");

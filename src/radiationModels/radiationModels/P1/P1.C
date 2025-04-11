@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -55,7 +55,7 @@ Foam::radiationModels::P1::P1(const volScalarField& T)
         IOobject
         (
             "G",
-            mesh_.time().timeName(),
+            mesh_.time().name(),
             mesh_,
             IOobject::MUST_READ,
             IOobject::AUTO_WRITE
@@ -67,9 +67,9 @@ Foam::radiationModels::P1::P1(const volScalarField& T)
         IOobject
         (
             "qr",
-            mesh_.time().timeName(),
+            mesh_.time().name(),
             mesh_,
-            IOobject::NO_READ,
+            IOobject::READ_IF_PRESENT,
             IOobject::AUTO_WRITE
         ),
         mesh_,
@@ -80,7 +80,7 @@ Foam::radiationModels::P1::P1(const volScalarField& T)
         IOobject
         (
             "a",
-            mesh_.time().timeName(),
+            mesh_.time().name(),
             mesh_,
             IOobject::NO_READ,
             IOobject::AUTO_WRITE
@@ -93,7 +93,7 @@ Foam::radiationModels::P1::P1(const volScalarField& T)
         IOobject
         (
             "e",
-            mesh_.time().timeName(),
+            mesh_.time().name(),
             mesh_,
             IOobject::NO_READ,
             IOobject::NO_WRITE
@@ -106,7 +106,7 @@ Foam::radiationModels::P1::P1(const volScalarField& T)
         IOobject
         (
             "E",
-            mesh_.time().timeName(),
+            mesh_.time().name(),
             mesh_,
             IOobject::NO_READ,
             IOobject::NO_WRITE
@@ -125,7 +125,7 @@ Foam::radiationModels::P1::P1(const dictionary& dict, const volScalarField& T)
         IOobject
         (
             "G",
-            mesh_.time().timeName(),
+            mesh_.time().name(),
             mesh_,
             IOobject::MUST_READ,
             IOobject::AUTO_WRITE
@@ -137,9 +137,9 @@ Foam::radiationModels::P1::P1(const dictionary& dict, const volScalarField& T)
         IOobject
         (
             "qr",
-            mesh_.time().timeName(),
+            mesh_.time().name(),
             mesh_,
-            IOobject::NO_READ,
+            IOobject::READ_IF_PRESENT,
             IOobject::AUTO_WRITE
         ),
         mesh_,
@@ -150,7 +150,7 @@ Foam::radiationModels::P1::P1(const dictionary& dict, const volScalarField& T)
         IOobject
         (
             "a",
-            mesh_.time().timeName(),
+            mesh_.time().name(),
             mesh_,
             IOobject::NO_READ,
             IOobject::AUTO_WRITE
@@ -163,7 +163,7 @@ Foam::radiationModels::P1::P1(const dictionary& dict, const volScalarField& T)
         IOobject
         (
             "e",
-            mesh_.time().timeName(),
+            mesh_.time().name(),
             mesh_,
             IOobject::NO_READ,
             IOobject::NO_WRITE
@@ -176,7 +176,7 @@ Foam::radiationModels::P1::P1(const dictionary& dict, const volScalarField& T)
         IOobject
         (
             "E",
-            mesh_.time().timeName(),
+            mesh_.time().name(),
             mesh_,
             IOobject::NO_READ,
             IOobject::NO_WRITE
@@ -199,8 +199,6 @@ bool Foam::radiationModels::P1::read()
 {
     if (radiationModel::read())
     {
-        // nothing to read
-
         return true;
     }
     else
@@ -225,7 +223,7 @@ void Foam::radiationModels::P1::calculate()
         IOobject
         (
             "gammaRad",
-            G_.mesh().time().timeName(),
+            G_.mesh().time().name(),
             G_.mesh(),
             IOobject::NO_READ,
             IOobject::NO_WRITE
@@ -239,7 +237,7 @@ void Foam::radiationModels::P1::calculate()
         fvm::laplacian(gamma, G_)
       - fvm::Sp(a_, G_)
      ==
-      - 4.0*(e_*physicoChemical::sigma*pow4(T_) ) - E_
+      - 4*e_*physicoChemical::sigma*pow4(T_) - E_
     );
 
     volScalarField::Boundary& qrBf = qr_.boundaryFieldRef();
@@ -270,12 +268,9 @@ Foam::tmp<Foam::volScalarField> Foam::radiationModels::P1::Rp() const
 Foam::tmp<Foam::DimensionedField<Foam::scalar, Foam::volMesh>>
 Foam::radiationModels::P1::Ru() const
 {
-    const volScalarField::Internal& G =
-        G_();
-    const volScalarField::Internal E =
-        absorptionEmission_->ECont()()();
-    const volScalarField::Internal a =
-        absorptionEmission_->aCont()()();
+    const volScalarField::Internal& G = G_();
+    const volScalarField::Internal E = absorptionEmission_->ECont()()();
+    const volScalarField::Internal a = absorptionEmission_->aCont()()();
 
     return a*G - E;
 }

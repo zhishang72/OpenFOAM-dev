@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -27,10 +27,10 @@ Class
 Description
     A wrapper for matching a List of wordRe.
 
-Note
-    The constructor should remain non-explicit. This allows automatic
-    conversion from UList\<wordRe\> to wordReListMatcher in search
-    functions.
+    Note:
+        The constructor should remain non-explicit. This allows automatic
+        conversion from UList\<wordRe\> to wordReListMatcher in search
+        functions.
 
 SourceFiles
     wordReListMatcherI.H
@@ -71,19 +71,19 @@ public:
         // Access
 
             inline label size() const;
-            inline bool  empty() const;
+
+            inline bool empty() const;
 
             //- Return underlying list of wordRe
             inline const UList<wordRe>& operator()() const;
 
 
-    // Searching
+        // Searching
 
             //- Return true if string matches any of the regular expressions
             //  Smart match as regular expression or as a string.
             //  Optionally specify a literal match only.
             inline bool match(const string&, bool literalMatch=false) const;
-
 };
 
 

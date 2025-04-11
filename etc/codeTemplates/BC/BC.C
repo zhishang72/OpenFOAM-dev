@@ -25,7 +25,7 @@ License
 
 #include "CONSTRUCT.H"
 #include "addToRunTimeSelectionTable.H"
-#include "fvPatchFieldMapper.H"
+#include "fieldMapper.H"
 #include "volFields.H"
 #include "surfaceFields.H"
 
@@ -34,34 +34,11 @@ License
 template<class Type>
 Foam::scalar Foam::CLASS::t() const
 {
-    return this->db().time().timeOutputValue();
+    return this->db().time().value();
 }
 
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
-
-template<class Type>
-Foam::CLASS::
-CONSTRUCT
-(
-    const fvPatch& p,
-    const DimensionedField<TYPE, volMesh>& iF
-)
-:
-    PARENT(p, iF),
-    scalarData_(0.0),
-    data_(Zero),
-    fieldData_(p.size(), Zero),
-    timeVsData_(),
-    wordData_("wordDefault"),
-    labelData_(-1),
-    boolData_(false)
-{
-    this->refValue() = Zero;
-    this->refGrad() = Zero;
-    this->valueFraction() = 0.0;
-}
-
 
 template<class Type>
 Foam::CLASS::
@@ -73,10 +50,19 @@ CONSTRUCT
 )
 :
     PARENT(p, iF),
-    scalarData_(dict.lookup<scalar>("scalarData")),
-    data_(pTraits<TYPE>(dict.lookup("data"))),
-    fieldData_("fieldData", dict, p.size()),
-    timeVsData_(Function1<TYPE>::New("timeVsData", dict)),
+    scalarData_(dict.lookup<scalar>("scalarData", unitAny)),
+    data_(dict.lookup<TYPE>("data")),
+    fieldData_("fieldData", iF.dimensions(), dict, p.size()),
+    timeVsData_
+    (
+        Function1<TYPE>::New
+        (
+            "timeVsData",
+            this->db().time().userUnits(),
+            unitAny,
+            dict
+        )
+    ),
     wordData_(dict.lookupOrDefault<word>("wordName", "wordDefault")),
     labelData_(-1),
     boolData_(false)
@@ -84,7 +70,7 @@ CONSTRUCT
     this->refGrad() = Zero;
     this->valueFraction() = 0.0;
 
-    this->refValue() = FIELD("fieldData", dict, p.size());
+    this->refValue() = FIELD("fieldData", iF.dimensions(), dict, p.size());
     FVPATCHF::operator=(this->refValue());
 
     PARENT::evaluate();
@@ -93,7 +79,7 @@ CONSTRUCT
     // Initialise with the value entry if evaluation is not possible
     FVPATCHF::operator=
     (
-        FIELD("value", dict, p.size())
+        FIELD("value", iF.dimensions(), dict, p.size())
     );
     this->refValue() = *this;
     */
@@ -107,31 +93,13 @@ CONSTRUCT
     const CLASS& ptf,
     const fvPatch& p,
     const DimensionedField<TYPE, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     PARENT(ptf, p, iF, mapper),
     scalarData_(ptf.scalarData_),
     data_(ptf.data_),
     fieldData_(mapper(ptf.fieldData_)),
-    timeVsData_(ptf.timeVsData_, false),
-    wordData_(ptf.wordData_),
-    labelData_(-1),
-    boolData_(ptf.boolData_)
-{}
-
-
-template<class Type>
-Foam::CLASS::
-CONSTRUCT
-(
-    const CLASS& ptf
-)
-:
-    PARENT(ptf),
-    scalarData_(ptf.scalarData_),
-    data_(ptf.data_),
-    fieldData_(ptf.fieldData_),
     timeVsData_(ptf.timeVsData_, false),
     wordData_(ptf.wordData_),
     labelData_(-1),
@@ -161,29 +129,33 @@ CONSTRUCT
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class Type>
-void Foam::CLASS::autoMap
-(
-    const fvPatchFieldMapper& m
-)
-{
-    PARENT::autoMap(m);
-    m(fieldData_, fieldData_);
-}
-
-
-template<class Type>
-void Foam::CLASS::rmap
+void Foam::CLASS::map
 (
     const FVPATCHF& ptf,
-    const labelList& addr
+    const fieldMapper& mapper
 )
 {
-    PARENT::rmap(ptf, addr);
+    PARENT::map(ptf, mapper);
 
     const CLASS& tiptf =
         refCast<const CLASS>(ptf);
 
-    fieldData_.rmap(tiptf.fieldData_, addr);
+    mapper(fieldData_, tiptf.fieldData_);
+}
+
+
+template<class Type>
+void Foam::CLASS::reset
+(
+    const FVPATCHF& ptf
+)
+{
+    PARENT::reset(ptf);
+
+    const CLASS& tiptf =
+        refCast<const CLASS>(ptf);
+
+    fieldData_.reset(tiptf.fieldData_);
 }
 
 
@@ -207,7 +179,7 @@ void Foam::CLASS::updateCoeffs()
         (
             "phi"
         );
-    this->valueFraction() = 1.0 - pos0(phip);
+    this->valueFraction() = neg(phip);
 
     PARENT::updateCoeffs();
 }
@@ -223,7 +195,7 @@ void Foam::CLASS::write
     writeEntry(os, "scalarData", scalarData_);
     writeEntry(os, "data", data_);
     writeEntry(os, "fieldData", fieldData_);
-    writeEntry(os, timeVsData_());
+    writeEntry(os, this->db().time().userUnits(), unitAny, timeVsData_());
     writeEntry(os, "wordData", wordData_);
     writeEntry(os, "value", *this);
 }

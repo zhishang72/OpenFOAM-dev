@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ License
 
 #include "inverseDistanceDiffusivity.H"
 #include "addToRunTimeSelectionTable.H"
-#include "patchWave.H"
+#include "fvPatchDistWave.H"
 #include "HashSet.H"
 #include "surfaceInterpolate.H"
 #include "zeroGradientFvPatchFields.H"
@@ -64,50 +64,41 @@ Foam::inverseDistanceDiffusivity::~inverseDistanceDiffusivity()
 {}
 
 
-// * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
-
-Foam::tmp<Foam::scalarField> Foam::inverseDistanceDiffusivity::y() const
-{
-    const labelHashSet patchSet(mesh().boundaryMesh().patchSet(patchNames_));
-
-    if (patchSet.size())
-    {
-        return tmp<scalarField>
-        (
-            new scalarField(patchWave(mesh(), patchSet, false).distance())
-        );
-    }
-    else
-    {
-        return tmp<scalarField>(new scalarField(mesh().nCells(), 1.0));
-    }
-}
-
-
 // * * * * * * * * * * * * * * * Member Operators  * * * * * * * * * * * * * //
 
 Foam::tmp<Foam::surfaceScalarField>
 Foam::inverseDistanceDiffusivity::operator()() const
 {
-    volScalarField y_
+    volScalarField y
     (
         IOobject
         (
             "y",
-            mesh().time().timeName(),
+            mesh().time().name(),
             mesh()
         ),
         mesh(),
-        dimless,
+        dimensionedScalar(dimless, 1),
         zeroGradientFvPatchScalarField::typeName
     );
-    y_.primitiveFieldRef() = y();
-    y_.correctBoundaryConditions();
+
+    if (patchNames_.size())
+    {
+        fvPatchDistWave::calculate
+        (
+            mesh(),
+            mesh().boundaryMesh().patchSet(patchNames_),
+            -vGreat,
+            y
+        );
+    }
+
+    y.correctBoundaryConditions();
 
     return surfaceScalarField::New
     (
         "faceDiffusivity",
-        1.0/fvc::interpolate(y_)
+        1.0/fvc::interpolate(y)
     );
 }
 

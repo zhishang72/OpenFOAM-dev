@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -40,11 +40,12 @@ SourceFiles
 
 #include "TimePaths.H"
 #include "objectRegistry.H"
-#include "unwatchedIOdictionary.H"
+#include "controlIOdictionary.H"
 #include "FIFOStack.H"
 #include "clock.H"
 #include "cpuTime.H"
 #include "TimeState.H"
+#include "userTime.H"
 #include "Switch.H"
 #include "instantList.H"
 #include "NamedEnum.H"
@@ -63,7 +64,7 @@ namespace Foam
 class argList;
 
 /*---------------------------------------------------------------------------*\
-                             Class Time Declaration
+                            Class Time Declaration
 \*---------------------------------------------------------------------------*/
 
 class Time
@@ -76,12 +77,14 @@ class Time
 {
     // Private Data
 
-        //- Any loaded dynamic libraries. Make sure to construct before
-        //  reading controlDict.
-        dlLibraryTable libs_;
+        //- Is runtime modification of dictionaries allowed?
+        Switch runTimeModifiable_;
+
+        friend class controlIOdictionary;
 
         //- The controlDict
-        unwatchedIOdictionary controlDict_;
+        controlIOdictionary controlDict_;
+
 
 public:
 
@@ -112,6 +115,10 @@ public:
             scientific = ios_base::scientific
         };
 
+        static const NamedEnum<stopAtControl, 4> stopAtControlNames;
+
+        static const NamedEnum<writeControl, 5> writeControlNames;
+
 
 protected:
 
@@ -120,11 +127,13 @@ protected:
         label  startTimeIndex_;
         scalar startTime_;
         mutable scalar endTime_;
+        scalar beginTime_;
 
-        static const NamedEnum<stopAtControl, 4> stopAtControlNames_;
+        //- Optional user-time, defaults to realTime in s
+        autoPtr<userTimes::userTime> userTime_;
+
         mutable stopAtControl stopAt_;
 
-        static const NamedEnum<writeControl, 5> writeControlNames_;
         writeControl writeControl_;
 
         scalar writeInterval_;
@@ -141,7 +150,6 @@ protected:
         //- If time is being sub-cycled this is the previous TimeState
         autoPtr<TimeState> prevTimeState_;
 
-
         // Signal handlers for writing
 
             //- Enable one-shot writing upon signal
@@ -156,6 +164,11 @@ protected:
 
         //- Time directory name precision
         static int precision_;
+
+        //- Current time directory name precision adjusted as necessary
+        //  to ensure time directory names are unique
+        //  particularly if the time-step is reduced during the run
+        static int curPrecision_;
 
         //- Maximum time directory name precision
         static const int maxPrecision_;
@@ -181,12 +194,6 @@ private:
         //- Default output compression
         IOstream::compressionType writeCompression_;
 
-        //- Default graph format
-        word graphFormat_;
-
-        //- Is runtime modification of dictionaries allowed?
-        Switch runTimeModifiable_;
-
         //- Is temporary object cache enabled
         mutable bool cacheTemporaryObjects_;
 
@@ -209,8 +216,7 @@ public:
         (
             const word& name,
             const argList& args,
-            const word& systemName = "system",
-            const word& constantName = "constant"
+            const bool enableFunctionObjects = true
         );
 
         //- Construct given name of dictionary to read, rootPath and casePath
@@ -219,8 +225,6 @@ public:
             const word& name,
             const fileName& rootPath,
             const fileName& caseName,
-            const word& systemName = "system",
-            const word& constantName = "constant",
             const bool enableFunctionObjects = true
         );
 
@@ -230,8 +234,6 @@ public:
             const dictionary& dict,
             const fileName& rootPath,
             const fileName& caseName,
-            const word& systemName = "system",
-            const word& constantName = "constant",
             const bool enableFunctionObjects = true
         );
 
@@ -240,8 +242,6 @@ public:
         (
             const fileName& rootPath,
             const fileName& caseName,
-            const word& systemName = "system",
-            const word& constantName = "constant",
             const bool enableFunctionObjects = true
         );
 
@@ -254,38 +254,28 @@ public:
 
         // Database functions
 
-            //- Return root path
-            const fileName& rootPath() const
-            {
-                return TimePaths::rootPath();
-            }
+            //- Explicitly inherit rootPath from TimePaths to disambiguate from
+            //  the corresponding method in objectRegistry
+            using TimePaths::rootPath;
 
-            //- Return case name
-            const fileName& caseName() const
-            {
-                return TimePaths::caseName();
-            }
+            //- Explicitly inherit caseName from TimePaths to disambiguate from
+            //  the corresponding method in objectRegistry
+            using TimePaths::caseName;
 
-            //- Return path
-            fileName path() const
-            {
-                return rootPath()/caseName();
-            }
+            //- Explicitly inherit path from TimePaths to disambiguate from
+            //  the corresponding method in objectRegistry
+            using TimePaths::path;
 
-            const dictionary& controlDict() const
+            //- Return the control dict
+            const IOdictionary& controlDict() const
             {
                 return controlDict_;
-            }
-
-            virtual const fileName& dbDir() const
-            {
-                return fileName::null;
             }
 
             //- Return current time path
             fileName timePath() const
             {
-                return path()/timeName();
+                return path()/name();
             }
 
             //- Default write format
@@ -306,20 +296,11 @@ public:
                 return writeCompression_;
             }
 
-            //- Default graph format
-            const word& graphFormat() const
-            {
-                return graphFormat_;
-            }
-
             //- Supports re-reading
             const Switch& runTimeModifiable() const
             {
                 return runTimeModifiable_;
             }
-
-            //- Read control dictionary, update controls and time
-            virtual bool read();
 
             //- Read the objects that have been modified
             void readModifiedObjects();
@@ -383,26 +364,28 @@ public:
 
         // Access
 
+            using dimensionedScalar::name;
+
             //- Return time name of given scalar time
             //  formatted with given precision
             static word timeName
             (
                 const scalar,
-                const int precision = precision_
+                const int precision = curPrecision_
             );
 
-            //- Return current time name
-            virtual word timeName() const;
-
             //- Search a given directory for valid time directories
-            static instantList findTimes
+            instantList findTimes
             (
                 const fileName&,
                 const word& constantName = "constant"
-            );
+            ) const;
 
             //- Return start time index
             virtual label startTimeIndex() const;
+
+            //- Return begin time (initial start time)
+            virtual dimensionedScalar beginTime() const;
 
             //- Return start time
             virtual dimensionedScalar startTime() const;
@@ -410,22 +393,40 @@ public:
             //- Return end time
             virtual dimensionedScalar endTime() const;
 
+            //- Return the userTime
+            const userTimes::userTime& userTime() const;
+
+            //- Return current user time value
+            scalar userTimeValue() const;
+
+            //- Return user time step value
+            scalar userDeltaTValue() const;
+
+            //- Convert the user-time (e.g. CA deg) to real-time (s).
+            scalar userTimeToTime(const scalar tau) const;
+
+            //- Convert the real-time (s) into user-time (e.g. CA deg)
+            scalar timeToUserTime(const scalar t) const;
+
+            //- Return current user time name with units
+            word userTimeName() const;
+
+            //- Return the user-time unit conversion
+            const unitConversion& userUnits() const;
+
+            //- Return the write interval units
+            const unitConversion& writeIntervalUnits() const;
+
             //- Return the list of function objects
             const functionObjectList& functionObjects() const
             {
                 return functionObjects_;
             }
 
-            //- External access to the loaded libraries
-            const dlLibraryTable& libs() const
+            //- Return true if the run is a restart, i.e. startTime != beginTime
+            bool restart() const
             {
-                return libs_;
-            }
-
-            //- External access to the loaded libraries
-            dlLibraryTable& libs()
-            {
-                return libs_;
+                return startTime_ != beginTime_;
             }
 
             //- Return true if time currently being sub-cycled, otherwise false
@@ -524,6 +525,9 @@ public:
             //- Reset time step without additional adjustment or modification
             //  by function objects
             virtual void setDeltaTNoAdjust(const scalar);
+
+            //- Reset the write interval
+            virtual void setWriteInterval(const scalar writeInterval);
 
             //- Set time to sub-cycle for the given number of steps
             virtual TimeState subCycle(const label nSubCycles);

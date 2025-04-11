@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -29,8 +29,9 @@ Description
 
 \*---------------------------------------------------------------------------*/
 
-#include "IOField.H"
 #include "argList.H"
+#include "timeSelector.H"
+#include "IOField.H"
 #include "polyMesh.H"
 #include "Time.H"
 
@@ -38,7 +39,7 @@ using namespace Foam;
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-void write(const IOobject& io, const label sz)
+void write(const typeIOobject<IOField<label>>& io, const label sz)
 {
     IOField<label> fld(io, sz);
     forAll(fld, i)
@@ -50,7 +51,7 @@ void write(const IOobject& io, const label sz)
 }
 
 
-void read(const IOobject& io, const label sz)
+void read(const typeIOobject<IOField<label>>& io, const label sz)
 {
     bool valid = (sz > 0);
     Pout<< "    valid:" << valid << endl;
@@ -59,14 +60,14 @@ void read(const IOobject& io, const label sz)
 
     if (fld.size() != sz)
     {
-        FatalErrorInFunction<< "io:" << io.objectPath() << exit(FatalError);
+        FatalErrorInFunction<< "io:" << fld.objectPath() << exit(FatalError);
     }
 }
 
 
 void writeAndRead
 (
-    const IOobject& io,
+    const typeIOobject<IOField<label>>& io,
     const label sz,
     const word& writeType,
     const IOobject::readOption readOpt,
@@ -83,11 +84,11 @@ void writeAndRead
     fileHandler(writeHandler);
 
     // Delete
-    Pout<< "Deleting:" << fileHandler().filePath(io.objectPath()) << endl;
-    fileHandler().rm(fileHandler().filePath(io.objectPath()));
+    Pout<< "Deleting:" << io.filePath() << endl;
+    fileHandler().rm(io.objectPath());
 
     // Write
-    Pout<< "Writing:" << fileHandler().objectPath(io, word::null) << endl;
+    Pout<< "Writing:" << io.objectPath() << endl;
     write(io, sz);
 
     autoPtr<fileOperation> readHandler
@@ -97,9 +98,9 @@ void writeAndRead
     fileHandler(readHandler);
 
     // Read
-    IOobject readIO(io);
+    typeIOobject<IOField<label>> readIO(io);
     readIO.readOpt() = readOpt;
-    Pout<< "Reading:" << fileHandler().filePath(readIO.objectPath()) << endl;
+    Pout<< "Reading:" << readIO.filePath() << endl;
     read(readIO, sz);
 
     Pout<< "** Done writing:" << writeType
@@ -109,7 +110,7 @@ void writeAndRead
 
 void readIfPresent
 (
-    IOobject& io,
+    typeIOobject<IOField<label>>& io,
     const label sz,
     const word& readType
 )
@@ -121,7 +122,7 @@ void readIfPresent
     fileHandler(readHandler);
 
     // Read
-    Pout<< "Reading:" << fileHandler().filePath(io.objectPath()) << endl;
+    Pout<< "Reading:" << io.filePath() << endl;
     io.readOpt() = IOobject::READ_IF_PRESENT;
     read(io, sz);
 }
@@ -131,9 +132,11 @@ void readIfPresent
 
 int main(int argc, char *argv[])
 {
-    #include "addTimeOptions.H"
+    timeSelector::addOptions();
+
     #include "setRootCase.H"
     #include "createTime.H"
+    timeSelector::select0(runTime, args);
     #include "createPolyMesh.H"
 
     label sz = 0;
@@ -142,10 +145,10 @@ int main(int argc, char *argv[])
         sz = 1;
     }
 
-    IOobject io
+    typeIOobject<IOField<label>> io
     (
         "bla",
-        runTime.timeName(),
+        runTime.name(),
         mesh,
         IOobject::NO_READ,
         IOobject::NO_WRITE
@@ -157,17 +160,6 @@ int main(int argc, char *argv[])
     );
 
     Info<< "Found handlers:" << handlers << endl;
-
-
-/*
-    forAll(handlers, readi)
-    {
-        const word& readHandler = handlers[readi];
-
-        readIfPresent(io, sz, readHandler);
-    }
-*/
-
 
     forAll(handlers, writei)
     {

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ License
 
 #include "fluidThermo.H"
 
-/* * * * * * * * * * * * * * * private static data * * * * * * * * * * * * * */
+// * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
 namespace Foam
 {
@@ -36,23 +36,42 @@ namespace Foam
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
-Foam::fluidThermo::fluidThermo(const fvMesh& mesh, const word& phaseName)
-:
-    basicThermo(mesh, phaseName),
-    p_(lookupOrConstruct(mesh, "p"))
-{}
-
-
-
-Foam::fluidThermo::fluidThermo
+Foam::fluidThermo::implementation::implementation
 (
-    const fvMesh& mesh,
     const dictionary& dict,
+    const fvMesh& mesh,
     const word& phaseName
 )
 :
-    basicThermo(mesh, dict, phaseName),
-    p_(lookupOrConstruct(mesh, "p"))
+    p_(lookupOrConstruct(mesh, "p")),
+
+    psi_
+    (
+        IOobject
+        (
+            phasePropertyName("psi", phaseName),
+            mesh.time().name(),
+            mesh,
+            IOobject::NO_READ,
+            IOobject::NO_WRITE
+        ),
+        mesh,
+        dimensionSet(0, -2, 2, 0, 0)
+    ),
+
+    mu_
+    (
+        IOobject
+        (
+            phasePropertyName("mu", phaseName),
+            mesh.time().name(),
+            mesh,
+            IOobject::NO_READ,
+            IOobject::NO_WRITE
+        ),
+        mesh,
+        dimensionSet(1, -1, -1, 0, 0)
+    )
 {}
 
 
@@ -74,19 +93,11 @@ Foam::fluidThermo::~fluidThermo()
 {}
 
 
+Foam::fluidThermo::implementation::~implementation()
+{}
+
+
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
-
-Foam::volScalarField& Foam::fluidThermo::p()
-{
-    return p_;
-}
-
-
-const Foam::volScalarField& Foam::fluidThermo::p() const
-{
-    return p_;
-}
-
 
 Foam::tmp<Foam::volScalarField> Foam::fluidThermo::nu() const
 {
@@ -94,9 +105,34 @@ Foam::tmp<Foam::volScalarField> Foam::fluidThermo::nu() const
 }
 
 
-Foam::tmp<Foam::scalarField> Foam::fluidThermo::nu(const label patchi) const
+Foam::tmp<Foam::scalarField>
+Foam::fluidThermo::nu(const label patchi) const
 {
-    return mu(patchi)/rho(patchi);
+    return mu().boundaryField()[patchi]/rho(patchi);
+}
+
+
+const Foam::volScalarField& Foam::fluidThermo::implementation::p() const
+{
+    return p_;
+}
+
+
+Foam::volScalarField& Foam::fluidThermo::implementation::p()
+{
+    return p_;
+}
+
+
+const Foam::volScalarField& Foam::fluidThermo::implementation::psi() const
+{
+    return psi_;
+}
+
+
+const Foam::volScalarField& Foam::fluidThermo::implementation::mu() const
+{
+    return mu_;
 }
 
 

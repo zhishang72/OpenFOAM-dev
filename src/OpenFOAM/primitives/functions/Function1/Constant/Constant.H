@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -27,9 +27,10 @@ Class
 Description
     Templated function that returns a constant value.
 
-    Usage - for entry \<entryName\> returning the value <value>:
+Usage
+    For entry \<name\> returning the value <value>:
     \verbatim
-        <entryName>    constant  <value>
+        <name>    constant  <value>
     \endverbatim
 
 SourceFiles
@@ -50,7 +51,7 @@ namespace Function1s
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class Constant Declaration
+                          Class Constant Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -61,7 +62,13 @@ class Constant
     // Private Data
 
         //- Constant value
-        Type value_;
+        const Type value_;
+
+
+    // Private Member Functions
+
+        //- Read the value
+        static Type readValue(const unitConversions& units, Istream& is);
 
 
 public:
@@ -72,16 +79,19 @@ public:
 
     // Constructors
 
-        //- Construct from entry name and value
-        Constant(const word& entryName, const Type& val);
+        //- Construct from name and value
+        Constant(const word& name, const Type& val);
 
-        //- Construct from entry name and dictionary
-        Constant(const word& entryName, const dictionary& dict);
+        //- Construct from name and dictionary
+        Constant
+        (
+            const word& name,
+            const unitConversions& units,
+            const dictionary& dict
+        );
 
-        //- Construct from entry name and Istream
-        //  Reads the constant value without the Function1 type
-        //  for backward compatibility
-        Constant(const word& entryName, Istream& is);
+        //- Construct from name and Istream
+        Constant(const word& name, const unitConversions& units, Istream& is);
 
         //- Copy constructor
         Constant(const Constant<Type>& cnst);
@@ -103,10 +113,13 @@ public:
         virtual inline Type value(const scalar) const;
 
         //- Integrate between two values
-        virtual inline Type integrate(const scalar x1, const scalar x2) const;
+        virtual inline Type integral(const scalar x1, const scalar x2) const;
+
+        //- Is this function guaranteed to be constant?
+        virtual inline bool constant() const;
 
         //- Write in dictionary format
-        virtual void writeData(Ostream& os) const;
+        virtual void write(Ostream& os, const unitConversions& units) const;
 
 
     // Member Operators

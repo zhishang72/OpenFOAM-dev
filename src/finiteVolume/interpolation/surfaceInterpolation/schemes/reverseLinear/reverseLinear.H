@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ Class
     Foam::reverseLinear
 
 Description
-    Inversed weight central-differencing interpolation scheme class.
+    Inversed weight centred interpolation interpolation scheme class.
 
     Useful for inverse weighted and harmonic interpolations.
 
@@ -46,7 +46,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class reverseLinear Declaration
+                        Class reverseLinear Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -91,7 +91,7 @@ public:
         //- Return the interpolation weighting factors
         tmp<surfaceScalarField> weights
         (
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         ) const
         {
             const fvMesh& mesh = this->mesh();

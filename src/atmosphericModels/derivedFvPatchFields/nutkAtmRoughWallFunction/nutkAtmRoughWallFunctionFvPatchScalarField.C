@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,8 +24,8 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "nutkAtmRoughWallFunctionFvPatchScalarField.H"
-#include "turbulenceModel.H"
-#include "fvPatchFieldMapper.H"
+#include "momentumTransportModel.H"
+#include "fieldMapper.H"
 #include "volFields.H"
 #include "addToRunTimeSelectionTable.H"
 
@@ -36,19 +36,14 @@ namespace Foam
 
 // * * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * * //
 
-tmp<scalarField> nutkAtmRoughWallFunctionFvPatchScalarField::calcNut() const
+tmp<scalarField> nutkAtmRoughWallFunctionFvPatchScalarField::nut() const
 {
     const label patchi = patch().index();
 
-    const turbulenceModel& turbModel = db().lookupObject<turbulenceModel>
-    (
-        IOobject::groupName
-        (
-            turbulenceModel::propertiesName,
-            internalField().group()
-        )
-    );
-    const scalarField& y = turbModel.y()[patchi];
+    const momentumTransportModel& turbModel =
+        db().lookupType<momentumTransportModel>(internalField().group());
+
+    const scalarField& y = turbModel.yb()[patchi];
     const tmp<volScalarField> tk = turbModel.k();
     const volScalarField& k = tk();
     const tmp<scalarField> tnuw = turbModel.nu(patchi);
@@ -90,11 +85,12 @@ nutkAtmRoughWallFunctionFvPatchScalarField::
 nutkAtmRoughWallFunctionFvPatchScalarField
 (
     const fvPatch& p,
-    const DimensionedField<scalar, volMesh>& iF
+    const DimensionedField<scalar, volMesh>& iF,
+    const dictionary& dict
 )
 :
-    nutkWallFunctionFvPatchScalarField(p, iF),
-    z0_(p.size(), 0.0)
+    nutkWallFunctionFvPatchScalarField(p, iF, dict),
+    z0_("z0", dimLength, dict, p.size())
 {}
 
 
@@ -104,35 +100,11 @@ nutkAtmRoughWallFunctionFvPatchScalarField
     const nutkAtmRoughWallFunctionFvPatchScalarField& ptf,
     const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     nutkWallFunctionFvPatchScalarField(ptf, p, iF, mapper),
     z0_(mapper(ptf.z0_))
-{}
-
-
-nutkAtmRoughWallFunctionFvPatchScalarField::
-nutkAtmRoughWallFunctionFvPatchScalarField
-(
-    const fvPatch& p,
-    const DimensionedField<scalar, volMesh>& iF,
-    const dictionary& dict
-)
-:
-    nutkWallFunctionFvPatchScalarField(p, iF, dict),
-    z0_("z0", dict, p.size())
-{}
-
-
-nutkAtmRoughWallFunctionFvPatchScalarField::
-nutkAtmRoughWallFunctionFvPatchScalarField
-(
-    const nutkAtmRoughWallFunctionFvPatchScalarField& rwfpsf
-)
-:
-    nutkWallFunctionFvPatchScalarField(rwfpsf),
-    z0_(rwfpsf.z0_)
 {}
 
 
@@ -150,28 +122,32 @@ nutkAtmRoughWallFunctionFvPatchScalarField
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-void nutkAtmRoughWallFunctionFvPatchScalarField::autoMap
-(
-    const fvPatchFieldMapper& m
-)
-{
-    nutkWallFunctionFvPatchScalarField::autoMap(m);
-    m(z0_, z0_);
-}
-
-
-void nutkAtmRoughWallFunctionFvPatchScalarField::rmap
+void nutkAtmRoughWallFunctionFvPatchScalarField::map
 (
     const fvPatchScalarField& ptf,
-    const labelList& addr
+    const fieldMapper& mapper
 )
 {
-    nutkWallFunctionFvPatchScalarField::rmap(ptf, addr);
+    nutkWallFunctionFvPatchScalarField::map(ptf, mapper);
 
     const nutkAtmRoughWallFunctionFvPatchScalarField& nrwfpsf =
         refCast<const nutkAtmRoughWallFunctionFvPatchScalarField>(ptf);
 
-    z0_.rmap(nrwfpsf.z0_, addr);
+    mapper(z0_, nrwfpsf.z0_);
+}
+
+
+void nutkAtmRoughWallFunctionFvPatchScalarField::reset
+(
+    const fvPatchScalarField& ptf
+)
+{
+    nutkWallFunctionFvPatchScalarField::reset(ptf);
+
+    const nutkAtmRoughWallFunctionFvPatchScalarField& nrwfpsf =
+        refCast<const nutkAtmRoughWallFunctionFvPatchScalarField>(ptf);
+
+    z0_.reset(nrwfpsf.z0_);
 }
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,37 +25,11 @@ License
 
 #include "rotatingTotalPressureFvPatchScalarField.H"
 #include "addToRunTimeSelectionTable.H"
-#include "fvPatchFieldMapper.H"
+#include "fieldMapper.H"
 #include "volFields.H"
 #include "surfaceFields.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
-
-Foam::rotatingTotalPressureFvPatchScalarField::
-rotatingTotalPressureFvPatchScalarField
-(
-    const fvPatch& p,
-    const DimensionedField<scalar, volMesh>& iF
-)
-:
-    totalPressureFvPatchScalarField(p, iF),
-    omega_()
-{}
-
-
-Foam::rotatingTotalPressureFvPatchScalarField::
-rotatingTotalPressureFvPatchScalarField
-(
-    const rotatingTotalPressureFvPatchScalarField& ptf,
-    const fvPatch& p,
-    const DimensionedField<scalar, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
-)
-:
-    totalPressureFvPatchScalarField(ptf, p, iF, mapper),
-    omega_(ptf.omega_, false)
-{}
-
 
 Foam::rotatingTotalPressureFvPatchScalarField::
 rotatingTotalPressureFvPatchScalarField
@@ -66,30 +40,39 @@ rotatingTotalPressureFvPatchScalarField
 )
 :
     totalPressureFvPatchScalarField(p, iF, dict),
-    omega_(Function1<vector>::New("omega", dict))
+    origin_(dict.lookup<vector>("origin")),
+    axis_(dict.lookup<vector>("axis")),
+    omega_(db().time(), dict)
 {}
 
 
 Foam::rotatingTotalPressureFvPatchScalarField::
 rotatingTotalPressureFvPatchScalarField
 (
-    const rotatingTotalPressureFvPatchScalarField& rtppsf
+    const rotatingTotalPressureFvPatchScalarField& psf,
+    const fvPatch& p,
+    const DimensionedField<scalar, volMesh>& iF,
+    const fieldMapper& mapper
 )
 :
-    totalPressureFvPatchScalarField(rtppsf),
-    omega_(rtppsf.omega_, false)
+    totalPressureFvPatchScalarField(psf, p, iF, mapper),
+    origin_(psf.origin_),
+    axis_(psf.axis_),
+    omega_(psf.omega_)
 {}
 
 
 Foam::rotatingTotalPressureFvPatchScalarField::
 rotatingTotalPressureFvPatchScalarField
 (
-    const rotatingTotalPressureFvPatchScalarField& rtppsf,
+    const rotatingTotalPressureFvPatchScalarField& psf,
     const DimensionedField<scalar, volMesh>& iF
 )
 :
-    totalPressureFvPatchScalarField(rtppsf, iF),
-    omega_(rtppsf.omega_, false)
+    totalPressureFvPatchScalarField(psf, iF),
+    origin_(psf.origin_),
+    axis_(psf.axis_),
+    omega_(psf.omega_)
 {}
 
 
@@ -102,27 +85,31 @@ void Foam::rotatingTotalPressureFvPatchScalarField::updateCoeffs()
         return;
     }
 
-    const scalar t = this->db().time().timeOutputValue();
-    const vector om = omega_->value(t);
+    const scalar omega = omega_.value(db().time().value());
 
-    vector axisHat = om/mag(om);
-    tmp<vectorField> rotationVelocity =
-        om ^ (patch().Cf() - axisHat*(axisHat & patch().Cf()));
+    const fvsPatchField<scalar>& phip =
+        patch().lookupPatchField<surfaceScalarField, scalar>(phiName_);
 
     const vectorField Up
     (
-        patch().lookupPatchField<volVectorField, vector>(UName())
-      + rotationVelocity
+        patch().lookupPatchField<volVectorField, vector>(UName_)
+      + omega*((patch().Cf() - origin_) ^ (axis_/mag(axis_)))
     );
 
-    totalPressureFvPatchScalarField::updateCoeffs(p0(), Up);
+    dynamicPressureFvPatchScalarField::updateCoeffs
+    (
+        p0_,
+        -0.5*neg(phip)*magSqr(Up)
+    );
 }
 
 
 void Foam::rotatingTotalPressureFvPatchScalarField::write(Ostream& os) const
 {
     totalPressureFvPatchScalarField::write(os);
-    writeEntry(os, omega_());
+    writeEntry(os, "origin", origin_);
+    writeEntry(os, "axis", axis_);
+    writeEntry(os, omega_);
 }
 
 

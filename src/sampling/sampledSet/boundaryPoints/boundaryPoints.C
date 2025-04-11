@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -29,8 +29,8 @@ License
 #include "treeBoundBox.H"
 #include "treeDataFace.H"
 #include "Time.H"
-#include "meshTools.H"
-#include "mappedPatchBase.H"
+#include "OBJstream.H"
+#include "RemoteData.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -48,23 +48,25 @@ namespace sampledSets
 
 void Foam::sampledSets::boundaryPoints::calcSamples
 (
-    DynamicList<point>& samplingPts,
-    DynamicList<label>& samplingCells,
-    DynamicList<label>& samplingFaces,
+    DynamicList<point>& samplingPositions,
     DynamicList<label>& samplingSegments,
-    DynamicList<scalar>& samplingCurveDist
+    DynamicList<label>& samplingCells,
+    DynamicList<label>& samplingFaces
 ) const
 {
+    // Get the patch IDs
+    const labelHashSet patchIDs(mesh().boundaryMesh().patchSet(patches_));
+
     // Construct a single list of all patch faces
     label nPatchFaces = 0;
-    forAllConstIter(labelHashSet, patches_, iter)
+    forAllConstIter(labelHashSet, patchIDs, iter)
     {
         const polyPatch& pp = mesh().boundaryMesh()[iter.key()];
         nPatchFaces += pp.size();
     }
     labelList patchFaces(nPatchFaces);
     nPatchFaces = 0;
-    forAllConstIter(labelHashSet, patches_, iter)
+    forAllConstIter(labelHashSet, patchIDs, iter)
     {
         const polyPatch& pp = mesh().boundaryMesh()[iter.key()];
         forAll(pp, i)
@@ -75,7 +77,7 @@ void Foam::sampledSets::boundaryPoints::calcSamples
 
     // Construct a processor-local bound box
     treeBoundBox patchBB(point::max, point::min);
-    forAllConstIter(labelHashSet, patches_, iter)
+    forAllConstIter(labelHashSet, patchIDs, iter)
     {
         const polyPatch& pp = mesh().boundaryMesh()[iter.key()];
         const boundBox patchBb(pp.points(), pp.meshPoints(), false);
@@ -103,60 +105,50 @@ void Foam::sampledSets::boundaryPoints::calcSamples
     (void)mesh().tetBasePtIs();
 
     // Generate the nearest patch information for each sampling point
-    List<mappedPatchBase::nearInfo> nearest(points_.size());
+    List<RemoteData<Tuple2<scalar, point>>> nearest(points_.size());
     forAll(points_, sampleI)
     {
         const point& sample = points_[sampleI];
 
-        pointIndexHit& nearHit = nearest[sampleI].first();
-        scalar& nearDist = nearest[sampleI].second().first();
-        label& nearProc = nearest[sampleI].second().second();
+        const pointIndexHit pih =
+            patchFaces.size()
+          ? patchTree.findNearest(sample, sqr(maxDistance_))
+          : pointIndexHit();
 
-        // Find the nearest
-        if (patchFaces.size())
+        if (pih.hit())
         {
-            nearHit = patchTree.findNearest(sample, sqr(maxDistance_));
-        }
-        else
-        {
-            nearHit.setMiss();
-        }
-
-        // Fill in the information
-        if (nearHit.hit())
-        {
-            nearHit.setIndex(patchFaces[nearHit.index()]);
-            nearDist = magSqr(nearHit.hitPoint() - sample);
-            nearProc = Pstream::myProcNo();
-        }
-        else
-        {
-            nearHit.setIndex(-1);
-            nearDist = Foam::sqr(great);
-            nearProc = Pstream::myProcNo();
+            nearest[sampleI].proci = Pstream::myProcNo();
+            nearest[sampleI].elementi = patchFaces[pih.index()];
+            nearest[sampleI].data.first() = magSqr(pih.hitPoint() - sample);
+            nearest[sampleI].data.second() = pih.hitPoint();
         }
     }
 
     // Reduce to get the nearest patch locations globally
-    Pstream::listCombineGather(nearest, mappedPatchBase::nearestEqOp());
+    Pstream::listCombineGather
+    (
+        nearest,
+        RemoteData<Tuple2<scalar, point>>::smallestFirstEqOp()
+    );
     Pstream::listCombineScatter(nearest);
 
     // Dump connecting lines from the sampling points to the hit locations
     if (debug && Pstream::master())
     {
-        OFstream str(mesh().time().path() / name() + "_nearest.obj");
+        OBJstream str(mesh().time().path()/(name() + "_nearest.obj"));
 
-        label verti = 0;
-
-        forAll(nearest, i)
+        forAll(nearest, sampleI)
         {
-            if (nearest[i].first().hit())
+            if (nearest[sampleI].proci != -1)
             {
-                meshTools::writeOBJ(str, points_[i]);
-                verti++;
-                meshTools::writeOBJ(str, nearest[i].first().hitPoint());
-                verti++;
-                str << "l " << verti - 1 << ' ' << verti << nl;
+                str.write
+                (
+                    linePointRef
+                    (
+                        points_[sampleI],
+                        nearest[sampleI].data.second()
+                    )
+                );
             }
         }
     }
@@ -164,20 +156,16 @@ void Foam::sampledSets::boundaryPoints::calcSamples
     // Store the sampling locations on the nearest processor
     forAll(nearest, sampleI)
     {
-        const pointIndexHit& nearHit = nearest[sampleI].first();
-        const label& nearProc = nearest[sampleI].second().second();
-
-        if (nearHit.hit())
+        if (nearest[sampleI].proci != -1)
         {
-            if (nearProc == Pstream::myProcNo())
+            if (nearest[sampleI].proci == Pstream::myProcNo())
             {
-                label facei = nearHit.index();
+                const label facei = nearest[sampleI].elementi;
 
-                samplingPts.append(nearHit.hitPoint());
+                samplingPositions.append(nearest[sampleI].data.second());
+                samplingSegments.append(sampleI);
                 samplingCells.append(mesh().faceOwner()[facei]);
                 samplingFaces.append(facei);
-                samplingSegments.append(0);
-                samplingCurveDist.append(sampleI);
             }
         }
         else
@@ -193,34 +181,30 @@ void Foam::sampledSets::boundaryPoints::calcSamples
 
 void Foam::sampledSets::boundaryPoints::genSamples()
 {
-    DynamicList<point> samplingPts;
+    DynamicList<point> samplingPositions;
+    DynamicList<label> samplingSegments;
     DynamicList<label> samplingCells;
     DynamicList<label> samplingFaces;
-    DynamicList<label> samplingSegments;
-    DynamicList<scalar> samplingCurveDist;
 
     calcSamples
     (
-        samplingPts,
-        samplingCells,
-        samplingFaces,
+        samplingPositions,
         samplingSegments,
-        samplingCurveDist
+        samplingCells,
+        samplingFaces
     );
 
-    samplingPts.shrink();
+    samplingPositions.shrink();
+    samplingSegments.shrink();
     samplingCells.shrink();
     samplingFaces.shrink();
-    samplingSegments.shrink();
-    samplingCurveDist.shrink();
 
     setSamples
     (
-        samplingPts,
-        samplingCells,
-        samplingFaces,
+        samplingPositions,
         samplingSegments,
-        samplingCurveDist
+        samplingCells,
+        samplingFaces
     );
 }
 
@@ -237,21 +221,10 @@ Foam::sampledSets::boundaryPoints::boundaryPoints
 :
     sampledSet(name, mesh, searchEngine, dict),
     points_(dict.lookup("points")),
-    patches_
-    (
-        mesh.boundaryMesh().patchSet
-        (
-            wordReList(dict.lookup("patches"))
-        )
-    ),
+    patches_(dict.lookup("patches")),
     maxDistance_(dict.lookup<scalar>("maxDistance"))
 {
     genSamples();
-
-    if (debug)
-    {
-        write(Info);
-    }
 }
 
 

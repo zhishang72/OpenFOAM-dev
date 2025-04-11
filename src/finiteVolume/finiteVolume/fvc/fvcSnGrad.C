@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -40,30 +40,30 @@ namespace fvc
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 template<class Type>
-tmp<GeometricField<Type, fvsPatchField, surfaceMesh>>
+tmp<SurfaceField<Type>>
 snGrad
 (
-    const GeometricField<Type, fvPatchField, volMesh>& vf,
+    const VolField<Type>& vf,
     const word& name
 )
 {
     return fv::snGradScheme<Type>::New
     (
         vf.mesh(),
-        vf.mesh().snGradScheme(name)
+        vf.mesh().schemes().snGrad(name)
     )().snGrad(vf);
 }
 
 
 template<class Type>
-tmp<GeometricField<Type, fvsPatchField, surfaceMesh>>
+tmp<SurfaceField<Type>>
 snGrad
 (
-    const tmp<GeometricField<Type, fvPatchField, volMesh>>& tvf,
+    const tmp<VolField<Type>>& tvf,
     const word& name
 )
 {
-    tmp<GeometricField<Type, fvsPatchField, surfaceMesh>> SnGrad
+    tmp<SurfaceField<Type>> SnGrad
     (
         fvc::snGrad(tvf(), name)
     );
@@ -73,10 +73,10 @@ snGrad
 
 
 template<class Type>
-tmp<GeometricField<Type, fvsPatchField, surfaceMesh>>
+tmp<SurfaceField<Type>>
 snGrad
 (
-    const GeometricField<Type, fvPatchField, volMesh>& vf
+    const VolField<Type>& vf
 )
 {
     return fvc::snGrad(vf, "snGrad(" + vf.name() + ')');
@@ -84,13 +84,13 @@ snGrad
 
 
 template<class Type>
-tmp<GeometricField<Type, fvsPatchField, surfaceMesh>>
+tmp<SurfaceField<Type>>
 snGrad
 (
-    const tmp<GeometricField<Type, fvPatchField, volMesh>>& tvf
+    const tmp<VolField<Type>>& tvf
 )
 {
-    tmp<GeometricField<Type, fvsPatchField, surfaceMesh>> SnGrad
+    tmp<SurfaceField<Type>> SnGrad
     (
         fvc::snGrad(tvf())
     );

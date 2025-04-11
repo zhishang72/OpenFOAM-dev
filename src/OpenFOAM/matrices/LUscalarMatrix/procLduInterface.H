@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -54,7 +54,7 @@ Ostream& operator<<(Ostream&, const procLduInterface&);
 
 
 /*---------------------------------------------------------------------------*\
-                           Class procLduInterface Declaration
+                      Class procLduInterface Declaration
 \*---------------------------------------------------------------------------*/
 
 class procLduInterface
@@ -67,12 +67,6 @@ class procLduInterface
         label neighbProcNo_;
         label tag_;
         label comm_;
-
-
-    // Private Member Functions
-
-        //- Dissallow construction as copy
-        procLduInterface(const procLduInterface&);
 
 
 public:
@@ -89,6 +83,9 @@ public:
         );
 
         procLduInterface(Istream& is);
+
+        //- Disallow construction as copy
+        procLduInterface(const procLduInterface&) = delete;
 
         autoPtr<procLduInterface> clone()
         {

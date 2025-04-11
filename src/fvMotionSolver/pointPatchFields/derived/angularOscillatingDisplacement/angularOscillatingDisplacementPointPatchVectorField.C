@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -40,33 +40,16 @@ angularOscillatingDisplacementPointPatchVectorField::
 angularOscillatingDisplacementPointPatchVectorField
 (
     const pointPatch& p,
-    const DimensionedField<vector, pointMesh>& iF
-)
-:
-    fixedValuePointPatchField<vector>(p, iF),
-    axis_(Zero),
-    origin_(Zero),
-    angle0_(0.0),
-    amplitude_(0.0),
-    omega_(0.0),
-    p0_(p.localPoints())
-{}
-
-
-angularOscillatingDisplacementPointPatchVectorField::
-angularOscillatingDisplacementPointPatchVectorField
-(
-    const pointPatch& p,
     const DimensionedField<vector, pointMesh>& iF,
     const dictionary& dict
 )
 :
     fixedValuePointPatchField<vector>(p, iF, dict),
-    axis_(dict.lookup("axis")),
-    origin_(dict.lookup("origin")),
-    angle0_(dict.lookup<scalar>("angle0")),
-    amplitude_(dict.lookup<scalar>("amplitude")),
-    omega_(dict.lookup<scalar>("omega"))
+    axis_(dict.lookup<vector>("axis", dimless)),
+    origin_(dict.lookup<vector>("origin", dimLength)),
+    angle0_(dict.lookup<scalar>("angle0", unitRadians)),
+    amplitude_(dict.lookup<scalar>("amplitude", unitRadians)),
+    omega_(dict.lookup<scalar>("omega", unitRadians/dimTime))
 {
     if (!dict.found("value"))
     {
@@ -75,7 +58,7 @@ angularOscillatingDisplacementPointPatchVectorField
 
     if (dict.found("p0"))
     {
-        p0_ = vectorField("p0", dict , p.size());
+        p0_ = vectorField("p0", dimLength, dict, p.size());
     }
     else
     {
@@ -90,7 +73,7 @@ angularOscillatingDisplacementPointPatchVectorField
     const angularOscillatingDisplacementPointPatchVectorField& ptf,
     const pointPatch& p,
     const DimensionedField<vector, pointMesh>& iF,
-    const pointPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     fixedValuePointPatchField<vector>(ptf, p, iF, mapper),
@@ -122,29 +105,32 @@ angularOscillatingDisplacementPointPatchVectorField
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-void angularOscillatingDisplacementPointPatchVectorField::autoMap
-(
-    const pointPatchFieldMapper& m
-)
-{
-    fixedValuePointPatchField<vector>::autoMap(m);
-
-    m(p0_, p0_);
-}
-
-
-void angularOscillatingDisplacementPointPatchVectorField::rmap
+void angularOscillatingDisplacementPointPatchVectorField::map
 (
     const pointPatchField<vector>& ptf,
-    const labelList& addr
+    const fieldMapper& mapper
 )
 {
     const angularOscillatingDisplacementPointPatchVectorField& aODptf =
         refCast<const angularOscillatingDisplacementPointPatchVectorField>(ptf);
 
-    fixedValuePointPatchField<vector>::rmap(aODptf, addr);
+    fixedValuePointPatchField<vector>::map(aODptf, mapper);
 
-    p0_.rmap(aODptf.p0_, addr);
+    mapper(p0_, aODptf.p0_);
+}
+
+
+void angularOscillatingDisplacementPointPatchVectorField::reset
+(
+    const pointPatchField<vector>& ptf
+)
+{
+    const angularOscillatingDisplacementPointPatchVectorField& aODptf =
+        refCast<const angularOscillatingDisplacementPointPatchVectorField>(ptf);
+
+    fixedValuePointPatchField<vector>::reset(aODptf);
+
+    p0_.reset(aODptf.p0_);
 }
 
 

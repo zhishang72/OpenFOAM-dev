@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -67,7 +67,7 @@ Ostream& operator<<(Ostream&, const token&);
 
 
 /*---------------------------------------------------------------------------*\
-                           Class token Declaration
+                            Class token Declaration
 \*---------------------------------------------------------------------------*/
 
 class token
@@ -86,7 +86,10 @@ public:
         VARIABLE,
         STRING,
         VERBATIMSTRING,
-        LABEL,
+        INTEGER_32,
+        INTEGER_64,
+        UNSIGNED_INTEGER_32,
+        UNSIGNED_INTEGER_64,
         FLOAT_SCALAR,
         DOUBLE_SCALAR,
         LONG_DOUBLE_SCALAR,
@@ -242,6 +245,9 @@ private:
 
     // Private Data
 
+        //- List of token type names
+        static const word typeNames_[];
+
         //- The token type
         tokenType type_;
 
@@ -254,7 +260,10 @@ private:
             variable* variableTokenPtr_;
             string* stringTokenPtr_;
             verbatimString* verbatimStringTokenPtr_;
-            label labelToken_;
+            int32_t integer32Token_;
+            int64_t integer64Token_;
+            uint32_t unsignedInteger32Token_;
+            uint64_t unsignedInteger64Token_;
             floatScalar floatScalarToken_;
             doubleScalar doubleScalarToken_;
             longDoubleScalar* longDoubleScalarTokenPtr_;
@@ -276,11 +285,6 @@ private:
 
 public:
 
-    // Static Data Members
-
-        static const char* const typeName;
-
-
     // Constructors
 
         //- Construct null
@@ -301,8 +305,17 @@ public:
         //- Construct verbatimString token
         inline token(const verbatimString&, label lineNumber=0);
 
-        //- Construct label token
-        inline token(const label, label lineNumber=0);
+        //- Construct 32-bit integer token
+        inline token(const int32_t, label lineNumber=0);
+
+        //- Construct 64-bit integer token
+        inline token(const int64_t, label lineNumber=0);
+
+        //- Construct unsigned 32-bit integer token
+        inline token(const uint32_t, label lineNumber=0);
+
+        //- Construct unsigned 64-bit integer token
+        inline token(const uint64_t, label lineNumber=0);
 
         //- Construct floatScalar token
         inline token(const floatScalar, label lineNumber=0);
@@ -332,6 +345,9 @@ public:
             inline bool undefined() const;
             inline bool error() const;
 
+            //- Return the type name of the token
+            const word& typeName() const;
+
             inline bool isPunctuation() const;
             inline punctuationToken pToken() const;
 
@@ -353,8 +369,23 @@ public:
             inline bool isAnyString() const;
             inline const string& anyStringToken() const;
 
+            inline bool isInteger32() const;
+            inline int32_t integer32Token() const;
+
+            inline bool isInteger64() const;
+            inline int64_t integer64Token() const;
+
+            inline bool isUnsignedInteger32() const;
+            inline uint32_t unsignedInteger32Token() const;
+
+            inline bool isUnsignedInteger64() const;
+            inline uint64_t unsignedInteger64Token() const;
+
             inline bool isLabel() const;
             inline label labelToken() const;
+
+            inline bool isULabel() const;
+            inline uLabel uLabelToken() const;
 
             inline bool isFloatScalar() const;
             inline floatScalar floatScalarToken() const;
@@ -418,7 +449,10 @@ public:
             inline void operator=(verbatimString*);
             inline void operator=(const verbatimString&);
 
-            inline void operator=(const label);
+            inline void operator=(const int32_t);
+            inline void operator=(const int64_t);
+            inline void operator=(const uint32_t);
+            inline void operator=(const uint64_t);
             inline void operator=(const floatScalar);
             inline void operator=(const doubleScalar);
             inline void operator=(const longDoubleScalar);
@@ -435,7 +469,10 @@ public:
             inline bool operator==(const variable&) const;
             inline bool operator==(const string&) const;
             inline bool operator==(const verbatimString&) const;
-            inline bool operator==(const label) const;
+            inline bool operator==(const int32_t) const;
+            inline bool operator==(const int64_t) const;
+            inline bool operator==(const uint32_t) const;
+            inline bool operator==(const uint64_t) const;
             inline bool operator==(const floatScalar) const;
             inline bool operator==(const doubleScalar) const;
             inline bool operator==(const longDoubleScalar) const;
@@ -450,7 +487,10 @@ public:
             inline bool operator!=(const variable&) const;
             inline bool operator!=(const string&) const;
             inline bool operator!=(const verbatimString&) const;
-            inline bool operator!=(const label) const;
+            inline bool operator!=(const int32_t) const;
+            inline bool operator!=(const int64_t) const;
+            inline bool operator!=(const uint32_t) const;
+            inline bool operator!=(const uint64_t) const;
             inline bool operator!=(const floatScalar) const;
             inline bool operator!=(const doubleScalar) const;
             inline bool operator!=(const longDoubleScalar) const;

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,6 +24,7 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "solidParticle.H"
+#include "solidParticleCloud.H"
 #include "IOstreams.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
@@ -36,14 +37,9 @@ const std::size_t Foam::solidParticle::sizeofFields_
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
-Foam::solidParticle::solidParticle
-(
-    const polyMesh& mesh,
-    Istream& is,
-    bool readFields
-)
+Foam::solidParticle::solidParticle(Istream& is, bool readFields)
 :
-    particle(mesh, is, readFields)
+    particle(is, readFields)
 {
     if (readFields)
     {
@@ -63,7 +59,7 @@ Foam::solidParticle::solidParticle
 }
 
 
-void Foam::solidParticle::readFields(Cloud<solidParticle>& c)
+void Foam::solidParticle::readFields(lagrangian::Cloud<solidParticle>& c)
 {
     bool valid = c.size();
 
@@ -76,7 +72,7 @@ void Foam::solidParticle::readFields(Cloud<solidParticle>& c)
     c.checkFieldIOobject(c, U);
 
     label i = 0;
-    forAllIter(Cloud<solidParticle>, c, iter)
+    forAllIter(lagrangian::Cloud<solidParticle>, c, iter)
     {
         solidParticle& p = iter();
 
@@ -87,7 +83,7 @@ void Foam::solidParticle::readFields(Cloud<solidParticle>& c)
 }
 
 
-void Foam::solidParticle::writeFields(const Cloud<solidParticle>& c)
+void Foam::solidParticle::writeFields(const lagrangian::Cloud<solidParticle>& c)
 {
     particle::writeFields(c);
 
@@ -97,7 +93,7 @@ void Foam::solidParticle::writeFields(const Cloud<solidParticle>& c)
     IOField<vector> U(c.fieldIOobject("U", IOobject::NO_READ), np);
 
     label i = 0;
-    forAllConstIter(Cloud<solidParticle>, c, iter)
+    forAllConstIter(lagrangian::Cloud<solidParticle>, c, iter)
     {
         const solidParticle& p = iter();
 

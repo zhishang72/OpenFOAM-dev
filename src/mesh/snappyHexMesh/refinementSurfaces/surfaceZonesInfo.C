@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -88,24 +88,17 @@ Foam::surfaceZonesInfo::surfaceZonesInfo
         // Read optional entry to determine inside of faceZone
 
         word method;
-        bool hasSide = surfacesDict.readIfPresent("cellZoneInside", method);
+        bool hasSide =
+            surfacesDict.readIfPresent("mode", method)
+         || surfacesDict.readIfPresent("cellZoneInside", method);
+
         if (hasSide)
         {
             zoneInside_ = areaSelectionAlgoNames[method];
             if (zoneInside_ == INSIDEPOINT)
             {
-                surfacesDict.lookup("insidePoint") >> zoneInsidePoint_;
-            }
-
-        }
-        else
-        {
-            // Check old syntax
-            bool inside;
-            if (surfacesDict.readIfPresent("zoneInside", inside))
-            {
-                hasSide = true;
-                zoneInside_ = (inside ? INSIDE : OUTSIDE);
+                zoneInsidePoint_ =
+                    surfacesDict.lookup<point>("insidePoint", dimLength);
             }
         }
 
@@ -188,11 +181,11 @@ Foam::labelList Foam::surfaceZonesInfo::getUnnamedSurfaces
     labelList anonymousSurfaces(surfList.size());
 
     label i = 0;
-    forAll(surfList, surfI)
+    forAll(surfList, surfi)
     {
-        if (surfList[surfI].faceZoneName().empty())
+        if (surfList[surfi].faceZoneName().empty())
         {
-            anonymousSurfaces[i++] = surfI;
+            anonymousSurfaces[i++] = surfi;
         }
     }
     anonymousSurfaces.setSize(i);
@@ -209,15 +202,15 @@ Foam::labelList Foam::surfaceZonesInfo::getNamedSurfaces
    labelList namedSurfaces(surfList.size());
 
     label namedI = 0;
-    forAll(surfList, surfI)
+    forAll(surfList, surfi)
     {
         if
         (
-            surfList.set(surfI)
-         && surfList[surfI].faceZoneName().size()
+            surfList.set(surfi)
+         && surfList[surfi].faceZoneName().size()
         )
         {
-            namedSurfaces[namedI++] = surfI;
+            namedSurfaces[namedI++] = surfi;
         }
     }
     namedSurfaces.setSize(namedI);
@@ -236,20 +229,20 @@ Foam::labelList Foam::surfaceZonesInfo::getClosedNamedSurfaces
     labelList closed(surfList.size());
 
     label closedI = 0;
-    forAll(surfList, surfI)
+    forAll(surfList, surfi)
     {
         if
         (
-            surfList.set(surfI)
-         && surfList[surfI].cellZoneName().size()
+            surfList.set(surfi)
+         && surfList[surfi].cellZoneName().size()
          && (
-                surfList[surfI].zoneInside() == surfaceZonesInfo::INSIDE
-             || surfList[surfI].zoneInside() == surfaceZonesInfo::OUTSIDE
+                surfList[surfi].zoneInside() == surfaceZonesInfo::INSIDE
+             || surfList[surfi].zoneInside() == surfaceZonesInfo::OUTSIDE
             )
-         && allGeometry[surfaces[surfI]].hasVolumeType()
+         && allGeometry[surfaces[surfi]].hasVolumeType()
         )
         {
-            closed[closedI++] = surfI;
+            closed[closedI++] = surfi;
         }
     }
     closed.setSize(closedI);
@@ -268,15 +261,15 @@ Foam::labelList Foam::surfaceZonesInfo::getUnclosedNamedSurfaces
     labelList unclosed(surfList.size());
 
     label unclosedI = 0;
-    forAll(surfList, surfI)
+    forAll(surfList, surfi)
     {
         if
         (
-            surfList.set(surfI)
-         && !allGeometry[surfaces[surfI]].hasVolumeType()
+            surfList.set(surfi)
+         && !allGeometry[surfaces[surfi]].hasVolumeType()
         )
         {
-            unclosed[unclosedI++] = surfI;
+            unclosed[unclosedI++] = surfi;
         }
     }
     unclosed.setSize(unclosedI);
@@ -295,16 +288,16 @@ Foam::labelList Foam::surfaceZonesInfo::getAllClosedNamedSurfaces
     labelList closed(surfList.size());
 
     label closedI = 0;
-    forAll(surfList, surfI)
+    forAll(surfList, surfi)
     {
         if
         (
-            surfList.set(surfI)
-         && surfList[surfI].cellZoneName().size()
-         && allGeometry[surfaces[surfI]].hasVolumeType()
+            surfList.set(surfi)
+         && surfList[surfi].cellZoneName().size()
+         && allGeometry[surfaces[surfi]].hasVolumeType()
         )
         {
-            closed[closedI++] = surfI;
+            closed[closedI++] = surfi;
         }
     }
     closed.setSize(closedI);
@@ -321,16 +314,16 @@ Foam::labelList Foam::surfaceZonesInfo::getInsidePointNamedSurfaces
     labelList closed(surfList.size());
 
     label closedI = 0;
-    forAll(surfList, surfI)
+    forAll(surfList, surfi)
     {
         if
         (
-            surfList.set(surfI)
-         && surfList[surfI].cellZoneName().size()
-         && surfList[surfI].zoneInside() == surfaceZonesInfo::INSIDEPOINT
+            surfList.set(surfi)
+         && surfList[surfi].cellZoneName().size()
+         && surfList[surfi].zoneInside() == surfaceZonesInfo::INSIDEPOINT
         )
         {
-            closed[closedI++] = surfI;
+            closed[closedI++] = surfi;
         }
     }
     closed.setSize(closedI);
@@ -348,42 +341,41 @@ Foam::labelList Foam::surfaceZonesInfo::addCellZonesToMesh
 {
     labelList surfaceToCellZone(surfList.size(), -1);
 
-    cellZoneMesh& cellZones = mesh.cellZones();
+    cellZoneList& cellZones = mesh.cellZones();
 
     forAll(namedSurfaces, i)
     {
-        label surfI = namedSurfaces[i];
+        label surfi = namedSurfaces[i];
 
-        const word& cellZoneName = surfList[surfI].cellZoneName();
+        const word& cellZoneName = surfList[surfi].cellZoneName();
 
         if (cellZoneName != word::null)
         {
-            label zoneI = cellZones.findZoneID(cellZoneName);
+            label zonei = cellZones.findIndex(cellZoneName);
 
-            if (zoneI == -1)
+            if (zonei == -1)
             {
-                zoneI = cellZones.size();
-                cellZones.setSize(zoneI+1);
+                zonei = cellZones.size();
+                cellZones.setSize(zonei+1);
                 cellZones.set
                 (
-                    zoneI,
+                    zonei,
                     new cellZone
                     (
                         cellZoneName,   // name
                         labelList(0),   // addressing
-                        zoneI,          // index
-                        cellZones       // cellZoneMesh
+                        cellZones       // cellZones
                     )
                 );
             }
 
-            surfaceToCellZone[surfI] = zoneI;
+            surfaceToCellZone[surfi] = zonei;
         }
     }
 
     // Check they are synced
     List<wordList> allCellZones(Pstream::nProcs());
-    allCellZones[Pstream::myProcNo()] = cellZones.names();
+    allCellZones[Pstream::myProcNo()] = cellZones.toc();
     Pstream::gatherList(allCellZones);
     Pstream::scatterList(allCellZones);
 
@@ -413,40 +405,39 @@ Foam::labelList Foam::surfaceZonesInfo::addFaceZonesToMesh
 {
     labelList surfaceToFaceZone(surfList.size(), -1);
 
-    faceZoneMesh& faceZones = mesh.faceZones();
+    faceZoneList& faceZones = mesh.faceZones();
 
     forAll(namedSurfaces, i)
     {
-        label surfI = namedSurfaces[i];
+        label surfi = namedSurfaces[i];
 
-        const word& faceZoneName = surfList[surfI].faceZoneName();
+        const word& faceZoneName = surfList[surfi].faceZoneName();
 
-        label zoneI = faceZones.findZoneID(faceZoneName);
+        label zonei = faceZones.findIndex(faceZoneName);
 
-        if (zoneI == -1)
+        if (zonei == -1)
         {
-            zoneI = faceZones.size();
-            faceZones.setSize(zoneI+1);
+            zonei = faceZones.size();
+            faceZones.setSize(zonei+1);
             faceZones.set
             (
-                zoneI,
+                zonei,
                 new faceZone
                 (
                     faceZoneName,   // name
                     labelList(0),   // addressing
                     boolList(0),    // flipmap
-                    zoneI,          // index
-                    faceZones       // faceZoneMesh
+                    faceZones       // faceZones
                 )
             );
         }
 
-        surfaceToFaceZone[surfI] = zoneI;
+        surfaceToFaceZone[surfi] = zonei;
     }
 
     // Check they are synced
     List<wordList> allFaceZones(Pstream::nProcs());
-    allFaceZones[Pstream::myProcNo()] = faceZones.names();
+    allFaceZones[Pstream::myProcNo()] = faceZones.toc();
     Pstream::gatherList(allFaceZones);
     Pstream::scatterList(allFaceZones);
 

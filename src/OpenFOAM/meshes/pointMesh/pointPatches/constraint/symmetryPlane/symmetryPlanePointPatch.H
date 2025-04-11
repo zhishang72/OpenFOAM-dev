@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2021 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,7 +44,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-               Class symmetryPlanePointPatch Declaration
+                   Class symmetryPlanePointPatch Declaration
 \*---------------------------------------------------------------------------*/
 
 class symmetryPlanePointPatch
@@ -74,12 +74,6 @@ public:
 
 
     // Member Functions
-
-        //- Return the constraint type this pointPatch implements.
-        virtual const word& constraintType() const
-        {
-            return type();
-        }
 
         //- Accumulate the effect of constraint direction of this patch
         virtual void applyConstraint

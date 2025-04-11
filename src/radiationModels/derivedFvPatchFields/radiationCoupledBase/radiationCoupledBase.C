@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,8 +25,8 @@ License
 
 #include "radiationCoupledBase.H"
 #include "volFields.H"
-#include "mappedPatchBase.H"
-#include "fvPatchFieldMapper.H"
+#include "fieldMapper.H"
+#include "mappedFvPatchBaseBase.H"
 #include "radiationModel.H"
 #include "opaqueSolid.H"
 #include "absorptionEmissionModel.H"
@@ -76,7 +76,7 @@ Foam::radiationCoupledBase::radiationCoupledBase
     const fvPatch& patch,
     const word& calculationType,
     const scalarField& emissivity,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     patch_(patch),
@@ -98,38 +98,16 @@ Foam::radiationCoupledBase::radiationCoupledBase
     {
         case SOLIDRADIATION:
         {
-            if (!isA<mappedPatchBase>(patch_.patch()))
-            {
-                FatalIOErrorInFunction
-                (
-                    dict
-                )   << "\n    patch type '" << patch_.type()
-                    << "' not type '" << mappedPatchBase::typeName << "'"
-                    << "\n    for patch " << patch_.name()
-                    << exit(FatalIOError);
-            }
-
-            emissivity_ = scalarField(patch_.size(), 0.0);
+            emissivity_ = scalarField(patch_.size(), scalar(0));
+            break;
         }
-        break;
 
         case LOOKUP:
         {
-            if (!dict.found("emissivity"))
-            {
-                FatalIOErrorInFunction
-                (
-                    dict
-                )   << "\n    emissivity key does not exist for patch "
-                    << patch_.name()
-                    << exit(FatalIOError);
-            }
-            else
-            {
-                emissivity_ = scalarField("emissivity", dict, patch_.size());
-            }
+            emissivity_ =
+                scalarField("emissivity", unitFraction, dict, patch_.size());
+            break;
         }
-        break;
     }
 }
 
@@ -142,17 +120,17 @@ Foam::radiationCoupledBase::~radiationCoupledBase()
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-Foam::scalarField Foam::radiationCoupledBase::emissivity() const
+Foam::tmp<Foam::scalarField> Foam::radiationCoupledBase::emissivity() const
 {
     switch (method_)
     {
         case SOLIDRADIATION:
         {
-            // Get the coupling information from the mappedPatchBase
-            const mappedPatchBase& mpp =
-                refCast<const mappedPatchBase>(patch_.patch());
-
-            const polyMesh& nbrMesh = mpp.sampleMesh();
+            // Get the mapper and the neighbouring mesh and patch
+            const mappedFvPatchBaseBase& mapper =
+                mappedFvPatchBaseBase::getMap(patch_);
+            const fvMesh& nbrMesh = mapper.nbrMesh();
+            const fvPatch& nbrPatch = mapper.nbrFvPatch();
 
             const radiationModels::opaqueSolid& radiation =
                 nbrMesh.lookupObject<radiationModels::opaqueSolid>
@@ -160,24 +138,17 @@ Foam::scalarField Foam::radiationCoupledBase::emissivity() const
                     "radiationProperties"
                 );
 
-            const fvMesh& nbrFvMesh = refCast<const fvMesh>(nbrMesh);
-
-            const fvPatch& nbrPatch =
-                nbrFvMesh.boundary()[mpp.samplePolyPatch().index()];
-
             // NOTE: for an opaqueSolid the absorptionEmission model returns the
             // emissivity of the surface rather than the emission coefficient
             // and the input specification MUST correspond to this.
-            scalarField emissivity
-            (
-                radiation.absorptionEmission().e()().boundaryField()
-                [
-                    nbrPatch.index()
-                ]
-            );
-            mpp.distribute(emissivity);
-
-            return emissivity;
+            return
+                mapper.fromNeighbour
+                (
+                    radiation.absorptionEmission().e()().boundaryField()
+                    [
+                        nbrPatch.index()
+                    ]
+                );
         }
         break;
 
@@ -202,22 +173,28 @@ Foam::scalarField Foam::radiationCoupledBase::emissivity() const
 }
 
 
-void Foam::radiationCoupledBase::autoMap(const fvPatchFieldMapper& m)
-{
-    m(emissivity_, emissivity_);
-}
-
-
-void Foam::radiationCoupledBase::rmap
+void Foam::radiationCoupledBase::map
 (
     const fvPatchScalarField& ptf,
-    const labelList& addr
+    const fieldMapper& mapper
 )
 {
     const radiationCoupledBase& mrptf =
         refCast<const radiationCoupledBase>(ptf);
 
-    emissivity_.rmap(mrptf.emissivity_, addr);
+    mapper(emissivity_, mrptf.emissivity_);
+}
+
+
+void Foam::radiationCoupledBase::reset
+(
+    const fvPatchScalarField& ptf
+)
+{
+    const radiationCoupledBase& mrptf =
+        refCast<const radiationCoupledBase>(ptf);
+
+    emissivity_.reset(mrptf.emissivity_);
 }
 
 

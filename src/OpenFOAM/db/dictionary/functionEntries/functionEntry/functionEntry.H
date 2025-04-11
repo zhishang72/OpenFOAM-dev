@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -58,7 +58,7 @@ namespace Foam
 class dictionary;
 
 /*---------------------------------------------------------------------------*\
-                           Class functionEntry Declaration
+                        Class functionEntry Declaration
 \*---------------------------------------------------------------------------*/
 
 class functionEntry
@@ -68,10 +68,15 @@ class functionEntry
     // Private Member Functions
 
         //- Read line as word token
-        static word readLine(Istream& is);
+        static token readLine(Istream& is);
 
 
 protected:
+
+        //- Read the function name and optional argument list
+        //  and return as a string.
+        //  The optional argument list can be on one or more lines.
+        static Tuple2<string, label> readFuncNameArgs(Istream& is);
 
         //- Insert the given string in a sub-dict context
         static bool insert
@@ -96,6 +101,10 @@ public:
         //- Construct from keyword, parent dictionary and Istream
         functionEntry(const word&, const dictionary&, Istream&);
 
+        //- Copy construct
+        functionEntry(const functionEntry&) = default;
+
+        //- Clone
         autoPtr<entry> clone(const dictionary&) const
         {
             return autoPtr<entry>(new functionEntry(*this));

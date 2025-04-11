@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -60,24 +60,20 @@ namespace Foam
 class regionSplit;
 
 /*---------------------------------------------------------------------------*\
-                           Class regionToCell Declaration
+                        Class regionToCell Declaration
 \*---------------------------------------------------------------------------*/
 
 class regionToCell
 :
     public topoSetSource
 {
-
     // Private Data
-
-        //- Add usage string
-        static addToUsageTable usage_;
 
         //- Name of cellSet to keep to
         const word setName_;
 
         //- Coordinate(s) that is inside connected region
-        const pointField insidePoints_;
+        const List<point> insidePoints_;
 
         //- Number of layers to erode
         const label nErode_;
@@ -93,10 +89,10 @@ class regionToCell
         ) const;
 
         //- Determine for every disconnected region in the mesh whether
-        //  it contains a locationInMesh
+        //  it contains a insidePoint
         boolList findRegions(const bool verbose, const regionSplit&) const;
 
-        //- Deselect regions not containing a locationInMesh
+        //- Deselect regions not containing a insidePoint
         void unselectOutsideRegions(boolList& selectedCell) const;
 
         //- Deselect one layer of cells from selectedCell
@@ -113,6 +109,7 @@ public:
 
     //- Runtime type information
     TypeName("regionToCell");
+
 
     // Constructors
 
@@ -132,13 +129,6 @@ public:
             const dictionary& dict
         );
 
-        //- Construct from Istream
-        regionToCell
-        (
-            const polyMesh& mesh,
-            Istream&
-        );
-
 
     //- Destructor
     virtual ~regionToCell();
@@ -151,9 +141,11 @@ public:
             return CELLSETSOURCE;
         }
 
-        virtual void applyToSet(const topoSetSource::setAction action, topoSet&)
-         const;
-
+        virtual void applyToSet
+        (
+            const topoSetSource::setAction action,
+            topoSet&
+        ) const;
 };
 
 

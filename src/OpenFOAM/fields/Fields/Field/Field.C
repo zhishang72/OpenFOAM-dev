@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,10 +25,9 @@ License
 
 #include "Field.H"
 #include "FieldM.H"
+#include "unitConversions.H"
 #include "dictionary.H"
 #include "contiguous.H"
-#include "mapDistributeBase.H"
-#include "flipOp.H"
 
 // * * * * * * * * * * * * * * * Static Members  * * * * * * * * * * * * * * //
 
@@ -187,6 +186,19 @@ Foam::Field<Type>::Field
     const dictionary& dict,
     const label s
 )
+:
+    Field<Type>(keyword, unitAny, dict, s)
+{}
+
+
+template<class Type>
+Foam::Field<Type>::Field
+(
+    const word& keyword,
+    const unitConversion& defaultUnits,
+    const dictionary& dict,
+    const label s
+)
 {
     if (s)
     {
@@ -195,62 +207,55 @@ Foam::Field<Type>::Field
         // Read first token
         token firstToken(is);
 
+        // Read the units if they are before the values
+        unitConversion units(defaultUnits);
+        const bool haveUnits = units.readIfPresent(keyword, dict, is);
+
+        // Read the values
         if (firstToken.isWord())
         {
             if (firstToken.wordToken() == "uniform")
             {
                 this->setSize(s);
+
                 operator=(pTraits<Type>(is));
             }
             else if (firstToken.wordToken() == "nonuniform")
             {
                 is >> static_cast<List<Type>&>(*this);
+
                 if (this->size() != s)
                 {
-                    FatalIOErrorInFunction
-                    (
-                        dict
-                    )   << "size " << this->size()
+                    FatalIOErrorInFunction(dict)
+                        << "size " << this->size()
                         << " is not equal to the given value of " << s
                         << exit(FatalIOError);
                 }
             }
             else
             {
-                FatalIOErrorInFunction
-                (
-                    dict
-                )   << "expected keyword 'uniform' or 'nonuniform', found "
+                FatalIOErrorInFunction(dict)
+                    << "expected keyword 'uniform' or 'nonuniform', found "
                     << firstToken.wordToken()
                     << exit(FatalIOError);
             }
         }
         else
         {
-            if (is.version() == 2.0)
-            {
-                IOWarningInFunction
-                (
-                    dict
-                )   << "expected keyword 'uniform' or 'nonuniform', "
-                       "assuming deprecated Field format from "
-                       "Foam version 2.0." << endl;
-
-                this->setSize(s);
-
-                is.putBack(firstToken);
-                operator=(pTraits<Type>(is));
-            }
-            else
-            {
-                FatalIOErrorInFunction
-                (
-                    dict
-                )   << "expected keyword 'uniform' or 'nonuniform', found "
-                    << firstToken.info()
-                    << exit(FatalIOError);
-            }
+            FatalIOErrorInFunction(dict)
+                << "expected keyword 'uniform' or 'nonuniform', found "
+                << firstToken.info()
+                << exit(FatalIOError);
         }
+
+        // Read the units if they are after the value
+        if (!haveUnits && !is.eof())
+        {
+            units.readIfPresent(keyword, dict, is);
+        }
+
+        // Modify the values by the unit conversion
+        units.makeStandard(*this);
     }
 }
 
@@ -448,6 +453,27 @@ void Foam::Field<Type>::rmap
 
 
 template<class Type>
+void Foam::Field<Type>::reset(const Field<Type>& rhs)
+{
+    if (this == &rhs)
+    {
+        FatalErrorInFunction
+            << "attempted assignment to self"
+            << abort(FatalError);
+    }
+
+    List<Type>::operator=(rhs);
+}
+
+
+template<class Type>
+void Foam::Field<Type>::reset(const UList<Type>& rhs)
+{
+    List<Type>::operator=(rhs);
+}
+
+
+template<class Type>
 void Foam::Field<Type>::negate()
 {
     TFOR_ALL_F_OP_OP_F(Type, *this, =, -, Type, *this)
@@ -552,13 +578,6 @@ void Foam::Field<Type>::operator=(Field<Type>&& rhs)
     }
 
     List<Type>::operator=(move(rhs));
-}
-
-
-template<class Type>
-void Foam::Field<Type>::operator=(const SubField<Type>& rhs)
-{
-    List<Type>::operator=(rhs);
 }
 
 

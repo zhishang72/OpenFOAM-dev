@@ -7,7 +7,6 @@
 \*---------------------------------------------------------------------------*/
 FoamFile
 {
-    version     2.0;
     format      ascii;
     class       dictionary;
     object      createBafflesDict;
@@ -20,26 +19,30 @@ fields true;
 
 baffles
 {
-    baffleFaces
+    nonCouple
     {
         type        faceZone;
         zoneName    rotatingZone;
 
-        patches
+        owner
         {
-            master
+            name        nonCouple1;
+            type        patch;
+
+            patchFields
             {
-                name            AMI1;
-                type            cyclicAMI;
-                matchTolerance  0.0001;
-                neighbourPatch  AMI2;
-                transform       noOrdering;
+                #include    "nonCouplePatchFields"
             }
-            slave
+        }
+
+        neighbour
+        {
+            name        nonCouple2;
+            type        patch;
+
+            patchFields
             {
-                $master;
-                name            AMI2;
-                neighbourPatch  AMI1;
+                #include    "nonCouplePatchFields"
             }
         }
     }

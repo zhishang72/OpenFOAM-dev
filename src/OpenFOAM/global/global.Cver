@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -74,18 +74,10 @@ bool Foam::jobInfo::constructed(false);
 // Read file modification checking switches
 
 #include "regIOobject.H"
-#include "registerSwitch.H"
 
 float Foam::regIOobject::fileModificationSkew
 (
     Foam::debug::floatOptimisationSwitch("fileModificationSkew", 30)
-);
-
-registerOptSwitch
-(
-    "fileModificationSkew",
-    float,
-    Foam::regIOobject::fileModificationSkew
 );
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -103,5 +95,10 @@ registerOptSwitch
 // Create the jobInfo file in the $FOAM_JOB_DIR/runningJobs directory
 
 #include "jobInfo.C"
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+// Construct runTimeSelectionToC
+
+#include "runTimeSelectionToC.C"
 
 // ************************************************************************* //

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2018-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -34,6 +34,14 @@ namespace Foam
 }
 
 
+// * * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * * //
+
+bool Foam::multiRegionSolutionControl::dependenciesModified() const
+{
+    return solution_.modified();
+}
+
+
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 Foam::multiRegionSolutionControl::multiRegionSolutionControl
@@ -42,7 +50,7 @@ Foam::multiRegionSolutionControl::multiRegionSolutionControl
     const word& algorithmName
 )
 :
-    solutionControl(time, time, algorithmName),
+    solutionControl(time, algorithmName),
     solution_(time)
 {}
 

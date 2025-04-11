@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,8 +25,67 @@ Class
     Foam::searchableSurfaceCollection
 
 Description
-    Set of transformed searchableSurfaces. Does not do boolean operations.
-    So when meshing might find parts 'inside'.
+    Makes a collection of surface geometries by copying from an existing
+    defined surface geometry. There are no boolean operations, e.g.
+    overlapping surfaces are not intersected.
+
+Usage
+    searchableSurfaceCollection requires a surface geometry to be defined
+    initially, e.g. \c buildingA in the example below. The collection then
+    defines copies of buildingA which each can be scaled using the mandatory
+    \c scale parameter and then rotated and translated by the mandatory
+    \c transform.  In the example below, two geometries are included named
+    \c buildingB and \c buildingC which are both formed by a translation
+    of \c buildingA according to the \c origin parameter. No rotation is
+    applied (by setting e1 and e2 to the global x and y axis directions,
+    respectively).
+
+    Example specification in snappyHexMeshDict/geometry:
+
+    \verbatim
+    buildingA
+    {
+        type       searchableBox;
+        min        (100 100  0);
+        max        (120 120  100);
+    }
+
+    moreBuildings
+    {
+        type searchableSurfaceCollection;
+
+        mergeSubRegions true;
+
+        buildingB
+        {
+            surface buildingA;
+            scale   (1 1 1);
+            transform
+            {
+                coordinateSystem
+                {
+                    type cartesian;
+                    coordinateRotation
+                    {
+                        type    axesRotation;
+                        e1      (1 0 0);
+                        e2      (0 1 0);
+                    }
+                    origin  (40 40 0);
+                }
+            }
+        }
+
+        buildingC
+        {
+            $buildingB;
+            transform
+            {
+                coordinateSystem { origin  (30 -40 0); }
+            }
+        }
+    }
+    \endverbatim
 
 SourceFiles
     searchableSurfaceCollection.C
@@ -258,8 +317,8 @@ public:
             (
                 const List<treeBoundBox>&,
                 const bool keepNonLocal,
-                autoPtr<mapDistribute>& faceMap,
-                autoPtr<mapDistribute>& pointMap
+                autoPtr<distributionMap>& faceMap,
+                autoPtr<distributionMap>& pointMap
             );
 
             //- WIP. Store element-wise field.

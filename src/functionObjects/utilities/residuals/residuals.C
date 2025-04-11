@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2015-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2015-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -58,7 +58,6 @@ Foam::functionObjects::residuals::residuals
     fieldSet_()
 {
     read(dict);
-    resetName(typeName);
 }
 
 
@@ -76,30 +75,28 @@ bool Foam::functionObjects::residuals::read(const dictionary& dict)
 
     dict.lookup("fields") >> fieldSet_;
 
+    resetName(typeName);
+
     return true;
 }
 
 
 void Foam::functionObjects::residuals::writeFileHeader(const label i)
 {
-    if (Pstream::master())
+    writeHeader(file(), "Residuals");
+    writeCommented(file(), "Time");
+
+    forAll(fieldSet_, fieldi)
     {
-        writeHeader(file(), "Residuals");
-        writeCommented(file(), "Time");
+        const word& fieldName = fieldSet_[fieldi];
 
-        forAll(fieldSet_, fieldi)
-        {
-            const word& fieldName = fieldSet_[fieldi];
-
-            writeFileHeader<scalar>(fieldName);
-            writeFileHeader<vector>(fieldName);
-            writeFileHeader<sphericalTensor>(fieldName);
-            writeFileHeader<symmTensor>(fieldName);
-            writeFileHeader<tensor>(fieldName);
-        }
-
-        file() << endl;
+        #define WRITE_FILE_HEADER(Type, nullArg)                               \
+            writeFileHeader<Type>(fieldName);
+        FOR_ALL_FIELD_TYPES(WRITE_FILE_HEADER);
+        #undef WRITE_FILE_HEADER
     }
+
+    file() << endl;
 }
 
 
@@ -121,11 +118,10 @@ bool Foam::functionObjects::residuals::write()
         {
             const word& fieldName = fieldSet_[fieldi];
 
-            writeResidual<scalar>(fieldName);
-            writeResidual<vector>(fieldName);
-            writeResidual<sphericalTensor>(fieldName);
-            writeResidual<symmTensor>(fieldName);
-            writeResidual<tensor>(fieldName);
+            #define WRITE_RESIDUAL(Type, nullArg) \
+                writeResidual<Type>(fieldName);
+            FOR_ALL_FIELD_TYPES(WRITE_RESIDUAL);
+            #undef WRITE_RESIDUAL
         }
 
         file() << endl;

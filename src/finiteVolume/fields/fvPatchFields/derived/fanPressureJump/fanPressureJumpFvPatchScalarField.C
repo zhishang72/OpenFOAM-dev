@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -28,72 +28,7 @@ License
 #include "volFields.H"
 #include "surfaceFields.H"
 
-// * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
-
-void Foam::fanPressureJumpFvPatchScalarField::calcFanJump()
-{
-    const fvsPatchField<scalar>& phip =
-        patch().lookupPatchField<surfaceScalarField, scalar>(phiName_);
-
-    const bool massBasedFlux =
-        phip.internalField().dimensions() == dimDensity*dimVelocity*dimArea;
-
-    const scalar dir =  reverse_ ? -1 : 1;
-
-    //- Jump table is defined in backward compatibility mode
-    if(jumpTable_.valid())
-    {
-        //- Patch normal velocity field
-        scalarField Un(max(dir*phip/patch().magSf(), scalar(0)));
-
-        if (massBasedFlux)
-        {
-            const fvPatchField<scalar>& rhop =
-                patch().lookupPatchField<volScalarField, scalar>(rhoName_);
-
-            Un /= rhop;
-        }
-
-        jump_ = dir*max(jumpTable_->value(Un), scalar(0));
-    }
-    else
-    {
-        scalar volFlowRate = 0;
-
-        if (massBasedFlux)
-        {
-            const scalarField& rhop =
-                patch().lookupPatchField<volScalarField, scalar>(rhoName_);
-
-            volFlowRate = gSum(phip/rhop);
-        }
-        else
-        {
-            volFlowRate = gSum(phip);
-        }
-
-
-        jump_ = dir*max(fanCurve_->value(max(dir*volFlowRate, 0)), 0);
-    }
-}
-
-
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
-
-Foam::fanPressureJumpFvPatchScalarField::fanPressureJumpFvPatchScalarField
-(
-    const fvPatch& p,
-    const DimensionedField<scalar, volMesh>& iF
-)
-:
-    fixedJumpFvPatchScalarField(p, iF),
-    fanCurve_(),
-    jumpTable_(),
-    reverse_(false),
-    phiName_("phi"),
-    rhoName_("rho")
-{}
-
 
 Foam::fanPressureJumpFvPatchScalarField::fanPressureJumpFvPatchScalarField
 (
@@ -102,36 +37,49 @@ Foam::fanPressureJumpFvPatchScalarField::fanPressureJumpFvPatchScalarField
     const dictionary& dict
 )
 :
-    fixedJumpFvPatchScalarField(p, iF),
+    fixedJumpFvPatchScalarField(p, iF, dict, true),
+    phiName_
+    (
+        cyclicPatch().owner()
+      ? dict.lookupOrDefault<word>("phi", "phi")
+      : word::null
+    ),
+    rhoName_
+    (
+        cyclicPatch().owner()
+      ? dict.lookupOrDefault<word>("rho", "rho")
+      : word::null
+    ),
     fanCurve_(),
     jumpTable_(),
-    reverse_(dict.lookupOrDefault<Switch>("reverse", false)),
-    phiName_(dict.lookupOrDefault<word>("phi", "phi")),
-    rhoName_(dict.lookupOrDefault<word>("rho", "rho"))
+    reverse_(dict.lookupOrDefault<Switch>("reverse", false))
 {
     if (cyclicPatch().owner())
     {
-        if (dict.found("jumpTable"))
+        if (!dict.found("fanCurve") && dict.found("jumpTable"))
         {
-            //- backward compatibility model
-            jumpTable_ = Function1<scalar>::New("jumpTable", dict);
+            // Backwards compatibility fallback
+            jumpTable_ =
+                Function1<scalar>::New
+                (
+                    "jumpTable",
+                    dimVelocity,
+                    iF.dimensions(),
+                    dict
+                );
         }
         else
         {
-            fanCurve_ = Function1<scalar>::New("fanCurve", dict);
+            // Preferred entry name
+            fanCurve_ =
+                Function1<scalar>::New
+                (
+                    "fanCurve",
+                    dimVolumetricFlux,
+                    iF.dimensions(),
+                    dict
+                );
         }
-    }
-
-    if (dict.found("value"))
-    {
-        fvPatchScalarField::operator=
-        (
-            scalarField("value", dict, p.size())
-        );
-    }
-    else
-    {
-        evaluate(Pstream::commsTypes::blocking);
     }
 }
 
@@ -141,29 +89,15 @@ Foam::fanPressureJumpFvPatchScalarField::fanPressureJumpFvPatchScalarField
     const fanPressureJumpFvPatchScalarField& ptf,
     const fvPatch& p,
     const DimensionedField<scalar, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     fixedJumpFvPatchScalarField(ptf, p, iF, mapper),
+    phiName_(ptf.phiName_),
+    rhoName_(ptf.rhoName_),
     fanCurve_(ptf.fanCurve_, false),
     jumpTable_(ptf.jumpTable_, false),
-    reverse_(ptf.reverse_),
-    phiName_(ptf.phiName_),
-    rhoName_(ptf.rhoName_)
-{}
-
-
-Foam::fanPressureJumpFvPatchScalarField::fanPressureJumpFvPatchScalarField
-(
-    const fanPressureJumpFvPatchScalarField& ptf
-)
-:
-    fixedJumpFvPatchScalarField(ptf),
-    fanCurve_(ptf.fanCurve_, false),
-    jumpTable_(ptf.jumpTable_, false),
-    reverse_(ptf.reverse_),
-    phiName_(ptf.phiName_),
-    rhoName_(ptf.rhoName_)
+    reverse_(ptf.reverse_)
 {}
 
 
@@ -174,11 +108,11 @@ Foam::fanPressureJumpFvPatchScalarField::fanPressureJumpFvPatchScalarField
 )
 :
     fixedJumpFvPatchScalarField(ptf, iF),
+    phiName_(ptf.phiName_),
+    rhoName_(ptf.rhoName_),
     fanCurve_(ptf.fanCurve_, false),
     jumpTable_(ptf.jumpTable_, false),
-    reverse_(ptf.reverse_),
-    phiName_(ptf.phiName_),
-    rhoName_(ptf.rhoName_)
+    reverse_(ptf.reverse_)
 {}
 
 
@@ -193,7 +127,75 @@ void Foam::fanPressureJumpFvPatchScalarField::updateCoeffs()
 
     if (cyclicPatch().owner())
     {
-        calcFanJump();
+        const fvsPatchField<scalar>& phip =
+            patch().lookupPatchField<surfaceScalarField, scalar>(phiName_);
+
+        const scalar sign = reverse_ ? -1 : 1;
+
+        if (fanCurve_.valid())
+        {
+            // Preferred method
+
+            scalar volFlowRate = 0;
+
+            if (phip.internalField().dimensions() == dimVolumetricFlux)
+            {
+                volFlowRate = gSum(phip);
+            }
+            else if
+            (
+                phip.internalField().dimensions() == dimMassFlux
+            )
+            {
+                const scalarField& rhop =
+                    patch().lookupPatchField<volScalarField, scalar>(rhoName_);
+
+                volFlowRate = gSum(phip/rhop);
+            }
+            else
+            {
+                FatalErrorInFunction
+                    << "dimensions of phi are not correct"
+                    << "\n    on patch " << patch().name()
+                    << " of field " << internalField().name()
+                    << " in file " << internalField().objectPath() << nl
+                    << exit(FatalError);
+            }
+
+            jumpRef() = sign*max(fanCurve_->value(max(sign*volFlowRate, 0)), 0);
+        }
+        else
+        {
+            // Backwards compatibility fallback
+
+            scalarField Un(max(sign*phip/patch().magSf(), scalar(0)));
+
+            if (phip.internalField().dimensions() == dimVolumetricFlux)
+            {
+                // Do nothing
+            }
+            else if
+            (
+                phip.internalField().dimensions() == dimMassFlux
+            )
+            {
+                const fvPatchField<scalar>& rhop =
+                    patch().lookupPatchField<volScalarField, scalar>(rhoName_);
+
+                Un /= rhop;
+            }
+            else
+            {
+                FatalErrorInFunction
+                    << "dimensions of phi are not correct"
+                    << "\n    on patch " << patch().name()
+                    << " of field " << internalField().name()
+                    << " in file " << internalField().objectPath() << nl
+                    << exit(FatalError);
+            }
+
+            jumpRef() = sign*max(jumpTable_->value(Un), scalar(0));
+        }
     }
 
     fixedJumpFvPatchScalarField::updateCoeffs();
@@ -204,12 +206,22 @@ void Foam::fanPressureJumpFvPatchScalarField::write(Ostream& os) const
 {
     fixedJumpFvPatchScalarField::write(os);
 
-    if (jumpTable_.valid()) writeEntry(os, jumpTable_());
-    if (fanCurve_.valid()) writeEntry(os, fanCurve_());
+    if (cyclicPatch().owner())
+    {
+        writeEntryIfDifferent<word>(os, "phi", "phi", phiName_);
+        writeEntryIfDifferent<word>(os, "rho", "rho", rhoName_);
 
-    writeEntryIfDifferent<Switch>(os, "reverse", false, reverse_);
-    writeEntryIfDifferent<word>(os, "phi", "phi", phiName_);
-    writeEntryIfDifferent<word>(os, "rho", "rho", rhoName_);
+        if (fanCurve_.valid())
+        {
+            writeEntry(os, fanCurve_());
+        }
+        else
+        {
+            writeEntry(os, jumpTable_());
+        }
+
+        writeEntryIfDifferent<Switch>(os, "reverse", false, reverse_);
+    }
 }
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -37,25 +37,23 @@ Description
 
     where
     \vartable
-        x_p   | patch values
-        x_c   | patch internal cell values
-        w     | weight field
-        \Delta| inverse distance from face centre to internal cell centre
-        w     | weighting (0-1)
+        x_p    | patch values
+        x_c    | patch internal cell values
+        w      | weight field (0-1)
+        \Delta | inverse distance from face centre to internal cell centre
     \endvartable
-
 
 Usage
     \table
-        Property     | Description             | Required    | Default value
-        valueFraction | weight field           | yes         |
-        refValue     | fixed value             | yes         |
-        refGrad      | patch normal gradient   | yes         |
+        Property      | Description               | Required | Default value
+        refValue      | reference value           | yes      |
+        refGradient   | reference normal gradient | yes      |
+        valueFraction | weight field              | yes      |
     \endtable
 
-Note
-    This condition is not usually applied directly; instead, use a derived
-    mixed condition such as \c inletOutlet
+    Note:
+        This condition is not usually applied directly; instead, use a derived
+        mixed condition such as \c inletOutlet
 
 See also
     Foam::inletOutletFvPatchField
@@ -116,7 +114,8 @@ public:
         (
             const fvPatch&,
             const DimensionedField<Type, volMesh>&,
-            const dictionary&
+            const dictionary&,
+            const bool valuesRequired=true
         );
 
         //- Construct by mapping the given mixedFvPatchField onto a new patch
@@ -125,24 +124,12 @@ public:
             const mixedFvPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, volMesh>&,
-            const fvPatchFieldMapper&,
+            const fieldMapper&,
             const bool mappingRequired=true
         );
 
-        //- Copy constructor
-        mixedFvPatchField
-        (
-            const mixedFvPatchField<Type>&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchField<Type>> clone() const
-        {
-            return tmp<fvPatchField<Type>>
-            (
-                new mixedFvPatchField<Type>(*this)
-            );
-        }
+        //- Disallow copy without setting internal field reference
+        mixedFvPatchField(const mixedFvPatchField<Type>&) = delete;
 
         //- Copy constructor setting internal field reference
         mixedFvPatchField
@@ -218,13 +205,12 @@ public:
 
         // Mapping functions
 
-            //- Map (and resize as needed) from self given a mapping object
-            //  Used to update fields following mesh topology change
-            virtual void autoMap(const fvPatchFieldMapper&);
+            //- Map the given fvPatchField onto this fvPatchField
+            virtual void map(const fvPatchField<Type>&, const fieldMapper&);
 
-            //- Reverse map the given fvPatchField onto this fvPatchField
-            //  Used to reconstruct fields
-            virtual void rmap(const fvPatchField<Type>&, const labelList&);
+            //- Reset the fvPatchField to the given fvPatchField
+            //  Used for mesh to mesh mapping
+            virtual void reset(const fvPatchField<Type>&);
 
 
         // Evaluation functions

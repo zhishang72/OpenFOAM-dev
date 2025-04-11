@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -34,34 +34,20 @@ Foam::rotatingWallVelocityFvPatchVectorField::
 rotatingWallVelocityFvPatchVectorField
 (
     const fvPatch& p,
-    const DimensionedField<vector, volMesh>& iF
-)
-:
-    fixedValueFvPatchField<vector>(p, iF),
-    origin_(),
-    axis_(Zero),
-    omega_(0)
-{}
-
-
-Foam::rotatingWallVelocityFvPatchVectorField::
-rotatingWallVelocityFvPatchVectorField
-(
-    const fvPatch& p,
     const DimensionedField<vector, volMesh>& iF,
     const dictionary& dict
 )
 :
     fixedValueFvPatchField<vector>(p, iF, dict, false),
-    origin_(dict.lookup("origin")),
-    axis_(dict.lookup("axis")),
-    omega_(Function1<scalar>::New("omega", dict))
+    origin_(dict.lookup<vector>("origin")),
+    axis_(dict.lookup<vector>("axis")),
+    omega_(db().time(), dict)
 {
     if (dict.found("value"))
     {
         fvPatchField<vector>::operator=
         (
-            vectorField("value", dict, p.size())
+            vectorField("value", iF.dimensions(), dict, p.size())
         );
     }
     else
@@ -75,43 +61,30 @@ rotatingWallVelocityFvPatchVectorField
 Foam::rotatingWallVelocityFvPatchVectorField::
 rotatingWallVelocityFvPatchVectorField
 (
-    const rotatingWallVelocityFvPatchVectorField& ptf,
+    const rotatingWallVelocityFvPatchVectorField& pvf,
     const fvPatch& p,
     const DimensionedField<vector, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
-    fixedValueFvPatchField<vector>(ptf, p, iF, mapper),
-    origin_(ptf.origin_),
-    axis_(ptf.axis_),
-    omega_(ptf.omega_, false)
+    fixedValueFvPatchField<vector>(pvf, p, iF, mapper),
+    origin_(pvf.origin_),
+    axis_(pvf.axis_),
+    omega_(pvf.omega_)
 {}
 
 
 Foam::rotatingWallVelocityFvPatchVectorField::
 rotatingWallVelocityFvPatchVectorField
 (
-    const rotatingWallVelocityFvPatchVectorField& rwvpvf
-)
-:
-    fixedValueFvPatchField<vector>(rwvpvf),
-    origin_(rwvpvf.origin_),
-    axis_(rwvpvf.axis_),
-    omega_(rwvpvf.omega_, false)
-{}
-
-
-Foam::rotatingWallVelocityFvPatchVectorField::
-rotatingWallVelocityFvPatchVectorField
-(
-    const rotatingWallVelocityFvPatchVectorField& rwvpvf,
+    const rotatingWallVelocityFvPatchVectorField& pvf,
     const DimensionedField<vector, volMesh>& iF
 )
 :
-    fixedValueFvPatchField<vector>(rwvpvf, iF),
-    origin_(rwvpvf.origin_),
-    axis_(rwvpvf.axis_),
-    omega_(rwvpvf.omega_, false)
+    fixedValueFvPatchField<vector>(pvf, iF),
+    origin_(pvf.origin_),
+    axis_(pvf.axis_),
+    omega_(pvf.omega_)
 {}
 
 
@@ -124,13 +97,12 @@ void Foam::rotatingWallVelocityFvPatchVectorField::updateCoeffs()
         return;
     }
 
-    const scalar t = this->db().time().timeOutputValue();
-    scalar om = omega_->value(t);
+    const scalar omega = omega_.value(db().time().value());
 
     // Calculate the rotating wall velocity from the specification of the motion
     const vectorField Up
     (
-        (-om)*((patch().Cf() - origin_) ^ (axis_/mag(axis_)))
+        (-omega)*((patch().Cf() - origin_) ^ (axis_/mag(axis_)))
     );
 
     // Remove the component of Up normal to the wall
@@ -147,7 +119,7 @@ void Foam::rotatingWallVelocityFvPatchVectorField::write(Ostream& os) const
     fvPatchVectorField::write(os);
     writeEntry(os, "origin", origin_);
     writeEntry(os, "axis", axis_);
-    writeEntry(os, omega_());
+    writeEntry(os, omega_);
     writeEntry(os, "value", *this);
 }
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -36,6 +36,29 @@ Description
 
     See the leading terms of equations 18 and 19.
 
+Usage
+    \table
+        Property  | Description            | Required?         | Default
+        depth     | The water depth [m]    | no                | great
+        amplitude | The amplitude [m]      | yes               |
+        length    | The wave length [m]    | if period not set |
+        period    | The wave period [s]    | if length not set |
+        phase     | The phase offset [rad] | yes               |
+    \endtable
+
+    Example specification in constant/waveProperties:
+    \verbatim
+    waves
+    (
+        Airy
+        {
+            length      40;
+            amplitude   0.5;
+            phase       0;
+        }
+    );
+    \endverbatim
+
 SourceFiles
     Airy.C
 
@@ -45,6 +68,7 @@ SourceFiles
 #define Airy_H
 
 #include "waveModel.H"
+#include "AiryCoeffs.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -54,7 +78,7 @@ namespace waveModels
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class Airy Declaration
+                            Class Airy Declaration
 \*---------------------------------------------------------------------------*/
 
 class Airy
@@ -63,43 +87,46 @@ class Airy
 {
     // Private Data
 
-        //- Peak-to-peak length [m]
+        //- Depth [m]
+        const scalar depth_;
+
+        //- Amplitude [m]
+        autoPtr<Function1<scalar>> amplitude_;
+
+        //- Wavelength [m]
         const scalar length_;
 
         //- Phase offset [rad]
         const scalar phase_;
 
-        //- Depth [m]
-        const scalar depth_;
+
+    // Private Member Functions
+
+        //- Read and return the wave length from the dictionary. Either reads
+        //  the length directly, or reads the period and depth and calculates
+        //  the length.
+        static scalar readLength
+        (
+            const dictionary& dict,
+            const scalar depth,
+            const scalar amplitude,
+            const scalar g,
+            scalar (*celerityPtr)(const AiryCoeffs&)
+        );
 
 
 protected:
 
     // Protected Member Functions
 
-        //- The angular wavenumber [rad/m]
-        scalar k() const;
+        //- Return the wave coefficients
+        AiryCoeffs coeffs(const scalar t) const;
+
+        //- Return the wave coefficients at steady state
+        AiryCoeffs coeffs() const;
 
         //- The wave celerity [m/s]
-        scalar celerity() const;
-
-        //- Angle of the oscillation [rad]
-        tmp<scalarField> angle
-        (
-            const scalar t,
-            const scalarField& x
-        ) const;
-
-        //- Return whether shallow and intermediate effects are to be omitted
-        bool deep() const;
-
-        //- Return the non-dimensionalised i-th harmonic of the velocity
-        tmp<vector2DField> vi
-        (
-            const label i,
-            const scalar t,
-            const vector2DField& xz
-        ) const;
+        static scalar celerity(const AiryCoeffs&);
 
 
 public:
@@ -113,8 +140,14 @@ public:
         //- Construct a copy
         Airy(const Airy& wave);
 
-        //- Construct from a database and a dictionary
-        Airy(const objectRegistry& db, const dictionary& dict);
+        //- Construct from a dictionary and gravity
+        Airy
+        (
+            const dictionary& dict,
+            const scalar g,
+            const word& modelName = Airy::typeName,
+            scalar (*celerityPtr)(const AiryCoeffs&) = &AiryCoeffs::celerity
+        );
 
         //- Construct a clone
         virtual autoPtr<waveModel> clone() const
@@ -131,23 +164,24 @@ public:
 
         // Access
 
+            //- Get the depth
+            scalar depth() const;
+
+            //- Get the amplitude
+            scalar amplitude(const scalar t) const;
+
+            //- Get the amplitude at steady state
+            scalar amplitude() const;
+
             //- Get the length
-            scalar length() const
-            {
-                return length_;
-            }
+            scalar length() const;
 
             //- Get the phase
-            scalar phase() const
-            {
-                return phase_;
-            }
+            scalar phase() const;
 
-            //- Get the depth
-            scalar depth() const
-            {
-                return depth_;
-            }
+
+        //- The wave celerity [m/s]
+        virtual scalar celerity() const;
 
         //- Get the wave elevation at a given time and local coordinates. Local
         //  x is aligned with the direction of propagation.
@@ -166,15 +200,6 @@ public:
             const vector2DField& xz
         ) const;
 
-        //- Get the wave pressure at a given time and local coordinates. Local
-        //  x is aligned with the direction of propagation, and z with negative
-        //  gravity.
-        virtual tmp<scalarField> pressure
-        (
-            const scalar t,
-            const vector2DField& xz
-        ) const;
-
         //- Write
         virtual void write(Ostream& os) const;
 };
@@ -184,6 +209,10 @@ public:
 
 } // End namespace waveModels
 } // End namespace Foam
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+#include "AiryI.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

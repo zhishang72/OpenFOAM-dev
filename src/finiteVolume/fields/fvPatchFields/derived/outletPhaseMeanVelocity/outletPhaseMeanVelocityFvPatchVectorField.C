@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -26,53 +26,30 @@ License
 #include "outletPhaseMeanVelocityFvPatchVectorField.H"
 #include "volFields.H"
 #include "addToRunTimeSelectionTable.H"
-#include "fvPatchFieldMapper.H"
+#include "fieldMapper.H"
 #include "surfaceFields.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
-Foam::outletPhaseMeanVelocityFvPatchVectorField
-::outletPhaseMeanVelocityFvPatchVectorField
-(
-    const fvPatch& p,
-    const DimensionedField<vector, volMesh>& iF
-)
-:
-    mixedFvPatchField<vector>(p, iF),
-    UnMean_(nullptr),
-    alphaName_("none")
-{
-    refValue() = Zero;
-    refGrad() = Zero;
-    valueFraction() = 0.0;
-}
-
-
-Foam::outletPhaseMeanVelocityFvPatchVectorField
-::outletPhaseMeanVelocityFvPatchVectorField
-(
-    const outletPhaseMeanVelocityFvPatchVectorField& ptf,
-    const fvPatch& p,
-    const DimensionedField<vector, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
-)
-:
-    mixedFvPatchField<vector>(ptf, p, iF, mapper),
-    UnMean_(ptf.UnMean_, false),
-    alphaName_(ptf.alphaName_)
-{}
-
-
-Foam::outletPhaseMeanVelocityFvPatchVectorField
-::outletPhaseMeanVelocityFvPatchVectorField
+Foam::outletPhaseMeanVelocityFvPatchVectorField::
+outletPhaseMeanVelocityFvPatchVectorField
 (
     const fvPatch& p,
     const DimensionedField<vector, volMesh>& iF,
     const dictionary& dict
 )
 :
-    mixedFvPatchField<vector>(p, iF),
-    UnMean_(Function1<scalar>::New("UnMean", dict)),
+    mixedFvPatchField<vector>(p, iF, dict, false),
+    UnMean_
+    (
+        Function1<scalar>::New
+        (
+            "UnMean",
+            db().time().userUnits(),
+            dimVelocity,
+            dict
+        )
+    ),
     alphaName_(dict.lookup("alpha"))
 {
     refValue() = Zero;
@@ -83,7 +60,7 @@ Foam::outletPhaseMeanVelocityFvPatchVectorField
     {
         fvPatchVectorField::operator=
         (
-            vectorField("value", dict, p.size())
+            vectorField("value", iF.dimensions(), dict, p.size())
         );
     }
     else
@@ -93,20 +70,23 @@ Foam::outletPhaseMeanVelocityFvPatchVectorField
 }
 
 
-Foam::outletPhaseMeanVelocityFvPatchVectorField
-::outletPhaseMeanVelocityFvPatchVectorField
+Foam::outletPhaseMeanVelocityFvPatchVectorField::
+outletPhaseMeanVelocityFvPatchVectorField
 (
-    const outletPhaseMeanVelocityFvPatchVectorField& ptf
+    const outletPhaseMeanVelocityFvPatchVectorField& ptf,
+    const fvPatch& p,
+    const DimensionedField<vector, volMesh>& iF,
+    const fieldMapper& mapper
 )
 :
-    mixedFvPatchField<vector>(ptf),
+    mixedFvPatchField<vector>(ptf, p, iF, mapper),
     UnMean_(ptf.UnMean_, false),
     alphaName_(ptf.alphaName_)
 {}
 
 
-Foam::outletPhaseMeanVelocityFvPatchVectorField
-::outletPhaseMeanVelocityFvPatchVectorField
+Foam::outletPhaseMeanVelocityFvPatchVectorField::
+outletPhaseMeanVelocityFvPatchVectorField
 (
     const outletPhaseMeanVelocityFvPatchVectorField& ptf,
     const DimensionedField<vector, volMesh>& iF
@@ -127,8 +107,6 @@ void Foam::outletPhaseMeanVelocityFvPatchVectorField::updateCoeffs()
         return;
     }
 
-    const scalar t = this->db().time().timeOutputValue();
-
     scalarField alphap =
         patch().lookupPatchField<volScalarField, scalar>(alphaName_);
 
@@ -145,7 +123,7 @@ void Foam::outletPhaseMeanVelocityFvPatchVectorField::updateCoeffs()
 
     // Set the refValue and valueFraction to adjust the boundary field
     // such that the phase mean is UnMean_
-    const scalar UnMean = UnMean_->value(t);
+    const scalar UnMean = UnMean_->value(db().time().value());
     if (UnzgMean >= UnMean)
     {
         refValue() = Zero;
@@ -168,7 +146,7 @@ void Foam::outletPhaseMeanVelocityFvPatchVectorField::write
 {
     fvPatchField<vector>::write(os);
 
-    writeEntry(os, UnMean_());
+    writeEntry(os, db().time().userUnits(), dimVelocity, UnMean_());
     writeEntry(os, "alpha", alphaName_);
     writeEntry(os, "value", *this);
 }

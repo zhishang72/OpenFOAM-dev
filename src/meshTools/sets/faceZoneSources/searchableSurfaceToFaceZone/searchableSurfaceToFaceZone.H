@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -44,9 +44,10 @@ namespace Foam
 {
 
 class searchableSurface;
+class faceZoneSet;
 
 /*---------------------------------------------------------------------------*\
-                   Class searchableSurfaceToFaceZone Declaration
+                 Class searchableSurfaceToFaceZone Declaration
 \*---------------------------------------------------------------------------*/
 
 class searchableSurfaceToFaceZone
@@ -55,16 +56,23 @@ class searchableSurfaceToFaceZone
 {
     // Private Data
 
-        //- Add usage string
-        static addToUsageTable usage_;
-
         //- Surface
         autoPtr<searchableSurface> surfacePtr_;
+
+        //- Tolerance with which to extend the cell-cell vectors
+        const scalar tol_;
+
+
+    // Private Member Functions
+
+        void combine(faceZoneSet& set, const bool add) const;
+
 
 public:
 
     //- Runtime type information
     TypeName("searchableSurfaceToFaceZone");
+
 
     // Constructors
 
@@ -92,7 +100,6 @@ public:
             const topoSetSource::setAction action,
             topoSet&
         ) const;
-
 };
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -33,23 +33,14 @@ namespace Foam
 {
     defineTypeNameAndDebug(cylinderToCell, 0);
     addToRunTimeSelectionTable(topoSetSource, cylinderToCell, word);
-    addToRunTimeSelectionTable(topoSetSource, cylinderToCell, istream);
 }
-
-
-Foam::topoSetSource::addToUsageTable Foam::cylinderToCell::usage_
-(
-    cylinderToCell::typeName,
-    "\n    Usage: cylinderToCell (p1X p1Y p1Z) (p2X p2Y p2Z) radius\n\n"
-    "    Select all cells with cell centre within bounding cylinder\n\n"
-);
 
 
 // * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
 
 void Foam::cylinderToCell::combine(topoSet& set, const bool add) const
 {
-    const vector axis = p2_ - p1_;
+    const vector axis = point2_ - point1_;
     const scalar rad2 = sqr(radius_);
     const scalar magAxis2 = magSqr(axis);
 
@@ -57,7 +48,7 @@ void Foam::cylinderToCell::combine(topoSet& set, const bool add) const
 
     forAll(ctrs, celli)
     {
-        vector d = ctrs[celli] - p1_;
+        vector d = ctrs[celli] - point1_;
         scalar magD = d & axis;
 
         if ((magD > 0) && (magD < magAxis2))
@@ -77,14 +68,14 @@ void Foam::cylinderToCell::combine(topoSet& set, const bool add) const
 Foam::cylinderToCell::cylinderToCell
 (
     const polyMesh& mesh,
-    const vector& p1,
-    const vector& p2,
+    const vector& point1,
+    const vector& point2,
     const scalar radius
 )
 :
     topoSetSource(mesh),
-    p1_(p1),
-    p2_(p2),
+    point1_(point1),
+    point2_(point2),
     radius_(radius)
 {}
 
@@ -96,22 +87,9 @@ Foam::cylinderToCell::cylinderToCell
 )
 :
     topoSetSource(mesh),
-    p1_(dict.lookup("p1")),
-    p2_(dict.lookup("p2")),
-    radius_(dict.lookup<scalar>("radius"))
-{}
-
-
-Foam::cylinderToCell::cylinderToCell
-(
-    const polyMesh& mesh,
-    Istream& is
-)
-:
-    topoSetSource(mesh),
-    p1_(checkIs(is)),
-    p2_(checkIs(is)),
-    radius_(readScalar(checkIs(is)))
+    point1_(dict.lookupBackwardsCompatible<point>({"point1", "p1"}, dimLength)),
+    point2_(dict.lookupBackwardsCompatible<point>({"point2", "p2"}, dimLength)),
+    radius_(dict.lookup<scalar>("radius", dimLength))
 {}
 
 
@@ -131,15 +109,17 @@ void Foam::cylinderToCell::applyToSet
 {
     if ((action == topoSetSource::NEW) || (action == topoSetSource::ADD))
     {
-        Info<< "    Adding cells with centre within cylinder, with p1 = "
-            << p1_ << ", p2 = " << p2_ << " and radius = " << radius_ << endl;
+        Info<< "    Adding cells with centre within cylinder, with point1 = "
+            << point1_ << ", point2 = " << point2_ << " and radius = "
+            << radius_ << endl;
 
         combine(set, true);
     }
     else if (action == topoSetSource::DELETE)
     {
-        Info<< "    Removing cells with centre within cylinder, with p1 = "
-            << p1_ << ", p2 = " << p2_ << " and radius = " << radius_ << endl;
+        Info<< "    Removing cells with centre within cylinder, with point1 = "
+            << point1_ << ", point2 = " << point2_ << " and radius = "
+            << radius_ << endl;
 
         combine(set, false);
     }

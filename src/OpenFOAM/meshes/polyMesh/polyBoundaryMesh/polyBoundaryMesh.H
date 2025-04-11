@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -68,24 +68,20 @@ class polyBoundaryMesh
         //- Reference to mesh
         const polyMesh& mesh_;
 
-        mutable autoPtr<labelList> patchIDPtr_;
+        mutable autoPtr<labelList> patchIndicesPtr_;
 
-        mutable autoPtr<HashTable<labelList, word>> groupPatchIDsPtr_;
+        mutable autoPtr<labelList> patchFaceIndicesPtr_;
+
+        mutable autoPtr<HashTable<labelList, word>> groupPatchIndicesPtr_;
 
         //- Edges of neighbouring patches
-        mutable autoPtr<List<labelPairList>> neighbourEdgesPtr_;
+        mutable autoPtr<List<labelPairList>> nbrEdgesPtr_;
 
 
     // Private Member Functions
 
         //- Calculate the geometry for the patches (transformation tensors etc.)
         void calcGeometry();
-
-        //- Disallow default bitwise copy construction
-        polyBoundaryMesh(const polyBoundaryMesh&);
-
-        //- Disallow default bitwise assignment
-        void operator=(const polyBoundaryMesh&);
 
 
 public:
@@ -124,6 +120,12 @@ public:
             const polyPatchList&
         );
 
+        //- Move constructor
+        polyBoundaryMesh(polyBoundaryMesh&&) = default;
+
+        //- Disallow default bitwise copy construction
+        polyBoundaryMesh(const polyBoundaryMesh&) = delete;
+
 
     //- Destructor
     ~polyBoundaryMesh();
@@ -149,9 +151,12 @@ public:
         //  it as much as possible consistent with coupled patch addressing
         //  (where coupling is by local patch face index).
         //  Only valid for singly connected polyBoundaryMesh and not parallel
-        const List<labelPairList>& neighbourEdges() const;
+        const List<labelPairList>& nbrEdges() const;
 
-        //- Return a list of patch names
+        //- Return the list of patch names
+        wordList toc() const;
+
+        //- Return the list of patch names
         wordList names() const;
 
         //- Return a list of patch types
@@ -163,33 +168,33 @@ public:
         //- Return patch indices for all matches. Optionally matches patchGroups
         labelList findIndices
         (
-            const keyType&,
+            const wordRe&,
             const bool usePatchGroups = true
         ) const;
 
-        //- Return patch index for the first match, return -1 if not found
-        label findIndex(const keyType&) const;
-
         //- Find patch index given a name
-        label findPatchID(const word& patchName) const;
+        label findIndex(const word& patchName) const;
 
         //- Find patch indices for a given polyPatch type
         template<class Type>
-        labelHashSet findPatchIDs() const;
+        labelHashSet findIndices() const;
 
         //- Return patch index for a given face label
         label whichPatch(const label faceIndex) const;
 
-        //- Per boundary face label the patch index
-        const labelList& patchID() const;
+        //- Boundary face patch indices
+        const labelList& patchIndices() const;
+
+        //- Boundary face patch face indices
+        const labelList& patchFaceIndices() const;
 
         //- Per patch group the patch indices
-        const HashTable<labelList, word>& groupPatchIDs() const;
+        const HashTable<labelList, word>& groupPatchIndices() const;
 
         //- Set/add group with patches
-        void setGroup(const word& groupName, const labelList& patchIDs);
+        void setGroup(const word& groupName, const labelList& patchIndices);
 
-        //- Return the set of patch IDs corresponding to the given names
+        //- Return the set of patch indices corresponding to the given names
         //  By default warns if given names are not found. Optionally
         //  matches to patchGroups as well as patchNames
         labelHashSet patchSet
@@ -203,7 +208,7 @@ public:
         //  and any remaining unmatched patches.
         void matchGroups
         (
-            const labelUList& patchIDs,
+            const labelUList& patchIndices,
             wordList& groups,
             labelHashSet& nonGroupPatches
         ) const;
@@ -219,14 +224,23 @@ public:
         void movePoints(const pointField&);
 
         //- Correct polyBoundaryMesh after topology update
-        void updateMesh();
+        void topoChange();
 
-        //- Reorders patches. Ordering does not have to be done in
-        //  ascending or descending order. Reordering has to be unique.
-        //  (is shuffle) If validBoundary calls updateMesh()
-        //  after reordering to recalculate data (so call needs to be parallel
-        //  sync in that case)
-        void shuffle(const labelUList& newToOld, const bool validBoundary);
+        //- Rename the patches. If validBoundary is set this calls topoChange()
+        //  after reordering to recalculate data (so the call needs to be
+        //  parallel synchronised).
+        void renamePatches(const wordUList& newNames, const bool validBoundary);
+
+        //- Reorders the patches. Ordering does not have to be done in
+        //  ascending or descending order. Reordering has to be unique (is a
+        //  shuffle). If validBoundary is set this calls topoChange() after
+        //  reordering to recalculate data (so the call needs to be parallel
+        //  synchronised).
+        void reorderPatches
+        (
+            const labelUList& newToOld,
+            const bool validBoundary
+        );
 
         //- writeData member function required by regIOobject
         bool writeData(Ostream&) const;
@@ -251,6 +265,9 @@ public:
 
         //- Return reference to polyPatch by name.
         polyPatch& operator[](const word&);
+
+        //- Disallow default bitwise assignment
+        void operator=(const polyBoundaryMesh&) = delete;
 
 
     // Ostream operator

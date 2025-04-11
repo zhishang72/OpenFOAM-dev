@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -90,8 +90,7 @@ void Foam::pointConstraints::makePatchPatchAddressing()
     Map<label> patchPatchPointSet(2*nPatchPatchPoints);
 
     // Constraints (initialised to unconstrained)
-    patchPatchPointConstraints_.setSize(nPatchPatchPoints);
-    patchPatchPointConstraints_ = pointConstraint();
+    patchPatchPointConstraints_.setSize(nPatchPatchPoints, pointConstraint());
 
     // From constraint index to mesh point
     labelList patchPatchPoints(nPatchPatchPoints);
@@ -147,7 +146,7 @@ void Foam::pointConstraints::makePatchPatchAddressing()
     {
         const globalMeshData& gd = mesh.globalData();
         const labelListList& globalPointSlaves = gd.globalPointSlaves();
-        const mapDistribute& globalPointSlavesMap = gd.globalPointSlavesMap();
+        const distributionMap& globalPointSlavesMap = gd.globalPointSlavesMap();
         const Map<label>& cpPointMap = gd.coupledPatch().meshPointMap();
         const labelList& cpMeshPoints = gd.coupledPatch().meshPoints();
 
@@ -251,6 +250,16 @@ void Foam::pointConstraints::makePatchPatchAddressing()
                     constraintI = iter();
                 }
 
+                // Extend the patchPatchPointConstraints_ array if necessary
+                if (patchPatchPointConstraints_.size() <= constraintI)
+                {
+                    patchPatchPointConstraints_.setSize
+                    (
+                        constraintI + 1,
+                        pointConstraint()
+                    );
+                }
+
                 // Combine (new or existing) constraint with one
                 // on coupled.
                 patchPatchPointConstraints_[constraintI].combine
@@ -260,7 +269,6 @@ void Foam::pointConstraints::makePatchPatchAddressing()
             }
         }
     }
-
 
 
     nPatchPatchPoints = pppi;
@@ -325,7 +333,12 @@ void Foam::pointConstraints::makePatchPatchAddressing()
 
 Foam::pointConstraints::pointConstraints(const pointMesh& pm)
 :
-    MeshObject<pointMesh, Foam::UpdateableMeshObject, pointConstraints>(pm)
+    DemandDrivenMeshObject
+    <
+        pointMesh,
+        TopoChangeableMeshObject,
+        pointConstraints
+    >(pm)
 {
     if (debug)
     {
@@ -351,15 +364,28 @@ Foam::pointConstraints::~pointConstraints()
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-void Foam::pointConstraints::updateMesh(const mapPolyMesh&)
+bool Foam::pointConstraints::movePoints()
+{
+    return true;
+}
+
+
+void Foam::pointConstraints::topoChange(const polyTopoChangeMap&)
 {
     makePatchPatchAddressing();
 }
 
 
-bool Foam::pointConstraints::movePoints()
+void Foam::pointConstraints::mapMesh(const polyMeshMap&)
 {
-    return true;
+    makePatchPatchAddressing();
+}
+
+
+void Foam::pointConstraints::distribute(const polyDistributionMap& map)
+{
+    FatalErrorInFunction << abort(FatalError);
+    makePatchPatchAddressing();
 }
 
 
@@ -403,7 +429,7 @@ void Foam::pointConstraints::constrainDisplacement
 template<>
 void Foam::pointConstraints::constrainCorners<Foam::scalar>
 (
-    GeometricField<scalar, pointPatchField, pointMesh>& pf
+    PointField<scalar>& pf
 ) const
 {}
 
@@ -411,7 +437,7 @@ void Foam::pointConstraints::constrainCorners<Foam::scalar>
 template<>
 void Foam::pointConstraints::constrainCorners<Foam::label>
 (
-    GeometricField<label, pointPatchField, pointMesh>& pf
+    PointField<label>& pf
 ) const
 {}
 

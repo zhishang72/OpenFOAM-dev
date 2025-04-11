@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -21,8 +21,8 @@ License
     You should have received a copy of the GNU General Public License
     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
 
-Typedef
-    Foam::typeInfo
+InNamespace
+    Foam
 
 Description
     Basic run-time type information using word as the type's name.
@@ -55,6 +55,8 @@ Description
 
 #include "error.H"
 #include "className.H"
+#include "nullObject.H"
+#include <type_traits>
 #include <typeinfo>
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -64,12 +66,16 @@ Description
 //- Declare a ClassNameNoDebug() with extra virtual type info
 #define TypeNameNoDebug(TypeNameString)                                        \
     ClassNameNoDebug(TypeNameString);                                          \
-    virtual const word& type() const { return typeName; }
+    virtual const word& type() const { return typeName; }                      \
+    template<class Name>                                                       \
+    word typedName(Name name) const { return (type() + ':') + name; }
 
 //- Declare a ClassName() with extra virtual type info
 #define TypeName(TypeNameString)                                               \
     ClassName(TypeNameString);                                                 \
-    virtual const word& type() const { return typeName; }
+    virtual const word& type() const { return typeName; }                      \
+    template<class Name>                                                       \
+    word typedName(Name name) const { return (type() + ':') + name; }
 
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -100,6 +106,28 @@ inline To& dynamicCast(From& r)
 }
 
 
+//- Reference type cast template function,
+//  wraps dynamic_cast to handle bad_cast exception and generate a null
+//  reference.
+template<class To, class From>
+inline To& dynamicCastNull(From& r)
+{
+    if (isNull(r))
+    {
+        return NullObjectNonConstRef<To>();
+    }
+
+    try
+    {
+        return dynamic_cast<To&>(r);
+    }
+    catch (const std::bad_cast&)
+    {
+        return NullObjectNonConstRef<To>();
+    }
+}
+
+
 //- Reference type cast template function.
 //  As per dynamicCast, but handles type names via the virtual type() method.
 template<class To, class From>
@@ -121,6 +149,15 @@ inline To& refCast(From& r)
 }
 
 
+//- Reference type cast template function,
+//  As dynamicCastNull.
+template<class To, class From>
+inline To& refCastNull(From& r)
+{
+    return dynamicCastNull<To, From>(r);
+}
+
+
 //- Check the typeid
 template<class TestType, class Type>
 inline bool isType(const Type& t)
@@ -136,6 +173,20 @@ inline bool isA(const Type& t)
     const Type* tPtr = &t;
     return dynamic_cast<const TestType*>(tPtr);
 }
+
+
+//- Return the name of the object within the given type
+//  as \<typeName\>:\<name\>
+template<class TypeName, class Name>
+inline word typedName(Name name)
+{
+    return (TypeName::typeName + ':') + name;
+}
+
+
+//- Determine whether a type is a reference
+template<class Type>
+constexpr bool isRef = std::is_reference<Type>::value;
 
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

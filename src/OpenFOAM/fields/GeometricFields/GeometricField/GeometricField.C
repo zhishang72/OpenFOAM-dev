@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -28,25 +28,40 @@ License
 #include "demandDrivenData.H"
 #include "dictionary.H"
 #include "localIOdictionary.H"
-#include "data.H"
+#include "solutionControl.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-#define checkField(gf1, gf2, op)                                    \
-if ((gf1).mesh() != (gf2).mesh())                                   \
-{                                                                   \
-    FatalErrorInFunction                                            \
-        << "different mesh for fields "                             \
-        << (gf1).name() << " and " << (gf2).name()                  \
-        << " during operatrion " <<  op                             \
-        << abort(FatalError);                                       \
-}
+#define checkFieldAssignment(gf1, gf2)                                         \
+                                                                               \
+    if                                                                         \
+    (                                                                          \
+        static_cast<const regIOobject*>(&gf1)                                  \
+     == static_cast<const regIOobject*>(&gf2)                                  \
+    )                                                                          \
+    {                                                                          \
+        FatalErrorInFunction                                                   \
+            << "attempted assignment to self for field "                       \
+            << (gf1).name() << abort(FatalError);                              \
+    }
+
+
+#define checkFieldOperation(gf1, gf2, op)                                      \
+                                                                               \
+    if ((gf1).mesh() != (gf2).mesh())                                          \
+    {                                                                          \
+        FatalErrorInFunction                                                   \
+            << "different mesh for fields "                                    \
+            << (gf1).name() << " and " << (gf2).name()                         \
+            << " during operation " <<  op                                     \
+            << abort(FatalError);                                              \
+    }
 
 
 // * * * * * * * * * * * * * Private Member Functions * * * * * * * * * * * * //
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-void Foam::GeometricField<Type, PatchField, GeoMesh>::readFields
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::readFields
 (
     const dictionary& dict
 )
@@ -54,6 +69,17 @@ void Foam::GeometricField<Type, PatchField, GeoMesh>::readFields
     Internal::readField(dict, "internalField");
 
     boundaryField_.readField(*this, dict.subDict("boundaryField"));
+
+    // Don't use subOrEmptyDict here, or line numbers will be lost from any IO
+    // error messages. Use an actual sub-dict reference here if possible.
+    if (dict.found("sources"))
+    {
+        sources_.readField(*this, dict.subDict("sources"));
+    }
+    else
+    {
+        sources_.readField(*this, dictionary(dict.name()/"sources", dict));
+    }
 
     if (dict.found("referenceLevel"))
     {
@@ -69,8 +95,8 @@ void Foam::GeometricField<Type, PatchField, GeoMesh>::readFields
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-void Foam::GeometricField<Type, PatchField, GeoMesh>::readFields()
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::readFields()
 {
     const localIOdictionary dict
     (
@@ -93,8 +119,8 @@ void Foam::GeometricField<Type, PatchField, GeoMesh>::readFields()
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-bool Foam::GeometricField<Type, PatchField, GeoMesh>::readIfPresent()
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+bool Foam::GeometricField<Type, GeoMesh, PrimitiveField>::readIfPresent()
 {
     if
     (
@@ -110,10 +136,7 @@ bool Foam::GeometricField<Type, PatchField, GeoMesh>::readIfPresent()
     else if
     (
         this->readOpt() == IOobject::READ_IF_PRESENT
-     && this->template typeHeaderOk<GeometricField<Type, PatchField, GeoMesh>>
-        (
-            true
-        )
+     && this->headerOk()
     )
     {
         readFields();
@@ -137,58 +160,10 @@ bool Foam::GeometricField<Type, PatchField, GeoMesh>::readIfPresent()
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-bool Foam::GeometricField<Type, PatchField, GeoMesh>::readOldTimeIfPresent()
-{
-    // Read the old time field if present
-    IOobject field0
-    (
-        this->name()  + "_0",
-        this->time().timeName(),
-        this->db(),
-        IOobject::READ_IF_PRESENT,
-        IOobject::AUTO_WRITE,
-        this->registerObject()
-    );
-
-    if
-    (
-        field0.template typeHeaderOk<GeometricField<Type, PatchField, GeoMesh>>
-        (
-            true
-        )
-    )
-    {
-        if (debug)
-        {
-            InfoInFunction << "Reading old time level for field"
-                << endl << this->info() << endl;
-        }
-
-        field0Ptr_ = new GeometricField<Type, PatchField, GeoMesh>
-        (
-            field0,
-            this->mesh()
-        );
-
-        field0Ptr_->timeIndex_ = timeIndex_ - 1;
-
-        if (!field0Ptr_->readOldTimeIfPresent())
-        {
-            field0Ptr_->oldTime();
-        }
-
-        return true;
-    }
-
-    return false;
-}
-
-
 // * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * * //
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::GeometricField
 (
     const IOobject& io,
     const Mesh& mesh,
@@ -197,10 +172,10 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
 )
 :
     Internal(io, mesh, ds, false),
-    timeIndex_(this->time().timeIndex()),
-    field0Ptr_(nullptr),
+    OldTimeField<GeometricField>(this->time().timeIndex()),
     fieldPrevIterPtr_(nullptr),
-    boundaryField_(mesh.boundary(), *this, patchFieldType)
+    boundaryField_(mesh.boundary(), *this, patchFieldType),
+    sources_()
 {
     if (debug)
     {
@@ -211,21 +186,22 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::GeometricField
 (
     const IOobject& io,
     const Mesh& mesh,
     const dimensionSet& ds,
     const wordList& patchFieldTypes,
-    const wordList& actualPatchTypes
+    const wordList& actualPatchTypes,
+    const HashTable<word>& fieldSourceTypes
 )
 :
     Internal(io, mesh, ds, false),
-    timeIndex_(this->time().timeIndex()),
-    field0Ptr_(nullptr),
+    OldTimeField<GeometricField>(this->time().timeIndex()),
     fieldPrevIterPtr_(nullptr),
-    boundaryField_(mesh.boundary(), *this, patchFieldTypes, actualPatchTypes)
+    boundaryField_(mesh.boundary(), *this, patchFieldTypes, actualPatchTypes),
+    sources_(*this, fieldSourceTypes)
 {
     if (debug)
     {
@@ -236,8 +212,8 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::GeometricField
 (
     const IOobject& io,
     const Mesh& mesh,
@@ -246,10 +222,10 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
 )
 :
     Internal(io, mesh, dt, false),
-    timeIndex_(this->time().timeIndex()),
-    field0Ptr_(nullptr),
+    OldTimeField<GeometricField>(this->time().timeIndex()),
     fieldPrevIterPtr_(nullptr),
-    boundaryField_(mesh.boundary(), *this, patchFieldType)
+    boundaryField_(mesh.boundary(), *this, patchFieldType),
+    sources_()
 {
     if (debug)
     {
@@ -262,21 +238,22 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::GeometricField
 (
     const IOobject& io,
     const Mesh& mesh,
     const dimensioned<Type>& dt,
     const wordList& patchFieldTypes,
-    const wordList& actualPatchTypes
+    const wordList& actualPatchTypes,
+    const HashTable<word>& fieldSourceTypes
 )
 :
     Internal(io, mesh, dt, false),
-    timeIndex_(this->time().timeIndex()),
-    field0Ptr_(nullptr),
+    OldTimeField<GeometricField>(this->time().timeIndex()),
     fieldPrevIterPtr_(nullptr),
-    boundaryField_(mesh.boundary(), *this, patchFieldTypes, actualPatchTypes)
+    boundaryField_(mesh.boundary(), *this, patchFieldTypes, actualPatchTypes),
+    sources_(*this, fieldSourceTypes)
 {
     if (debug)
     {
@@ -289,19 +266,20 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::GeometricField
 (
     const IOobject& io,
     const Internal& diField,
-    const PtrList<PatchField<Type>>& ptfl
+    const PtrList<Patch>& ptfl,
+    const HashPtrTable<Source>& stft
 )
 :
-    Internal(io, diField),
-    timeIndex_(this->time().timeIndex()),
-    field0Ptr_(nullptr),
+    Internal(io, diField, false),
+    OldTimeField<GeometricField>(this->time().timeIndex()),
     fieldPrevIterPtr_(nullptr),
-    boundaryField_(this->mesh().boundary(), *this, ptfl)
+    boundaryField_(this->mesh().boundary(), *this, ptfl),
+    sources_(*this, stft)
 {
     if (debug)
     {
@@ -313,44 +291,43 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::GeometricField
 (
     const IOobject& io,
     const Mesh& mesh,
     const dimensionSet& ds,
-    const Field<Type>& iField,
-    const PtrList<PatchField<Type>>& ptfl
+    const PrimitiveField<Type>& iField,
+    const PtrList<Patch>& ptfl,
+    const HashPtrTable<Source>& stft
 )
 :
     Internal(io, mesh, ds, iField),
-    timeIndex_(this->time().timeIndex()),
-    field0Ptr_(nullptr),
+    OldTimeField<GeometricField>(this->time().timeIndex()),
     fieldPrevIterPtr_(nullptr),
-    boundaryField_(mesh.boundary(), *this, ptfl)
+    boundaryField_(mesh.boundary(), *this, ptfl),
+    sources_(*this, stft)
 {
     if (debug)
     {
         InfoInFunction
             << "Constructing from components" << endl << this->info() << endl;
     }
-
-    readIfPresent();
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::GeometricField
 (
     const IOobject& io,
     const Mesh& mesh
 )
 :
     Internal(io, mesh, dimless, false),
-    timeIndex_(this->time().timeIndex()),
-    field0Ptr_(nullptr),
+    OldTimeField<GeometricField>(this->time().timeIndex()),
     fieldPrevIterPtr_(nullptr),
-    boundaryField_(mesh.boundary())
+    boundaryField_(mesh.boundary()),
+    sources_()
 {
     readFields();
 
@@ -374,8 +351,8 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::GeometricField
 (
     const IOobject& io,
     const Mesh& mesh,
@@ -383,10 +360,10 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
 )
 :
     Internal(io, mesh, dimless, false),
-    timeIndex_(this->time().timeIndex()),
-    field0Ptr_(nullptr),
+    OldTimeField<GeometricField>(this->time().timeIndex()),
     fieldPrevIterPtr_(nullptr),
-    boundaryField_(mesh.boundary())
+    boundaryField_(mesh.boundary()),
+    sources_()
 {
     readFields(dict);
 
@@ -409,17 +386,17 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::GeometricField
 (
-    const GeometricField<Type, PatchField, GeoMesh>& gf
+    const GeometricField<Type, GeoMesh, PrimitiveField>& gf
 )
 :
     Internal(gf),
-    timeIndex_(gf.timeIndex()),
-    field0Ptr_(nullptr),
+    OldTimeField<GeometricField>(gf),
     fieldPrevIterPtr_(nullptr),
-    boundaryField_(*this, gf.boundaryField_)
+    boundaryField_(*this, gf.boundaryField_),
+    sources_(*this, gf.sources_)
 {
     if (debug)
     {
@@ -427,29 +404,44 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
             << "Constructing as copy" << endl << this->info() << endl;
     }
 
-    if (gf.field0Ptr_)
+    this->writeOpt() = IOobject::NO_WRITE;
+}
+
+
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+template<template<class> class PrimitiveField2>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::GeometricField
+(
+    const GeometricField<Type, GeoMesh, PrimitiveField2>& gf
+)
+:
+    Internal(gf),
+    OldTimeField<GeometricField>(gf),
+    fieldPrevIterPtr_(nullptr),
+    boundaryField_(*this, gf.boundaryField_),
+    sources_(*this, gf.sources_)
+{
+    if (debug)
     {
-        field0Ptr_ = new GeometricField<Type, PatchField, GeoMesh>
-        (
-            *gf.field0Ptr_
-        );
+        InfoInFunction
+            << "Constructing as copy" << endl << this->info() << endl;
     }
 
     this->writeOpt() = IOobject::NO_WRITE;
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::GeometricField
 (
-    GeometricField<Type, PatchField, GeoMesh>&& gf
+    GeometricField<Type, GeoMesh, PrimitiveField>&& gf
 )
 :
     Internal(move(gf)),
-    timeIndex_(gf.timeIndex()),
-    field0Ptr_(nullptr),
+    OldTimeField<GeometricField>(move(gf)),
     fieldPrevIterPtr_(nullptr),
-    boundaryField_(move(gf.boundaryField_))
+    boundaryField_(*this, gf.boundaryField_),
+    sources_(*this, gf.sources_)
 {
     if (debug)
     {
@@ -457,31 +449,25 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
             << "Constructing by moving" << endl << this->info() << endl;
     }
 
-    if (gf.field0Ptr_)
-    {
-        field0Ptr_ = gf.field0Ptr_;
-        gf.field0Ptr_ = nullptr;
-    }
-
     this->writeOpt() = IOobject::NO_WRITE;
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::GeometricField
 (
-    const tmp<GeometricField<Type, PatchField, GeoMesh>>& tgf
+    const tmp<GeometricField<Type, GeoMesh, PrimitiveField>>& tgf
 )
 :
     Internal
     (
-        const_cast<GeometricField<Type, PatchField, GeoMesh>&>(tgf()),
+        const_cast<GeometricField<Type, GeoMesh, PrimitiveField>&>(tgf()),
         tgf.isTmp()
     ),
-    timeIndex_(tgf().timeIndex()),
-    field0Ptr_(nullptr),
+    OldTimeField<GeometricField>(tgf().timeIndex()),
     fieldPrevIterPtr_(nullptr),
-    boundaryField_(*this, tgf().boundaryField_)
+    boundaryField_(*this, tgf().boundaryField_),
+    sources_(*this, tgf().sources_)
 {
     if (debug)
     {
@@ -495,18 +481,19 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+template<template<class> class PrimitiveField2>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::GeometricField
 (
     const IOobject& io,
-    const GeometricField<Type, PatchField, GeoMesh>& gf
+    const GeometricField<Type, GeoMesh, PrimitiveField2>& gf
 )
 :
-    Internal(io, gf),
-    timeIndex_(gf.timeIndex()),
-    field0Ptr_(nullptr),
+    Internal(io, gf, false),
+    OldTimeField<GeometricField>(gf.timeIndex()),
     fieldPrevIterPtr_(nullptr),
-    boundaryField_(*this, gf.boundaryField_)
+    boundaryField_(*this, gf.boundaryField_),
+    sources_(*this, gf.sources_)
 {
     if (debug)
     {
@@ -515,34 +502,31 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
             << endl << this->info() << endl;
     }
 
-    if (!readIfPresent() && gf.field0Ptr_)
+    if (!readIfPresent())
     {
-        field0Ptr_ = new GeometricField<Type, PatchField, GeoMesh>
-        (
-            io.name() + "_0",
-            *gf.field0Ptr_
-        );
+        copyOldTimes(io, gf);
     }
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::GeometricField
 (
     const IOobject& io,
-    const tmp<GeometricField<Type, PatchField, GeoMesh>>& tgf
+    const tmp<GeometricField<Type, GeoMesh, PrimitiveField>>& tgf
 )
 :
     Internal
     (
         io,
-        const_cast<GeometricField<Type, PatchField, GeoMesh>&>(tgf()),
-        tgf.isTmp()
+        const_cast<GeometricField<Type, GeoMesh, PrimitiveField>&>(tgf()),
+        tgf.isTmp(),
+        false
     ),
-    timeIndex_(tgf().timeIndex()),
-    field0Ptr_(nullptr),
+    OldTimeField<GeometricField>(tgf().timeIndex()),
     fieldPrevIterPtr_(nullptr),
-    boundaryField_(*this, tgf().boundaryField_)
+    boundaryField_(*this, tgf().boundaryField_),
+    sources_(*this, tgf().sources_)
 {
     if (debug)
     {
@@ -557,18 +541,19 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+template<template<class> class PrimitiveField2>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::GeometricField
 (
     const word& newName,
-    const GeometricField<Type, PatchField, GeoMesh>& gf
+    const GeometricField<Type, GeoMesh, PrimitiveField2>& gf
 )
 :
     Internal(newName, gf),
-    timeIndex_(gf.timeIndex()),
-    field0Ptr_(nullptr),
+    OldTimeField<GeometricField>(gf.timeIndex()),
     fieldPrevIterPtr_(nullptr),
-    boundaryField_(*this, gf.boundaryField_)
+    boundaryField_(*this, gf.boundaryField_),
+    sources_(*this, gf.sources_)
 {
     if (debug)
     {
@@ -577,34 +562,27 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
             << endl << this->info() << endl;
     }
 
-    if (!readIfPresent() && gf.field0Ptr_)
-    {
-        field0Ptr_ = new GeometricField<Type, PatchField, GeoMesh>
-        (
-            newName + "_0",
-            *gf.field0Ptr_
-        );
-    }
+    copyOldTimes(newName, gf);
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::GeometricField
 (
     const word& newName,
-    const tmp<GeometricField<Type, PatchField, GeoMesh>>& tgf
+    const tmp<GeometricField<Type, GeoMesh, PrimitiveField>>& tgf
 )
 :
     Internal
     (
         newName,
-        const_cast<GeometricField<Type, PatchField, GeoMesh>&>(tgf()),
+        const_cast<GeometricField<Type, GeoMesh, PrimitiveField>&>(tgf()),
         tgf.isTmp()
     ),
-    timeIndex_(tgf().timeIndex()),
-    field0Ptr_(nullptr),
+    OldTimeField<GeometricField>(tgf().timeIndex()),
     fieldPrevIterPtr_(nullptr),
-    boundaryField_(*this, tgf().boundaryField_)
+    boundaryField_(*this, tgf().boundaryField_),
+    sources_(*this, tgf().sources_)
 {
     if (debug)
     {
@@ -617,19 +595,20 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+template<template<class> class PrimitiveField2>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::GeometricField
 (
     const IOobject& io,
-    const GeometricField<Type, PatchField, GeoMesh>& gf,
+    const GeometricField<Type, GeoMesh, PrimitiveField2>& gf,
     const word& patchFieldType
 )
 :
-    Internal(io, gf),
-    timeIndex_(gf.timeIndex()),
-    field0Ptr_(nullptr),
+    Internal(io, gf, false),
+    OldTimeField<GeometricField>(gf.timeIndex()),
     fieldPrevIterPtr_(nullptr),
-    boundaryField_(this->mesh().boundary(), *this, patchFieldType)
+    boundaryField_(this->mesh().boundary(), *this, patchFieldType),
+    sources_(*this, gf.sources_)
 {
     if (debug)
     {
@@ -640,30 +619,116 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
 
     boundaryField_ == gf.boundaryField_;
 
-    if (!readIfPresent() && gf.field0Ptr_)
+    if (!readIfPresent())
     {
-        field0Ptr_ = new GeometricField<Type, PatchField, GeoMesh>
-        (
-            io.name() + "_0",
-            *gf.field0Ptr_
-        );
+        copyOldTimes(io, gf);
     }
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::GeometricField
 (
     const IOobject& io,
-    const GeometricField<Type, PatchField, GeoMesh>& gf,
-    const wordList& patchFieldTypes,
-    const wordList& actualPatchTypes
-
+    const tmp<GeometricField<Type, GeoMesh, PrimitiveField>>& tgf,
+    const word& patchFieldType
 )
 :
-    Internal(io, gf),
-    timeIndex_(gf.timeIndex()),
-    field0Ptr_(nullptr),
+    Internal
+    (
+        io,
+        const_cast<GeometricField<Type, GeoMesh, PrimitiveField>&>(tgf()),
+        tgf.isTmp(),
+        false
+    ),
+    OldTimeField<GeometricField>(tgf().timeIndex()),
+    fieldPrevIterPtr_(nullptr),
+    boundaryField_(this->mesh().boundary(), *this, patchFieldType),
+    sources_(*this, tgf().sources_)
+{
+    if (debug)
+    {
+        InfoInFunction
+            << "Constructing as copy resetting IO params"
+            << endl << this->info() << endl;
+    }
+
+    boundaryField_ == tgf().boundaryField_;
+
+    tgf.clear();
+
+    readIfPresent();
+}
+
+
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+template<template<class> class PrimitiveField2>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::GeometricField
+(
+    const IOobject& io,
+    const DimensionedField<Type, GeoMesh, PrimitiveField2>& df,
+    const word& patchFieldType
+)
+:
+    Internal(io, df, false),
+    OldTimeField<GeometricField>(this->time().timeIndex()),
+    fieldPrevIterPtr_(nullptr),
+    boundaryField_(this->mesh().boundary(), *this, patchFieldType),
+    sources_()
+{
+    if (debug)
+    {
+        InfoInFunction
+            << "Constructing from components" << endl << this->info() << endl;
+    }
+
+    if (!readIfPresent())
+    {
+        boundaryField_.evaluate();
+    }
+}
+
+
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::GeometricField
+(
+    const IOobject& io,
+    const tmp<Internal>& tdf,
+    const word& patchFieldType
+)
+:
+    Internal(io, const_cast<Internal&>(tdf()), tdf.isTmp(), false),
+    OldTimeField<GeometricField>(tdf().timeIndex()),
+    fieldPrevIterPtr_(nullptr),
+    boundaryField_(this->mesh().boundary(), *this, patchFieldType),
+    sources_()
+{
+    if (debug)
+    {
+        InfoInFunction
+            << "Constructing from components" << endl << this->info() << endl;
+    }
+
+    if (!readIfPresent())
+    {
+        boundaryField_.evaluate();
+    }
+}
+
+
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+template<template<class> class PrimitiveField2>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::GeometricField
+(
+    const IOobject& io,
+    const GeometricField<Type, GeoMesh, PrimitiveField2>& gf,
+    const wordList& patchFieldTypes,
+    const wordList& actualPatchTypes,
+    const HashTable<word>& fieldSourceTypes
+)
+:
+    Internal(io, gf, false),
+    OldTimeField<GeometricField>(gf.timeIndex()),
     fieldPrevIterPtr_(nullptr),
     boundaryField_
     (
@@ -671,7 +736,8 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
         *this,
         patchFieldTypes,
         actualPatchTypes
-    )
+    ),
+    sources_(*this, fieldSourceTypes)
 {
     if (debug)
     {
@@ -682,34 +748,31 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
 
     boundaryField_ == gf.boundaryField_;
 
-    if (!readIfPresent() && gf.field0Ptr_)
+    if (!readIfPresent())
     {
-        field0Ptr_ = new GeometricField<Type, PatchField, GeoMesh>
-        (
-            io.name() + "_0",
-            *gf.field0Ptr_
-        );
+        copyOldTimes(io, gf);
     }
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::GeometricField
 (
     const IOobject& io,
-    const tmp<GeometricField<Type, PatchField, GeoMesh>>& tgf,
+    const tmp<GeometricField<Type, GeoMesh, PrimitiveField>>& tgf,
     const wordList& patchFieldTypes,
-    const wordList& actualPatchTypes
+    const wordList& actualPatchTypes,
+    const HashTable<word>& fieldSourceTypes
 )
 :
     Internal
     (
         io,
-        const_cast<GeometricField<Type, PatchField, GeoMesh>&>(tgf()),
-        tgf.isTmp()
+        const_cast<GeometricField<Type, GeoMesh, PrimitiveField>&>(tgf()),
+        tgf.isTmp(),
+        false
     ),
-    timeIndex_(tgf().timeIndex()),
-    field0Ptr_(nullptr),
+    OldTimeField<GeometricField>(tgf().timeIndex()),
     fieldPrevIterPtr_(nullptr),
     boundaryField_
     (
@@ -717,7 +780,8 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
         *this,
         patchFieldTypes,
         actualPatchTypes
-    )
+    ),
+    sources_(*this, fieldSourceTypes)
 {
     if (debug)
     {
@@ -729,52 +793,152 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
     boundaryField_ == tgf().boundaryField_;
 
     tgf.clear();
+
+    readIfPresent();
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-Foam::tmp<Foam::GeometricField<Type, PatchField, GeoMesh>>
-Foam::GeometricField<Type, PatchField, GeoMesh>::clone() const
-{
-    return tmp<GeometricField<Type, PatchField, GeoMesh>>
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+template<template<class> class PrimitiveField2>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::GeometricField
+(
+    const IOobject& io,
+    const DimensionedField<Type, GeoMesh, PrimitiveField2>& df,
+    const wordList& patchFieldTypes,
+    const wordList& actualPatchTypes,
+    const HashTable<word>& fieldSourceTypes
+)
+:
+    Internal(io, df, false),
+    OldTimeField<GeometricField>(df.timeIndex()),
+    fieldPrevIterPtr_(nullptr),
+    boundaryField_
     (
-        new GeometricField<Type, PatchField, GeoMesh>(*this)
+        this->mesh().boundary(),
+        *this,
+        patchFieldTypes,
+        actualPatchTypes
+    ),
+    sources_(*this, fieldSourceTypes)
+{
+    if (debug)
+    {
+        InfoInFunction
+            << "Constructing from internal field and patch types"
+            << endl << this->info() << endl;
+    }
+
+    readIfPresent();
+}
+
+
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::GeometricField
+(
+    const IOobject& io,
+    const tmp<Internal>& tdf,
+    const wordList& patchFieldTypes,
+    const wordList& actualPatchTypes,
+    const HashTable<word>& fieldSourceTypes
+)
+:
+    Internal(io, const_cast<Internal&>(tdf()), tdf.isTmp(), false),
+    OldTimeField<GeometricField>(tdf().timeIndex()),
+    fieldPrevIterPtr_(nullptr),
+    boundaryField_
+    (
+        this->mesh().boundary(),
+        *this,
+        patchFieldTypes,
+        actualPatchTypes
+    ),
+    sources_(*this, fieldSourceTypes)
+{
+    if (debug)
+    {
+        InfoInFunction
+            << "Constructing from tmp internal field and patch types"
+            << endl << this->info() << endl;
+    }
+
+    tdf.clear();
+
+    readIfPresent();
+}
+
+
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+Foam::tmp<Foam::GeometricField<Type, GeoMesh, PrimitiveField>>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::clone() const
+{
+    return tmp<GeometricField<Type, GeoMesh, PrimitiveField>>
+    (
+        new GeometricField<Type, GeoMesh, PrimitiveField>(*this)
     );
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-Foam::tmp<Foam::GeometricField<Type, PatchField, GeoMesh>>
-Foam::GeometricField<Type, PatchField, GeoMesh>::New
-(
-    const word& name,
-    const Internal& diField,
-    const PtrList<PatchField<Type>>& ptfl
-)
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+Foam::tmp<Foam::GeometricField<Type, GeoMesh, PrimitiveField>>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::cloneUnSliced() const
 {
-    return tmp<GeometricField<Type, PatchField, GeoMesh>>
+    return tmp<GeometricField<Type, GeoMesh, PrimitiveField>>
     (
-        new GeometricField<Type, PatchField, GeoMesh>
+        new GeometricField<Type, GeoMesh, PrimitiveField>
         (
             IOobject
             (
-                name,
-                diField.mesh().thisDb().time().timeName(),
-                diField.mesh().thisDb(),
+                this->name(),
+                this->mesh().thisDb().time().name(),
+                this->mesh().thisDb(),
                 IOobject::NO_READ,
                 IOobject::NO_WRITE,
-                diField.mesh().thisDb().cacheTemporaryObject(name)
+                false
             ),
-            diField,
-            ptfl
+            *this,
+            Patch::calculatedType()
         )
     );
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-Foam::tmp<Foam::GeometricField<Type, PatchField, GeoMesh>>
-Foam::GeometricField<Type, PatchField, GeoMesh>::New
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+Foam::tmp<Foam::GeometricField<Type, GeoMesh, PrimitiveField>>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::New
+(
+    const word& name,
+    const Internal& diField,
+    const PtrList<Patch>& ptfl,
+    const HashPtrTable<Source>& stft
+)
+{
+    const bool cacheTmp = diField.mesh().thisDb().cacheTemporaryObject(name);
+
+    return tmp<GeometricField<Type, GeoMesh, PrimitiveField>>
+    (
+        new GeometricField<Type, GeoMesh, PrimitiveField>
+        (
+            IOobject
+            (
+                name,
+                diField.mesh().thisDb().time().name(),
+                diField.mesh().thisDb(),
+                IOobject::NO_READ,
+                IOobject::NO_WRITE,
+                cacheTmp
+            ),
+            diField,
+            ptfl,
+            stft
+        ),
+        cacheTmp
+    );
+}
+
+
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+Foam::tmp<Foam::GeometricField<Type, GeoMesh, PrimitiveField>>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::New
 (
     const word& name,
     const Mesh& mesh,
@@ -782,30 +946,33 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::New
     const word& patchFieldType
 )
 {
-    return tmp<GeometricField<Type, PatchField, GeoMesh>>
+    const bool cacheTmp = mesh.thisDb().cacheTemporaryObject(name);
+
+    return tmp<GeometricField<Type, GeoMesh, PrimitiveField>>
     (
-        new GeometricField<Type, PatchField, GeoMesh>
+        new GeometricField<Type, GeoMesh, PrimitiveField>
         (
             IOobject
             (
                 name,
-                mesh.thisDb().time().timeName(),
+                mesh.thisDb().time().name(),
                 mesh.thisDb(),
                 IOobject::NO_READ,
                 IOobject::NO_WRITE,
-                mesh.thisDb().cacheTemporaryObject(name)
+                cacheTmp
             ),
             mesh,
             ds,
             patchFieldType
-        )
+        ),
+        cacheTmp
     );
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-Foam::tmp<Foam::GeometricField<Type, PatchField, GeoMesh>>
-Foam::GeometricField<Type, PatchField, GeoMesh>::New
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+Foam::tmp<Foam::GeometricField<Type, GeoMesh, PrimitiveField>>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::New
 (
     const word& name,
     const Mesh& mesh,
@@ -813,72 +980,82 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::New
     const word& patchFieldType
 )
 {
-    return tmp<GeometricField<Type, PatchField, GeoMesh>>
+    const bool cacheTmp = mesh.thisDb().cacheTemporaryObject(name);
+
+    return tmp<GeometricField<Type, GeoMesh, PrimitiveField>>
     (
-        new GeometricField<Type, PatchField, GeoMesh>
+        new GeometricField<Type, GeoMesh, PrimitiveField>
         (
             IOobject
             (
                 name,
-                mesh.thisDb().time().timeName(),
+                mesh.thisDb().time().name(),
                 mesh.thisDb(),
                 IOobject::NO_READ,
                 IOobject::NO_WRITE,
-                mesh.thisDb().cacheTemporaryObject(name)
+                cacheTmp
             ),
             mesh,
             dt,
             patchFieldType
-        )
+        ),
+        cacheTmp
     );
 }
 
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-Foam::tmp<Foam::GeometricField<Type, PatchField, GeoMesh>>
-Foam::GeometricField<Type, PatchField, GeoMesh>::New
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+Foam::tmp<Foam::GeometricField<Type, GeoMesh, PrimitiveField>>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::New
 (
     const word& name,
     const Mesh& mesh,
     const dimensioned<Type>& dt,
     const wordList& patchFieldTypes,
-    const wordList& actualPatchTypes
+    const wordList& actualPatchTypes,
+    const HashTable<word>& fieldSourceTypes
 )
 {
-    return tmp<GeometricField<Type, PatchField, GeoMesh>>
+    const bool cacheTmp = mesh.thisDb().cacheTemporaryObject(name);
+
+    return tmp<GeometricField<Type, GeoMesh, PrimitiveField>>
     (
-        new GeometricField<Type, PatchField, GeoMesh>
+        new GeometricField<Type, GeoMesh, PrimitiveField>
         (
             IOobject
             (
                 name,
-                mesh.thisDb().time().timeName(),
+                mesh.thisDb().time().name(),
                 mesh.thisDb(),
                 IOobject::NO_READ,
                 IOobject::NO_WRITE,
-                mesh.thisDb().cacheTemporaryObject(name)
+                cacheTmp
             ),
             mesh,
             dt,
             patchFieldTypes,
-            actualPatchTypes
-        )
+            actualPatchTypes,
+            fieldSourceTypes
+        ),
+        cacheTmp
     );
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-Foam::tmp<Foam::GeometricField<Type, PatchField, GeoMesh>>
-Foam::GeometricField<Type, PatchField, GeoMesh>::New
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+Foam::tmp<Foam::GeometricField<Type, GeoMesh, PrimitiveField>>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::New
 (
     const word& newName,
-    const tmp<GeometricField<Type, PatchField, GeoMesh>>& tgf
+    const tmp<GeometricField<Type, GeoMesh, PrimitiveField>>& tgf
 )
 {
-    return tmp<GeometricField<Type, PatchField, GeoMesh>>
+    const bool cacheTmp = tgf().db().cacheTemporaryObject(newName);
+
+    return tmp<GeometricField<Type, GeoMesh, PrimitiveField>>
     (
-        new GeometricField<Type, PatchField, GeoMesh>
+        new GeometricField<Type, GeoMesh, PrimitiveField>
         (
             IOobject
             (
@@ -888,27 +1065,63 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::New
                 tgf().db(),
                 IOobject::NO_READ,
                 IOobject::NO_WRITE,
-                tgf().db().cacheTemporaryObject(newName)
+                cacheTmp
             ),
             tgf
-        )
+        ),
+        cacheTmp
     );
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-Foam::tmp<Foam::GeometricField<Type, PatchField, GeoMesh>>
-Foam::GeometricField<Type, PatchField, GeoMesh>::New
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+template<template<class> class PrimitiveField2>
+Foam::tmp<Foam::GeometricField<Type, GeoMesh, PrimitiveField>>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::New
 (
     const word& newName,
-    const tmp<GeometricField<Type, PatchField, GeoMesh>>& tgf,
-    const wordList& patchFieldTypes,
-    const wordList& actualPatchTypes
+    const GeometricField<Type, GeoMesh, PrimitiveField2>& gf,
+    const word& patchFieldType
 )
 {
-    return tmp<GeometricField<Type, PatchField, GeoMesh>>
+    const bool cacheTmp = gf.db().cacheTemporaryObject(newName);
+
+    return tmp<GeometricField<Type, GeoMesh, PrimitiveField>>
     (
-        new GeometricField<Type, PatchField, GeoMesh>
+        new GeometricField<Type, GeoMesh, PrimitiveField>
+        (
+            IOobject
+            (
+                newName,
+                gf.instance(),
+                gf.local(),
+                gf.db(),
+                IOobject::NO_READ,
+                IOobject::NO_WRITE,
+                cacheTmp
+            ),
+            gf,
+            patchFieldType
+        ),
+        cacheTmp
+    );
+}
+
+
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+Foam::tmp<Foam::GeometricField<Type, GeoMesh, PrimitiveField>>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::New
+(
+    const word& newName,
+    const tmp<GeometricField<Type, GeoMesh, PrimitiveField>>& tgf,
+    const word& patchFieldType
+)
+{
+    const bool cacheTmp = tgf().db().cacheTemporaryObject(newName);
+
+    return tmp<GeometricField<Type, GeoMesh, PrimitiveField>>
+    (
+        new GeometricField<Type, GeoMesh, PrimitiveField>
         (
             IOobject
             (
@@ -918,34 +1131,249 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::New
                 tgf().db(),
                 IOobject::NO_READ,
                 IOobject::NO_WRITE,
-                tgf().db().cacheTemporaryObject(newName)
+                cacheTmp
+            ),
+            tgf,
+            patchFieldType
+        ),
+        cacheTmp
+    );
+}
+
+
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+template<template<class> class PrimitiveField2>
+Foam::tmp<Foam::GeometricField<Type, GeoMesh, PrimitiveField>>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::New
+(
+    const word& newName,
+    const DimensionedField<Type, GeoMesh, PrimitiveField2>& df,
+    const word& patchFieldType
+)
+{
+    const bool cacheTmp = df.db().cacheTemporaryObject(newName);
+
+    return tmp<GeometricField<Type, GeoMesh, PrimitiveField>>
+    (
+        new GeometricField<Type, GeoMesh, PrimitiveField>
+        (
+            IOobject
+            (
+                newName,
+                df.instance(),
+                df.local(),
+                df.db(),
+                IOobject::NO_READ,
+                IOobject::NO_WRITE,
+                cacheTmp
+            ),
+            df,
+            patchFieldType
+        ),
+        cacheTmp
+    );
+}
+
+
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+Foam::tmp<Foam::GeometricField<Type, GeoMesh, PrimitiveField>>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::New
+(
+    const word& newName,
+    const tmp<Internal>& tdf,
+    const word& patchFieldType
+)
+{
+    const bool cacheTmp = tdf().db().cacheTemporaryObject(newName);
+
+    return tmp<GeometricField<Type, GeoMesh, PrimitiveField>>
+    (
+        new GeometricField<Type, GeoMesh, PrimitiveField>
+        (
+            IOobject
+            (
+                newName,
+                tdf().instance(),
+                tdf().local(),
+                tdf().db(),
+                IOobject::NO_READ,
+                IOobject::NO_WRITE,
+                cacheTmp
+            ),
+            tdf,
+            patchFieldType
+        ),
+        cacheTmp
+    );
+}
+
+
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+template<template<class> class PrimitiveField2>
+Foam::tmp<Foam::GeometricField<Type, GeoMesh, PrimitiveField>>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::New
+(
+    const word& newName,
+    const GeometricField<Type, GeoMesh, PrimitiveField2>& gf,
+    const wordList& patchFieldTypes,
+    const wordList& actualPatchTypes,
+    const HashTable<word>& fieldSourceTypes
+)
+{
+    const bool cacheTmp = gf.db().cacheTemporaryObject(newName);
+
+    return tmp<GeometricField<Type, GeoMesh, PrimitiveField>>
+    (
+        new GeometricField<Type, GeoMesh, PrimitiveField>
+        (
+            IOobject
+            (
+                newName,
+                gf.instance(),
+                gf.local(),
+                gf.db(),
+                IOobject::NO_READ,
+                IOobject::NO_WRITE,
+                cacheTmp
+            ),
+            gf,
+            patchFieldTypes,
+            actualPatchTypes,
+            fieldSourceTypes
+        ),
+        cacheTmp
+    );
+}
+
+
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+Foam::tmp<Foam::GeometricField<Type, GeoMesh, PrimitiveField>>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::New
+(
+    const word& newName,
+    const tmp<GeometricField<Type, GeoMesh, PrimitiveField>>& tgf,
+    const wordList& patchFieldTypes,
+    const wordList& actualPatchTypes,
+    const HashTable<word>& fieldSourceTypes
+)
+{
+    const bool cacheTmp = tgf().db().cacheTemporaryObject(newName);
+
+    return tmp<GeometricField<Type, GeoMesh, PrimitiveField>>
+    (
+        new GeometricField<Type, GeoMesh, PrimitiveField>
+        (
+            IOobject
+            (
+                newName,
+                tgf().instance(),
+                tgf().local(),
+                tgf().db(),
+                IOobject::NO_READ,
+                IOobject::NO_WRITE,
+                cacheTmp
             ),
             tgf,
             patchFieldTypes,
-            actualPatchTypes
-        )
+            actualPatchTypes,
+            fieldSourceTypes
+        ),
+        cacheTmp
+    );
+}
+
+
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+template<template<class> class PrimitiveField2>
+Foam::tmp<Foam::GeometricField<Type, GeoMesh, PrimitiveField>>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::New
+(
+    const word& newName,
+    const DimensionedField<Type, GeoMesh, PrimitiveField2>& df,
+    const wordList& patchFieldTypes,
+    const wordList& actualPatchTypes,
+    const HashTable<word>& fieldSourceTypes
+)
+{
+    const bool cacheTmp = df.db().cacheTemporaryObject(newName);
+
+    return tmp<GeometricField<Type, GeoMesh, PrimitiveField>>
+    (
+        new GeometricField<Type, GeoMesh, PrimitiveField>
+        (
+            IOobject
+            (
+                newName,
+                df.instance(),
+                df.local(),
+                df.db(),
+                IOobject::NO_READ,
+                IOobject::NO_WRITE,
+                cacheTmp
+            ),
+            df,
+            patchFieldTypes,
+            actualPatchTypes,
+            fieldSourceTypes
+        ),
+        cacheTmp
+    );
+}
+
+
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+Foam::tmp<Foam::GeometricField<Type, GeoMesh, PrimitiveField>>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::New
+(
+    const word& newName,
+    const tmp<Internal>& tdf,
+    const wordList& patchFieldTypes,
+    const wordList& actualPatchTypes,
+    const HashTable<word>& fieldSourceTypes
+)
+{
+    const bool cacheTmp = tdf().db().cacheTemporaryObject(newName);
+
+    return tmp<GeometricField<Type, GeoMesh, PrimitiveField>>
+    (
+        new GeometricField<Type, GeoMesh, PrimitiveField>
+        (
+            IOobject
+            (
+                newName,
+                tdf().instance(),
+                tdf().local(),
+                tdf().db(),
+                IOobject::NO_READ,
+                IOobject::NO_WRITE,
+                cacheTmp
+            ),
+            tdf,
+            patchFieldTypes,
+            actualPatchTypes,
+            fieldSourceTypes
+        ),
+        cacheTmp
     );
 }
 
 
 // * * * * * * * * * * * * * * * Destructor * * * * * * * * * * * * * * * * * //
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-Foam::GeometricField<Type, PatchField, GeoMesh>::~GeometricField()
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::~GeometricField()
 {
     this->db().cacheTemporaryObject(*this);
 
-    deleteDemandDrivenData(field0Ptr_);
-    deleteDemandDrivenData(fieldPrevIterPtr_);
+    clearPrevIter();
 }
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-typename
-Foam::GeometricField<Type, PatchField, GeoMesh>::Internal&
-Foam::GeometricField<Type, PatchField, GeoMesh>::ref()
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+typename Foam::GeometricField<Type, GeoMesh, PrimitiveField>::Internal&
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::internalFieldRef()
 {
     this->setUpToDate();
     storeOldTimes();
@@ -953,10 +1381,10 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::ref()
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
 typename
-Foam::GeometricField<Type, PatchField, GeoMesh>::Internal::FieldType&
-Foam::GeometricField<Type, PatchField, GeoMesh>::primitiveFieldRef()
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::Internal::FieldType&
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::primitiveFieldRef()
 {
     this->setUpToDate();
     storeOldTimes();
@@ -964,10 +1392,10 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::primitiveFieldRef()
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
 typename
-Foam::GeometricField<Type, PatchField, GeoMesh>::Boundary&
-Foam::GeometricField<Type, PatchField, GeoMesh>::boundaryFieldRef()
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::Boundary&
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::boundaryFieldRef()
 {
     this->setUpToDate();
     storeOldTimes();
@@ -975,108 +1403,30 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::boundaryFieldRef()
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-void Foam::GeometricField<Type, PatchField, GeoMesh>::storeOldTimes() const
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+typename
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::Boundary&
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::
+boundaryFieldRefNoStoreOldTimes()
 {
-    if
-    (
-        field0Ptr_
-     && timeIndex_ != this->time().timeIndex()
-     && !(
-            this->name().size() > 2
-         && this->name()(this->name().size()-2, 2) == "_0"
-         )
-    )
-    {
-        storeOldTime();
-    }
-
-    // Correct time index
-    timeIndex_ = this->time().timeIndex();
+    this->setUpToDate();
+    return boundaryField_;
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-void Foam::GeometricField<Type, PatchField, GeoMesh>::storeOldTime() const
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+typename
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::Sources&
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::sourcesRef()
 {
-    if (field0Ptr_)
-    {
-        field0Ptr_->storeOldTime();
-
-        if (debug)
-        {
-            InfoInFunction
-                << "Storing old time field for field" << endl
-                << this->info() << endl;
-        }
-
-        *field0Ptr_ == *this;
-        field0Ptr_->timeIndex_ = timeIndex_;
-
-        if (field0Ptr_->field0Ptr_)
-        {
-            field0Ptr_->writeOpt() = this->writeOpt();
-        }
-    }
+    this->setUpToDate();
+    storeOldTimes();
+    return sources_;
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-Foam::label Foam::GeometricField<Type, PatchField, GeoMesh>::nOldTimes() const
-{
-    if (field0Ptr_)
-    {
-        return field0Ptr_->nOldTimes() + 1;
-    }
-    else
-    {
-        return 0;
-    }
-}
-
-
-template<class Type, template<class> class PatchField, class GeoMesh>
-const Foam::GeometricField<Type, PatchField, GeoMesh>&
-Foam::GeometricField<Type, PatchField, GeoMesh>::oldTime() const
-{
-    if (!field0Ptr_)
-    {
-        field0Ptr_ = new GeometricField<Type, PatchField, GeoMesh>
-        (
-            IOobject
-            (
-                this->name() + "_0",
-                this->time().timeName(),
-                this->db(),
-                IOobject::NO_READ,
-                IOobject::NO_WRITE,
-                this->registerObject()
-            ),
-            *this
-        );
-    }
-    else
-    {
-        storeOldTimes();
-    }
-
-    return *field0Ptr_;
-}
-
-
-template<class Type, template<class> class PatchField, class GeoMesh>
-Foam::GeometricField<Type, PatchField, GeoMesh>&
-Foam::GeometricField<Type, PatchField, GeoMesh>::oldTime()
-{
-    static_cast<const GeometricField<Type, PatchField, GeoMesh>&>(*this)
-        .oldTime();
-
-    return *field0Ptr_;
-}
-
-
-template<class Type, template<class> class PatchField, class GeoMesh>
-void Foam::GeometricField<Type, PatchField, GeoMesh>::storePrevIter() const
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::storePrevIter() const
 {
     if (!fieldPrevIterPtr_)
     {
@@ -1087,11 +1437,12 @@ void Foam::GeometricField<Type, PatchField, GeoMesh>::storePrevIter() const
                 << this->info() << endl;
         }
 
-        fieldPrevIterPtr_ = new GeometricField<Type, PatchField, GeoMesh>
-        (
-            this->name() + "PrevIter",
-            *this
-        );
+        fieldPrevIterPtr_ =
+            new GeometricField<Type, GeoMesh, Field>
+            (
+                this->name() + "PrevIter",
+                *this
+            );
     }
     else
     {
@@ -1100,9 +1451,16 @@ void Foam::GeometricField<Type, PatchField, GeoMesh>::storePrevIter() const
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-const Foam::GeometricField<Type, PatchField, GeoMesh>&
-Foam::GeometricField<Type, PatchField, GeoMesh>::prevIter() const
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::clearPrevIter()
+{
+    deleteDemandDrivenData(fieldPrevIterPtr_);
+}
+
+
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+const Foam::GeometricField<Type, GeoMesh, Foam::Field>&
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::prevIter() const
 {
     if (!fieldPrevIterPtr_)
     {
@@ -1117,8 +1475,8 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::prevIter() const
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-void Foam::GeometricField<Type, PatchField, GeoMesh>::
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::
 correctBoundaryConditions()
 {
     this->setUpToDate();
@@ -1127,8 +1485,63 @@ correctBoundaryConditions()
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-bool Foam::GeometricField<Type, PatchField, GeoMesh>::needReference() const
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+template<template<class> class PrimitiveField2>
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::reset
+(
+    const GeometricField<Type, GeoMesh, PrimitiveField2>& gf
+)
+{
+    Internal::reset(gf);
+
+    boundaryField_.reset(gf.boundaryField());
+    sources_.reset(*this, gf.sources());
+}
+
+
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::reset
+(
+    const tmp<GeometricField<Type, GeoMesh, PrimitiveField>>& tgf
+)
+{
+    const GeometricField<Type, GeoMesh, PrimitiveField>& gf = tgf();
+
+    checkFieldAssignment(*this, gf);
+
+    this->dimensions() = gf.dimensions();
+
+    if (tgf.isTmp())
+    {
+        PrimitiveField<Type>::transfer(tgf.ref());
+    }
+    else
+    {
+        PrimitiveField<Type>::operator=(gf.primitiveField());
+    }
+
+    boundaryField_.reset(gf.boundaryField());
+    sources_.reset(*this, gf.sources());
+
+    tgf.clear();
+}
+
+
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+template<template<class> class PrimitiveField2>
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::reset
+(
+    const tmp<GeometricField<Type, GeoMesh, PrimitiveField2>>& tgf
+)
+{
+    reset(tgf());
+
+    tgf.clear();
+}
+
+
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+bool Foam::GeometricField<Type, GeoMesh, PrimitiveField>::needReference() const
 {
     // Search all boundary conditions, if any are
     // fixed-value or mixed (Robin) do not set reference level for solution.
@@ -1150,43 +1563,98 @@ bool Foam::GeometricField<Type, PatchField, GeoMesh>::needReference() const
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-void Foam::GeometricField<Type, PatchField, GeoMesh>::relax(const scalar alpha)
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::relax
+(
+    const scalar alpha
+)
 {
-    if (debug)
+    if (alpha < 1)
     {
-        InfoInFunction
-           << "Relaxing" << endl << this->info() << " by " << alpha << endl;
-    }
+        if (debug)
+        {
+            InfoInFunction
+                << "Relaxing" << endl << this->info()
+                << " by " << alpha << endl;
+        }
 
-    operator==(prevIter() + alpha*(*this - prevIter()));
+        operator==(prevIter() + alpha*(*this - prevIter()));
+    }
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-void Foam::GeometricField<Type, PatchField, GeoMesh>::relax()
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+Foam::scalar
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::relaxationFactor() const
 {
     if
     (
-        this->mesh().data::template lookupOrDefault<bool>
-        (
-            "finalIteration",
-            false
-        )
-     && this->mesh().relaxField(this->name() + "Final")
+        solutionControl::finalIteration(this->mesh())
+     && this->mesh().solution().relaxField(this->name() + "Final")
     )
     {
-        relax(this->mesh().fieldRelaxationFactor(this->name() + "Final"));
+        return this->mesh().solution().fieldRelaxationFactor
+        (
+            this->name() + "Final"
+        );
     }
-    else if (this->mesh().relaxField(this->name()))
+    else if (this->mesh().solution().relaxField(this->name()))
     {
-        relax(this->mesh().fieldRelaxationFactor(this->name()));
+        return this->mesh().solution().fieldRelaxationFactor(this->name());
+    }
+    else
+    {
+        return 1;
     }
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-Foam::word Foam::GeometricField<Type, PatchField, GeoMesh>::select
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::relax()
+{
+    relax(relaxationFactor());
+}
+
+
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+template<template<class> class PrimitiveField2>
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::relax
+(
+    const tmp<GeometricField<Type, GeoMesh, PrimitiveField2>>& tgf,
+    const scalar alpha
+)
+{
+    if (alpha < 1)
+    {
+        if (debug)
+        {
+            InfoInFunction
+                << "Relaxing" << endl << this->info()
+                << " by " << alpha << endl;
+        }
+
+        operator==(*this + alpha*(tgf - *this));
+    }
+    else
+    {
+        operator==(tgf);
+    }
+}
+
+
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+template<template<class> class PrimitiveField2>
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::relax
+(
+    const tmp<GeometricField<Type, GeoMesh, PrimitiveField2>>& tgf
+)
+{
+    relax(tgf, relaxationFactor());
+}
+
+
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+Foam::word Foam::GeometricField<Type, GeoMesh, PrimitiveField>::select
 (
     bool final
 ) const
@@ -1202,8 +1670,8 @@ Foam::word Foam::GeometricField<Type, PatchField, GeoMesh>::select
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-void Foam::GeometricField<Type, PatchField, GeoMesh>::writeMinMax
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::writeMinMax
 (
     Ostream& os
 ) const
@@ -1215,9 +1683,11 @@ void Foam::GeometricField<Type, PatchField, GeoMesh>::writeMinMax
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-bool Foam::GeometricField<Type, PatchField, GeoMesh>::
-writeData(Ostream& os) const
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+bool Foam::GeometricField<Type, GeoMesh, PrimitiveField>::writeData
+(
+    Ostream& os
+) const
 {
     os << *this;
     return os.good();
@@ -1226,13 +1696,13 @@ writeData(Ostream& os) const
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-Foam::tmp<Foam::GeometricField<Type, PatchField, GeoMesh>>
-Foam::GeometricField<Type, PatchField, GeoMesh>::T() const
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+Foam::tmp<Foam::GeometricField<Type, GeoMesh, Foam::Field>>
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::T() const
 {
-    tmp<GeometricField<Type, PatchField, GeoMesh>> result
+    tmp<GeometricField<Type, GeoMesh, Field>> result
     (
-        GeometricField<Type, PatchField, GeoMesh>::New
+        GeometricField<Type, GeoMesh, Field>::New
         (
             this->name() + ".T()",
             this->mesh(),
@@ -1247,24 +1717,24 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::T() const
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
 Foam::tmp
 <
     Foam::GeometricField
     <
-        typename Foam::GeometricField<Type, PatchField, GeoMesh>::cmptType,
-        PatchField,
-        GeoMesh
+        typename Foam::GeometricField<Type, GeoMesh, PrimitiveField>::cmptType,
+        GeoMesh,
+        Foam::Field
     >
 >
-Foam::GeometricField<Type, PatchField, GeoMesh>::component
+Foam::GeometricField<Type, GeoMesh, PrimitiveField>::component
 (
     const direction d
 ) const
 {
-    tmp<GeometricField<cmptType, PatchField, GeoMesh>> Component
+    tmp<GeometricField<cmptType, GeoMesh, Field>> Component
     (
-        GeometricField<cmptType, PatchField, GeoMesh>::New
+        GeometricField<cmptType, GeoMesh, Field>::New
         (
             this->name() + ".component(" + Foam::name(d) + ')',
             this->mesh(),
@@ -1279,15 +1749,16 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::component
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-void Foam::GeometricField<Type, PatchField, GeoMesh>::replace
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+template<template<class> class PrimitiveField2>
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::replace
 (
     const direction d,
     const GeometricField
     <
-        typename GeometricField<Type, PatchField, GeoMesh>::cmptType,
-        PatchField,
-        GeoMesh
+        typename GeometricField<Type, GeoMesh, PrimitiveField>::cmptType,
+        GeoMesh,
+        PrimitiveField2
      >& gcf
 )
 {
@@ -1296,8 +1767,29 @@ void Foam::GeometricField<Type, PatchField, GeoMesh>::replace
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-void Foam::GeometricField<Type, PatchField, GeoMesh>::replace
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+template<template<class> class PrimitiveField2>
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::replace
+(
+    const direction d,
+    const tmp
+    <
+        GeometricField
+        <
+            typename GeometricField<Type, GeoMesh, PrimitiveField>::cmptType,
+            GeoMesh,
+            PrimitiveField2
+        >
+    >& gcf
+)
+{
+    replace(d, gcf());
+    gcf.clear();
+}
+
+
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::replace
 (
     const direction d,
     const dimensioned<cmptType>& ds
@@ -1308,8 +1800,8 @@ void Foam::GeometricField<Type, PatchField, GeoMesh>::replace
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-void Foam::GeometricField<Type, PatchField, GeoMesh>::max
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::max
 (
     const dimensioned<Type>& dt
 )
@@ -1319,8 +1811,8 @@ void Foam::GeometricField<Type, PatchField, GeoMesh>::max
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-void Foam::GeometricField<Type, PatchField, GeoMesh>::min
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::min
 (
     const dimensioned<Type>& dt
 )
@@ -1330,8 +1822,8 @@ void Foam::GeometricField<Type, PatchField, GeoMesh>::min
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-void Foam::GeometricField<Type, PatchField, GeoMesh>::maxMin
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::maxMin
 (
     const dimensioned<Type>& minDt,
     const dimensioned<Type>& maxDt
@@ -1344,8 +1836,8 @@ void Foam::GeometricField<Type, PatchField, GeoMesh>::maxMin
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-void Foam::GeometricField<Type, PatchField, GeoMesh>::negate()
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::negate()
 {
     primitiveFieldRef().negate();
     boundaryFieldRef().negate();
@@ -1354,78 +1846,64 @@ void Foam::GeometricField<Type, PatchField, GeoMesh>::negate()
 
 // * * * * * * * * * * * * * * * Member Operators  * * * * * * * * * * * * * //
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-void Foam::GeometricField<Type, PatchField, GeoMesh>::operator=
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::operator=
 (
-    const GeometricField<Type, PatchField, GeoMesh>& gf
+    const GeometricField<Type, GeoMesh, PrimitiveField>& gf
 )
 {
-    if (this == &gf)
-    {
-        FatalErrorInFunction
-            << "attempted assignment to self"
-            << abort(FatalError);
-    }
+    checkFieldAssignment(*this, gf);
+    checkFieldOperation(*this, gf, "=");
 
-    checkField(*this, gf, "=");
-
-    // Only assign field contents not ID
-
-    ref() = gf();
+    internalFieldRef() = gf.internalField();
     boundaryFieldRef() = gf.boundaryField();
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-void Foam::GeometricField<Type, PatchField, GeoMesh>::operator=
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::operator=
 (
-    GeometricField<Type, PatchField, GeoMesh>&& gf
+    GeometricField<Type, GeoMesh, PrimitiveField>&& gf
 )
 {
-    if (this == &gf)
-    {
-        FatalErrorInFunction
-            << "attempted assignment to self"
-            << abort(FatalError);
-    }
+    checkFieldAssignment(*this, gf);
+    checkFieldOperation(*this, gf, "=");
 
-    checkField(*this, gf, "=");
-
-    // Only assign field contents not ID
-
-    ref() = move(gf());
+    internalFieldRef() = move(gf.internalField());
     boundaryFieldRef() = move(gf.boundaryField());
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-void Foam::GeometricField<Type, PatchField, GeoMesh>::operator=
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+template<template<class> class PrimitiveField2>
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::operator=
 (
-    const tmp<GeometricField<Type, PatchField, GeoMesh>>& tgf
+    const GeometricField<Type, GeoMesh, PrimitiveField2>& gf
 )
 {
-    if (this == &(tgf()))
-    {
-        FatalErrorInFunction
-            << "attempted assignment to self"
-            << abort(FatalError);
-    }
+    checkFieldOperation(*this, gf, "=");
 
-    const GeometricField<Type, PatchField, GeoMesh>& gf = tgf();
+    internalFieldRef() = gf.internalField();
+    boundaryFieldRef() = gf.boundaryField();
+}
 
-    checkField(*this, gf, "=");
 
-    // Only assign field contents not ID
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::operator=
+(
+    const tmp<GeometricField<Type, GeoMesh, PrimitiveField>>& tgf
+)
+{
+    const GeometricField<Type, GeoMesh, PrimitiveField>& gf = tgf();
+
+    checkFieldAssignment(*this, gf);
+    checkFieldOperation(*this, gf, "=");
 
     this->dimensions() = gf.dimensions();
 
     if (tgf.isTmp())
     {
-        // Transfer the storage from the tmp
-        primitiveFieldRef().transfer
-        (
-            const_cast<Field<Type>&>(gf.primitiveField())
-        );
+        primitiveFieldRef().transfer(tgf.ref());
     }
     else
     {
@@ -1438,100 +1916,160 @@ void Foam::GeometricField<Type, PatchField, GeoMesh>::operator=
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-void Foam::GeometricField<Type, PatchField, GeoMesh>::operator=
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+template<template<class> class PrimitiveField2>
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::operator=
+(
+    const tmp<GeometricField<Type, GeoMesh, PrimitiveField2>>& tgf
+)
+{
+    const GeometricField<Type, GeoMesh, PrimitiveField2>& gf = tgf();
+
+    checkFieldOperation(*this, gf, "=");
+
+    internalFieldRef() = gf.internalField();
+    boundaryFieldRef() = gf.boundaryField();
+
+    tgf.clear();
+}
+
+
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::operator=
 (
     const dimensioned<Type>& dt
 )
 {
-    ref() = dt;
+    internalFieldRef() = dt;
     boundaryFieldRef() = dt.value();
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-void Foam::GeometricField<Type, PatchField, GeoMesh>::operator=
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::operator=
 (
     const zero&
 )
 {
-    ref() = Zero;
+    internalFieldRef() = Zero;
     boundaryFieldRef() = Zero;
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-void Foam::GeometricField<Type, PatchField, GeoMesh>::operator==
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+template<template<class> class PrimitiveField2>
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::operator==
 (
-    const tmp<GeometricField<Type, PatchField, GeoMesh>>& tgf
+    const GeometricField<Type, GeoMesh, PrimitiveField2>& gf
 )
 {
-    const GeometricField<Type, PatchField, GeoMesh>& gf = tgf();
+    checkFieldOperation(*this, gf, "==");
 
-    checkField(*this, gf, "==");
+    internalFieldRef() = gf.internalField();
+    boundaryFieldRef() == gf.boundaryField();
+}
 
-    // Only assign field contents not ID
 
-    ref() = gf();
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::operator==
+(
+    const tmp<GeometricField<Type, GeoMesh, PrimitiveField>>& tgf
+)
+{
+    const GeometricField<Type, GeoMesh, PrimitiveField>& gf = tgf();
+
+    checkFieldOperation(*this, gf, "==");
+
+    this->dimensions() = gf.dimensions();
+
+    if (tgf.isTmp())
+    {
+        primitiveFieldRef().transfer(tgf.ref());
+    }
+    else
+    {
+        primitiveFieldRef() = gf.primitiveField();
+    }
+
     boundaryFieldRef() == gf.boundaryField();
 
     tgf.clear();
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-void Foam::GeometricField<Type, PatchField, GeoMesh>::operator==
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+template<template<class> class PrimitiveField2>
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::operator==
+(
+    const tmp<GeometricField<Type, GeoMesh, PrimitiveField2>>& tgf
+)
+{
+    const GeometricField<Type, GeoMesh, PrimitiveField2>& gf = tgf();
+
+    checkFieldOperation(*this, gf, "=");
+
+    internalFieldRef() = gf.internalField();
+    boundaryFieldRef() == gf.boundaryField();
+
+    tgf.clear();
+}
+
+
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::operator==
 (
     const dimensioned<Type>& dt
 )
 {
-    ref() = dt;
+    internalFieldRef() = dt;
     boundaryFieldRef() == dt.value();
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
-void Foam::GeometricField<Type, PatchField, GeoMesh>::operator==
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::operator==
 (
     const zero&
 )
 {
-    ref() = Zero;
+    internalFieldRef() = Zero;
     boundaryFieldRef() == Zero;
 }
 
 
 #define COMPUTED_ASSIGNMENT(TYPE, op)                                          \
                                                                                \
-template<class Type, template<class> class PatchField, class GeoMesh>          \
-void Foam::GeometricField<Type, PatchField, GeoMesh>::operator op              \
+template<class Type, class GeoMesh, template<class> class PrimitiveField>      \
+template<template<class> class PrimitiveField2>                                \
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::operator op          \
 (                                                                              \
-    const GeometricField<TYPE, PatchField, GeoMesh>& gf                        \
+    const GeometricField<TYPE, GeoMesh, PrimitiveField2>& gf                   \
 )                                                                              \
 {                                                                              \
-    checkField(*this, gf, #op);                                                \
+    checkFieldOperation(*this, gf, #op);                                       \
                                                                                \
-    ref() op gf();            \
+    internalFieldRef() op gf.internalField();                                  \
     boundaryFieldRef() op gf.boundaryField();                                  \
 }                                                                              \
                                                                                \
-template<class Type, template<class> class PatchField, class GeoMesh>          \
-void Foam::GeometricField<Type, PatchField, GeoMesh>::operator op              \
+template<class Type, class GeoMesh, template<class> class PrimitiveField>      \
+template<template<class> class PrimitiveField2>                                \
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::operator op          \
 (                                                                              \
-    const tmp<GeometricField<TYPE, PatchField, GeoMesh>>& tgf                  \
+    const tmp<GeometricField<TYPE, GeoMesh, PrimitiveField2>>& tgf             \
 )                                                                              \
 {                                                                              \
     operator op(tgf());                                                        \
     tgf.clear();                                                               \
 }                                                                              \
                                                                                \
-template<class Type, template<class> class PatchField, class GeoMesh>          \
-void Foam::GeometricField<Type, PatchField, GeoMesh>::operator op              \
+template<class Type, class GeoMesh, template<class> class PrimitiveField>      \
+void Foam::GeometricField<Type, GeoMesh, PrimitiveField>::operator op          \
 (                                                                              \
     const dimensioned<TYPE>& dt                                                \
 )                                                                              \
 {                                                                              \
-    ref() op dt;                                       \
+    internalFieldRef() op dt;                                                  \
     boundaryFieldRef() op dt.value();                                          \
 }
 
@@ -1545,33 +2083,39 @@ COMPUTED_ASSIGNMENT(scalar, /=)
 
 // * * * * * * * * * * * * * * * IOstream Operators  * * * * * * * * * * * * //
 
-template<class Type, template<class> class PatchField, class GeoMesh>
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
 Foam::Ostream& Foam::operator<<
 (
     Ostream& os,
-    const GeometricField<Type, PatchField, GeoMesh>& gf
+    const GeometricField<Type, GeoMesh, PrimitiveField>& gf
 )
 {
     gf().writeData(os, "internalField");
     os  << nl;
     gf.boundaryField().writeEntry("boundaryField", os);
 
+    if (!gf.sources_.empty())
+    {
+        os  << nl;
+        gf.sources().writeEntry("sources", os);
+    }
+
     // Check state of IOstream
     os.check
     (
         "Ostream& operator<<(Ostream&, "
-        "const GeometricField<Type, PatchField, GeoMesh>&)"
+        "const GeometricField<Type, GeoMesh, PrimitiveField>&)"
     );
 
     return (os);
 }
 
 
-template<class Type, template<class> class PatchField, class GeoMesh>
+template<class Type, class GeoMesh, template<class> class PrimitiveField>
 Foam::Ostream& Foam::operator<<
 (
     Ostream& os,
-    const tmp<GeometricField<Type, PatchField, GeoMesh>>& tgf
+    const tmp<GeometricField<Type, GeoMesh, PrimitiveField>>& tgf
 )
 {
     os << tgf();
@@ -1582,11 +2126,11 @@ Foam::Ostream& Foam::operator<<
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-#undef checkField
+#undef checkFieldAssignment
+#undef checkFieldOperation
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-#include "GeometricBoundaryField.C"
 #include "GeometricFieldFunctions.C"
 
 // ************************************************************************* //

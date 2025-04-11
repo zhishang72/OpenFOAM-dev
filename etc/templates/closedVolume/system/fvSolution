@@ -7,7 +7,6 @@
 \*---------------------------------------------------------------------------*/
 FoamFile
 {
-    version     2.0;
     format      ascii;
     class       dictionary;
     object      fvSolution;
@@ -24,18 +23,23 @@ solvers
         relTol          0.1;
     }
 
+    p_rghFinal
+    {
+        $p;
+        relTol         0;
+    }
+
+    Phi
+    {
+        $p;
+    }
+
     "(U|e|k|omega|epsilon)"
     {
         solver          smoothSolver;
         smoother        symGaussSeidel;
         tolerance       1e-6;
         relTol          0.1;
-    }
-
-    p_rghFinal
-    {
-        $p;
-        relTol         0;
     }
 
     "(U|e|k|omega|epsilon)Final"
@@ -45,17 +49,13 @@ solvers
     }
 }
 
-"(PIMPLE|PISO)"
-{
-    nOuterCorrectors 1;
-    nCorrectors     2;
-    nNonOrthogonalCorrectors 1;
-    pRefCell        0;
-    pRefValue       0;
-}
+// timeScheme = steadyState for a steady-state simulation; otherwise transient
+timeScheme $fvSchemes!ddtSchemes/default;
 
-SIMPLE
+PIMPLE
 {
+#ifeq $timeScheme steadyState
+    nNonOrthogonalCorrectors 0;
     residualControl
     {
         p               1e-4;
@@ -63,10 +63,14 @@ SIMPLE
         e               1e-4;
         "(k|omega|epsilon)" 1e-4;
     }
-    nNonOrthogonalCorrectors 0;
+#else
+    nOuterCorrectors 1;
+    nCorrectors     2;
+    nNonOrthogonalCorrectors 1;
+#endif
+
     pRefCell        0;
     pRefValue       0;
-
 }
 
 potentialFlow
@@ -74,18 +78,31 @@ potentialFlow
     nNonOrthogonalCorrectors 10;
 }
 
+#ifeq $timeScheme steadyState
 relaxationFactors
 {
+    // Steady-state relaxation factors
     fields
     {
-        p_rgh           0.7;
+        rho      1.0;
+        p_rgh    0.7;
     }
     equations
     {
-        U               0.3;
-        e               0.5;
+        U        0.3;
+        "(e|h)"  0.5;
         "(k|omega|epsilon)" 0.7;
     }
 }
+#else
+relaxationFactors
+{
+    // Transient relaxation factors
+    equations
+    {
+        ".*"  1;
+    }
+}
+#endif
 
 // ************************************************************************* //

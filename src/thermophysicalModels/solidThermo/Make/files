@@ -1,5 +1,6 @@
 solidThermo/solidThermo.C
-solidPressureThermo/solidPressureThermo.C
-heSolidThermo/heSolidThermos.C
+solidThermo/solidThermos.C
+constSolidThermo/constSolidThermo.C
+constAnisoSolidThermo/constAnisoSolidThermo.C
 
 LIB = $(FOAM_LIBBIN)/libsolidThermo

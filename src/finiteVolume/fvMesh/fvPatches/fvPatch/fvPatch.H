@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -41,6 +41,7 @@ SourceFiles
 #include "SubList.H"
 #include "typeInfo.H"
 #include "tmp.H"
+#include "tmpNrc.H"
 #include "primitiveFields.H"
 #include "SubField.H"
 #include "fvPatchFieldsFwd.H"
@@ -53,6 +54,7 @@ namespace Foam
 {
 
 class fvBoundaryMesh;
+class objectRegistry;
 class surfaceInterpolation;
 
 /*---------------------------------------------------------------------------*\
@@ -70,26 +72,7 @@ class fvPatch
         const fvBoundaryMesh& boundaryMesh_;
 
 
-protected:
-
-    // Protected Member Functions
-
-        //- Make patch weighting factors
-        virtual void makeWeights(scalarField&) const;
-
-        //- Initialise the patches for moving points
-        virtual void initMovePoints();
-
-        //- Correct patches after moving points
-        virtual void movePoints();
-
-
 public:
-
-    typedef fvBoundaryMesh BoundaryMesh;
-
-    friend class fvBoundaryMesh;
-    friend class surfaceInterpolation;
 
     //- Runtime type information
     TypeName(polyPatch::typeName_());
@@ -113,7 +96,7 @@ public:
         fvPatch(const polyPatch&, const fvBoundaryMesh&);
 
         //- Disallow default bitwise copy construction
-        fvPatch(const fvPatch&);
+        fvPatch(const fvPatch&) = delete;
 
 
     // Selectors
@@ -132,7 +115,7 @@ public:
 
     // Member Functions
 
-    // Access
+        // Access
 
             //- Return the polyPatch
             const polyPatch& patch() const
@@ -182,6 +165,9 @@ public:
                 return boundaryMesh_;
             }
 
+            //- Return the local object registry
+            const objectRegistry& db() const;
+
             //- Slice list to patch
             template<class T>
             const typename List<T>::subList patchSlice(const List<T>& l) const
@@ -215,16 +201,24 @@ public:
             //  to coupled-cell-centre vector is returned
             virtual tmp<vectorField> delta() const;
 
+            //- Return the fraction of the poly-face that each fv-face in this
+            //  patch covers. Will be equal to one, unless the mesh is
+            //  non-conformal.
+            tmp<scalarField> polyFaceFraction() const;
+
 
         // Access functions for demand driven data
+
+            //- Make patch weighting factors
+            virtual void makeWeights(scalarField&) const;
 
             //- Return patch weighting factors
             const scalarField& weights() const;
 
-            //- Return the face - cell distance coeffient
+            //- Return the face - cell distance coefficient
             //  except for coupled patches for which the cell-centre
-            //  to coupled-cell-centre distance coeffient is returned
-            const scalarField& deltaCoeffs() const;
+            //  to coupled-cell-centre distance coefficient is returned
+            virtual const scalarField& deltaCoeffs() const;
 
 
         // Evaluation functions
@@ -253,22 +247,17 @@ public:
 
             //- Lookup and return the patchField of the named field from the
             //  local objectRegistry.
-            //  N.B.  The dummy pointer arguments are used if this function is
-            //  instantiated within a templated function to avoid a bug in gcc.
-            //  See inletOutletFvPatchField.C and outletInletFvPatchField.C
             template<class GeometricField, class Type>
             const typename GeometricField::Patch& lookupPatchField
             (
-                const word& name,
-                const GeometricField* = nullptr,
-                const Type* = nullptr
+                const word& name
             ) const;
 
 
     // Member Operators
 
         //- Disallow default bitwise assignment
-        void operator=(const fvPatch&);
+        void operator=(const fvPatch&) = delete;
 };
 
 

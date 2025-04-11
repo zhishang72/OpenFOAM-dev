@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -39,11 +39,8 @@ Description
 #include "meshTools.H"
 #include "IFstream.H"
 #include "polyTopoChange.H"
-#include "mapPolyMesh.H"
-#include "volMesh.H"
-#include "surfaceMesh.H"
+#include "polyTopoChangeMap.H"
 #include "volFields.H"
-#include "surfaceFields.H"
 #include "pointFields.H"
 #include "ReadFields.H"
 
@@ -54,6 +51,7 @@ using namespace Foam;
 int main(int argc, char *argv[])
 {
     #include "addOverwriteOption.H"
+    #include "addMeshOption.H"
     #include "addRegionOption.H"
     argList::validArgs.append("cellSet");
     argList::addBoolOption
@@ -69,14 +67,13 @@ int main(int argc, char *argv[])
     );
 
     #include "setRootCase.H"
-    #include "createTime.H"
-    runTime.functionObjects().off();
+    #include "createTimeNoFunctionObjects.H"
 
     const bool overwrite = args.optionFound("overwrite");
     const bool minSet = args.optionFound("minSet");
     const bool fields = !args.optionFound("noFields");
 
-    #include "createNamedMesh.H"
+    #include "createSpecifiedMeshNoChangers.H"
     const word oldInstance = mesh.pointsInstance();
 
     word cellSetName(args.args()[1]);
@@ -92,12 +89,13 @@ int main(int argc, char *argv[])
 
 
     // Read objects in time directory
-    IOobjectList objects(mesh, runTime.timeName());
+    IOobjectList objects(mesh, runTime.name());
 
     if (fields) Info<< "Reading geometric fields" << nl << endl;
 
     #include "readVolFields.H"
-    #include "readSurfaceFields.H"
+    // Cannot reliable map surfaceFields to new internal faces
+    // #include "readSurfaceFields.H"
     #include "readPointFields.H"
 
     Info<< endl;
@@ -142,19 +140,13 @@ int main(int argc, char *argv[])
     }
 
     // Create mesh, return map from old to new mesh.
-    autoPtr<mapPolyMesh> map = meshMod.changeMesh(mesh, false);
+    autoPtr<polyTopoChangeMap> map = meshMod.changeMesh(mesh);
 
     // Update fields
-    mesh.updateMesh(map);
+    mesh.topoChange(map);
 
     // Update numbering of cells/vertices.
-    meshCutter.updateMesh(map);
-
-    // Optionally inflate mesh
-    if (map().hasMotionPoints())
-    {
-        mesh.movePoints(map().preMotionPoints());
-    }
+    meshCutter.topoChange(map);
 
     Info<< "Refined from " << returnReduce(map().nOldCells(), sumOp<label>())
         << " to " << mesh.globalData().nTotalCells() << " cells." << nl << endl;
@@ -164,7 +156,7 @@ int main(int argc, char *argv[])
         mesh.setInstance(oldInstance);
         meshCutter.setInstance(oldInstance);
     }
-    Info<< "Writing mesh to " << runTime.timeName() << endl;
+    Info<< "Writing mesh to " << runTime.name() << endl;
 
     mesh.write();
     meshCutter.write();

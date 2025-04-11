@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -31,7 +31,6 @@ License
 #include "slicedSurfaceFields.H"
 #include "SubField.H"
 #include "cyclicFvPatchFields.H"
-#include "cyclicAMIFvPatchFields.H"
 
 // * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
 
@@ -44,24 +43,24 @@ void Foam::fvMesh::makeSf() const
 
     // It is an error to attempt to recalculate
     // if the pointer is already set
-    if (SfPtr_)
+    if (SfSlicePtr_ || SfPtr_)
     {
         FatalErrorInFunction
             << "face areas already exist"
             << abort(FatalError);
     }
 
-    SfPtr_ = new slicedSurfaceVectorField
+    SfSlicePtr_ = new slicedSurfaceVectorField
     (
         IOobject
         (
-            "S",
+            "Sf",
             pointsInstance(),
             meshSubDir,
             *this,
             IOobject::NO_READ,
             IOobject::NO_WRITE,
-            false
+            true
         ),
         *this,
         dimArea,
@@ -79,17 +78,14 @@ void Foam::fvMesh::makeMagSf() const
 
     // It is an error to attempt to recalculate
     // if the pointer is already set
-    if (magSfPtr_)
+    if (magSfSlicePtr_ || magSfPtr_)
     {
         FatalErrorInFunction
             << "mag face areas already exist"
             << abort(FatalError);
     }
 
-    // Note: Added stabilisation for faces with exactly zero area.
-    // These should be caught on mesh checking but at least this stops
-    // the code from producing Nans.
-    magSfPtr_ = new surfaceScalarField
+    magSfSlicePtr_ = new slicedSurfaceScalarField
     (
         IOobject
         (
@@ -99,9 +95,11 @@ void Foam::fvMesh::makeMagSf() const
             *this,
             IOobject::NO_READ,
             IOobject::NO_WRITE,
-            false
+            true
         ),
-        mag(Sf()) + dimensionedScalar(dimArea, vSmall)
+        *this,
+        dimArea,
+        magFaceAreas()
     );
 }
 
@@ -115,7 +113,7 @@ void Foam::fvMesh::makeC() const
 
     // It is an error to attempt to recalculate
     // if the pointer is already set
-    if (CPtr_)
+    if (CSlicePtr_ || CPtr_)
     {
         FatalErrorInFunction
             << "cell centres already exist"
@@ -124,17 +122,17 @@ void Foam::fvMesh::makeC() const
 
     // Construct as slices. Only preserve processor (not e.g. cyclic)
 
-    CPtr_ = new slicedVolVectorField
+    CSlicePtr_ = new slicedVolVectorField
     (
         IOobject
         (
-            "C",
+            "Cc",
             pointsInstance(),
             meshSubDir,
             *this,
             IOobject::NO_READ,
             IOobject::NO_WRITE,
-            false
+            true
         ),
         *this,
         dimLength,
@@ -155,14 +153,14 @@ void Foam::fvMesh::makeCf() const
 
     // It is an error to attempt to recalculate
     // if the pointer is already set
-    if (CfPtr_)
+    if (CfSlicePtr_ || CfPtr_)
     {
         FatalErrorInFunction
             << "face centres already exist"
             << abort(FatalError);
     }
 
-    CfPtr_ = new slicedSurfaceVectorField
+    CfSlicePtr_ = new slicedSurfaceVectorField
     (
         IOobject
         (
@@ -172,12 +170,64 @@ void Foam::fvMesh::makeCf() const
             *this,
             IOobject::NO_READ,
             IOobject::NO_WRITE,
-            false
+            true
         ),
         *this,
         dimLength,
         faceCentres()
     );
+}
+
+
+Foam::surfaceVectorField& Foam::fvMesh::SfRef()
+{
+    if (!SfPtr_)
+    {
+        SfPtr_ = Sf().cloneUnSliced().ptr();
+
+        deleteDemandDrivenData(SfSlicePtr_);
+    }
+
+    return *SfPtr_;
+}
+
+
+Foam::surfaceScalarField& Foam::fvMesh::magSfRef()
+{
+    if (!magSfPtr_)
+    {
+        magSfPtr_ = magSf().cloneUnSliced().ptr();
+
+        deleteDemandDrivenData(magSfSlicePtr_);
+    }
+
+    return *magSfPtr_;
+}
+
+
+Foam::volVectorField& Foam::fvMesh::CRef()
+{
+    if (!CPtr_)
+    {
+        CPtr_ = C().cloneUnSliced().ptr();
+
+        deleteDemandDrivenData(CSlicePtr_);
+    }
+
+    return *CPtr_;
+}
+
+
+Foam::surfaceVectorField& Foam::fvMesh::CfRef()
+{
+    if (!CfPtr_)
+    {
+        CfPtr_ = Cf().cloneUnSliced().ptr();
+
+        deleteDemandDrivenData(CfSlicePtr_);
+    }
+
+    return *CfPtr_;
 }
 
 
@@ -193,16 +243,16 @@ const Foam::volScalarField::Internal& Foam::fvMesh::V() const
                 << "Constructing from primitiveMesh::cellVolumes()" << endl;
         }
 
-        VPtr_ = new slicedVolScalarField::Internal
+        VPtr_ = new SlicedDimensionedField<scalar, volMesh>
         (
             IOobject
             (
-                "V",
-                time().timeName(),
+                "Vc",
+                time().name(),
                 *this,
                 IOobject::NO_READ,
                 IOobject::NO_WRITE,
-                false
+                true
             ),
             *this,
             dimVolume,
@@ -210,29 +260,16 @@ const Foam::volScalarField::Internal& Foam::fvMesh::V() const
         );
     }
 
-    return *static_cast<slicedVolScalarField::Internal*>(VPtr_);
+    return *VPtr_;
 }
 
 
 const Foam::volScalarField::Internal& Foam::fvMesh::V0() const
 {
-    if (!V0Ptr_)
+    if (!V0Ptr_ || Foam::isNull(V0Ptr_))
     {
         FatalErrorInFunction
-            << "V0 is not available"
-            << abort(FatalError);
-    }
-
-    return *V0Ptr_;
-}
-
-
-Foam::volScalarField::Internal& Foam::fvMesh::setV0()
-{
-    if (!V0Ptr_)
-    {
-        FatalErrorInFunction
-            << "V0 is not available"
+            << "Vc0 is not available"
             << abort(FatalError);
     }
 
@@ -244,32 +281,19 @@ const Foam::volScalarField::Internal& Foam::fvMesh::V00() const
 {
     if (!V00Ptr_)
     {
-        if (debug)
-        {
-            InfoInFunction << "Constructing from V0" << endl;
-        }
+        V00Ptr_ = NullObjectPtr<DimensionedField<scalar, volMesh>>();
+    }
 
-        V00Ptr_ = new DimensionedField<scalar, volMesh>
-        (
-            IOobject
-            (
-                "V00",
-                time().timeName(),
-                *this,
-                IOobject::NO_READ,
-                IOobject::NO_WRITE,
-                false
-            ),
-            V0()
-        );
+    if (Foam::isNull(V00Ptr_))
+    {
+        return V0();
     }
 
     return *V00Ptr_;
 }
 
 
-Foam::tmp<Foam::volScalarField::Internal>
-Foam::fvMesh::Vsc() const
+Foam::tmp<Foam::volScalarField::Internal> Foam::fvMesh::Vsc() const
 {
     if (moving() && time().subCycling())
     {
@@ -297,8 +321,7 @@ Foam::fvMesh::Vsc() const
 }
 
 
-Foam::tmp<Foam::volScalarField::Internal>
-Foam::fvMesh::Vsc0() const
+Foam::tmp<Foam::volScalarField::Internal> Foam::fvMesh::Vsc0() const
 {
     if (moving() && time().subCycling())
     {
@@ -329,45 +352,71 @@ Foam::fvMesh::Vsc0() const
 
 const Foam::surfaceVectorField& Foam::fvMesh::Sf() const
 {
-    if (!SfPtr_)
+    if (SfPtr_)
+    {
+        return *SfPtr_;
+    }
+
+    if (!SfSlicePtr_)
     {
         makeSf();
     }
 
-    return *SfPtr_;
+    return *SfSlicePtr_;
 }
 
 
 const Foam::surfaceScalarField& Foam::fvMesh::magSf() const
 {
-    if (!magSfPtr_)
+    if (magSfPtr_)
+    {
+        return *magSfPtr_;
+    }
+
+    if (!magSfSlicePtr_)
     {
         makeMagSf();
     }
 
-    return *magSfPtr_;
+    return *magSfSlicePtr_;
+}
+
+
+Foam::tmp<Foam::surfaceVectorField> Foam::fvMesh::nf() const
+{
+    return surfaceVectorField::New("nf", Sf()/magSf());
 }
 
 
 const Foam::volVectorField& Foam::fvMesh::C() const
 {
-    if (!CPtr_)
+    if (CPtr_)
+    {
+        return *CPtr_;
+    }
+
+    if (!CSlicePtr_)
     {
         makeC();
     }
 
-    return *CPtr_;
+    return *CSlicePtr_;
 }
 
 
 const Foam::surfaceVectorField& Foam::fvMesh::Cf() const
 {
-    if (!CfPtr_)
+    if (CfPtr_)
+    {
+        return *CfPtr_;
+    }
+
+    if (!CfSlicePtr_)
     {
         makeCf();
     }
 
-    return *CfPtr_;
+    return *CfSlicePtr_;
 }
 
 
@@ -430,7 +479,7 @@ const Foam::surfaceScalarField& Foam::fvMesh::phi() const
 }
 
 
-Foam::surfaceScalarField& Foam::fvMesh::setPhi()
+Foam::surfaceScalarField& Foam::fvMesh::phiRef()
 {
     if (!phiPtr_)
     {

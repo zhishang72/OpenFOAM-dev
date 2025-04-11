@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,10 +25,9 @@ License
 
 #include "probes.H"
 #include "volFields.H"
-#include "dictionary.H"
-#include "Time.H"
-#include "IOmanip.H"
-#include "mapPolyMesh.H"
+#include "polyTopoChangeMap.H"
+#include "OSspecific.H"
+#include "writeFile.H"
 #include "addToRunTimeSelectionTable.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
@@ -193,28 +192,12 @@ Foam::label Foam::probes::prepare()
                 << endl;
         }
 
-
-        fileName probeDir;
-        fileName probeSubDir = name();
-
-        if (mesh_.name() != polyMesh::defaultRegion)
-        {
-            probeSubDir = probeSubDir/mesh_.name();
-        }
-        probeSubDir = "postProcessing"/probeSubDir/mesh_.time().timeName();
-
-        if (Pstream::parRun())
-        {
-            // Put in undecomposed case
-            // (Note: gives problems for distributed data running)
-            probeDir = mesh_.time().path()/".."/probeSubDir;
-        }
-        else
-        {
-            probeDir = mesh_.time().path()/probeSubDir;
-        }
-        // Remove ".."
-        probeDir.clean();
+        const fileName probeDir =
+            mesh_.time().globalPath()
+           /functionObjects::writeFile::outputPrefix
+           /(mesh_.name() != polyMesh::defaultRegion ? mesh_.name() : word())
+           /name()
+           /mesh_.time().name();
 
         // ignore known fields, close streams for fields that no longer exist
         forAllIter(HashPtrTable<OFstream>, probeFilePtrs_, iter)
@@ -280,7 +263,7 @@ Foam::probes::probes
     const dictionary& dict
 )
 :
-    functionObject(name),
+    functionObject(name, t),
     pointField(0),
     mesh_
     (
@@ -292,28 +275,7 @@ Foam::probes::probes
             )
         )
     ),
-    loadFromFiles_(false),
-    fieldSelection_(),
-    fixedLocations_(true),
-    interpolationScheme_("cell")
-{
-    read(dict);
-}
-
-
-Foam::probes::probes
-(
-    const word& name,
-    const objectRegistry& obr,
-    const dictionary& dict,
-    const bool loadFromFiles
-)
-:
-    functionObject(name),
-    pointField(0),
-    mesh_(refCast<const fvMesh>(obr)),
-    loadFromFiles_(loadFromFiles),
-    fieldSelection_(),
+    fields_(),
     fixedLocations_(true),
     interpolationScheme_("cell")
 {
@@ -332,7 +294,7 @@ Foam::probes::~probes()
 bool Foam::probes::read(const dictionary& dict)
 {
     dict.lookup("probeLocations") >> *this;
-    dict.lookup("fields") >> fieldSelection_;
+    dict.lookup("fields") >> fields_;
 
     dict.readIfPresent("fixedLocations", fixedLocations_);
     if (dict.readIfPresent("interpolationScheme", interpolationScheme_))
@@ -352,6 +314,12 @@ bool Foam::probes::read(const dictionary& dict)
     prepare();
 
     return true;
+}
+
+
+Foam::wordList Foam::probes::fields() const
+{
+    return fields_;
 }
 
 
@@ -382,11 +350,22 @@ bool Foam::probes::write()
 }
 
 
-void Foam::probes::updateMesh(const mapPolyMesh& mpm)
+void Foam::probes::movePoints(const polyMesh& mesh)
 {
-    DebugInfo<< "probes: updateMesh" << endl;
+    DebugInfo<< "probes: movePoints" << endl;
 
-    if (&mpm.mesh() != &mesh_)
+    if (fixedLocations_ && &mesh == &mesh_)
+    {
+        findElements(mesh_);
+    }
+}
+
+
+void Foam::probes::topoChange(const polyTopoChangeMap& map)
+{
+    DebugInfo<< "probes: topoChange" << endl;
+
+    if (&map.mesh() != &mesh_)
     {
         return;
     }
@@ -403,14 +382,16 @@ void Foam::probes::updateMesh(const mapPolyMesh& mpm)
         }
 
         // 1. Update cells
+        if (!map.reverseCellMap().empty())
         {
             DynamicList<label> elems(elementList_.size());
 
-            const labelList& reverseMap = mpm.reverseCellMap();
+            const labelList& reverseMap = map.reverseCellMap();
             forAll(elementList_, i)
             {
-                label celli = elementList_[i];
-                label newCelli = reverseMap[celli];
+                const label celli = elementList_[i];
+                const label newCelli = reverseMap[celli];
+
                 if (newCelli == -1)
                 {
                     // cell removed
@@ -431,14 +412,16 @@ void Foam::probes::updateMesh(const mapPolyMesh& mpm)
         }
 
         // 2. Update faces
+        if (!map.reverseFaceMap().empty())
         {
             DynamicList<label> elems(faceList_.size());
 
-            const labelList& reverseMap = mpm.reverseFaceMap();
+            const labelList& reverseMap = map.reverseFaceMap();
             forAll(faceList_, i)
             {
-                label facei = faceList_[i];
-                label newFacei = reverseMap[facei];
+                const label facei = faceList_[i];
+                const label newFacei = reverseMap[facei];
+
                 if (newFacei == -1)
                 {
                     // face removed
@@ -461,14 +444,11 @@ void Foam::probes::updateMesh(const mapPolyMesh& mpm)
 }
 
 
-void Foam::probes::movePoints(const polyMesh& mesh)
+void Foam::probes::mapMesh(const polyMeshMap& map)
 {
-    DebugInfo<< "probes: movePoints" << endl;
+    DebugInfo<< "probes: mapMesh" << endl;
 
-    if (fixedLocations_ && &mesh == &mesh_)
-    {
-        findElements(mesh_);
-    }
+    findElements(mesh_);
 }
 
 

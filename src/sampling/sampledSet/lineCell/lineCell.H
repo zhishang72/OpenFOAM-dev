@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -63,7 +63,7 @@ namespace sampledSets
 {
 
 /*---------------------------------------------------------------------------*\
-                         Class lineCell Declaration
+                          Class lineCell Declaration
 \*---------------------------------------------------------------------------*/
 
 class lineCell
@@ -84,42 +84,21 @@ class lineCell
         //- Calculate all the sampling points
         virtual void calcSamples
         (
-            DynamicList<point>& samplingPts,
-            DynamicList<label>& samplingCells,
-            DynamicList<label>& samplingFaces,
+            DynamicList<point>& samplingPositions,
+            DynamicList<scalar>& samplingDistances,
             DynamicList<label>& samplingSegments,
-            DynamicList<scalar>& samplingCurveDist
+            DynamicList<label>& samplingCells,
+            DynamicList<label>& samplingFaces
         ) const;
 
         //- Uses calcSamples to obtain samples and copies them into *this
-        void genSamples();
+        virtual void genSamples();
 
 
 public:
 
     //- Runtime type information
     TypeName("lineCell");
-
-
-    // Static Member Functions
-
-        //- Calculate the next mid point sample
-        static void calcMidPointSample
-        (
-            const polyMesh& mesh,
-            const point& prevPt,
-            const label prevFace,
-            const label prevSegment,
-            const scalar prevCurveDist,
-            const point& nextPt,
-            const label nextFace,
-            const label nextSegment,
-            DynamicList<point>& samplingPts,
-            DynamicList<label>& samplingCells,
-            DynamicList<label>& samplingFaces,
-            DynamicList<label>& samplingSegments,
-            DynamicList<scalar>& samplingCurveDist
-        );
 
 
     // Constructors

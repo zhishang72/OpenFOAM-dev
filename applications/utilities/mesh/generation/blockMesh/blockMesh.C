@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -48,22 +48,15 @@ Usage
 
 \*---------------------------------------------------------------------------*/
 
+#include "argList.H"
 #include "Time.H"
-#include "IOdictionary.H"
-#include "IOPtrList.H"
-
+#include "systemDict.H"
 #include "blockMesh.H"
-#include "attachPolyTopoChanger.H"
+#include "mergePatchPairs.H"
 #include "polyTopoChange.H"
 #include "emptyPolyPatch.H"
 #include "cyclicPolyPatch.H"
-
-#include "argList.H"
-#include "OSspecific.H"
 #include "OFstream.H"
-
-#include "Pair.H"
-#include "slidingInterface.H"
 
 using namespace Foam;
 
@@ -72,6 +65,8 @@ using namespace Foam;
 int main(int argc, char *argv[])
 {
     argList::noParallel();
+    Foam::argList::removeOption("noFunctionObjects");
+    #include "addDictOption.H"
     argList::addBoolOption
     (
         "blockTopology",
@@ -81,12 +76,6 @@ int main(int argc, char *argv[])
     (
         "noClean",
         "keep the existing files in the polyMesh"
-    );
-    argList::addOption
-    (
-        "dict",
-        "file",
-        "specify alternative dictionary for the blockMesh description"
     );
 
     argList::addNote
@@ -113,11 +102,20 @@ int main(int argc, char *argv[])
         "       O --- X\n"
     );
 
+    #include "addMeshOption.H"
     #include "addRegionOption.H"
     #include "setRootCase.H"
+    #include "setMeshPath.H"
     #include "createTime.H"
 
     const word dictName("blockMeshDict");
+
+
+    // Check if the mesh is specified otherwise mesh the default mesh
+    if (!meshPath.empty())
+    {
+        Info<< nl << "Generating mesh " << meshPath << endl;
+    }
 
     word regionName;
     word regionPath;
@@ -129,47 +127,12 @@ int main(int argc, char *argv[])
         regionPath = regionName;
     }
 
-    // Search for the appropriate blockMesh dictionary....
-
-    fileName dictPath;
-
-    // Check if the dictionary is specified on the command-line
-    if (args.optionFound("dict"))
-    {
-        dictPath = args["dict"];
-
-        dictPath =
-        (
-            isDir(dictPath)
-          ? dictPath/dictName
-          : dictPath
-        );
-    }
-    // Check if dictionary is present in the constant directory
-    else if
-    (
-        exists
-        (
-            runTime.path()/runTime.constant()
-           /regionPath/polyMesh::meshSubDir/dictName
-        )
-    )
-    {
-        dictPath =
-            runTime.constant()
-           /regionPath/polyMesh::meshSubDir/dictName;
-    }
-    // Otherwise assume the dictionary is present in the system directory
-    else
-    {
-        dictPath = runTime.system()/regionPath/dictName;
-    }
-
     if (!args.optionFound("noClean"))
     {
-        fileName polyMeshPath
+        const fileName polyMeshPath
         (
-            runTime.path()/runTime.constant()/regionPath/polyMesh::meshSubDir
+            runTime.path()/runTime.constant()
+           /meshPath/regionPath/polyMesh::meshSubDir
         );
 
         if (exists(polyMeshPath))
@@ -189,28 +152,24 @@ int main(int argc, char *argv[])
         }
     }
 
-    IOobject meshDictIO
+    typeIOobject<IOdictionary> meshDictIO
     (
-        dictPath,
-        runTime,
-        IOobject::MUST_READ,
-        IOobject::NO_WRITE,
-        false
+        systemDictIO(dictName, args, runTime, regionName, meshPath)
     );
 
-    if (!meshDictIO.typeHeaderOk<IOdictionary>(true))
+    if (!meshDictIO.headerOk())
     {
         FatalErrorInFunction
-            << meshDictIO.objectPath()
+            << "Cannot find file " << meshDictIO.relativeObjectPath()
             << nl
             << exit(FatalError);
     }
 
     Info<< "Creating block mesh from\n    "
-        << meshDictIO.objectPath() << endl;
+        << meshDictIO.relativeObjectPath() << endl;
 
     IOdictionary meshDict(meshDictIO);
-    blockMesh blocks(meshDict, regionName);
+    blockMesh blocks(meshDict, runTime.constant()/meshPath, regionName);
 
 
     if (args.optionFound("blockTopology"))
@@ -265,9 +224,10 @@ int main(int argc, char *argv[])
         (
             regionName,
             runTime.constant(),
+            meshPath,
             runTime
         ),
-        clone(blocks.points()),           // could we re-use space?
+        clone(blocks.points()),           // could we reuse space?
         blocks.cells(),
         blocks.patches(),
         blocks.patchNames(),
@@ -280,21 +240,22 @@ int main(int argc, char *argv[])
     // Read in a list of dictionaries for the merge patch pairs
     if (meshDict.found("mergePatchPairs"))
     {
-        List<Pair<word>> mergePatchPairs
+        List<Pair<word>> patchPairNames
         (
             meshDict.lookup("mergePatchPairs")
         );
 
-        #include "mergePatchPairs.H"
+        if (patchPairNames.size())
+        {
+            const word oldInstance = mesh.pointsInstance();
+            mergePatchPairs(mesh, patchPairNames, 1e-4);
+            mesh.setInstance(oldInstance);
+        }
     }
     else
     {
-        Info<< nl << "There are no merge patch pairs edges" << endl;
+        Info<< nl << "No patch pairs to merge" << endl;
     }
-
-
-    // Set any cellZones (note: cell labelling unaffected by above
-    // mergePatchPairs)
 
     label nZones = blocks.numZonedBlocks();
 
@@ -346,7 +307,7 @@ int main(int argc, char *argv[])
             }
             else
             {
-                celli += b.cells().size();
+                celli += blockCells.size();
             }
         }
 
@@ -361,7 +322,6 @@ int main(int argc, char *argv[])
             (
                 iter.key(),
                 zoneCells[zoneI].shrink(),
-                zoneI,
                 mesh.cellZones()
             );
         }
@@ -392,7 +352,7 @@ int main(int argc, char *argv[])
                 << endl;
             const word oldInstance = mesh.instance();
             polyTopoChange meshMod(mesh);
-            meshMod.changeMesh(mesh, false);
+            meshMod.changeMesh(mesh);
             mesh.setInstance(oldInstance);
         }
     }

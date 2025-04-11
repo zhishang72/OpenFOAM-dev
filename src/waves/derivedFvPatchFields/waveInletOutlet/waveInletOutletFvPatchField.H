@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2019-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -32,10 +32,10 @@ Description
 
 Usage
     \table
-        Property        | Description                | Req'd? | Default
-        phi             | Name of the flux field     | no     | phi
-        inletValueAbove | inlet value above the wave | no     | None
-        inletValueBelow | inlet value below the wave | no     | None
+        Property        | Description                | Required? | Default
+        phi             | Name of the flux field     | no        | phi
+        inletValueAbove | inlet value above the wave | no        | None
+        inletValueBelow | inlet value below the wave | no        | None
     \endtable
 
     Example of the boundary condition specification:
@@ -43,7 +43,7 @@ Usage
     <patchName>
     {
         type        waveInletOutlet;
-        phi         phi;
+        libs        ("libwaves.so");
         inletValueAbove 0.01;
         inletValueBelow table ((0 0.01) (10 0.1));
     }
@@ -69,7 +69,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                Class waveInletOutletFvPatchField Declaration
+                 Class waveInletOutletFvPatchField Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -97,13 +97,6 @@ public:
 
     // Constructors
 
-        //- Construct from patch and internal field
-        waveInletOutletFvPatchField
-        (
-            const fvPatch&,
-            const DimensionedField<Type, volMesh>&
-        );
-
         //- Construct from patch, internal field and dictionary
         waveInletOutletFvPatchField
         (
@@ -118,23 +111,14 @@ public:
             const waveInletOutletFvPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, volMesh>&,
-            const fvPatchFieldMapper&
+            const fieldMapper&
         );
 
-        //- Copy constructor
+        //- Disallow copy without setting internal field reference
         waveInletOutletFvPatchField
         (
             const waveInletOutletFvPatchField<Type>&
-        );
-
-        //- Construct and return a clone
-        virtual tmp<fvPatchField<Type>> clone() const
-        {
-            return tmp<fvPatchField<Type>>
-            (
-                new waveInletOutletFvPatchField<Type>(*this)
-            );
-        }
+        ) = delete;
 
         //- Copy constructor setting internal field reference
         waveInletOutletFvPatchField

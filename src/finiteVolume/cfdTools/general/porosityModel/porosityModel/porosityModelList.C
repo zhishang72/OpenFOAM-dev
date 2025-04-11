@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -38,8 +38,6 @@ Foam::porosityModelList::porosityModelList
     mesh_(mesh)
 {
     reset(dict);
-
-    active(true);
 }
 
 
@@ -50,23 +48,6 @@ Foam::porosityModelList::~porosityModelList()
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
-
-bool Foam::porosityModelList::active(const bool warn) const
-{
-    bool a = false;
-    forAll(*this, i)
-    {
-        a = a || this->operator[](i).active();
-    }
-
-    if (warn && this->size() && !a)
-    {
-        Info<< "No porosity models active" << endl;
-    }
-
-    return a;
-}
-
 
 void Foam::porosityModelList::reset(const dictionary& dict)
 {
@@ -98,31 +79,6 @@ void Foam::porosityModelList::reset(const dictionary& dict)
 }
 
 
-bool Foam::porosityModelList::read(const dictionary& dict)
-{
-    bool allOk = true;
-    forAll(*this, i)
-    {
-        porosityModel& pm = this->operator[](i);
-        bool ok = pm.read(dict.subDict(pm.name()));
-        allOk = (allOk && ok);
-    }
-    return allOk;
-}
-
-
-bool Foam::porosityModelList::writeData(Ostream& os) const
-{
-    forAll(*this, i)
-    {
-        os  << nl;
-        this->operator[](i).writeData(os);
-    }
-
-    return os.good();
-}
-
-
 void Foam::porosityModelList::addResistance
 (
     fvVectorMatrix& UEqn
@@ -137,23 +93,9 @@ void Foam::porosityModelList::addResistance
 
 void Foam::porosityModelList::addResistance
 (
-    fvVectorMatrix& UEqn,
-    const volScalarField& rho,
-    const volScalarField& mu
-)
-{
-    forAll(*this, i)
-    {
-        this->operator[](i).addResistance(UEqn, rho, mu);
-    }
-}
-
-
-void Foam::porosityModelList::addResistance
-(
     const fvVectorMatrix& UEqn,
     volTensorField& AU,
-    bool correctAUprocBC         
+    bool correctAUprocBC
 )
 {
     forAll(*this, i)
@@ -163,16 +105,57 @@ void Foam::porosityModelList::addResistance
 }
 
 
-// * * * * * * * * * * * * * * * IOstream Operators  * * * * * * * * * * * * //
+bool Foam::porosityModelList::movePoints()
+{
+    forAll(*this, i)
+    {
+        this->operator[](i).movePoints();
+    }
 
-Foam::Ostream& Foam::operator<<
+    return true;
+}
+
+
+void Foam::porosityModelList::topoChange(const polyTopoChangeMap& map)
+{
+    forAll(*this, i)
+    {
+        this->operator[](i).topoChange(map);
+    }
+}
+
+
+void Foam::porosityModelList::mapMesh(const polyMeshMap& map)
+{
+    forAll(*this, i)
+    {
+        this->operator[](i).mapMesh(map);
+    }
+}
+
+
+void Foam::porosityModelList::distribute
 (
-    Ostream& os,
-    const porosityModelList& models
+    const polyDistributionMap& map
 )
 {
-    models.writeData(os);
-    return os;
+    forAll(*this, i)
+    {
+        this->operator[](i).distribute(map);
+    }
+}
+
+
+bool Foam::porosityModelList::read(const dictionary& dict)
+{
+    bool allOk = true;
+    forAll(*this, i)
+    {
+        porosityModel& pm = this->operator[](i);
+        bool ok = pm.read(dict.subDict(pm.name()));
+        allOk = (allOk && ok);
+    }
+    return allOk;
 }
 
 

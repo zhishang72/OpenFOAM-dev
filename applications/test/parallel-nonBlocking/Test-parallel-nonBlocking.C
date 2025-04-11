@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2012-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2012-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -30,14 +30,14 @@ Description
 \*---------------------------------------------------------------------------*/
 
 #include "List.H"
-#include "mapDistribute.H"
+#include "distributionMap.H"
 #include "argList.H"
 #include "Time.H"
 #include "IPstream.H"
 #include "OPstream.H"
 #include "vector.H"
 #include "IOstreams.H"
-#include "Random.H"
+#include "randomGenerator.H"
 #include "Tuple2.H"
 #include "PstreamBuffers.H"
 

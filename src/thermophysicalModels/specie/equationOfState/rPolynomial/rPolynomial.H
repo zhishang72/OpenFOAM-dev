@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2019-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -27,9 +27,9 @@ Class
 Description
     Reciprocal polynomial equation of state for liquids and solids
 
-    \f[
-        1/\rho = C_0 + C_1 T + C_2 T^2 - C_3 p - C_4 p T
-    \f]
+    \verbatim
+        1/rho = C[0] + C[1]*T + C[2]*sqr(T) - C[3]*p - C[4]*p*T
+    \endverbatim
 
     This polynomial for the reciprocal of the density provides a much better fit
     than the equivalent polynomial for the density and has the advantage that it
@@ -42,7 +42,7 @@ Usage
         C            | Density polynomial coefficients
     \endtable
 
-    Example of the specification of the equation of state for pure water:
+    Example specification of the rPolynomial equation of state for pure water:
     \verbatim
     equationOfState
     {
@@ -103,7 +103,7 @@ Ostream& operator<<
 
 
 /*---------------------------------------------------------------------------*\
-                           Class rPolynomial Declaration
+                         Class rPolynomial Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Specie>
@@ -111,13 +111,14 @@ class rPolynomial
 :
     public Specie
 {
-    // Private Data
+    // Private Classes
 
+        //- Coefficient list class
         class coeffList
         :
             public VectorSpace<coeffList, scalar, 5>
         {
-            public:
+        public:
 
             // Constructors
 
@@ -133,6 +134,8 @@ class rPolynomial
         };
 
 
+    // Private Data
+
         //- Density coefficients
         coeffList C_;
 
@@ -142,23 +145,16 @@ public:
     // Constructors
 
         //- Construct from components
-        inline rPolynomial
-        (
-            const Specie& sp,
-            const coeffList& coeffs
-        );
+        inline rPolynomial(const Specie& sp, const coeffList& coeffs);
 
-        //- Construct from dictionary
-        rPolynomial(const dictionary& dict);
+        //- Construct from name and dictionary
+        rPolynomial(const word& name, const dictionary& dict);
 
         //- Construct as named copy
         inline rPolynomial(const word& name, const rPolynomial&);
 
         //- Construct and return a clone
         inline autoPtr<rPolynomial> clone() const;
-
-        // Selector from dictionary
-        inline static autoPtr<rPolynomial> New(const dictionary& dict);
 
 
     // Member Functions
@@ -181,20 +177,23 @@ public:
             //- Return density [kg/m^3]
             inline scalar rho(scalar p, scalar T) const;
 
-            //- Return enthalpy departure [J/kg]
-            inline scalar H(const scalar p, const scalar T) const;
+            //- Return enthalpy contribution [J/kg]
+            inline scalar h(const scalar p, const scalar T) const;
 
-            //- Return Cp departure [J/(kg K]
+            //- Return Cp contribution [J/(kg K]
             inline scalar Cp(scalar p, scalar T) const;
 
-            //- Return internal energy departure [J/kg]
-            inline scalar E(const scalar p, const scalar T) const;
+            //- Return internal energy contribution [J/kg]
+            inline scalar e(const scalar p, const scalar T) const;
 
-            //- Return Cv departure [J/(kg K]
+            //- Return Cv contribution [J/(kg K]
             inline scalar Cv(scalar p, scalar T) const;
 
-            //- Return entropy [J/kg/K]
-            inline scalar S(const scalar p, const scalar T) const;
+            //- Return entropy contribution to the integral of Cp/T [J/kg/K]
+            inline scalar sp(const scalar p, const scalar T) const;
+
+            //- Return entropy contribution to the integral of Cv/T [J/kg/K]
+            inline scalar sv(const scalar p, const scalar T) const;
 
             //- Return compressibility [s^2/m^2]
             inline scalar psi(scalar p, scalar T) const;
@@ -204,6 +203,9 @@ public:
 
             //- Return (Cp - Cv) [J/(kg K]
             inline scalar CpMCv(scalar p, scalar T) const;
+
+            //- Return volumetric coefficient of thermal expansion [1/T]
+            inline scalar alphav(const scalar p, const scalar T) const;
 
 
         // IO

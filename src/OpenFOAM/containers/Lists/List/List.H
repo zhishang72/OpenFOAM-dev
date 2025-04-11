@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -42,6 +42,7 @@ SourceFiles
 
 #include "UList.H"
 #include "autoPtr.H"
+#include "DynamicListFwd.H"
 #include <initializer_list>
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -54,7 +55,7 @@ using std::move;
 template<class T>
 inline T clone(const T& t)
 {
-    return move(T(t));
+    return T(t);
 }
 
 // Forward declaration of classes
@@ -75,18 +76,13 @@ template<class LListBase, class T> class LList;
 template<class T>
 using SLList = LList<SLListBase, T>;
 
-template<class T, unsigned SizeInc, unsigned SizeMult, unsigned SizeDiv>
-class DynamicList;
-
 template<class T> class SortableList;
 template<class T> class IndirectList;
 template<class T> class UIndirectList;
 template<class T> class BiIndirectList;
 
-typedef UList<label> unallocLabelList;
-
 /*---------------------------------------------------------------------------*\
-                           Class List Declaration
+                            Class List Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class T>
@@ -141,7 +137,7 @@ public:
         //- Construct with given size and value for all elements
         List(const label, const T&);
 
-        //- Construct with given size initializing all elements to zero
+        //- Construct with given size initialising all elements to zero
         List(const label, const zero);
 
         //- Copy constructor
@@ -149,12 +145,12 @@ public:
 
         //- Copy constructor from list containing another type
         template<class T2>
-        explicit List(const List<T2>&);
+        explicit List(const UList<T2>&);
 
         //- Move constructor
         List(List<T>&&);
 
-        //- Construct as copy or re-use as specified
+        //- Construct as copy or reuse as specified
         List(List<T>&, bool reuse);
 
         //- Construct as subset
@@ -180,7 +176,7 @@ public:
         //- Construct as copy of BiIndirectList<T>
         explicit List(const BiIndirectList<T>&);
 
-        //- Construct from an initializer list
+        //- Construct from an initialiser list
         List(std::initializer_list<T>);
 
         //- Construct from Istream
@@ -273,7 +269,7 @@ public:
         //- Assignment to BiIndirectList operator. Takes linear time
         void operator=(const BiIndirectList<T>&);
 
-        //- Assignment to an initializer list
+        //- Assignment to an initialiser list
         void operator=(std::initializer_list<T>);
 
         //- Assignment of all entries to the given value

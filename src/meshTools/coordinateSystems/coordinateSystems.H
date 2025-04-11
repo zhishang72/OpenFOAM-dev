@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -22,33 +22,56 @@ License
     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
 
 Class
-    Foam::coordinateSystems
+    Foam::coordinateSystems::coordinateSystems
 
 Description
-    Provides a centralized coordinateSystem collection.
+    Provides a centralised coordinateSystem collection.
 
-Note
-    Mixing normal constructors and the coordinateSystems::New constructor
-    may yield unexpected results.
+    For example with the porous region specified in \c constant/fvModels as
 
     \verbatim
-        1
-        (
-        cat1
+    porosity
+    {
+        type            porosityForce;
+
+        porosityForceCoeffs
         {
-            coordinateSystem  system_10;
-            porosity        0.781;
-            Darcy
-            {
-                d   d [0 -2 0 0 0]  (-1000 -1000 0.50753e+08);
-                f   f [0 -1 0 0 0]  (-1000 -1000 12.83);
-            }
+            select          cellZone;
+            cellZone        porousBlockage;
+
+            type            DarcyForchheimer;
+
+            // D 100;  // Very little blockage
+            // D 200;  // Some blockage but steady flow
+            // D 500;  // Slight waviness in the far wake
+            D 1000; // Fully shedding behavior
+
+            d   ($D $D $D);
+            f   (0 0 0);
+
+            coordinateSystem porousBlockage;
         }
-        )
+    }
     \endverbatim
 
-    For this to work correctly, the coordinateSystem constructor must be
-    supplied with both a dictionary and an objectRegistry.
+    the corresponding coordinate system \c porousBlockage is looked-up
+    automatically from the \c constant/coordinateSystems dictionary:
+
+    \verbatim
+    porousBlockage
+    {
+        type    cartesian;
+        origin  (0 0 0);
+        coordinateRotation
+        {
+            type    axesRotation;
+            e1  (1 0 0);
+            e2  (0 1 0);
+        }
+    }
+    \endverbatim
+
+    See \c tutorials/modules/incompressibleFluid/porousBlockage
 
 SourceFiles
     coordinateSystems.C
@@ -58,70 +81,81 @@ SourceFiles
 #define coordinateSystems_H
 
 #include "coordinateSystem.H"
-#include "IOPtrList.H"
+#include "PtrDictionary.H"
+#include "DemandDrivenMeshObject.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
 {
+namespace coordinateSystems
+{
 
 /*---------------------------------------------------------------------------*\
-                     Class coordinateSystems Declaration
+                      Class coordinateSystems Declaration
 \*---------------------------------------------------------------------------*/
 
 class coordinateSystems
 :
-    public IOPtrList<coordinateSystem>
+    public DemandDrivenMeshObject
+    <
+        objectRegistry,
+        DeletableMeshObject,
+        coordinateSystems
+    >,
+    public PtrDictionary<coordinateSystem>
 {
+protected:
+
+    friend class DemandDrivenMeshObject
+    <
+        objectRegistry,
+        DeletableMeshObject,
+        coordinateSystems
+    >;
+
+    // Protected Constructors
+
+        //- Read construct from objectRegistry
+        explicit coordinateSystems(const objectRegistry& obr);
+
+
 public:
 
     //- Runtime type information
     TypeName("coordinateSystems");
 
+
     // Constructors
-
-        //- Read construct from IOobject
-        explicit coordinateSystems(const IOobject&);
-
-        //- Construct from IOobject and a PtrList
-        coordinateSystems
-        (
-            const IOobject&,
-            const PtrList<coordinateSystem>&
-        );
-
-        //- Construct from IOobject and transferring the PtrList contents
-        coordinateSystems
-        (
-            const IOobject&,
-            PtrList<coordinateSystem>&&
-        );
 
         //- Disallow default bitwise copy construction
         coordinateSystems(const coordinateSystems&) = delete;
 
+        using DemandDrivenMeshObject
+        <
+            objectRegistry,
+            DeletableMeshObject,
+            coordinateSystems
+        >::New;
 
-    // Selectors
 
-        //- Return previously registered or read construct from "constant"
-        static const coordinateSystems& New(const objectRegistry&);
+    //- Destructor
+    virtual ~coordinateSystems()
+    {}
 
 
     // Member Functions
 
-        //- Find and return indices for all matches
-        labelList findIndices(const keyType& key) const;
+        //- Is object global
+        virtual bool global() const
+        {
+            return true;
+        }
 
-        //- Find and return index for the first match, return -1 if not found
-        label findIndex(const keyType& key) const;
+        //- ReadData function required for regIOobject read operation
+        virtual bool readData(Istream&);
 
-        //- Search for given key
-        bool found(const keyType& key) const;
-
-        //- Return the table of contents (list of all keywords)
-        wordList toc() const;
-
-        //- Write data
+        //- WriteData function required for regIOobject write operation
         bool writeData(Ostream&) const;
 
 
@@ -129,6 +163,27 @@ public:
 
         //- Disallow default bitwise assignment
         void operator=(const coordinateSystems&) = delete;
+};
+
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+} // End namespace coordinateSystems
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+template<>
+struct typeGlobal
+<
+    DemandDrivenMeshObject
+    <
+        objectRegistry,
+        DeletableMeshObject,
+        coordinateSystems::coordinateSystems
+    >
+>
+{
+    static const bool global = true;
 };
 
 

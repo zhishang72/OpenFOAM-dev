@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,10 +25,8 @@ Class
     Foam::localMax
 
 Description
-    LocalMax-mean differencing scheme class.
-
-    This scheme interpolates 1/field using a scheme specified at run-time
-    and return the reciprocal of the interpolate.
+    Local maximum interpolation scheme in which the face value is set to
+    the maximum of the two neighbouring cell values.
 
 SourceFiles
     localMax.C
@@ -48,7 +46,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class localMax Declaration
+                          Class localMax Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -105,7 +103,7 @@ public:
         //- Return the interpolation weighting factors
         virtual tmp<surfaceScalarField> weights
         (
-            const GeometricField<Type, fvPatchField, volMesh>&
+            const VolField<Type>&
         ) const
         {
             NotImplemented;
@@ -114,24 +112,24 @@ public:
         }
 
         //- Return the face-interpolate of the given cell field
-        virtual tmp<GeometricField<Type, fvsPatchField, surfaceMesh>>
+        virtual tmp<SurfaceField<Type>>
         interpolate
         (
-            const GeometricField<Type, fvPatchField, volMesh>& vf
+            const VolField<Type>& vf
         ) const
         {
             const fvMesh& mesh = vf.mesh();
 
-            tmp<GeometricField<Type, fvsPatchField, surfaceMesh>> tvff
+            tmp<SurfaceField<Type>> tvff
             (
-                GeometricField<Type, fvsPatchField, surfaceMesh>::New
+                SurfaceField<Type>::New
                 (
                     "localMax::interpolate(" + vf.name() + ')',
                     mesh,
                     vf.dimensions()
                 )
             );
-            GeometricField<Type, fvsPatchField, surfaceMesh>& vff = tvff.ref();
+            SurfaceField<Type>& vff = tvff.ref();
 
             const labelUList& own = mesh.owner();
             const labelUList& nei = mesh.neighbour();
@@ -141,7 +139,7 @@ public:
                 vff[facei] = max(vf[own[facei]], vf[nei[facei]]);
             }
 
-            typename GeometricField<Type, fvsPatchField, surfaceMesh>::
+            typename SurfaceField<Type>::
                 Boundary& bff = vff.boundaryFieldRef();
 
             forAll(bff, patchi)

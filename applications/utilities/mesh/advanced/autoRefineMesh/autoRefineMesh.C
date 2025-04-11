@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -48,8 +48,7 @@ Description
 #include "cellToCell.H"
 #include "surfaceSets.H"
 #include "polyTopoChange.H"
-#include "polyTopoChanger.H"
-#include "mapPolyMesh.H"
+#include "polyTopoChangeMap.H"
 #include "labelIOList.H"
 #include "emptyPolyPatch.H"
 #include "removeCells.H"
@@ -194,7 +193,7 @@ scalar getEdgeStats(const primitiveMesh& mesh, const direction excludeCmpt)
 // Adds empty patch if not yet there. Returns patchID.
 label addPatch(polyMesh& mesh, const word& patchName)
 {
-    label patchi = mesh.boundaryMesh().findPatchID(patchName);
+    label patchi = mesh.boundaryMesh().findIndex(patchName);
 
     if (patchi == -1)
     {
@@ -513,18 +512,13 @@ void subsetMesh
 
     const Time& runTime = mesh.time();
 
-    autoPtr<mapPolyMesh> morphMap = meshMod.changeMesh(mesh, false);
-
-    if (morphMap().hasMotionPoints())
-    {
-        mesh.movePoints(morphMap().preMotionPoints());
-    }
+    autoPtr<polyTopoChangeMap> map = meshMod.changeMesh(mesh);
 
     // Update topology on cellRemover
-    cellRemover.updateMesh(morphMap());
+    cellRemover.topoChange(map());
 
     // Update refLevel for removed cells.
-    const labelList& cellMap = morphMap().cellMap();
+    const labelList& cellMap = map().cellMap();
 
     labelList newRefLevel(cellMap.size());
 
@@ -538,7 +532,7 @@ void subsetMesh
 
     if (writeMesh)
     {
-        Info<< "Writing refined mesh to time " << runTime.timeName() << nl
+        Info<< "Writing refined mesh to time " << runTime.name() << nl
             << endl;
 
         IOstream::defaultPrecision(max(10u, IOstream::defaultPrecision()));
@@ -547,7 +541,7 @@ void subsetMesh
     }
 
     // Update cutCells for removed cells.
-    cutCells.updateMesh(morphMap());
+    cutCells.topoChange(map());
 }
 
 
@@ -639,7 +633,7 @@ int main(int argc, char *argv[])
 
     Info<< "Checking for motionProperties\n" << endl;
 
-    IOobject motionObj
+    typeIOobject<IOdictionary> motionObj
     (
         "motionProperties",
         runTime.constant(),
@@ -651,7 +645,7 @@ int main(int argc, char *argv[])
     // corrector for mesh motion
     twoDPointCorrector* correct2DPtr = nullptr;
 
-    if (motionObj.typeHeaderOk<IOdictionary>(true))
+    if (motionObj.headerOk())
     {
         Info<< "Reading " << runTime.constant() / "motionProperties"
             << endl << endl;
@@ -663,7 +657,7 @@ int main(int argc, char *argv[])
         if (twoDMotion)
         {
             Info<< "Correcting for 2D motion" << endl << endl;
-            correct2DPtr = new twoDPointCorrector(mesh);
+            correct2DPtr = &twoDPointCorrector::New(mesh);
         }
     }
 
@@ -744,7 +738,7 @@ int main(int argc, char *argv[])
         IOobject
         (
             "refinementLevel",
-            runTime.timeName(),
+            runTime.name(),
             polyMesh::defaultRegion,
             mesh,
             IOobject::READ_IF_PRESENT,
@@ -758,7 +752,7 @@ int main(int argc, char *argv[])
     if (maxLevel > 0)
     {
         Info<< "Read existing refinement level from file "
-            << refLevel.objectPath() << nl
+            << refLevel.relativeObjectPath() << nl
             << "   min level : " << min(refLevel) << nl
             << "   max level : " << maxLevel << nl
             << endl;
@@ -766,7 +760,7 @@ int main(int argc, char *argv[])
     else
     {
         Info<< "Created zero refinement level in file "
-            << refLevel.objectPath() << nl
+            << refLevel.relativeObjectPath() << nl
             << endl;
     }
 
@@ -907,7 +901,7 @@ int main(int argc, char *argv[])
 
         if (writeMesh)
         {
-            Info<< "    Writing refined mesh to time " << runTime.timeName()
+            Info<< "    Writing refined mesh to time " << runTime.name()
                 << nl << endl;
 
             IOstream::defaultPrecision(max(10u, IOstream::defaultPrecision()));
@@ -977,7 +971,7 @@ int main(int argc, char *argv[])
 
         doRefinement(mesh, refineDict, hanging, refLevel);
 
-        Info<< "Writing refined mesh to time " << runTime.timeName() << nl
+        Info<< "Writing refined mesh to time " << runTime.name() << nl
             << endl;
 
         // Write final mesh
@@ -988,7 +982,7 @@ int main(int argc, char *argv[])
     }
     else if (!writeMesh)
     {
-        Info<< "Writing refined mesh to time " << runTime.timeName() << nl
+        Info<< "Writing refined mesh to time " << runTime.name() << nl
             << endl;
 
         // Write final mesh. (will have been written already if writeMesh=true)

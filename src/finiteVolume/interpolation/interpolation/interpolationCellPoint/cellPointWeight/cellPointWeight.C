@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2020 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -24,12 +24,16 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "cellPointWeight.H"
+#include "defineDebugSwitch.H"
 #include "polyMesh.H"
 #include "polyMeshTetDecomposition.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
-int Foam::cellPointWeight::debug(debug::debugSwitch("cellPointWeight", 0));
+namespace Foam
+{
+    defineTypeNameAndDebug(cellPointWeight, 0);
+}
 
 Foam::scalar Foam::cellPointWeight::tol(small);
 
@@ -150,7 +154,7 @@ void Foam::cellPointWeight::findTriangle
         mesh.faceOwner()[facei]
     );
 
-    const scalar faceAreaSqr = magSqr(mesh.faceAreas()[facei]);
+    const scalar faceAreaSqr = sqr(mesh.magFaceAreas()[facei]);
 
     forAll(faceTets, tetI)
     {

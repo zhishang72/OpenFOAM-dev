@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -35,6 +35,8 @@ License
 #include "tensor2D.H"
 #include "symmTensor2D.H"
 #include "transform.H"
+#include "OSspecific.H"
+#include "scalarMatrices.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -58,7 +60,7 @@ Foam::fileName Foam::triSurface::triSurfInstance(const Time& d)
 
     for (i=ts.size()-1; i>=0; i--)
     {
-        if (ts[i].value() <= d.timeOutputValue())
+        if (ts[i].value() <= d.userTimeValue())
         {
             break;
         }
@@ -539,7 +541,6 @@ Foam::triSurface::triSurface()
 {}
 
 
-
 Foam::triSurface::triSurface
 (
     const List<labelledTri>& triangles,
@@ -573,7 +574,7 @@ Foam::triSurface::triSurface
 (
     List<labelledTri>&& triangles,
     const geometricSurfacePatchList& patches,
-    List<point>&& points
+    pointField&& points
 )
 :
     ParentType(move(triangles), move(points)),
@@ -733,13 +734,13 @@ const Foam::labelList& Foam::triSurface::edgeOwner() const
 }
 
 
-void Foam::triSurface::movePoints(const pointField& newPoints)
+void Foam::triSurface::setPoints(const pointField& newPoints)
 {
     // Remove all geometry dependent data
     deleteDemandDrivenData(sortedEdgeFacesPtr_);
 
     // Adapt for new point position
-    ParentType::movePoints(newPoints);
+    ParentType::clearGeom();
 
     // Copy new points
     storedPoints() = newPoints;
@@ -755,7 +756,7 @@ void Foam::triSurface::scalePoints(const scalar scaleFactor)
         clearTopology();
 
         // Adapt for new point position
-        ParentType::movePoints(pointField());
+        ParentType::clearGeom();
 
         storedPoints() *= scaleFactor;
     }
@@ -1196,7 +1197,7 @@ Foam::tmp<Foam::scalarField> Foam::triSurface::curvature() const
         }
 
         triad faceCoordSys(e0, e1, eN);
-        faceCoordSys.normalize();
+        faceCoordSys.normalise();
 
         // Construct the matrix to solve
         scalarSymmetricSquareMatrix T(3, 0);

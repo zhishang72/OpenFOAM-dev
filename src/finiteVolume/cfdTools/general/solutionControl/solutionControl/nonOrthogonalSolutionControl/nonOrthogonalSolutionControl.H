@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2018-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2018-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -45,7 +45,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                         Class nonOrthogonalSolutionControl Declaration
+                Class nonOrthogonalSolutionControl Declaration
 \*---------------------------------------------------------------------------*/
 
 class nonOrthogonalSolutionControl
@@ -61,6 +61,12 @@ protected:
 
         //- Current non-orthogonal corrector index
         label corrNonOrth_;
+
+
+    // Protected Member Functions
+
+        //- Read controls
+        virtual bool read();
 
 
 public:
@@ -83,18 +89,12 @@ public:
 
     // Member Functions
 
-        // IO
-
-            //- Read controls
-            virtual bool read();
-
-
         // Access
 
             //- Maximum number of non-orthogonal correctors
             inline label nCorrNonOrth() const;
 
-            //- Flat to indicate any non-orthogonal iteration
+            //- Flag to indicate any non-orthogonal iteration
             inline bool anyNonOrthogonalIter() const;
 
             //- Flag to indicate the first non-orthogonal iteration
@@ -103,11 +103,14 @@ public:
             //- Flag to indicate the last non-orthogonal iteration
             inline bool finalNonOrthogonalIter() const;
 
+            //- Flag to indicate whether in final state
+            bool isFinal(const bool finalIter) const;
+
 
         // Evolution
 
             //- Non-orthogonal corrector loop
-            bool correctNonOrthogonal();
+            bool correctNonOrthogonal(const bool finalIter = false);
 };
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -50,7 +50,7 @@ Description
             (U UNear)
         );
 
-        patches     (movingWall);
+        patch       movingWall;
 
         distance    0.13;
     }
@@ -61,7 +61,8 @@ Usage
         Property | Description               | Required    | Default value
         type     | type name: nearWallFields | yes         |
         fields   | list of fields with corresponding output field names | yes |
-        patches  | list of patches to sample | yes         |
+        patch    | patch to sample           | no          |
+        patches  | list of patches to sample | no          |
         distance | distance from patch to sample | yes     |
     \endtable
 
@@ -127,7 +128,7 @@ protected:
             List<List<point>> cellToSamples_;
 
             //- Map from cell based data back to patch based data
-            autoPtr<mapDistribute> getPatchDataMapPtr_;
+            autoPtr<distributionMap> getPatchDataMapPtr_;
 
 
         // Locally constructed fields
@@ -147,7 +148,7 @@ protected:
         template<class Type>
         void createFields
         (
-            PtrList<GeometricField<Type, fvPatchField, volMesh>>&
+            PtrList<VolField<Type>>&
         ) const;
 
         //- Override boundary fields with sampled values
@@ -155,13 +156,13 @@ protected:
         void sampleBoundaryField
         (
             const interpolationCellPoint<Type>& interpolator,
-            GeometricField<Type, fvPatchField, volMesh>& fld
+            VolField<Type>& fld
         ) const;
 
         template<class Type>
         void sampleFields
         (
-            PtrList<GeometricField<Type, fvPatchField, volMesh>>&
+            PtrList<VolField<Type>>&
         ) const;
 
 
@@ -194,6 +195,9 @@ public:
 
         //- Read the controls
         virtual bool read(const dictionary&);
+
+        //- Return the list of fields required
+        virtual wordList fields() const;
 
         //- Calculate the near-wall fields
         virtual bool execute();

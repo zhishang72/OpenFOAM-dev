@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,6 +25,7 @@ License
 
 #include "cyclicFvPatchField.H"
 #include "transformField.H"
+#include "volFields.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
@@ -74,7 +75,7 @@ Foam::cyclicFvPatchField<Type>::cyclicFvPatchField
     const cyclicFvPatchField<Type>& ptf,
     const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     coupledFvPatchField<Type>(ptf, p, iF, mapper),
@@ -96,18 +97,6 @@ Foam::cyclicFvPatchField<Type>::cyclicFvPatchField
 template<class Type>
 Foam::cyclicFvPatchField<Type>::cyclicFvPatchField
 (
-    const cyclicFvPatchField<Type>& ptf
-)
-:
-    coupledFvPatchField<Type>(ptf),
-    cyclicLduInterfaceField(),
-    cyclicPatch_(ptf.cyclicPatch_)
-{}
-
-
-template<class Type>
-Foam::cyclicFvPatchField<Type>::cyclicFvPatchField
-(
     const cyclicFvPatchField<Type>& ptf,
     const DimensionedField<Type, volMesh>& iF
 )
@@ -122,32 +111,21 @@ Foam::cyclicFvPatchField<Type>::cyclicFvPatchField
 
 template<class Type>
 Foam::tmp<Foam::Field<Type>>
-Foam::cyclicFvPatchField<Type>::patchNeighbourField() const
+Foam::cyclicFvPatchField<Type>::patchNeighbourField
+(
+    const Pstream::commsTypes
+) const
 {
     const Field<Type>& iField = this->primitiveField();
     const labelUList& nbrFaceCells =
-        cyclicPatch().cyclicPatch().neighbPatch().faceCells();
+        cyclicPatch().nbrPatch().faceCells();
 
     tmp<Field<Type>> tpnf(new Field<Type>(this->size()));
     Field<Type>& pnf = tpnf.ref();
 
-
-    if (doTransform())
+    forAll(pnf, facei)
     {
-        forAll(pnf, facei)
-        {
-            pnf[facei] = transform
-            (
-                forwardT()[0], iField[nbrFaceCells[facei]]
-            );
-        }
-    }
-    else
-    {
-        forAll(pnf, facei)
-        {
-            pnf[facei] = iField[nbrFaceCells[facei]];
-        }
+        pnf[facei] = transform().transform(iField[nbrFaceCells[facei]]);
     }
 
     return tpnf;
@@ -156,17 +134,17 @@ Foam::cyclicFvPatchField<Type>::patchNeighbourField() const
 
 template<class Type>
 const Foam::cyclicFvPatchField<Type>&
-Foam::cyclicFvPatchField<Type>::neighbourPatchField() const
+Foam::cyclicFvPatchField<Type>::nbrPatchField() const
 {
-    const GeometricField<Type, fvPatchField, volMesh>& fld =
-    static_cast<const GeometricField<Type, fvPatchField, volMesh>&>
+    const VolField<Type>& fld =
+    static_cast<const VolField<Type>&>
     (
         this->primitiveField()
     );
 
     return refCast<const cyclicFvPatchField<Type>>
     (
-        fld.boundaryField()[this->cyclicPatch().neighbPatchID()]
+        fld.boundaryField()[this->cyclicPatch().nbrPatchIndex()]
     );
 }
 
@@ -182,7 +160,7 @@ void Foam::cyclicFvPatchField<Type>::updateInterfaceMatrix
 ) const
 {
     const labelUList& nbrFaceCells =
-        cyclicPatch().cyclicPatch().neighbPatch().faceCells();
+        cyclicPatch().nbrPatch().faceCells();
 
     scalarField pnf(psiInternal, nbrFaceCells);
 
@@ -190,7 +168,7 @@ void Foam::cyclicFvPatchField<Type>::updateInterfaceMatrix
     transformCoupleField(pnf, cmpt);
 
     // Multiply the field by coefficients and add into the result
-    const labelUList& faceCells = cyclicPatch_.faceCells();
+    const labelUList& faceCells = cyclicPatch().faceCells();
 
     forAll(faceCells, elemI)
     {
@@ -209,7 +187,7 @@ void Foam::cyclicFvPatchField<Type>::updateInterfaceMatrix
 ) const
 {
     const labelUList& nbrFaceCells =
-        cyclicPatch().cyclicPatch().neighbPatch().faceCells();
+        cyclicPatch().nbrPatch().faceCells();
 
     Field<Type> pnf(psiInternal, nbrFaceCells);
 
@@ -217,7 +195,7 @@ void Foam::cyclicFvPatchField<Type>::updateInterfaceMatrix
     transformCoupleField(pnf);
 
     // Multiply the field by coefficients and add into the result
-    const labelUList& faceCells = cyclicPatch_.faceCells();
+    const labelUList& faceCells = cyclicPatch().faceCells();
 
     forAll(faceCells, elemI)
     {

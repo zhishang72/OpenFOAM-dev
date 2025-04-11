@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -39,6 +39,7 @@ SourceFiles
 #include "direction.H"
 #include "dimensionSet.H"
 #include "VectorSpace.H"
+#include "dictionary.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -46,19 +47,16 @@ namespace Foam
 {
 
 // Forward declaration of friend functions and operators
-
-template<class Type> class dimensioned;
-
+class dictionary;
+template<class Type>
+class dimensioned;
 template<class Type>
 Istream& operator>>(Istream&, dimensioned<Type>&);
-
 template<class Type>
 Ostream& operator<<(Ostream&, const dimensioned<Type>&);
 
-class dictionary;
-
 /*---------------------------------------------------------------------------*\
-                           Class dimensioned Declaration
+                         Class dimensioned Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -78,9 +76,24 @@ class dimensioned
 
     // Private Member Functions
 
-        //- Initialize from Istream
-        //  Helper-function for constructors
-        void initialize(Istream& is);
+        //- Read the dimensions if present. Return whether dimensions were read.
+        bool readDimensions
+        (
+            Istream& is,
+            scalar& multiplier,
+            const bool haveDims
+        );
+
+        //- Initialise from Istream
+        void initialise(Istream& is, const bool haveName, const bool haveDims);
+
+        //- Initialise from Istream
+        void initialise
+        (
+            const word& name,
+            const unitConversion& defaultUnits,
+            Istream& is
+        );
 
 
 public:
@@ -90,6 +103,9 @@ public:
 
 
     // Constructors
+
+        //- Null constructor
+        dimensioned();
 
         //- Construct given name, dimensions and value
         dimensioned(const word&, const dimensionSet&, const Type&);
@@ -114,49 +130,45 @@ public:
         //- Construct from an Istream with a given name and dimensions
         dimensioned(const word&, const dimensionSet&, Istream&);
 
+        //- Construct from an Istream with a given name and units
+        dimensioned(const word&, const unitConversion&, Istream&);
+
         //- Construct from dictionary lookup with a given name and dimensions
         dimensioned(const word&, const dimensionSet&, const dictionary&);
 
-        //- Null constructor
-        dimensioned();
+        //- Construct from dictionary lookup with a given name and units
+        dimensioned(const word&, const unitConversion&, const dictionary&);
 
-
-    // Static member functions
-
-        //- Construct from dictionary, with default dimensions and value.
-        static dimensioned<Type> lookupOrDefault
+        //- Construct from dictionary lookup with a given name and dimensions
+        //  and if not found set to the given default value
+        dimensioned
         (
-            const word&,
+            const word& name,
+            const dimensionSet& dimensions,
+            const dictionary& dict,
+            const Type& defaultValue,
+            const bool writeDefault = dictionary::writeOptionalEntries > 0
+        );
+
+        //- Construct from dictionary lookup with the given name, dimensionless,
+        //  and if not found set to the given default value
+        dimensioned
+        (
+            const word& name,
+            const dictionary& dict,
+            const Type& defaultValue,
+            const bool writeDefault = dictionary::writeOptionalEntries > 0
+        );
+
+        //- Construct from dictionary lookup with the given name and units
+        //  and if not found set to the given default value
+        dimensioned
+        (
+            const word& name,
+            const unitConversion&,
             const dictionary&,
-            const dimensionSet& dims = dimless,
-            const Type& defaultValue = pTraits<Type>::zero
-        );
-
-        //- Construct from dictionary dimensionless with value.
-        static dimensioned<Type> lookupOrDefault
-        (
-            const word&,
-            const dictionary&,
-            const Type& defaultValue = pTraits<Type>::zero
-        );
-
-        //- Construct from dictionary, with default value.
-        //  If the value is not found, it is added into the dictionary.
-        static dimensioned<Type> lookupOrAddToDict
-        (
-            const word&,
-            dictionary&,
-            const dimensionSet& dims = dimless,
-            const Type& defaultValue = pTraits<Type>::zero
-        );
-
-        //- Construct from dictionary, dimensionless with default value.
-        //  If the value is not found, it is added into the dictionary.
-        static dimensioned<Type> lookupOrAddToDict
-        (
-            const word&,
-            dictionary&,
-            const Type& defaultValue = pTraits<Type>::zero
+            const Type& defaultValue,
+            const bool writeDefault = dictionary::writeOptionalEntries > 0
         );
 
 
@@ -190,22 +202,18 @@ public:
         dimensioned<Type> T() const;
 
         //- Update the value of dimensioned<Type>
-        void read(const dictionary&);
+        void read
+        (
+            const dictionary&,
+            const unitConversion& defaultUnits = NullObjectRef<unitConversion>()
+        );
 
         //- Update the value of dimensioned<Type> if found in the dictionary.
-        bool readIfPresent(const dictionary&);
-
-
-    // I/O
-
-        //- Read value from stream and units from dictionary
-        Istream& read(Istream& is, const dictionary&);
-
-        //- Read value from stream and units from table
-        Istream& read(Istream& is, const HashTable<dimensionedScalar>&);
-
-        //- Read value from stream and units from system table
-        Istream& read(Istream& is);
+        bool readIfPresent
+        (
+            const dictionary&,
+            const unitConversion& defaultUnits = NullObjectRef<unitConversion>()
+        );
 
 
     // Member Operators
@@ -221,11 +229,8 @@ public:
 
     // IOstream Operators
 
-        friend Istream& operator>> <Type>
-        (Istream&, dimensioned<Type>&);
-
-        friend Ostream& operator<< <Type>
-        (Ostream&, const dimensioned<Type>&);
+        friend Istream& operator>> <Type>(Istream&, dimensioned<Type>&);
+        friend Ostream& operator<< <Type>(Ostream&, const dimensioned<Type>&);
 };
 
 

@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2018-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2018-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -36,25 +36,13 @@ namespace Foam
 
 // * * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * * //
 
-const Foam::Time& Foam::pimpleMultiRegionControl::time
-(
-    const PtrList<fvMesh>& pimpleMeshes,
-    const PtrList<fvMesh>& solidMeshes
-)
+bool Foam::pimpleMultiRegionControl::read()
 {
-    if (pimpleMeshes.empty() && solidMeshes.empty())
-    {
-        FatalErrorInFunction
-            << "There needs to be at least one region"
-            << exit(FatalError);
-    }
+    multiRegionSolutionControl::read();
 
-    if (!pimpleMeshes.empty())
-    {
-        return pimpleMeshes[0].time();
-    }
+    nEcorr_ = dict().lookupOrDefault<label>("nEnergyCorrectors", 1);
 
-    return solidMeshes[0].time();
+    return pimpleLoop::read();
 }
 
 
@@ -62,12 +50,12 @@ const Foam::Time& Foam::pimpleMultiRegionControl::time
 
 Foam::pimpleMultiRegionControl::pimpleMultiRegionControl
 (
-    PtrList<fvMesh>& pimpleMeshes,
-    PtrList<fvMesh>& solidMeshes,
+    const Time& runTime,
+    PtrList<solver>& solvers,
     const word& algorithmName
 )
 :
-    multiRegionSolutionControl(time(pimpleMeshes, solidMeshes), algorithmName),
+    multiRegionSolutionControl(runTime, algorithmName),
     pimpleLoop(static_cast<solutionControl&>(*this)),
     convergenceControl(static_cast<solutionControl&>(*this)),
     correctorConvergenceControl
@@ -75,65 +63,41 @@ Foam::pimpleMultiRegionControl::pimpleMultiRegionControl
         static_cast<solutionControl&>(*this),
         "outerCorrector"
     ),
-    pimpleControls_(),
-    solidControls_()
+    pimpleControls_(solvers.size()),
+    nEcorr_(-1),
+    Ecorr_(0)
 {
     bool allSteady = true, allTransient = true;
 
-    forAll(pimpleMeshes, i)
+    forAll(solvers, i)
     {
-        pimpleControls_.append
-        (
-            new pimpleNoLoopControl(pimpleMeshes[i], algorithmName, *this)
-        );
+        pimpleControls_.set(i, &solvers[i].pimple);
+        pimpleControls_[i].pimpleLoopPtr_ = this;
 
-        allSteady = allSteady && pimpleMeshes[i].steady();
-        allTransient = allTransient && pimpleMeshes[i].transient();
-    }
-
-    forAll(solidMeshes, i)
-    {
-        solidControls_.append
-        (
-            new solidNoLoopControl(solidMeshes[i], algorithmName, *this)
-        );
-
-        allSteady = allSteady && solidMeshes[i].steady();
-        allTransient = allTransient && solidMeshes[i].transient();
+        allSteady = allSteady && solvers[i].mesh.schemes().steady();
+        allTransient = allTransient && solvers[i].mesh.schemes().transient();
     }
 
     read();
 
-    forAll(pimpleMeshes, i)
+    forAll(solvers, i)
     {
-        Info<< nl << algorithmName << ": Region " << pimpleMeshes[i].name();
+        Info<< nl << algorithmName << ": Region " << solvers[i].mesh.name();
         pimpleControls_[i].printResidualControls();
 
-        if (nCorrPimple_ > 1)
+        if (nCorr_ > 1)
         {
-            Info<< nl << algorithmName << ": Region " << pimpleMeshes[i].name();
-            pimpleControls_[i].printCorrResidualControls(nCorrPimple_);
-        }
-    }
-
-    forAll(solidMeshes, i)
-    {
-        Info<< nl << algorithmName << ": Region " << solidMeshes[i].name();
-        solidControls_[i].printResidualControls();
-
-        if (nCorrPimple_ > 1)
-        {
-            Info<< nl << algorithmName << ": Region " << solidMeshes[i].name();
-            solidControls_[i].printCorrResidualControls(nCorrPimple_);
+            Info<< nl << algorithmName << ": Region " << solvers[i].mesh.name();
+            pimpleControls_[i].printCorrResidualControls(nCorr_);
         }
     }
 
     Info<< nl << algorithmName << ": Operating solver in "
         << (allSteady ? "steady-state" : allTransient ? "transient" :
-            "mixed steady-state/transient") << " mode with " << nCorrPimple_
-        << " outer corrector" << (nCorrPimple_ == 1 ? "" : "s") << nl;
+            "mixed steady-state/transient") << " mode with " << nCorr_
+        << " outer corrector" << (nCorr_ == 1 ? "" : "s") << nl;
 
-    if ((allSteady || allTransient) && nCorrPimple_ == 1)
+    if ((allSteady || allTransient) && nCorr_ == 1)
     {
         Info<< algorithmName << ": Operating solver in "
             << (allSteady ? "SIMPLE" : "PISO") << " mode" << nl;
@@ -146,42 +110,23 @@ Foam::pimpleMultiRegionControl::pimpleMultiRegionControl
 // * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
 
 Foam::pimpleMultiRegionControl::~pimpleMultiRegionControl()
-{}
+{
+    forAll(pimpleControls_, i)
+    {
+        pimpleControls_[i].pimpleLoopPtr_ = nullptr;
+    }
+}
 
 
 // * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * * //
 
-bool Foam::pimpleMultiRegionControl::read()
-{
-    forAll(pimpleControls_, i)
-    {
-        pimpleControls_[i].read();
-    }
-    forAll(solidControls_, i)
-    {
-        solidControls_[i].read();
-    }
-
-    if (!pimpleLoop::read())
-    {
-        return false;
-    }
-
-    return true;
-}
-
-
 bool Foam::pimpleMultiRegionControl::hasResidualControls() const
 {
-    bool result = true;
+    bool result = false;
 
     forAll(pimpleControls_, i)
     {
-        result = result && pimpleControls_[i].hasResidualControls();
-    }
-    forAll(solidControls_, i)
-    {
-        result = result && solidControls_[i].hasResidualControls();
+        result = result || pimpleControls_[i].hasResidualControls();
     }
 
     return result;
@@ -190,35 +135,34 @@ bool Foam::pimpleMultiRegionControl::hasResidualControls() const
 
 bool Foam::pimpleMultiRegionControl::hasCorrResidualControls() const
 {
-    bool result = true;
+    bool result = false;
 
     forAll(pimpleControls_, i)
     {
-        result = result && pimpleControls_[i].hasCorrResidualControls();
-    }
-    forAll(solidControls_, i)
-    {
-        result = result && solidControls_[i].hasCorrResidualControls();
+        result = result || pimpleControls_[i].hasCorrResidualControls();
     }
 
     return result;
 }
 
 
-bool Foam::pimpleMultiRegionControl::criteriaSatisfied() const
+Foam::convergenceControl::convergenceData
+Foam::pimpleMultiRegionControl::criteriaSatisfied() const
 {
-    bool result = true;
+    convergenceData cs{false, true};
 
     forAll(pimpleControls_, i)
     {
-        result = pimpleControls_[i].criteriaSatisfied() && result;
-    }
-    forAll(solidControls_, i)
-    {
-        result = solidControls_[i].criteriaSatisfied() && result;
+        const convergenceData csi(pimpleControls_[i].criteriaSatisfied());
+
+        cs.checked = csi.checked || cs.checked;
+        if (csi.checked)
+        {
+            cs.satisfied = csi.satisfied && cs.satisfied;
+        }
     }
 
-    return result;
+    return cs;
 }
 
 
@@ -229,10 +173,6 @@ bool Foam::pimpleMultiRegionControl::corrCriteriaSatisfied() const
     forAll(pimpleControls_, i)
     {
         result = pimpleControls_[i].corrCriteriaSatisfied() && result;
-    }
-    forAll(solidControls_, i)
-    {
-        result = solidControls_[i].corrCriteriaSatisfied() && result;
     }
 
     return result;
@@ -245,10 +185,6 @@ void Foam::pimpleMultiRegionControl::resetCorrSolveIndex()
     {
         pimpleControls_[i].resetCorrSolveIndex();
     }
-    forAll(solidControls_, i)
-    {
-        solidControls_[i].resetCorrSolveIndex();
-    }
 }
 
 
@@ -258,26 +194,19 @@ void Foam::pimpleMultiRegionControl::updateCorrSolveIndex()
     {
         pimpleControls_[i].updateCorrSolveIndex();
     }
-    forAll(solidControls_, i)
-    {
-        solidControls_[i].updateCorrSolveIndex();
-    }
 }
 
 
 bool Foam::pimpleMultiRegionControl::loop()
 {
-    read();
-
     if (!pimpleLoop::loop(*this))
     {
         forAll(pimpleControls_, i)
         {
-            pimpleControls_[i].updateFinal();
-        }
-        forAll(solidControls_, i)
-        {
-            solidControls_[i].updateFinal();
+            pimpleControls_[i].updateFinal
+            (
+                pimpleControls_[i].isFinal(finalIter())
+            );
         }
 
         return false;
@@ -287,19 +216,28 @@ bool Foam::pimpleMultiRegionControl::loop()
     {
         pimpleControls_[i].storePrevIterFields();
     }
-    forAll(solidControls_, i)
-    {
-        solidControls_[i].storePrevIterFields();
-    }
 
     forAll(pimpleControls_, i)
     {
-        pimpleControls_[i].updateFinal();
+        pimpleControls_[i].updateFinal
+        (
+            pimpleControls_[i].isFinal(finalIter())
+        );
     }
-    forAll(solidControls_, i)
+
+    return true;
+}
+
+
+bool Foam::pimpleMultiRegionControl::correctEnergy()
+{
+    if (Ecorr_ >= nEcorr_)
     {
-        solidControls_[i].updateFinal();
+        Ecorr_ = 0;
+        return false;
     }
+
+    Ecorr_++;
 
     return true;
 }
@@ -307,17 +245,11 @@ bool Foam::pimpleMultiRegionControl::loop()
 
 bool Foam::pimpleMultiRegionControl::run(Time& time)
 {
-    read();
-
     if (!endIfConverged(time))
     {
         forAll(pimpleControls_, i)
         {
             pimpleControls_[i].storePrevIterFields();
-        }
-        forAll(solidControls_, i)
-        {
-            solidControls_[i].storePrevIterFields();
         }
     }
 
@@ -327,17 +259,11 @@ bool Foam::pimpleMultiRegionControl::run(Time& time)
 
 bool Foam::pimpleMultiRegionControl::loop(Time& time)
 {
-    read();
-
     if (!endIfConverged(time))
     {
         forAll(pimpleControls_, i)
         {
             pimpleControls_[i].storePrevIterFields();
-        }
-        forAll(solidControls_, i)
-        {
-            solidControls_[i].storePrevIterFields();
         }
     }
 

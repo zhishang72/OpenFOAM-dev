@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2014-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2014-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -43,7 +43,7 @@ void Foam::atmBoundaryLayer::init()
             << abort(FatalError);
     }
 
-    // Ensure direction vectors are normalized
+    // Ensure direction vectors are normalised
     flowDir_ /= mag(flowDir_);
     zDir_ /= mag(zDir_);
 
@@ -110,19 +110,27 @@ Foam::atmBoundaryLayer::atmBoundaryLayer
     const dictionary& dict
 )
 :
-    flowDir_(dict.lookup("flowDir")),
-    zDir_(dict.lookup("zDir")),
-    kappa_(dict.lookupOrDefault<scalar>("kappa", kappaDefault_)),
-    Cmu_(dict.lookupOrDefault<scalar>("Cmu", CmuDefault_)),
-    Uref_(dict.lookup<scalar>("Uref")),
-    Zref_(dict.lookup<scalar>("Zref")),
-    z0_("z0", dict, p.size()),
-    zGround_("zGround", dict, p.size()),
+    flowDir_(dict.lookup<vector>("flowDir", dimless)),
+    zDir_(dict.lookup<vector>("zDir", dimless)),
+    kappa_(dict.lookupOrDefault<scalar>("kappa", dimless, kappaDefault_)),
+    Cmu_(dict.lookupOrDefault<scalar>("Cmu", dimless, CmuDefault_)),
+    Uref_(dict.lookup<scalar>("Uref", dimVelocity)),
+    Zref_(dict.lookup<scalar>("Zref", dimLength)),
+    z0_("z0", dimLength, dict, p.size()),
+    zGround_("zGround", dimLength, dict, p.size()),
     Ustar_(p.size()),
     offset_(dict.found("Ulower")),
-    Ulower_(dict.lookupOrDefault<scalar>("Ulower", 0)),
-    kLower_(dict.lookupOrDefault<scalar>("kLower", 0)),
-    epsilonLower_(dict.lookupOrDefault<scalar>("epsilonLower", 0))
+    Ulower_(dict.lookupOrDefault<scalar>("Ulower", dimVelocity, 0)),
+    kLower_(dict.lookupOrDefault<scalar>("kLower", dimEnergy/dimMass, 0)),
+    epsilonLower_
+    (
+        dict.lookupOrDefault<scalar>
+        (
+            "epsilonLower",
+            dimEnergy/dimMass/dimTime,
+            0
+        )
+    )
 {
     init();
 }
@@ -131,7 +139,7 @@ Foam::atmBoundaryLayer::atmBoundaryLayer
 Foam::atmBoundaryLayer::atmBoundaryLayer
 (
     const atmBoundaryLayer& abl,
-    const fvPatchFieldMapper& mapper
+    const fieldMapper& mapper
 )
 :
     flowDir_(abl.flowDir_),
@@ -170,23 +178,23 @@ Foam::atmBoundaryLayer::atmBoundaryLayer(const atmBoundaryLayer& abl)
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-void Foam::atmBoundaryLayer::autoMap(const fvPatchFieldMapper& m)
+void Foam::atmBoundaryLayer::map
+(
+    const atmBoundaryLayer& blptf,
+    const fieldMapper& mapper
+)
 {
-    m(z0_, z0_);
-    m(zGround_, zGround_);
-    m(Ustar_, Ustar_);
+    mapper(z0_, blptf.z0_);
+    mapper(zGround_, blptf.zGround_);
+    mapper(Ustar_, blptf.Ustar_);
 }
 
 
-void Foam::atmBoundaryLayer::rmap
-(
-    const atmBoundaryLayer& blptf,
-    const labelList& addr
-)
+void Foam::atmBoundaryLayer::reset(const atmBoundaryLayer& blptf)
 {
-    z0_.rmap(blptf.z0_, addr);
-    zGround_.rmap(blptf.zGround_, addr);
-    Ustar_.rmap(blptf.Ustar_, addr);
+    z0_.reset(blptf.z0_);
+    zGround_.reset(blptf.zGround_);
+    Ustar_.reset(blptf.Ustar_);
 }
 
 

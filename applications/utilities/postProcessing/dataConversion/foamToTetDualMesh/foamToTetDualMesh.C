@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -30,6 +30,7 @@ Description
 \*---------------------------------------------------------------------------*/
 
 #include "argList.H"
+#include "timeSelector.H"
 #include "fvMesh.H"
 #include "volFields.H"
 #include "pointFields.H"
@@ -110,7 +111,7 @@ void ReadAndMapFields
                 label bFacei = facei - mesh.nInternalFaces();
                 if (bFacei >= 0)
                 {
-                    label patchi = mesh.boundaryMesh().patchID()[bFacei];
+                    label patchi = mesh.boundaryMesh().patchIndices()[bFacei];
                     label localFacei = mesh.boundaryMesh()[patchi].whichFace
                     (
                         facei
@@ -144,33 +145,30 @@ void ReadAndMapFields
 
 int main(int argc, char *argv[])
 {
+    timeSelector::addOptions();
     #include "addOverwriteOption.H"
-    #include "addTimeOptions.H"
+    #include "addMeshOption.H"
+    #include "addRegionOption.H"
 
     #include "setRootCase.H"
     #include "createTime.H"
-    // Get times list
-    instantList Times = runTime.times();
-    #include "checkTimeOptions.H"
-    runTime.setTime(Times[startTime], startTime);
-
-
-    // Read the mesh
-    #include "createMesh.H"
+    timeSelector::select0(runTime, args);
+    #include "createSpecifiedMeshNoChangers.H"
 
     // Read the tetDualMesh
     Info<< "Create tetDualMesh for time = "
-        << runTime.timeName() << nl << endl;
+        << runTime.name() << nl << endl;
 
     fvMesh tetDualMesh
     (
         IOobject
         (
             "tetDualMesh",
-            runTime.timeName(),
+            runTime.name(),
             runTime,
             IOobject::MUST_READ
-        )
+        ),
+        false
     );
     // From tet vertices to poly cells/faces
     const labelIOList pointDualAddressing
@@ -189,7 +187,8 @@ int main(int argc, char *argv[])
     {
             FatalErrorInFunction
                 << "Size " << pointDualAddressing.size()
-                << " of addressing map " << pointDualAddressing.objectPath()
+                << " of addressing map "
+                << pointDualAddressing.relativeObjectPath()
                 << " differs from number of points in mesh "
                 << tetDualMesh.nPoints()
                 << exit(FatalError);
@@ -242,7 +241,7 @@ int main(int argc, char *argv[])
 
 
     // Read objects in time directory
-    IOobjectList objects(mesh, runTime.timeName());
+    IOobjectList objects(mesh, runTime.name());
 
     // Read vol fields, interpolate onto tet points
     PtrList<pointScalarField> psFlds;

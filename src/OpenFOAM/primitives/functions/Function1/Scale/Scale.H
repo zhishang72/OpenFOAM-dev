@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2017-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2017-2025 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -32,9 +32,10 @@ Description
     This is particularly useful to ramp a time-varying value by one of the
     monotonic ramp functions.
 
-    Usage for a vector:
+Usage
+    For a vector:
     \verbatim
-        <entryName>
+        <name>
         {
             type      scale;
 
@@ -60,7 +61,7 @@ Description
 
     Simplified usage to scale by a constant factor, e.g. 2:
     \verbatim
-        <entryName>
+        <name>
         {
             type      scale;
 
@@ -78,9 +79,9 @@ Description
         }
     \endverbatim
 
-    Usage including the optional 'xScale' function:
+    Including the optional 'xScale' function:
     \verbatim
-        <entryName>
+        <name>
         {
             type      scale;
 
@@ -129,7 +130,7 @@ namespace Function1s
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class Scale Declaration
+                            Class Scale Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
@@ -140,25 +141,22 @@ class Scale
     // Private Data
 
         //- Scalar scaling function
-        autoPtr<Function1<scalar>> scale_;
+        const autoPtr<Function1<scalar>> scale_;
+
+        //- Is the scalar scaling function constant?
+        const bool constantScale_;
 
         //- Argument scaling function
-        autoPtr<Function1<scalar>> xScale_;
+        const autoPtr<Function1<scalar>> xScale_;
+
+        //- Is the argument scaling function constant?
+        const bool constantXScale_;
 
         //- Value function
-        autoPtr<Function1<Type>> value_;
+        const autoPtr<Function1<Type>> value_;
 
-        //- Is this function integrable?
-        bool integrableScale_;
-
-        //- Is this function integrable?
-        bool integrableValue_;
-
-
-    // Private Member Functions
-
-        //- Read the coefficients from the given dictionary
-        void read(const dictionary& coeffs);
+        //- Is the value function constant?
+        const bool constantValue_;
 
 
 public:
@@ -169,10 +167,20 @@ public:
 
     // Constructors
 
-        //- Construct from entry name and dictionary
+        //- Construct from name and functions
         Scale
         (
-            const word& entryName,
+            const word& name,
+            const Function1<scalar>& scale,
+            const Function1<scalar>& xScale,
+            const Function1<Type>& value
+        );
+
+        //- Construct from name and dictionary
+        Scale
+        (
+            const word& name,
+            const unitConversions& units,
             const dictionary& dict
         );
 
@@ -186,14 +194,17 @@ public:
 
     // Member Functions
 
-        //- Write in dictionary format
-        virtual void writeData(Ostream& os) const;
-
         //- Return value
         virtual inline Type value(const scalar x) const;
 
         //- Integrate between two values
-        virtual inline Type integrate(const scalar x1, const scalar x2) const;
+        virtual inline Type integral(const scalar x1, const scalar x2) const;
+
+        //- Is this function guaranteed to be constant?
+        virtual inline bool constant() const;
+
+        //- Write data to dictionary stream
+        virtual void write(Ostream& os, const unitConversions& units) const;
 
 
     // Member Operators

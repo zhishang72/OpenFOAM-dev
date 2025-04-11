@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -59,21 +59,21 @@ void Foam::vtkPVFoam::convertVolFields
         if
         (
             iter()->headerClassName()
-         != GeometricField<Type, fvPatchField, volMesh>::typeName
+         != VolField<Type>::typeName
         )
         {
             continue;
         }
 
         // Load field
-        GeometricField<Type, fvPatchField, volMesh> tf
+        VolField<Type> tf
         (
             *iter(),
             mesh
         );
 
         // Interpolated field (demand driven)
-        autoPtr<GeometricField<Type, pointPatchField, pointMesh>> ptfPtr;
+        autoPtr<PointField<Type>> ptfPtr;
         if (interpFields)
         {
             if (debug)
@@ -129,7 +129,7 @@ void Foam::vtkPVFoam::convertVolFields
         {
             const word patchName = getPartName(partId);
             const label datasetNo = partDataset_[partId];
-            const label patchId = patches.findPatchID(patchName);
+            const label patchId = patches.findIndex(patchName);
 
             if (!partStatus_[partId] || datasetNo < 0 || patchId < 0)
             {
@@ -217,8 +217,8 @@ void Foam::vtkPVFoam::convertVolFields
                 continue;
             }
 
-            const faceZoneMesh& zMesh = mesh.faceZones();
-            const label zoneId = zMesh.findZoneID(zoneName);
+            const faceZoneList& zMesh = mesh.faceZones();
+            const label zoneId = zMesh.findIndex(zoneName);
 
             if (zoneId < 0)
             {
@@ -282,14 +282,14 @@ void Foam::vtkPVFoam::convertVolInternalFields
         if
         (
             iter()->headerClassName()
-         != GeometricField<Type, fvPatchField, volMesh>::Internal::typeName
+         != VolInternalField<Type>::typeName
         )
         {
             continue;
         }
 
         // Load field
-        typename GeometricField<Type, fvPatchField, volMesh>::Internal tf
+        VolInternalField<Type> tf
         (
             *iter(),
             mesh
@@ -328,8 +328,8 @@ void Foam::vtkPVFoam::convertVolInternalFields
 template<class Type>
 void Foam::vtkPVFoam::convertVolFieldBlock
 (
-    const GeometricField<Type, fvPatchField, volMesh>& tf,
-    autoPtr<GeometricField<Type, pointPatchField, pointMesh>>& ptfPtr,
+    const VolField<Type>& tf,
+    autoPtr<PointField<Type>>& ptfPtr,
     vtkMultiBlockDataSet* output,
     const arrayRange& range,
     const List<polyDecomp>& decompLst
@@ -370,7 +370,7 @@ void Foam::vtkPVFoam::convertVolFieldBlock
 template<class Type>
 void Foam::vtkPVFoam::convertVolInternalFieldBlock
 (
-    const typename GeometricField<Type, fvPatchField, volMesh>::Internal& tf,
+    const VolInternalField<Type>& tf,
     vtkMultiBlockDataSet* output,
     const arrayRange& range,
     const List<polyDecomp>& decompLst
@@ -398,7 +398,7 @@ void Foam::vtkPVFoam::convertVolInternalFieldBlock
 template<class Type>
 void Foam::vtkPVFoam::convertVolInternalField
 (
-    const typename GeometricField<Type, fvPatchField, volMesh>::Internal& tf,
+    const VolInternalField<Type>& tf,
     vtkMultiBlockDataSet* output,
     const arrayRange& range,
     const label datasetNo,

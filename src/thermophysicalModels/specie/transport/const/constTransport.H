@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,9 +25,23 @@ Class
     Foam::constTransport
 
 Description
-    Constant properties Transport package.
-    Templated into a given thermodynamics package (needed for thermal
-    conductivity).
+    Transport package with constant properties
+
+Usage
+    \table
+        Property     | Description
+        mu           | Constant dynamic viscosity [Pa.s]
+        Pr           | Constant Prandtl number []
+    \endtable
+
+    Example specification of constTransport for air:
+    \verbatim
+    transport
+    {
+        mu              1.82e-05;
+        Pr              0.71;
+    }
+    \endverbatim
 
 SourceFiles
     constTransportI.H
@@ -70,7 +84,7 @@ Ostream& operator<<
 
 
 /*---------------------------------------------------------------------------*\
-                           Class constTransport Declaration
+                       Class constTransport Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Thermo>
@@ -83,36 +97,38 @@ class constTransport
         //- Constant dynamic viscosity [Pa.s]
         scalar mu_;
 
-        //- Reciprocal Prandtl Number []
+        //- Is the Prandtl Number constant?
+        bool constPr_;
+
+        //- Reciprocal constant Prandtl Number []
         scalar rPr_;
 
-
-    // Private Member Functions
-
-        //- Construct from components
-        inline constTransport
-        (
-            const Thermo& t,
-            const scalar mu,
-            const scalar Pr
-        );
+        //- Constant thermal conductivity [W/m/K]
+        scalar kappa_;
 
 
 public:
 
     // Constructors
 
+        //- Construct from components
+        inline constTransport
+        (
+            const Thermo& t,
+            const scalar mu,
+            const bool constPr,
+            const scalar rPr,
+            const scalar kappa
+        );
+
         //- Construct as named copy
         inline constTransport(const word&, const constTransport&);
 
-        //- Construct from dictionary
-        constTransport(const dictionary& dict);
+        //- Construct from name and dictionary
+        constTransport(const word& name, const dictionary& dict);
 
         //- Construct and return a clone
         inline autoPtr<constTransport> clone() const;
-
-        // Selector from dictionary
-        inline static autoPtr<constTransport> New(const dictionary& dict);
 
 
     // Member Functions
@@ -128,12 +144,6 @@ public:
 
         //- Thermal conductivity [W/m/K]
         inline scalar kappa(const scalar p, const scalar T) const;
-
-        //- Thermal diffusivity of enthalpy [kg/m/s]
-        inline scalar alphah(const scalar p, const scalar T) const;
-
-        // Species diffusivity
-        // inline scalar D(const scalar p, const scalar T) const;
 
         //- Write to Ostream
         void write(Ostream& os) const;

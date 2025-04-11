@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -38,7 +38,8 @@ Description
 #include "timeSelector.H"
 #include "OFstream.H"
 #include "passiveParticleCloud.H"
-#include "writer.H"
+#include "setWriter.H"
+#include "systemDict.H"
 
 using namespace Foam;
 
@@ -52,8 +53,8 @@ int main(int argc, char *argv[])
     #include "setRootCase.H"
 
     #include "createTime.H"
-    instantList timeDirs = timeSelector::select0(runTime, args);
-    #include "createNamedMesh.H"
+    const instantList timeDirs = timeSelector::select0(runTime, args);
+    #include "createRegionMeshNoChangers.H"
     #include "createFields.H"
 
     // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -68,7 +69,9 @@ int main(int argc, char *argv[])
     forAll(timeDirs, timeI)
     {
         runTime.setTime(timeDirs[timeI], timeI);
-        Info<< "Time = " << runTime.timeName() << endl;
+        Info<< "Time = " << runTime.userTimeName() << endl;
+
+        mesh.readUpdate();
 
         Info<< "    Reading particle positions" << endl;
         passiveParticleCloud myCloud(mesh, cloudName);
@@ -132,7 +135,9 @@ int main(int argc, char *argv[])
     forAll(timeDirs, timeI)
     {
         runTime.setTime(timeDirs[timeI], timeI);
-        Info<< "Time = " << runTime.timeName() << endl;
+        Info<< "Time = " << runTime.userTimeName() << endl;
+
+        mesh.readUpdate();
 
         List<pointField> allPositions(Pstream::nProcs());
         List<labelField> allOrigIds(Pstream::nProcs());
@@ -154,7 +159,7 @@ int main(int argc, char *argv[])
         label i = 0;
         forAllConstIter(passiveParticleCloud, myCloud, iter)
         {
-            allPositions[Pstream::myProcNo()][i] = iter().position();
+            allPositions[Pstream::myProcNo()][i] = iter().position(mesh);
             allOrigIds[Pstream::myProcNo()][i] = iter().origId();
             allOrigProcs[Pstream::myProcNo()][i] = iter().origProc();
             i++;
@@ -192,57 +197,28 @@ int main(int argc, char *argv[])
         }
     }
 
-
-    if (Pstream::master())
+    if (allTracks.size() && Pstream::master())
     {
-        PtrList<coordSet> tracks(allTracks.size());
+        DynamicList<point> allTrack;
+        DynamicList<label> allTrackIDs;
         forAll(allTracks, trackI)
         {
-            tracks.set
-            (
-                trackI,
-                new coordSet
-                (
-                    "track" + Foam::name(trackI),
-                    "distance"
-                )
-            );
-            tracks[trackI].transfer(allTracks[trackI]);
+            allTrack.append(allTracks[trackI]);
+            allTrackIDs.append(labelList(allTracks[trackI].size(), trackI));
         }
 
-        autoPtr<writer<scalar>> scalarFormatterPtr = writer<scalar>::New
-        (
-            setFormat
-        );
-
-        // OFstream vtkTracks(vtkPath/"particleTracks.vtk");
-        fileName vtkFile
-        (
-            scalarFormatterPtr().getFileName
-            (
-                tracks[0],
-                wordList(0)
-            )
-        );
-
-        OFstream vtkTracks
-        (
-            vtkPath/("particleTracks." + vtkFile.ext())
-        );
-
         Info<< "\nWriting particle tracks in " << setFormat
-            << " format to " << vtkTracks.name()
-            << nl << endl;
+            << " format to " << vtkPath << nl << endl;
 
-        scalarFormatterPtr().write
+        setWriter::New(setFormat, propsDict)->write
         (
-            true,
-            tracks,
-            wordList(0),
-            List<List<scalarField>>(0),
-            vtkTracks
+            vtkPath,
+            "tracks",
+            coordSet(allTrackIDs, word::null, pointField(allTrack))
         );
     }
+
+    Info<< "End\n" << endl;
 
     return 0;
 }

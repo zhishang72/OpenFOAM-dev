@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -50,17 +50,13 @@ class cylinderToCell
 :
     public topoSetSource
 {
-
     // Private Data
 
-        //- Add usage string
-        static addToUsageTable usage_;
-
         //- First point on cylinder axis
-        vector p1_;
+        vector point1_;
 
         //- Second point on cylinder axis
-        vector p2_;
+        vector point2_;
 
         //- Radius
         scalar radius_;
@@ -83,8 +79,8 @@ public:
         cylinderToCell
         (
             const polyMesh& mesh,
-            const vector& p1,
-            const vector& p2,
+            const vector& point1,
+            const vector& point2,
             const scalar radius
         );
 
@@ -93,13 +89,6 @@ public:
         (
             const polyMesh& mesh,
             const dictionary& dict
-        );
-
-        //- Construct from Istream
-        cylinderToCell
-        (
-            const polyMesh& mesh,
-            Istream&
         );
 
 
@@ -119,7 +108,6 @@ public:
             const topoSetSource::setAction action,
             topoSet&
         ) const;
-
 };
 
 

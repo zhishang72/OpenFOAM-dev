@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2016-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2016-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -30,29 +30,16 @@ License
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-Foam::tmp<Foam::volVectorField> Foam::constrainHbyA
+void Foam::constrainHbyA
 (
-    const tmp<volVectorField>& tHbyA,
+    volVectorField& HbyA,
     const volVectorField& U,
     const volScalarField& p
 )
 {
-    tmp<volVectorField> tHbyANew;
-
-    if (tHbyA.isTmp())
-    {
-        tHbyANew = tHbyA;
-        tHbyANew.ref().rename("HbyA");
-    }
-    else
-    {
-        tHbyANew = volVectorField::New("HbyA", tHbyA);
-    }
-
-    volVectorField& HbyA = tHbyANew.ref();
     volVectorField::Boundary& HbyAbf = HbyA.boundaryFieldRef();
 
-    forAll(U.boundaryField(), patchi)
+    forAll(HbyAbf, patchi)
     {
         if
         (
@@ -66,6 +53,61 @@ Foam::tmp<Foam::volVectorField> Foam::constrainHbyA
             HbyAbf[patchi] = U.boundaryField()[patchi];
         }
     }
+}
+
+
+void Foam::constrainPhiHbyA
+(
+    surfaceScalarField& phiHbyA,
+    const volVectorField& U,
+    const volScalarField& p
+)
+{
+    surfaceScalarField::Boundary& phiHbyAbf = phiHbyA.boundaryFieldRef();
+
+    forAll(phiHbyAbf, patchi)
+    {
+        if
+        (
+           !U.boundaryField()[patchi].assignable()
+        && !isA<fixedFluxExtrapolatedPressureFvPatchScalarField>
+            (
+                p.boundaryField()[patchi]
+            )
+        )
+        {
+            phiHbyAbf[patchi] =
+                U.mesh().Sf().boundaryField()[patchi]
+              & U.boundaryField()[patchi];
+        }
+    }
+}
+
+
+Foam::tmp<Foam::volVectorField> Foam::constrainHbyA
+(
+    const tmp<volVectorField>& tHbyA,
+    const volVectorField& U,
+    const volScalarField& p
+)
+{
+    tmp<volVectorField> tHbyANew;
+
+    if (tHbyA.isTmp())
+    {
+        tHbyANew = tHbyA;
+        tHbyANew.ref().rename(IOobject::groupName("HbyA", U.group()));
+    }
+    else
+    {
+        tHbyANew = volVectorField::New
+        (
+            IOobject::groupName("HbyA", U.group()),
+            tHbyA
+        );
+    }
+
+    constrainHbyA(tHbyANew.ref(), U, p);
 
     return tHbyANew;
 }
@@ -83,34 +125,43 @@ Foam::tmp<Foam::surfaceScalarField> Foam::constrainPhiHbyA
     if (tphiHbyA.isTmp())
     {
         tphiHbyANew = tphiHbyA;
-        tphiHbyANew.ref().rename("phiHbyA");
+        tphiHbyANew.ref().rename(IOobject::groupName("phiHbyA", U.group()));
     }
     else
     {
-        tphiHbyANew = surfaceScalarField::New("phiHbyA", tphiHbyA);
+        tphiHbyANew = surfaceScalarField::New
+        (
+            IOobject::groupName("phiHbyA", U.group()),
+            tphiHbyA
+        );
     }
 
-    surfaceScalarField& phiHbyA = tphiHbyANew.ref();
-    surfaceScalarField::Boundary& phiHbyAbf = phiHbyA.boundaryFieldRef();
+    constrainPhiHbyA(tphiHbyANew.ref(), U, p);
 
-    forAll(U.boundaryField(), patchi)
+    return tphiHbyANew;
+}
+
+
+Foam::tmp<Foam::surfaceScalarField> Foam::constrainPhid
+(
+    const tmp<surfaceScalarField>& tphid,
+    const volScalarField& p
+)
+{
+    surfaceScalarField& phid = tphid.ref();
+    surfaceScalarField::Boundary& phidBf = phid.boundaryFieldRef();
+
+    const volScalarField::Boundary& pBf = p.boundaryField();
+
+    forAll(phidBf, patchi)
     {
-        if
-        (
-           !U.boundaryField()[patchi].assignable()
-        && !isA<fixedFluxExtrapolatedPressureFvPatchScalarField>
-            (
-                p.boundaryField()[patchi]
-            )
-        )
+        if (isA<fixedFluxPressureFvPatchScalarField>(pBf[patchi]))
         {
-            phiHbyAbf[patchi] =
-                U.mesh().Sf().boundaryField()[patchi]
-              & U.boundaryField()[patchi];
+            phidBf[patchi] = 0;
         }
     }
 
-    return tphiHbyANew;
+    return tphid;
 }
 
 

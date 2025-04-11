@@ -4,15 +4,15 @@ if (nVar >= Num_variables - nSprayVariables)
 }
 
 
-IOobject fieldObjectPtr
+typeIOobject<volVectorField> fieldObjectPtr
 (
     fieldNames[var2field[nVar]],
-    runTime.timeName(),
+    runTime.name(),
     mesh,
     IOobject::NO_READ
 );
 
-if (!fieldObjectPtr.typeHeaderOk<volVectorField>(true))
+if (!fieldObjectPtr.headerOk())
 {
     return Z_UNDEF;
 }
@@ -20,7 +20,7 @@ if (!fieldObjectPtr.typeHeaderOk<volVectorField>(true))
 IOobject fieldObject
 (
     fieldNames[var2field[nVar]],
-    runTime.timeName(),
+    runTime.name(),
     mesh,
     IOobject::MUST_READ,
     IOobject::NO_WRITE

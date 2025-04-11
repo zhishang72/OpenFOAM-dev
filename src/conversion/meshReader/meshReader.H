@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -27,7 +27,6 @@ Namespace
 Description
     A namespace for holding various types of mesh readers.
 
-
 Class
     Foam::meshReader
 
@@ -36,13 +35,13 @@ Description
 
     The derived classes are responsible for providing the protected data.
     This implementation is somewhat messy, but could/should be restructured
-    to provide a more generalized reader (at the moment it has been written
+    to provide a more generalised reader (at the moment it has been written
     for converting pro-STAR data).
 
     The meshReader supports cellTable information (see new user's guide entry).
 
-Note
-    The boundary definitions are given as cell/face.
+    Note:
+        The boundary definitions are given as cell/face.
 
 SourceFiles
     calcPointCells.C
@@ -68,7 +67,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                        Class meshReader Declaration
+                         Class meshReader Declaration
 \*---------------------------------------------------------------------------*/
 
 class meshReader

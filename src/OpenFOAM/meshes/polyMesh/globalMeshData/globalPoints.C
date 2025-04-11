@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -27,7 +27,7 @@ License
 #include "processorPolyPatch.H"
 #include "cyclicPolyPatch.H"
 #include "polyMesh.H"
-#include "mapDistribute.H"
+#include "distributionMap.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -706,7 +706,7 @@ void Foam::globalPoints::receivePatchPoints
                     {
                         const labelPairList infoB = addSendTransform
                         (
-                            cycPatch.neighbPatchID(),
+                            cycPatch.nbrPatchIndex(),
                             procPoints_[procPointB()]
                         );
 
@@ -841,7 +841,7 @@ Foam::labelList Foam::globalPoints::reverseMeshPoints
     const cyclicPolyPatch& pp
 )
 {
-    const cyclicPolyPatch& nbrPatch = pp.neighbPatch();
+    const cyclicPolyPatch& nbrPatch = pp.nbrPatch();
 
     faceList masterFaces(nbrPatch.size());
 
@@ -879,14 +879,14 @@ void Foam::globalPoints::calculateSharedPoints
 
     labelHashSet changedPoints(2*nPatchPoints_);
 
-    // Initialize procPoints with my patch points. Keep track of points
+    // Initialise procPoints with my patch points. Keep track of points
     // inserted (in changedPoints)
     // There are two possible forms of this:
-    // - initialize with all patch points (allPoints = true). This causes all
+    // - initialise with all patch points (allPoints = true). This causes all
     //   patch points to be exchanged so a lot of information gets stored and
     //   transferred. This all gets filtered out later when removing the
     //   equivalence lists of size 2.
-    // - initialize with boundary points of patches only (allPoints = false).
+    // - initialise with boundary points of patches only (allPoints = false).
     //   This should work for all decompositions except extreme ones where a
     //   shared point is not on the boundary of any processor patches using it.
     //   This would happen if a domain was pinched such that two patches share
@@ -1066,7 +1066,7 @@ void Foam::globalPoints::calculateSharedPoints
     List<Map<label>> compactMap;
     map_.reset
     (
-        new mapDistribute
+        new distributionMap
         (
             globalIndices_,
             pointPoints_,

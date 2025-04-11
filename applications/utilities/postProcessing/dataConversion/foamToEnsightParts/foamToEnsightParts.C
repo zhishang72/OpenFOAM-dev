@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -52,9 +52,9 @@ Usage
       - \par -width \<n\>
         Width of Ensight data subdir
 
-Note
-    - no parallel data.
-    - writes to \a Ensight directory to avoid collisions with foamToEnsight.
+    Note:
+      - no parallel data.
+      - writes to \a Ensight directory to avoid collisions with foamToEnsight.
 
 \*---------------------------------------------------------------------------*/
 
@@ -135,7 +135,7 @@ int main(int argc, char *argv[])
     #include "createTime.H"
 
     // get times list
-    instantList timeDirs = timeSelector::select0(runTime, args);
+    const instantList timeDirs = timeSelector::select0(runTime, args);
 
     // default to binary output, unless otherwise specified
     IOstream::streamFormat format = IOstream::BINARY;
@@ -181,7 +181,7 @@ int main(int argc, char *argv[])
     mkDir(ensightDir);
     mkDir(dataDir);
 
-    #include "createNamedMesh.H"
+    #include "createRegionMeshNoChangers.H"
 
     // Mesh instance (region0 gets filtered out)
     fileName regionPrefix;
@@ -247,7 +247,7 @@ int main(int argc, char *argv[])
             OFstream timeStamp(dataDir/subDir/"time");
             timeStamp
                 << "#   timestep time" << nl
-                << subDir.c_str() << " " << runTime.timeName() << nl;
+                << subDir.c_str() << " " << runTime.name() << nl;
         }
 
         #include "moveMesh.H"
@@ -283,7 +283,7 @@ int main(int argc, char *argv[])
             IOobject fieldObject
             (
                 fieldName,
-                mesh.time().timeName(),
+                mesh.time().name(),
                 mesh,
                 IOobject::MUST_READ,
                 IOobject::NO_WRITE
@@ -365,7 +365,7 @@ int main(int argc, char *argv[])
                 !isDir
                 (
                     runTime.timePath()/regionPrefix/
-                    cloud::prefix/cloudName
+                    lagrangian::cloud::prefix/cloudName
                 )
             )
             {
@@ -375,8 +375,8 @@ int main(int argc, char *argv[])
             IOobjectList cloudObjs
             (
                 mesh,
-                runTime.timeName(),
-                cloud::prefix/cloudName
+                runTime.name(),
+                lagrangian::cloud::prefix/cloudName
             );
 
             // check that the positions field is present for this time
@@ -409,7 +409,7 @@ int main(int argc, char *argv[])
                 if (!fieldObject)
                 {
                     Info<< "missing "
-                        << runTime.timeName()/cloud::prefix/cloudName
+                        << runTime.name()/lagrangian::cloud::prefix/cloudName
                         / fieldName
                         << endl;
                     continue;

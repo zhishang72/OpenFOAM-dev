@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2024 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -85,8 +85,11 @@ public:
         //- Construct from polyBoundaryMesh
         fvBoundaryMesh(const fvMesh&, const polyBoundaryMesh&);
 
+        //- Move constructor
+        fvBoundaryMesh(fvBoundaryMesh&&) = default;
+
         //- Disallow default bitwise copy construction
-        fvBoundaryMesh(const fvBoundaryMesh&);
+        fvBoundaryMesh(const fvBoundaryMesh&) = delete;
 
 
     // Member Functions
@@ -104,14 +107,11 @@ public:
             lduInterfacePtrsList interfaces() const;
 
             //- Find patch index given a name
-            label findPatchID(const word& patchName) const;
+            label findIndex(const word& patchName) const;
 
             //- Find patch indices given a name
-            labelList findIndices(const keyType&, const bool useGroups) const;
+            labelList findIndices(const wordRe&, const bool useGroups) const;
 
-
-        //- Correct patches after moving points
-        void movePoints();
 
         //- Reorders patches. Ordering does not have to be done in
         //  ascending or descending order. Reordering has to be unique.
@@ -135,7 +135,7 @@ public:
     // Member Operators
 
         //- Disallow default bitwise assignment
-        void operator=(const fvBoundaryMesh&);
+        void operator=(const fvBoundaryMesh&) = delete;
 };
 
 
